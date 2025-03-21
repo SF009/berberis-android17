@@ -536,6 +536,7 @@ constexpr void VerifyIntrinsic() {
   as.CheckFlagsBinding(expect_flags);
   as.CheckAppropriateDefEarlyClobbers();
   as.CheckLabelsAreBound();
+  as.CheckNonLinearIntrinsicsUseDefRegisters();
 }
 
 constexpr bool VerifyTextAsmIntrinsics() {
