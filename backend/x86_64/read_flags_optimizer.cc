@@ -164,6 +164,37 @@ std::optional<InsnGenerator> GetInsnGen(MachineOpcode opcode) {
   }
 }
 
+// Finds all read flags we can optimize away and adds them to read_flags_map
+// with the basic block where it's found.
+void FindEligibleReadFlagsInLoopTree(MachineIR* machine_ir,
+                                     LoopTreeNode* loop_tree_node,
+                                     ArenaMap<MachineReg, ReadFlagsOptContext>& read_flags_map) {
+  if (loop_tree_node->loop() == nullptr || loop_tree_node->NumInnerloops() > 0) {
+    // Find inner loops.
+    for (size_t i = 0; i < loop_tree_node->NumInnerloops(); i++) {
+      FindEligibleReadFlagsInLoopTree(
+          machine_ir, loop_tree_node->GetInnerloopNode(i), read_flags_map);
+    }
+  } else if (loop_tree_node->loop() == nullptr) {
+    // Root loop without innerloops - nothing can be found.
+    return;
+  } else {
+    // Currently we only look for read-flags in the innermost loops.
+    auto loop = loop_tree_node->loop();
+    for (auto* bb : *loop) {
+      for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end(); insn_it++) {
+        if (AsMachineInsnX86_64(*insn_it)->opcode() == kMachineOpPseudoReadFlags) {
+          auto flag_set_opt = IsEligibleReadFlag(machine_ir, loop, bb, insn_it);
+          if (flag_set_opt.has_value()) {
+            read_flags_map[(*insn_it)->RegAt(0)] =
+                ReadFlagsOptContext{bb, *insn_it, flag_set_opt.value()};
+          }
+        }
+      }
+    }
+  }
+}
+
 // Finds the instruction which sets a flag register.
 // insn_it should point to one past the element we first want to check
 // (typically it should point to the readflags instruction).

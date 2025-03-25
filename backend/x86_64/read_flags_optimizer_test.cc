@@ -533,6 +533,76 @@ TEST(MachineIRReadFlagsOptimizer, FindFlagSettingInsn) {
   ASSERT_FALSE(flag_setter.has_value());
 }
 
+TEST(MachineIRReadFlagsOptimizer, FindEligibleReadFlagsInLoopTree) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  MachineReg scratch = machine_ir.AllocVReg();
+  // flags0 used in bb1 which is not in inner loop so should fail.
+  MachineReg flags0 = machine_ir.AllocVReg();
+  MachineReg flags00 = machine_ir.AllocVReg();
+  // flags1 used in bb3 should pass.
+  MachineReg flags1 = machine_ir.AllocVReg();
+  MachineReg flags11 = machine_ir.AllocVReg();
+
+  //         |-------|
+  // bb0 -> bb1 --> bb2 <-> bb3 -> bb4
+  //         |
+  //        bb5
+  auto bb0 = machine_ir.NewBasicBlock();
+  auto bb1 = machine_ir.NewBasicBlock();
+  auto bb2 = machine_ir.NewBasicBlock();
+  auto bb3 = machine_ir.NewBasicBlock();
+  auto bb4 = machine_ir.NewBasicBlock();
+  auto bb5 = machine_ir.NewBasicBlock();
+  machine_ir.AddEdge(bb0, bb1);
+  machine_ir.AddEdge(bb1, bb2);
+  machine_ir.AddEdge(bb1, bb5);
+  machine_ir.AddEdge(bb2, bb1);
+  machine_ir.AddEdge(bb2, bb3);
+  machine_ir.AddEdge(bb3, bb2);
+  machine_ir.AddEdge(bb3, bb4);
+
+  builder.StartBasicBlock(bb0);
+  builder.Gen<PseudoBranch>(bb1);
+
+  builder.StartBasicBlock(bb1);
+  builder.Gen<x86_64::AddqRegReg>(scratch, scratch, kMachineRegFLAGS);
+  builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS);
+  builder.Gen<PseudoCopy>(flags00, flags0, 8);
+  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb5, kMachineRegFLAGS);
+  bb1->live_out().push_back(flags00);
+
+  builder.StartBasicBlock(bb2);
+  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb1, bb3, kMachineRegFLAGS);
+
+  builder.StartBasicBlock(bb3);
+  builder.Gen<x86_64::AddqRegReg>(scratch, scratch, kMachineRegFLAGS);
+  builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, flags1, kMachineRegFLAGS);
+  builder.Gen<PseudoCopy>(flags11, flags1, 8);
+  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb4, kMachineRegFLAGS);
+  bb3->live_out().push_back(flags11);
+
+  builder.StartBasicBlock(bb4);
+  builder.Gen<x86_64::AddqRegReg>(flags11, flags11, kMachineRegFLAGS);
+  builder.Gen<PseudoJump>(kNullGuestAddr);
+  bb4->live_in().push_back(flags11);
+
+  builder.StartBasicBlock(bb5);
+  builder.Gen<x86_64::AddqRegReg>(flags00, flags00, kMachineRegFLAGS);
+  builder.Gen<PseudoJump>(kNullGuestAddr);
+  bb5->live_in().push_back(flags00);
+
+  ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+  auto loop_tree = BuildLoopTree(&machine_ir);
+  ArenaMap<MachineReg, ReadFlagsOptContext> read_flags_map(machine_ir.arena());
+  FindEligibleReadFlagsInLoopTree(&machine_ir, loop_tree.root(), read_flags_map);
+
+  ASSERT_FALSE(read_flags_map.contains(flags0));
+  ASSERT_TRUE(read_flags_map.contains(flags1));
+}
+
 }  // namespace
 
 }  // namespace berberis::x86_64
