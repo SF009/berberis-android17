@@ -277,20 +277,20 @@ class VerifierAssembler {
 
     constexpr void CheckAppropriateDefEarlyClobbers() {
       for (int i = 0; i < kMaxRegisters; i++) {
-        if (intrinsic_defined_def_early_clobber_fixed_register[i] &&
-            !valid_def_early_clobber_register[i]) {
+        if (intrinsic_defined_def_early_clobber_fixed_register.at(i) &&
+            !valid_def_early_clobber_register.at(i)) {
           FATAL(
               "error: intrinsic never used a 'use' general register after writing to a "
               "'def_early_clobber' fixed register");
         }
-        if (intrinsic_defined_def_early_clobber_general_register[i] &&
-            !valid_def_early_clobber_register[i]) {
+        if (intrinsic_defined_def_early_clobber_general_register.at(i) &&
+            !valid_def_early_clobber_register.at(i)) {
           FATAL(
               "error: intrinsic never used a 'use' general/fixed register after writing to a "
               "'def_early_clobber' general register");
         }
-        if (intrinsic_defined_def_early_clobber_xmm_register[i] &&
-            !valid_def_early_clobber_register[i]) {
+        if (intrinsic_defined_def_early_clobber_xmm_register.at(i) &&
+            !valid_def_early_clobber_register.at(i)) {
           FATAL(
               "error: intrinsic never used a 'use' xmm register after writing to a "
               "'def_early_clobber' xmm register");
@@ -299,7 +299,7 @@ class VerifierAssembler {
     }
 
     constexpr void CheckValidDefOrDefEarlyClobberRegisterUse(int reg_arg_no) {
-      if (!intrinsic_defined_def_or_def_early_clobber_register[reg_arg_no]) {
+      if (!intrinsic_defined_def_or_def_early_clobber_register.at(reg_arg_no)) {
         FATAL("error: intrinsic read a def/def_early_clobber register before writing to it");
       }
     }
@@ -313,24 +313,24 @@ class VerifierAssembler {
     }
 
     constexpr void UpdateIntrinsicDefOrDefEarlyClobberRegister(int reg_arg_no) {
-      intrinsic_defined_def_or_def_early_clobber_register[reg_arg_no] = true;
+      intrinsic_defined_def_or_def_early_clobber_register.at(reg_arg_no) = true;
     }
 
     constexpr void UpdateIntrinsicRegisterDefEarlyClobber(int reg_arg_no, bool is_fixed) {
       if (is_fixed) {
-        intrinsic_defined_def_early_clobber_fixed_register[reg_arg_no] = true;
+        intrinsic_defined_def_early_clobber_fixed_register.at(reg_arg_no) = true;
       } else {
-        intrinsic_defined_def_early_clobber_general_register[reg_arg_no] = true;
+        intrinsic_defined_def_early_clobber_general_register.at(reg_arg_no) = true;
       }
     }
 
-    constexpr void UpdateIntrinsicRegisterUse([[maybe_unused]] bool is_fixed) {
+    constexpr void UpdateIntrinsicRegisterUse(bool is_fixed) {
       for (int i = 0; i < kMaxRegisters; i++) {
-        if (intrinsic_defined_def_early_clobber_general_register[i]) {
-          valid_def_early_clobber_register[i] = true;
+        if (intrinsic_defined_def_early_clobber_general_register.at(i)) {
+          valid_def_early_clobber_register.at(i) = true;
         }
-        if (intrinsic_defined_def_early_clobber_fixed_register[i] && !is_fixed) {
-          valid_def_early_clobber_register[i] = true;
+        if (intrinsic_defined_def_early_clobber_fixed_register.at(i) && !is_fixed) {
+          valid_def_early_clobber_register.at(i) = true;
         }
       }
     }
@@ -338,13 +338,13 @@ class VerifierAssembler {
     constexpr void UpdateIntrinsicXMMRegisterDef() { intrinsic_defined_def_xmm_register = true; }
 
     constexpr void UpdateIntrinsicXMMRegisterDefEarlyClobber(int reg_arg_no) {
-      intrinsic_defined_def_early_clobber_xmm_register[reg_arg_no] = true;
+      intrinsic_defined_def_early_clobber_xmm_register.at(reg_arg_no) = true;
     }
 
     constexpr void UpdateIntrinsicXMMRegisterUse() {
       for (int i = 0; i < kMaxRegisters; i++) {
-        if (intrinsic_defined_def_early_clobber_xmm_register[i]) {
-          valid_def_early_clobber_register[i] = true;
+        if (intrinsic_defined_def_early_clobber_xmm_register.at(i)) {
+          valid_def_early_clobber_register.at(i) = true;
         }
       }
     }
@@ -375,13 +375,13 @@ class VerifierAssembler {
     bool intrinsic_defined_def_general_register = false;
     bool intrinsic_defined_def_xmm_register = false;
 
-    bool intrinsic_defined_def_or_def_early_clobber_register[kMaxRegisters] = {};
+    std::array<bool, kMaxRegisters> intrinsic_defined_def_or_def_early_clobber_register{};
 
-    bool intrinsic_defined_def_early_clobber_fixed_register[kMaxRegisters] = {};
-    bool intrinsic_defined_def_early_clobber_general_register[kMaxRegisters] = {};
-    bool intrinsic_defined_def_early_clobber_xmm_register[kMaxRegisters] = {};
+    std::array<bool, kMaxRegisters> intrinsic_defined_def_early_clobber_fixed_register{};
+    std::array<bool, kMaxRegisters> intrinsic_defined_def_early_clobber_general_register{};
+    std::array<bool, kMaxRegisters> intrinsic_defined_def_early_clobber_xmm_register{};
 
-    bool valid_def_early_clobber_register[kMaxRegisters] = {};
+    std::array<bool, kMaxRegisters> valid_def_early_clobber_register{};
   };
 
   RegisterUsageFlags register_usage_flags;
@@ -410,11 +410,11 @@ class VerifierAssembler {
     constexpr void UpdateInstructionXMMRegisterUse() { instruction_used_use_xmm_register = true; }
 
     constexpr bool CheckVisited(RegisterUsageFlags use_def_flags) {
-      return use_def_state_checked[use_def_flags.GetNonLinearUseDefState()];
+      return use_def_state_checked.at(use_def_flags.GetNonLinearUseDefState());
     }
 
     constexpr void SetVisited(RegisterUsageFlags use_def_flags) {
-      use_def_state_checked[use_def_flags.GetNonLinearUseDefState()] = true;
+      use_def_state_checked.at(use_def_flags.GetNonLinearUseDefState()) = true;
     }
 
     constexpr void ProcessInstructionUseDefs(RegisterUsageFlags& use_def_flags) {
@@ -457,7 +457,7 @@ class VerifierAssembler {
     // The state to keep track of is whether a 'def' register of each of the three types (general,
     // fixed and xmm) has been written in the intrinsic yet. Thus, there are 2^3 = 8 possible states
     // of an instruction.
-    bool use_def_state_checked[1 << RegisterUsageFlags::kNumStateBits] = {};
+    std::array<bool, 1 << RegisterUsageFlags::kNumStateBits> use_def_state_checked{};
   };
 
   constexpr void CheckAppropriateDefEarlyClobbers() {
@@ -472,8 +472,8 @@ class VerifierAssembler {
       return;
     }
     for (int i = 0; i < num_instructions_; i++) {
-      if (instructions[i].is_conditional_jump || instructions[i].is_unconditional_jump) {
-        if (instructions[i].jump_target->bound == false) {
+      if (instructions.at(i).is_conditional_jump || instructions.at(i).is_unconditional_jump) {
+        if (instructions.at(i).jump_target->bound == false) {
           FATAL("error: intrinsic jumps to a label that was never bound");
         }
       }
@@ -497,19 +497,19 @@ class VerifierAssembler {
       // Reached end of intrinsic.
       return;
     }
-    if (instructions[current_instruction].CheckVisited(use_def_flags)) {
+    if (instructions.at(current_instruction).CheckVisited(use_def_flags)) {
       // Already visited this instruction with the same use_def state.
       return;
     }
-    instructions[current_instruction].SetVisited(use_def_flags);
-    instructions[current_instruction].ProcessInstructionUseDefs(use_def_flags);
-    if (instructions[current_instruction].is_unconditional_jump ||
-        instructions[current_instruction].is_conditional_jump) {
+    instructions.at(current_instruction).SetVisited(use_def_flags);
+    instructions.at(current_instruction).ProcessInstructionUseDefs(use_def_flags);
+    if (instructions.at(current_instruction).is_unconditional_jump ||
+        instructions.at(current_instruction).is_conditional_jump) {
       // Explore execution path given that jump is taken.
-      CheckInstructionRecursive(instructions[current_instruction].jump_target->index,
+      CheckInstructionRecursive(instructions.at(current_instruction).jump_target->index,
                                 use_def_flags);
     }
-    if (instructions[current_instruction].is_unconditional_jump) {
+    if (instructions.at(current_instruction).is_unconditional_jump) {
       return;
     }
     // Explore execution path given that we move to the next instruction.
@@ -524,8 +524,8 @@ class VerifierAssembler {
 
   constexpr Label* MakeLabel() {
     intrinsic_is_non_linear = true;
-    labels_[num_labels_] = {{num_labels_}};
-    return &labels_[num_labels_++];
+    labels_.at(num_labels_) = {{num_labels_}};
+    return &labels_.at(num_labels_++);
   }
 
   template <typename... Args>
@@ -788,7 +788,7 @@ class VerifierAssembler {
       register_usage_flags.UpdateIntrinsicDefOrDefEarlyClobberRegister(reg.arg_no());
     }
     if (reg.get_binding_kind() == intrinsics::bindings::kDef) {
-      instructions[num_instructions_].UpdateInstructionRegisterDef(RegisterIsFixed(reg));
+      instructions.at(num_instructions_).UpdateInstructionRegisterDef(RegisterIsFixed(reg));
       register_usage_flags.UpdateIntrinsicRegisterDef(RegisterIsFixed(reg));
     } else if (reg.get_binding_kind() == intrinsics::bindings::kDefEarlyClobber) {
       register_usage_flags.UpdateIntrinsicRegisterDefEarlyClobber(reg.arg_no(),
@@ -805,7 +805,7 @@ class VerifierAssembler {
       register_usage_flags.UpdateIntrinsicDefOrDefEarlyClobberRegister(reg.arg_no());
     }
     if (reg.get_binding_kind() == intrinsics::bindings::kDef) {
-      instructions[num_instructions_].UpdateInstructionXMMRegisterDef();
+      instructions.at(num_instructions_).UpdateInstructionXMMRegisterDef();
       register_usage_flags.UpdateIntrinsicXMMRegisterDef();
     } else if (reg.get_binding_kind() == intrinsics::bindings::kDefEarlyClobber) {
       register_usage_flags.UpdateIntrinsicXMMRegisterDefEarlyClobber(reg.arg_no());
@@ -817,7 +817,7 @@ class VerifierAssembler {
 
   constexpr void RegisterUse(Register reg) {
     if (reg.get_binding_kind() == intrinsics::bindings::kUse) {
-      instructions[num_instructions_].UpdateInstructionRegisterUse(RegisterIsFixed(reg));
+      instructions.at(num_instructions_).UpdateInstructionRegisterUse(RegisterIsFixed(reg));
     }
     if (intrinsic_is_non_linear) {
       return;
@@ -834,7 +834,7 @@ class VerifierAssembler {
 
   constexpr void RegisterUse(XMMRegister reg) {
     if (reg.get_binding_kind() == intrinsics::bindings::kUse) {
-      instructions[num_instructions_].UpdateInstructionXMMRegisterUse();
+      instructions.at(num_instructions_).UpdateInstructionXMMRegisterUse();
     }
     if (intrinsic_is_non_linear) {
       return;
@@ -869,14 +869,14 @@ class VerifierAssembler {
     }
   }
 
-  constexpr void HandleConditionalJump([[maybe_unused]] const Label& label) {
-    instructions[num_instructions_].is_conditional_jump = true;
-    instructions[num_instructions_].jump_target = const_cast<Label*>(&label);
+  constexpr void HandleConditionalJump(const Label& label) {
+    instructions.at(num_instructions_).is_conditional_jump = true;
+    instructions.at(num_instructions_).jump_target = const_cast<Label*>(&label);
   }
 
-  constexpr void HandleUnconditionalJump([[maybe_unused]] const Label& label) {
-    instructions[num_instructions_].is_unconditional_jump = true;
-    instructions[num_instructions_].jump_target = const_cast<Label*>(&label);
+  constexpr void HandleUnconditionalJump(const Label& label) {
+    instructions.at(num_instructions_).is_unconditional_jump = true;
+    instructions.at(num_instructions_).jump_target = const_cast<Label*>(&label);
   }
 
   constexpr void HandleUnconditionalJumpRegister() {
@@ -890,12 +890,12 @@ class VerifierAssembler {
   // Therefore, we only handle intrinsics with maximum of 5 labels. Also, no intrinsics exist with >
   // 5 labels, so we can use this array for all intrinsics.
   static constexpr int kMaxLabels = 5;
-  Label labels_[kMaxLabels];
+  std::array<Label, kMaxLabels> labels_{};
   size_t num_labels_ = 0;
 
   int num_instructions_ = 0;
   static constexpr int kMaxInstructions = 300;
-  Instruction instructions[kMaxInstructions] = {};
+  std::array<Instruction, kMaxInstructions> instructions{};
 
   VerifierAssembler(const VerifierAssembler&) = delete;
   VerifierAssembler(VerifierAssembler&&) = delete;
