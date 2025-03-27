@@ -262,7 +262,7 @@ class VerifierAssembler {
       if (intrinsic_defined_def_general_register ||
           (intrinsic_defined_def_fixed_register && !is_fixed)) {
         FATAL(
-            "error: intrinsic used a 'use' general register after writing to a 'def' general  "
+            "error: intrinsic used a 'use' general register after writing to a 'def' general "
             "register");
       }
     }
@@ -270,7 +270,7 @@ class VerifierAssembler {
     constexpr void CheckValidXMMRegisterUse() {
       if (intrinsic_defined_def_xmm_register) {
         FATAL(
-            "error: intrinsic used a 'use' xmm register after writing to a 'def' xmm  "
+            "error: intrinsic used a 'use' xmm register after writing to a 'def' xmm "
             "register");
       }
     }

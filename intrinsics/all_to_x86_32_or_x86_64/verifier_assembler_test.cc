@@ -41,7 +41,21 @@ class MacroAssembler : public Assembler {
 #include "berberis/intrinsics/all_to_x86_32_or_x86_64/macro_assembler-inl.h"
 #undef DEFINE_MACRO_ASSEMBLER_GENERIC_FUNCTIONS
 
-  constexpr void ExecuteSSE3Instruction(XMMRegister dst, XMMRegister src1) { Haddpd(dst, src1); }
+  // dst: USE_DEF, src1: USE
+  constexpr void SSE3Intrinsic(XMMRegister dst, XMMRegister src1) { Haddpd(dst, src1); }
+
+  // dst: DEF_EARLY_CLOBBER, src1: USE_DEF, src2: USE, flags: DEF
+  constexpr void LinearRegisterIntrinsic(Register dst, Register src1, Register src2) {
+    Addl(src1, src2);  // Writes to FLAGS
+    Movl(dst, src1);
+    Addl(dst, src2);
+  }
+
+  // dst: DEF_EARLY_CLOBBER, src1: USE, src2: USE
+  constexpr void LinearXMMRegisterIntrinsic(XMMRegister dst, XMMRegister src1, XMMRegister src2) {
+    Pmov(dst, src1);
+    Pmov(dst, src2);
+  }
 };
 
 class VerifierAssembler : public x86_32_and_x86_64::VerifierAssembler<VerifierAssembler> {
@@ -71,27 +85,26 @@ constexpr void VerifyIntrinsic() {
   CallVerifierAssembler<AsmCallInfo, MacroAssembler<VerifierAssembler>>(&as, register_numbers);
   // Verify CPU vendor and SSE restrictions.
   as.CheckCPUIDRestriction<typename AsmCallInfo::CPUIDRestriction>();
+
+  // Verify that intrinsic's bindings correctly states that intrinsic uses/doesn't use FLAGS
+  // register.
+  bool expect_flags = false;
+  CheckIntrinsicHasFlagsBinding<AsmCallInfo>(expect_flags);
+  as.CheckFlagsBinding(expect_flags);
+  as.CheckAppropriateDefEarlyClobbers();
+  as.CheckLabelsAreBound();
 }
 
-template <typename AsmCallInfo>
-constexpr bool CallVerifyIntrinsic() {
-  VerifyIntrinsic<AsmCallInfo>();
-  return true;
-}
-
-static constexpr const char BINDING_NAME[] = "TestInstruction";
-static constexpr const char BINDING_MNEMO[] = "TEST_0";
+static constexpr const char kBindingName[] = "TestInstruction";
+static constexpr const char kBindingMnemo[] = "TEST_0";
 
 using MacroAssemblers = MacroAssembler<VerifierAssembler>::MacroAssemblers;
 
-TEST(VERIFIER_ASSEMBLER, TestCorrectCPUID) {
+TEST(VerifierAssembler, TestCorrectCPUID) {
   using AsmCallInfo = intrinsics::bindings::AsmCallInfo<
-      BINDING_NAME,
-      static_cast<void (std::tuple_element_t<0, MacroAssemblers>::*)(
-          typename std::tuple_element_t<0, MacroAssemblers>::XMMRegister,
-          typename std::tuple_element_t<0, MacroAssemblers>::XMMRegister)>(
-          &std::tuple_element_t<0, MacroAssemblers>::ExecuteSSE3Instruction),
-      BINDING_MNEMO,
+      kBindingName,
+      &std::tuple_element_t<0, MacroAssemblers>::SSE3Intrinsic,
+      kBindingMnemo,
       nullptr,
       intrinsics::bindings::HasSSE3,
       intrinsics::bindings::NoNansOperation,
@@ -101,17 +114,14 @@ TEST(VERIFIER_ASSEMBLER, TestCorrectCPUID) {
       std::tuple<InOutArg<0, 0, intrinsics::bindings::XmmReg, intrinsics::bindings::Def>,
                  InArg<1, intrinsics::bindings::XmmReg, intrinsics::bindings::Use>>>;
 
-  ASSERT_TRUE(CallVerifyIntrinsic<AsmCallInfo>());
+  VerifyIntrinsic<AsmCallInfo>();
 }
 
-TEST(VERIFIER_ASSEMBLER, TestIncorrectCPUID) {
+TEST(VerifierAssembler, TestIncorrectCPUID) {
   using AsmCallInfo = intrinsics::bindings::AsmCallInfo<
-      BINDING_NAME,
-      static_cast<void (std::tuple_element_t<0, MacroAssemblers>::*)(
-          typename std::tuple_element_t<0, MacroAssemblers>::XMMRegister,
-          typename std::tuple_element_t<0, MacroAssemblers>::XMMRegister)>(
-          &std::tuple_element_t<0, MacroAssemblers>::ExecuteSSE3Instruction),
-      BINDING_MNEMO,
+      kBindingName,
+      &std::tuple_element_t<0, MacroAssemblers>::SSE3Intrinsic,
+      kBindingMnemo,
       nullptr,
       intrinsics::bindings::NoCPUIDRestriction,
       intrinsics::bindings::NoNansOperation,
@@ -121,7 +131,123 @@ TEST(VERIFIER_ASSEMBLER, TestIncorrectCPUID) {
       std::tuple<InOutArg<0, 0, intrinsics::bindings::XmmReg, intrinsics::bindings::Def>,
                  InArg<1, intrinsics::bindings::XmmReg, intrinsics::bindings::Use>>>;
 
-  ASSERT_DEATH(CallVerifyIntrinsic<AsmCallInfo>(), "error: expect_sse3 != need_sse3");
+  ASSERT_DEATH(VerifyIntrinsic<AsmCallInfo>(), "error: expect_sse3 != need_sse3");
+}
+
+TEST(VerifierAssembler, TestFlagsIntrinsicWithNoFlagsBinding) {
+  using AsmCallInfo = intrinsics::bindings::AsmCallInfo<
+      kBindingName,
+      &std::tuple_element_t<0, MacroAssemblers>::LinearRegisterIntrinsic,
+      kBindingMnemo,
+      nullptr,
+      intrinsics::bindings::NoCPUIDRestriction,
+      intrinsics::bindings::NoNansOperation,
+      false,
+      std::tuple<uint32_t, uint32_t>,
+      std::tuple<uint32_t>,
+      std::tuple<
+          OutArg<0, intrinsics::bindings::GeneralReg32, intrinsics::bindings::DefEarlyClobber>,
+          InOutArg<1, 1, intrinsics::bindings::GeneralReg32, intrinsics::bindings::UseDef>,
+          InArg<2, intrinsics::bindings::GeneralReg32, intrinsics::bindings::Use>>>;
+
+  ASSERT_DEATH(VerifyIntrinsic<AsmCallInfo>(), "error: expect_flags != defines_flags");
+}
+
+TEST(VerifierAssembler, TestNoFlagsIntrinsicWithFlagsBinding) {
+  using AsmCallInfo = intrinsics::bindings::AsmCallInfo<
+      kBindingName,
+      &std::tuple_element_t<0, MacroAssemblers>::LinearXMMRegisterIntrinsic,
+      kBindingMnemo,
+      nullptr,
+      intrinsics::bindings::NoCPUIDRestriction,
+      intrinsics::bindings::NoNansOperation,
+      false,
+      std::tuple<SIMD128Register, SIMD128Register>,
+      std::tuple<SIMD128Register>,
+      std::tuple<OutArg<0, intrinsics::bindings::XmmReg, intrinsics::bindings::DefEarlyClobber>,
+                 InArg<0, intrinsics::bindings::XmmReg, intrinsics::bindings::Use>,
+                 InArg<1, intrinsics::bindings::XmmReg, intrinsics::bindings::Use>,
+                 TmpArg<intrinsics::bindings::FLAGS, intrinsics::bindings::Def>>>;
+
+  ASSERT_DEATH(VerifyIntrinsic<AsmCallInfo>(), "error: expect_flags != defines_flags");
+}
+
+TEST(VerifierAssembler, TestValidRegisterUseDef) {
+  using AsmCallInfo = intrinsics::bindings::AsmCallInfo<
+      kBindingName,
+      &std::tuple_element_t<0, MacroAssemblers>::LinearRegisterIntrinsic,
+      kBindingMnemo,
+      nullptr,
+      intrinsics::bindings::NoCPUIDRestriction,
+      intrinsics::bindings::NoNansOperation,
+      false,
+      std::tuple<uint32_t, uint32_t>,
+      std::tuple<uint32_t>,
+      std::tuple<
+          OutArg<0, intrinsics::bindings::GeneralReg32, intrinsics::bindings::DefEarlyClobber>,
+          InOutArg<1, 1, intrinsics::bindings::GeneralReg32, intrinsics::bindings::UseDef>,
+          InArg<2, intrinsics::bindings::GeneralReg32, intrinsics::bindings::Use>,
+          TmpArg<intrinsics::bindings::FLAGS, intrinsics::bindings::Def>>>;
+
+  VerifyIntrinsic<AsmCallInfo>();
+}
+
+TEST(VerifierAssembler, TestInvalidRegisterUseDef) {
+  using AsmCallInfo = intrinsics::bindings::AsmCallInfo<
+      kBindingName,
+      &std::tuple_element_t<0, MacroAssemblers>::LinearRegisterIntrinsic,
+      kBindingMnemo,
+      nullptr,
+      intrinsics::bindings::NoCPUIDRestriction,
+      intrinsics::bindings::NoNansOperation,
+      false,
+      std::tuple<uint32_t, uint32_t>,
+      std::tuple<uint32_t>,
+      std::tuple<OutArg<0, intrinsics::bindings::GeneralReg32, intrinsics::bindings::Def>,
+                 InOutArg<1, 1, intrinsics::bindings::GeneralReg32, intrinsics::bindings::UseDef>,
+                 InArg<2, intrinsics::bindings::GeneralReg32, intrinsics::bindings::Use>,
+                 TmpArg<intrinsics::bindings::FLAGS, intrinsics::bindings::Def>>>;
+
+  ASSERT_DEATH(
+      VerifyIntrinsic<AsmCallInfo>(),
+      "error: intrinsic used a 'use' general register after writing to a 'def' general register");
+}
+
+TEST(VerifierAssembler, TestValidXMMRegisterUseDef) {
+  using AsmCallInfo = intrinsics::bindings::AsmCallInfo<
+      kBindingName,
+      &std::tuple_element_t<0, MacroAssemblers>::LinearXMMRegisterIntrinsic,
+      kBindingMnemo,
+      nullptr,
+      intrinsics::bindings::NoCPUIDRestriction,
+      intrinsics::bindings::NoNansOperation,
+      false,
+      std::tuple<SIMD128Register, SIMD128Register>,
+      std::tuple<SIMD128Register>,
+      std::tuple<OutArg<0, intrinsics::bindings::XmmReg, intrinsics::bindings::DefEarlyClobber>,
+                 InArg<0, intrinsics::bindings::XmmReg, intrinsics::bindings::Use>,
+                 InArg<1, intrinsics::bindings::XmmReg, intrinsics::bindings::Use>>>;
+
+  VerifyIntrinsic<AsmCallInfo>();
+}
+
+TEST(VerifierAssembler, TestInvalidXMMRegisterUseDef) {
+  using AsmCallInfo = intrinsics::bindings::AsmCallInfo<
+      kBindingName,
+      &std::tuple_element_t<0, MacroAssemblers>::LinearXMMRegisterIntrinsic,
+      kBindingMnemo,
+      nullptr,
+      intrinsics::bindings::NoCPUIDRestriction,
+      intrinsics::bindings::NoNansOperation,
+      false,
+      std::tuple<SIMD128Register, SIMD128Register>,
+      std::tuple<SIMD128Register>,
+      std::tuple<OutArg<0, intrinsics::bindings::XmmReg, intrinsics::bindings::Def>,
+                 InArg<0, intrinsics::bindings::XmmReg, intrinsics::bindings::Use>,
+                 InArg<1, intrinsics::bindings::XmmReg, intrinsics::bindings::Use>>>;
+
+  ASSERT_DEATH(VerifyIntrinsic<AsmCallInfo>(),
+               "error: intrinsic used a 'use' xmm register after writing to a 'def' xmm register");
 }
 
 }  // namespace
