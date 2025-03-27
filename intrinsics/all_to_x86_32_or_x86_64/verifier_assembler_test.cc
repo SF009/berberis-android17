@@ -56,6 +56,88 @@ class MacroAssembler : public Assembler {
     Pmov(dst, src1);
     Pmov(dst, src2);
   }
+
+  // dst: DEF, src1: USE
+  constexpr void InfinitelyLoopingIntrinsicWithDef(Register dst, Register src1) {
+    Label* l1 = MakeLabel();
+    Movl(dst, src1);
+    Bind(l1);
+    Jmp(*l1);
+  }
+
+  // dst: DEF_EARLY_CLOBBER, src1: USE
+  constexpr void InfinitelyLoopingIntrinsicWithDefEarlyClobber(Register dst, Register src1) {
+    Label* l1 = MakeLabel();
+    Cmpl(src1, src1);
+    Bind(l1);
+    Movl(dst, src1);
+    Jcc(Assembler::Condition::kZero, *l1);
+  }
+
+  // dst: DEF, src1: USE, flags: DEF
+  constexpr void ForwardJumpingIntrinsicWithDef(Register dst, Register src1) {
+    Label* l1 = MakeLabel();
+    Label* l2 = MakeLabel();
+    Label* done = MakeLabel();
+
+    Movl(dst, src1);
+
+    Jcc(Assembler::Condition::kZero, *l1);
+    Jcc(Assembler::Condition::kZero, *l2);
+
+    Addl(dst, dst);
+    Jmp(*done);
+
+    Bind(l1);
+    Addl(dst, dst);
+    Jmp(*done);
+
+    Bind(l2);
+    Addl(dst, dst);
+    Jmp(*done);
+
+    Bind(done);
+  }
+
+  // dst: DEF_EARLY_CLOBBER, src1: USE, flags: DEF
+  constexpr void ForwardJumpingIntrinsicWithDefEarlyClobber(Register dst, Register src1) {
+    Label* l1 = MakeLabel();
+    Label* l2 = MakeLabel();
+    Label* done = MakeLabel();
+
+    Movl(dst, src1);
+
+    Jcc(Assembler::Condition::kZero, *l1);
+    // Taking jump to l2 is the invalid path.
+    Jcc(Assembler::Condition::kZero, *l2);
+
+    Addl(dst, dst);
+    Jmp(*done);
+
+    Bind(l1);
+    Addl(dst, dst);
+    Jmp(*done);
+
+    Bind(l2);
+    Addl(dst, src1);
+    Jmp(*done);
+
+    Bind(done);
+  }
+
+  // dst: DEF_EARLY_CLOBBER, src1: USE
+  constexpr void LoopingIntrinsicWithDefEarlyClobber(XMMRegister dst, XMMRegister src1) {
+    Label* l1 = MakeLabel();
+    Label* out = MakeLabel();
+
+    Bind(l1);
+    Jcc(Assembler::Condition::kZero, *out);
+    Pxor(dst, dst);
+    Jmp(*l1);
+
+    Bind(out);
+    Pmov(dst, src1);
+  }
 };
 
 class VerifierAssembler : public x86_32_and_x86_64::VerifierAssembler<VerifierAssembler> {
@@ -93,6 +175,7 @@ constexpr void VerifyIntrinsic() {
   as.CheckFlagsBinding(expect_flags);
   as.CheckAppropriateDefEarlyClobbers();
   as.CheckLabelsAreBound();
+  as.CheckNonLinearIntrinsicsUseDefRegisters();
 }
 
 static constexpr const char kBindingName[] = "TestInstruction";
@@ -245,6 +328,99 @@ TEST(VerifierAssembler, TestInvalidXMMRegisterUseDef) {
       std::tuple<OutArg<0, intrinsics::bindings::XmmReg, intrinsics::bindings::Def>,
                  InArg<0, intrinsics::bindings::XmmReg, intrinsics::bindings::Use>,
                  InArg<1, intrinsics::bindings::XmmReg, intrinsics::bindings::Use>>>;
+
+  ASSERT_DEATH(VerifyIntrinsic<AsmCallInfo>(),
+               "error: intrinsic used a 'use' xmm register after writing to a 'def' xmm register");
+}
+
+TEST(VerifierAssembler, TestValidInfinitelyLoopingValidIntrinsic) {
+  using AsmCallInfo = intrinsics::bindings::AsmCallInfo<
+      kBindingName,
+      &std::tuple_element_t<0, MacroAssemblers>::InfinitelyLoopingIntrinsicWithDef,
+      kBindingMnemo,
+      nullptr,
+      intrinsics::bindings::NoCPUIDRestriction,
+      intrinsics::bindings::NoNansOperation,
+      false,
+      std::tuple<uint32_t>,
+      std::tuple<uint32_t>,
+      std::tuple<OutArg<0, intrinsics::bindings::GeneralReg32, intrinsics::bindings::Def>,
+                 InArg<0, intrinsics::bindings::GeneralReg32, intrinsics::bindings::Use>>>;
+
+  VerifyIntrinsic<AsmCallInfo>();
+}
+
+TEST(VerifierAssembler, TestInvalidInfinitelyLoopingIntrinsic) {
+  using AsmCallInfo = intrinsics::bindings::AsmCallInfo<
+      kBindingName,
+      &std::tuple_element_t<0, MacroAssemblers>::InfinitelyLoopingIntrinsicWithDefEarlyClobber,
+      kBindingMnemo,
+      nullptr,
+      intrinsics::bindings::NoCPUIDRestriction,
+      intrinsics::bindings::NoNansOperation,
+      false,
+      std::tuple<uint32_t>,
+      std::tuple<uint32_t>,
+      std::tuple<OutArg<0, intrinsics::bindings::GeneralReg32, intrinsics::bindings::Def>,
+                 InArg<0, intrinsics::bindings::GeneralReg32, intrinsics::bindings::Use>,
+                 TmpArg<intrinsics::bindings::FLAGS, intrinsics::bindings::Def>>>;
+
+  ASSERT_DEATH(
+      VerifyIntrinsic<AsmCallInfo>(),
+      "error: intrinsic used a 'use' general register after writing to a 'def' general register");
+}
+
+TEST(VerifierAssembler, TestValidForwardJumpingIntrinsic) {
+  using AsmCallInfo = intrinsics::bindings::AsmCallInfo<
+      kBindingName,
+      &std::tuple_element_t<0, MacroAssemblers>::ForwardJumpingIntrinsicWithDef,
+      kBindingMnemo,
+      nullptr,
+      intrinsics::bindings::NoCPUIDRestriction,
+      intrinsics::bindings::NoNansOperation,
+      false,
+      std::tuple<uint32_t>,
+      std::tuple<uint32_t>,
+      std::tuple<OutArg<0, intrinsics::bindings::GeneralReg32, intrinsics::bindings::Def>,
+                 InArg<0, intrinsics::bindings::GeneralReg32, intrinsics::bindings::Use>,
+                 TmpArg<intrinsics::bindings::FLAGS, intrinsics::bindings::Def>>>;
+
+  VerifyIntrinsic<AsmCallInfo>();
+}
+
+TEST(VerifierAssembler, TestInvalidForwardJumpingIntrinsic) {
+  using AsmCallInfo = intrinsics::bindings::AsmCallInfo<
+      kBindingName,
+      &std::tuple_element_t<0, MacroAssemblers>::ForwardJumpingIntrinsicWithDefEarlyClobber,
+      kBindingMnemo,
+      nullptr,
+      intrinsics::bindings::NoCPUIDRestriction,
+      intrinsics::bindings::NoNansOperation,
+      false,
+      std::tuple<uint32_t>,
+      std::tuple<uint32_t>,
+      std::tuple<OutArg<0, intrinsics::bindings::GeneralReg32, intrinsics::bindings::Def>,
+                 InArg<0, intrinsics::bindings::GeneralReg32, intrinsics::bindings::Use>,
+                 TmpArg<intrinsics::bindings::FLAGS, intrinsics::bindings::Def>>>;
+
+  ASSERT_DEATH(
+      VerifyIntrinsic<AsmCallInfo>(),
+      "error: intrinsic used a 'use' general register after writing to a 'def' general register");
+}
+
+TEST(VerifierAssembler, TestInvalidLoopingIntrinsic) {
+  using AsmCallInfo = intrinsics::bindings::AsmCallInfo<
+      kBindingName,
+      &std::tuple_element_t<0, MacroAssemblers>::LoopingIntrinsicWithDefEarlyClobber,
+      kBindingMnemo,
+      nullptr,
+      intrinsics::bindings::NoCPUIDRestriction,
+      intrinsics::bindings::NoNansOperation,
+      false,
+      std::tuple<SIMD128Register>,
+      std::tuple<SIMD128Register>,
+      std::tuple<OutArg<0, intrinsics::bindings::XmmReg, intrinsics::bindings::Def>,
+                 InArg<0, intrinsics::bindings::XmmReg, intrinsics::bindings::Use>>>;
 
   ASSERT_DEATH(VerifyIntrinsic<AsmCallInfo>(),
                "error: intrinsic used a 'use' xmm register after writing to a 'def' xmm register");
