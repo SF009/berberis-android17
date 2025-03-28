@@ -531,8 +531,7 @@ constexpr void VerifyIntrinsic() {
 
   // Verify that intrinsic's bindings correctly states that intrinsic uses/doesn't use FLAGS
   // register.
-  bool expect_flags = false;
-  CheckIntrinsicHasFlagsBinding<AsmCallInfo>(expect_flags);
+  bool expect_flags = CheckIntrinsicHasFlagsBinding<AsmCallInfo>();
   as.CheckFlagsBinding(expect_flags);
   as.CheckAppropriateDefEarlyClobbers();
   as.CheckLabelsAreBound();
