@@ -955,56 +955,6 @@ constexpr void ProcessAllBindings([[maybe_unused]] Callback callback,
     print(line, file=f)
   print('}', file=f)
 
-def _gen_opcode_generators_f(f, intrs):
-  for line in _gen_opcode_generators(intrs):
-    print(line, file=f)
-
-def _gen_opcode_generators(intrs):
-  opcode_generators = {}
-  for name, intr in intrs:
-    if 'asm' not in intr:
-      continue
-    if 'variants' in intr:
-      variants = _get_formats_with_descriptions(intr)
-      variants = sorted(variants, key=lambda variant: variant[1].index)
-      # Collect intr_asms for all variants of intrinsic.
-      # Note: not all variants are guaranteed to have an asm variant!
-      # If that happens the list of intr_asms for that variant will be empty.
-      variants = [[
-          intr_asm for intr_asm in _gen_sorted_asms(intr)
-          if fmt in intr_asm['variants']
-      ] for fmt, _ in variants]
-      # Print intrinsic generator
-      for intr_asms in variants:
-        if len(intr_asms) > 0:
-          for intr_asm in intr_asms:
-            if not _is_translator_compatible_assembler(intr_asm):
-              continue
-            for line in _gen_opcode_generator(intr_asm, opcode_generators):
-              yield line
-    else:
-      for intr_asm in _gen_sorted_asms(intr):
-        if not _is_translator_compatible_assembler(intr_asm):
-          continue
-        for line in _gen_opcode_generator(intr_asm, opcode_generators):
-          yield line
-
-def _gen_opcode_generator(asm, opcode_generators):
-  name = asm['name']
-  num_mem_args = sum(1 for arg in asm['args'] if arg.get('class').startswith("Mem") and arg.get('usage') == 'def_early_clobber')
-  opcode = 'Undefined' if num_mem_args > 2 else (asm_defs.get_mem_macro_name(asm, '').replace("Mem", "MemBaseDisp")) if num_mem_args > 0 else name
-
-  if name not in opcode_generators:
-    opcode_generators[name] = True
-    yield """
-// TODO(b/260725458): Pass lambda as template argument after C++20 becomes available.
-class GetOpcode%s {
- public:
-  template <typename Opcode>
-  constexpr auto operator()() {
-    return Opcode::kMachineOp%s;
-  }
-};""" % (name, opcode)
 
 def _gen_process_bindings(f, intrs, archs):
   print("%s" % AUTOGEN, file=f)
@@ -1026,7 +976,6 @@ Once we can use C++23, these can be declared locally in ProcessBindings.*/""", f
   for static_mnemo in static_mnemos:
     print("   %s" % static_mnemo, file=f)
   print("} // process_bindings_strings", file = f)
-  _gen_opcode_generators_f(f, intrs)
 
   print("""
 template <auto kFunc,
@@ -1190,7 +1139,7 @@ def _gen_c_intrinsic(name,
         [name_label,
          _get_asm_reference(asm),
          mnemo_label,
-         _get_builder_reference(intr, asm) if gen_builder else 'void',
+         _get_builder_reference(intr, asm),
          cpuid_restriction,
          nan_restriction,
          'true' if _intr_has_side_effects(intr) else 'false',
@@ -1260,7 +1209,19 @@ def _get_asm_reference(asm):
       asm['asm'])
 
 def _get_builder_reference(intr, asm):
-  return 'GetOpcode%s' % (asm['name'])
+  name = asm['name']
+  num_mem_args = sum(
+    1
+    for arg in asm['args']
+      if arg.get('class').startswith("Mem") and
+         arg.get('usage') == 'def_early_clobber')
+  if num_mem_args > 2:
+    opcode = 'Undefined'
+  elif num_mem_args > 0:
+    opcode = asm_defs.get_mem_macro_name(asm, '').replace("Mem", "MemBaseDisp")
+  else:
+    opcode = name
+  return f'[]<typename Opcode>{{ return Opcode::kMachineOp{opcode}; }}'
 
 def _load_intrs_def_files(intrs_def_files):
   result = {}

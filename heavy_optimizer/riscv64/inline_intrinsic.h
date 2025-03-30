@@ -273,7 +273,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
   template <auto kIntrinsicTemplateName,
             auto kMacroInstructionTemplateName,
             auto kMnemo,
-            typename GetOpcode,
+            auto GetOpcode,
             typename CPUIDRestrictionTemplateValue,
             typename PreciseNanOperationsHandlingTemplateValue,
             bool kSideEffectsTemplateValue,

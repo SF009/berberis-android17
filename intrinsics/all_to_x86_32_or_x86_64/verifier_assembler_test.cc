@@ -92,7 +92,7 @@ TEST(VERIFIER_ASSEMBLER, TestCorrectCPUID) {
           typename std::tuple_element_t<0, MacroAssemblers>::XMMRegister)>(
           &std::tuple_element_t<0, MacroAssemblers>::ExecuteSSE3Instruction),
       BINDING_MNEMO,
-      void,
+      nullptr,
       intrinsics::bindings::HasSSE3,
       intrinsics::bindings::NoNansOperation,
       false,
@@ -112,7 +112,7 @@ TEST(VERIFIER_ASSEMBLER, TestIncorrectCPUID) {
           typename std::tuple_element_t<0, MacroAssemblers>::XMMRegister)>(
           &std::tuple_element_t<0, MacroAssemblers>::ExecuteSSE3Instruction),
       BINDING_MNEMO,
-      void,
+      nullptr,
       intrinsics::bindings::NoCPUIDRestriction,
       intrinsics::bindings::NoNansOperation,
       false,

@@ -104,7 +104,7 @@ class ImpreciseNanOperationsHandling;
 template <auto kIntrinsicTemplateName,
           auto kMacroInstructionTemplateName,
           auto kMnemo,
-          typename GetOpcode,
+          auto GetOpcode,
           typename CPUIDRestrictionTemplateValue,
           typename PreciseNanOperationsHandlingTemplateValue,
           bool kSideEffectsTemplateValue,
@@ -114,7 +114,7 @@ class AsmCallInfo;
 template <auto kIntrinsicTemplateName,
           auto kMacroInstructionTemplateName,
           auto kMnemo,
-          typename GetOpcode,
+          auto GetOpcode,
           typename CPUIDRestrictionTemplateValue,
           typename PreciseNanOperationsHandlingTemplateValue,
           bool kSideEffectsTemplateValue,
@@ -135,9 +135,8 @@ class AsmCallInfo<kIntrinsicTemplateName,
  public:
   static constexpr auto kIntrinsic = kIntrinsicTemplateName;
   static constexpr auto kMacroInstruction = kMacroInstructionTemplateName;
-  // TODO(b/260725458): Use lambda template argument after C++20 becomes available.
   template <typename Opcode>
-  static constexpr auto kOpcode = GetOpcode{}.template operator()<Opcode>();
+  static constexpr auto kOpcode = GetOpcode.template operator()<Opcode>();
   using CPUIDRestriction = CPUIDRestrictionTemplateValue;
   using PreciseNanOperationsHandling = PreciseNanOperationsHandlingTemplateValue;
   static constexpr bool kSideEffects = kSideEffectsTemplateValue;
