@@ -884,15 +884,18 @@ def _gen_mock_semantics_listener_intrinsics_hooks_impl_inl_h(f, intrs):
 def _get_reg_operand_info(arg, info_prefix=None):
   need_tmp = arg['class'] in ('EAX', 'EDX', 'CL', 'ECX')
   if info_prefix is None:
-    class_info = 'void'
+    class_info = ''
   else:
-    class_info = '%s::%s' % (info_prefix, arg['class'])
+    class_info = ', %s::%s' % (info_prefix, arg['class'])
   if arg['class'] == 'Imm8':
-    return 'ImmArg<%d, int8_t, %s>' % (arg['ir_arg'], class_info)
+    if  info_prefix is None:
+      return 'ImmArg<%d, int8_t>' % (arg['ir_arg'])
+    else:
+      return 'ImmArg<%d, int8_t%s>' % (arg['ir_arg'], class_info)
   if info_prefix is None:
-    using_info = 'void'
+    using_info = ''
   else:
-    using_info = '%s::%s' % (info_prefix, {
+    using_info = ', %s::%s' % (info_prefix, {
         'def': 'Def',
         'def_early_clobber': 'DefEarlyClobber',
         'use': 'Use',
@@ -900,23 +903,26 @@ def _get_reg_operand_info(arg, info_prefix=None):
     }[arg['usage']])
   if arg['usage'] == 'use':
     if need_tmp:
-      return 'InTmpArg<%d, %s, %s>' % (arg['ir_arg'], class_info, using_info)
-    return 'InArg<%d, %s, %s>' % (arg['ir_arg'], class_info, using_info)
+      return 'InTmpArg<%d%s%s>' % (arg['ir_arg'], class_info, using_info)
+    return 'InArg<%d%s%s>' % (arg['ir_arg'], class_info, using_info)
   if arg['usage'] in ('def', 'def_early_clobber'):
     assert 'ir_arg' not in arg
     if 'ir_res' in arg:
       if need_tmp:
-        return 'OutTmpArg<%d, %s, %s>' % (arg['ir_res'], class_info, using_info)
-      return 'OutArg<%d, %s, %s>' % (arg['ir_res'], class_info, using_info)
-    return 'TmpArg<%s, %s>' % (class_info, using_info)
+        return 'OutTmpArg<%d%s%s>' % (arg['ir_res'], class_info, using_info)
+      return 'OutArg<%d%s%s>' % (arg['ir_res'], class_info, using_info)
+    if info_prefix is None:
+      return 'TmpArg'
+    else:
+      return 'TmpArg<%s%s>' % (class_info[2:], using_info)
   if arg['usage'] == 'use_def':
     if 'ir_res' in arg:
       if need_tmp:
-        return 'InOutTmpArg<%s, %s, %s, %s>' % (arg['ir_arg'], arg['ir_res'],
+        return 'InOutTmpArg<%s, %s%s%s>' % (arg['ir_arg'], arg['ir_res'],
                                                 class_info, using_info)
-      return 'InOutArg<%s, %s, %s, %s>' % (arg['ir_arg'], arg['ir_res'],
+      return 'InOutArg<%s, %s%s%s>' % (arg['ir_arg'], arg['ir_res'],
                                            class_info, using_info)
-    return 'InTmpArg<%s, %s, %s>' % (arg['ir_arg'], class_info, using_info)
+    return 'InTmpArg<%s%s%s>' % (arg['ir_arg'], class_info, using_info)
   assert False, 'unknown operand usage %s' % (arg['usage'])
 
 
