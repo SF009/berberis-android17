@@ -225,12 +225,7 @@ class MachineInsn<AsmCallInfo, kMnemo, kOpcode, std::tuple<CtorArgs...>, Binding
             }.template operator()<Bindings>()...));
   }
 
-  int32_t disp2() const { return disp2_; }
-  void set_disp2(int32_t val) { disp2_ = val; }
-
  private:
-  int32_t disp2_;
-
   template <size_t, size_t, typename...>
   void ProcessArgs() {}
 
