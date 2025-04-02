@@ -130,7 +130,7 @@ class AsmCallInfo<kIntrinsicTemplateName,
                   kSideEffectsTemplateValue,
                   std::tuple<InputArgumentsTypes...>,
                   std::tuple<OutputArgumentsTypes...>,
-                  BindingsTypes...>
+                  std::tuple<BindingsTypes...>>
     final {
  public:
   static constexpr auto kIntrinsic = kIntrinsicTemplateName;
@@ -163,14 +163,13 @@ class AsmCallInfo<kIntrinsicTemplateName,
                                            void (*)(InputArgumentsTypes...),
                                            OutputArguments (*)(InputArgumentsTypes...)>;
   template <template <typename, auto, auto, typename...> typename MachineInsnType,
-            template <typename...>
-            typename ConstructorArgs,
+            template <typename...> typename ConstructorArgs,
             typename Opcode>
   using MachineInsn = MachineInsnType<AsmCallInfo,
                                       kMnemo,
                                       kOpcode<Opcode>,
                                       ConstructorArgs<BindingsTypes...>,
-                                      BindingsTypes...>;
+                                      std::tuple<BindingsTypes...>>;
 };
 
 }  // namespace intrinsics::bindings
