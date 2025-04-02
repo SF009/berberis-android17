@@ -606,6 +606,57 @@ TEST(MachineIRReadFlagsOptimizer, FindEligibleReadFlagsInLoopTree) {
   ASSERT_TRUE(read_flags_map.contains(flags1));
 }
 
+TEST(MachineIRReadFlagsOptimizer, OptimizeReadFlags) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+  auto testloop = BuildBasicLoop(&machine_ir);
+
+  MachineReg flags_copy = machine_ir.AllocVReg();
+
+  testloop.postloop->live_in().push_back(testloop.flags_reg);
+  testloop.postloop->insn_list().push_front(
+      machine_ir.NewInsn<MovqRegReg>(machine_ir.AllocVReg(), testloop.flags_reg));
+
+  testloop.successor->live_in().push_back(testloop.flags_reg);
+  testloop.successor->insn_list().push_front(
+      machine_ir.NewInsn<PseudoCopy>(flags_copy, testloop.flags_reg, 8));
+  testloop.successor->live_out().push_back(flags_copy);
+
+  testloop.succ_postloop->live_in().push_back(flags_copy);
+  testloop.succ_postloop->insn_list().push_front(
+      machine_ir.NewInsn<MovqRegReg>(machine_ir.AllocVReg(), flags_copy));
+
+  OptimizeReadFlags(&machine_ir);
+
+  ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+
+  // Check that original PSEUDOREADFLAGS instruction is gone.
+  ASSERT_TRUE(
+      std::none_of(testloop.loop_exit->insn_list().begin(),
+                   testloop.loop_exit->insn_list().end(),
+                   [](MachineInsn* insn) { return insn->opcode() == kMachineOpPseudoReadFlags; }));
+
+  // Check that postloop inserted the original instruction.
+  auto insn_it = testloop.postloop->insn_list().begin();
+  ASSERT_EQ((*insn_it)->opcode(), kMachineOpPseudoCopy);
+  insn_it++;
+  ASSERT_EQ((*insn_it)->opcode(), kMachineOpAddqRegReg);
+  insn_it++;
+  ASSERT_EQ((*insn_it)->opcode(), kMachineOpPseudoReadFlags);
+
+  // Check that successor removes pseudocopy.
+  insn_it = testloop.successor->insn_list().begin();
+  ASSERT_NE((*insn_it)->opcode(), kMachineOpPseudoReadFlags);
+
+  // Check that succ_postloop also has original instruction.
+  insn_it = testloop.succ_postloop->insn_list().begin();
+  ASSERT_EQ((*insn_it)->opcode(), kMachineOpPseudoCopy);
+  insn_it++;
+  ASSERT_EQ((*insn_it)->opcode(), kMachineOpAddqRegReg);
+  insn_it++;
+  ASSERT_EQ((*insn_it)->opcode(), kMachineOpPseudoReadFlags);
+}
+
 TEST(MachineIRReadFlagsOptimizer, RemoveRegs) {
   Arena arena;
   x86_64::MachineIR machine_ir(&arena);

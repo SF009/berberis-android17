@@ -57,7 +57,7 @@ std::optional<MachineInsnList::iterator> IsEligibleReadFlag(MachineIR* machine_i
                                                             Loop* loop,
                                                             MachineBasicBlock* bb,
                                                             MachineInsnList::iterator insn_it);
-
+void OptimizeReadFlags(MachineIR* machine_ir);
 void RemoveReadFlags(MachineIR* machine_ir, ReadFlagsOptContext context);
 bool RemoveRegs(MachineRegVector& remove_from_regs, const MachineRegVector& regs_to_remove);
 // Note flags_regs must not be a reference because we update it with new flag

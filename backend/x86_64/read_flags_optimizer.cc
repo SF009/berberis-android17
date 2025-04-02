@@ -324,6 +324,16 @@ std::optional<MachineInsnList::iterator> IsEligibleReadFlag(MachineIR* machine_i
   return std::nullopt;
 }
 
+void OptimizeReadFlags(MachineIR* machine_ir) {
+  auto loop_tree = BuildLoopTree(machine_ir);
+  ArenaMap<MachineReg, ReadFlagsOptContext> read_flags_map(machine_ir->arena());
+
+  FindEligibleReadFlagsInLoopTree(machine_ir, loop_tree.root(), read_flags_map);
+  for (auto [_, ctx] : read_flags_map) {
+    RemoveReadFlags(machine_ir, ctx);
+  }
+}
+
 // Removes all elements of regs_to_remove from remove_from_regs. Returns true if anything was
 // removed.
 //
