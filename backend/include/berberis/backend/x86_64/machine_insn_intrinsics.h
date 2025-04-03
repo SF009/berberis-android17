@@ -128,11 +128,15 @@ class MachineInsn<AsmCallInfo, kMnemo, kOpcode, std::tuple<CtorArgs...>, std::tu
 
  public:
   // This static simplifies constructing this MachineInsn in intrinsic implementations.
-  static constexpr MachineInsn* (MachineIRBuilder::*kGenFunc)(CtorArgs...) =
+  static constexpr MachineInsn* (MachineIRBuilder::*kGenFunc)(std::tuple<CtorArgs...>) =
       &MachineIRBuilder::template Gen<MachineInsn>;
 
-  explicit MachineInsn(CtorArgs... args) : MachineInsnX86_64(&kInfo) {
-    ProcessArgs<0 /* reg_idx */, 0 /* disp_idx */, Bindings...>(args...);
+  explicit MachineInsn(std::tuple<CtorArgs...> args) : MachineInsnX86_64(&kInfo) {
+    std::apply(
+        [this](auto... args) {
+          this->ProcessArgs<0 /* reg_idx */, 0 /* disp_idx */, Bindings...>(args...);
+        },
+        args);
   }
 
   static constexpr MachineInsnInfo kInfo = GenMachineInsnInfoT<RegBindings>::value;
