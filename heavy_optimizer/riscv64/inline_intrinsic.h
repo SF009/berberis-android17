@@ -353,13 +353,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
       static_assert(berberis::kDependentValueFalse<AsmCallInfo::kCPUIDRestriction>);
     }
 
-    // constructor_args_t here is used to generate a tuple of constructor args from the AsmCallInfo
-    // bindings. The tuple parameter pack will be expanded by the tuple specialization on the
-    // MachineInsn in machine_insn_intrinsics.h.
-    using MachineInsn = typename AsmCallInfo::template MachineInsn<berberis::x86_64::MachineInsn,
-                                                                   x86_64::constructor_args_t,
-                                                                   MachineOpcode>;
-    (builder_->*MachineInsn::kGenFunc)(std::tuple_cat(
+    (builder_->*berberis::x86_64::MachineInsn<AsmCallInfo>::kGenFunc)(std::tuple_cat(
         UnwrapSimdReg(AsmCallInfo::template MakeTuplefromBindings<
                       TryBindingBasedInlineIntrinsicForHeavyOptimizer&>(*this, asm_call_info))));
     ProcessBindingsResults<AsmCallInfo>(type_wrapper<typename AsmCallInfo::Bindings>());
