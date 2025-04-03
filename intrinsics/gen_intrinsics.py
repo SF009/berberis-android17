@@ -1145,7 +1145,7 @@ def _gen_c_intrinsic(name,
     yield '    if (auto result = callback('
   else:
     yield '    callback('
-  yield '          intrinsics::bindings::AsmCallInfo<'
+  yield '          intrinsics::bindings::IntrinsicBindingInfo<'
   yield '              %s>(),' % (
     ',\n              '.join(
         [name_label,

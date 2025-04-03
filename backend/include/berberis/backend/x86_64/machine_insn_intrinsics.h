@@ -87,8 +87,7 @@ struct ConstructorArg<ArgTraits<T>,
 template <typename T>
 using constructor_one_arg_t = typename ConstructorArg<ArgTraits<T>>::type;
 
-// Use this alias to generate constructor Args from bindings via the AsmCallInfo::MachineInsn
-// alias. The tuple args will be extracted by the tuple specialization on MachineInsn below.
+// Use this alias to generate constructor Args from bindings.
 template <typename... T>
 using constructor_args_t = tuple_cat_t<constructor_one_arg_t<T>...>;
 
@@ -109,7 +108,7 @@ constexpr size_t mem_count_v = std::tuple_size_v<filter_t<is_mem_t, ArgTraits<Bi
 template <size_t N, typename... Bindings>
 constexpr bool has_n_mem_v = mem_count_v<Bindings...> > (N - 1);
 
-template <typename AsmCallInfo>
+template <typename IntrinsicBindingInfo>
 class MachineInsn;
 
 // Use specialization to extract the tuple parameter pack generated from constructor_args_t above.
@@ -123,16 +122,16 @@ template <auto kIntrinsic,
           typename... InputArguments,
           typename... OutputArguments,
           typename... Bindings>
-class MachineInsn<intrinsics::bindings::AsmCallInfo<kIntrinsic,
-                                                    kMacroInstruction,
-                                                    kMnemo,
-                                                    GetOpcode,
-                                                    CPUIDRestriction,
-                                                    PreciseNanOperationsHandling,
-                                                    kSideEffects,
-                                                    std::tuple<InputArguments...>,
-                                                    std::tuple<OutputArguments...>,
-                                                    std::tuple<Bindings...>>>
+class MachineInsn<intrinsics::bindings::IntrinsicBindingInfo<kIntrinsic,
+                                                             kMacroInstruction,
+                                                             kMnemo,
+                                                             GetOpcode,
+                                                             CPUIDRestriction,
+                                                             PreciseNanOperationsHandling,
+                                                             kSideEffects,
+                                                             std::tuple<InputArguments...>,
+                                                             std::tuple<OutputArguments...>,
+                                                             std::tuple<Bindings...>>>
     final : public MachineInsnX86_64 {
  private:
   template <typename>
