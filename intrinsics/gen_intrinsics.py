@@ -926,6 +926,12 @@ def _get_reg_operand_info(arg, info_prefix=None):
   assert False, 'unknown operand usage %s' % (arg['usage'])
 
 
+def _get_reg_operands_info(args, info_prefix=None):
+  return 'std::tuple<%s>' % ', '.join(
+    _get_reg_operand_info(arg, info_prefix)
+    for arg in args)
+
+
 def _gen_make_intrinsics(f, intrs, archs):
   print("%s" % AUTOGEN, file=f)
   callback_lines = []
@@ -1150,9 +1156,8 @@ def _gen_c_intrinsic(name,
          nan_restriction,
          'true' if _intr_has_side_effects(intr) else 'false',
          _get_c_type_tuple(intr['in']),
-         _get_c_type_tuple(intr['out'])] +
-        [_get_reg_operand_info(arg, 'intrinsics::bindings')
-         for arg in asm['args']]))
+         _get_c_type_tuple(intr['out']),
+         _get_reg_operands_info(asm['args'], 'intrinsics::bindings')]))
   if check_compatible_assembler == _is_translator_compatible_assembler:
     yield '          std::forward<Args>(args)...); result.has_value()) {'
     yield '      return *std::move(result);'

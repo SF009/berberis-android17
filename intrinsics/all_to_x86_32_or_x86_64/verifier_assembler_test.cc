@@ -98,8 +98,8 @@ TEST(VERIFIER_ASSEMBLER, TestCorrectCPUID) {
       false,
       std::tuple<SIMD128Register, SIMD128Register>,
       std::tuple<SIMD128Register>,
-      InOutArg<0, 0, intrinsics::bindings::XmmReg, intrinsics::bindings::Def>,
-      InArg<1, intrinsics::bindings::XmmReg, intrinsics::bindings::Use>>;
+      std::tuple<InOutArg<0, 0, intrinsics::bindings::XmmReg, intrinsics::bindings::Def>,
+                 InArg<1, intrinsics::bindings::XmmReg, intrinsics::bindings::Use>>>;
 
   ASSERT_TRUE(CallVerifyIntrinsic<AsmCallInfo>());
 }
@@ -118,8 +118,8 @@ TEST(VERIFIER_ASSEMBLER, TestIncorrectCPUID) {
       false,
       std::tuple<SIMD128Register, SIMD128Register>,
       std::tuple<SIMD128Register>,
-      InOutArg<0, 0, intrinsics::bindings::XmmReg, intrinsics::bindings::Def>,
-      InArg<1, intrinsics::bindings::XmmReg, intrinsics::bindings::Use>>;
+      std::tuple<InOutArg<0, 0, intrinsics::bindings::XmmReg, intrinsics::bindings::Def>,
+                 InArg<1, intrinsics::bindings::XmmReg, intrinsics::bindings::Use>>>;
 
   ASSERT_DEATH(CallVerifyIntrinsic<AsmCallInfo>(), "error: expect_sse3 != need_sse3");
 }

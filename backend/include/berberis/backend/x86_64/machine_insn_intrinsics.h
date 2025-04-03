@@ -118,8 +118,8 @@ template <typename AsmCallInfo,
           auto kOpcode,
           typename... CtorArgs,
           typename... Bindings>
-class MachineInsn<AsmCallInfo, kMnemo, kOpcode, std::tuple<CtorArgs...>, Bindings...> final
-    : public MachineInsnX86_64 {
+class MachineInsn<AsmCallInfo, kMnemo, kOpcode, std::tuple<CtorArgs...>, std::tuple<Bindings...>>
+    final : public MachineInsnX86_64 {
  private:
   template <typename>
   struct GenMachineInsnInfoT;
@@ -158,21 +158,34 @@ class MachineInsn<AsmCallInfo, kMnemo, kOpcode, std::tuple<CtorArgs...>, Binding
             s += ", ";
           }
           if constexpr (ArgTraits<Binding>::Class::kIsImmediate) {
-            s += GetImmOperandDebugString(this);
+            // Without static_cast here compilation fails with extemely criptic error message:
+            // error: implicit instantiation of undefined template 'berberis::InOutArg<0, 0, …>'
+            //   …
+            // machine_insn_intrinsics.h:161:18: note: in instantiation of template class
+            //  'std::tuple<berberis::InOutArg<0, 0, …>, berberis::InArg<1, …>' requested here
+            // 161            s += GetImmOperandDebugString(this);
+            //
+            // Same below.
+            s += GetImmOperandDebugString(static_cast<const MachineInsnX86_64*>(this));
             arg_idx++;
           } else if constexpr (ArgTraits<Binding>::Class::kAsRegister == 'm') {
             if (disp_idx == 0) {
-              s += GetBaseDispMemOperandDebugString(this, reg_idx);
+              s += GetBaseDispMemOperandDebugString(static_cast<const MachineInsnX86_64*>(this),
+                                                    reg_idx);
             } else /* disp_idx == 1 */ {
               s += StringPrintf(
-                  "[%s + 0x%x]", GetRegOperandDebugString(this, reg_idx).c_str(), disp2());
+                  "[%s + 0x%x]",
+                  GetRegOperandDebugString(static_cast<const MachineInsnX86_64*>(this), reg_idx)
+                      .c_str(),
+                  disp2());
             }
             arg_idx++, reg_idx++, disp_idx++;
           } else if constexpr (ArgTraits<Binding>::RegisterClass::kIsImplicitReg) {
-            s += GetImplicitRegOperandDebugString(this, reg_idx);
+            s += GetImplicitRegOperandDebugString(static_cast<const MachineInsnX86_64*>(this),
+                                                  reg_idx);
             arg_idx++, reg_idx++;
           } else {
-            s += GetRegOperandDebugString(this, reg_idx);
+            s += GetRegOperandDebugString(static_cast<const MachineInsnX86_64*>(this), reg_idx);
             arg_idx++, reg_idx++;
           }
         }.template operator()<Bindings>(),
