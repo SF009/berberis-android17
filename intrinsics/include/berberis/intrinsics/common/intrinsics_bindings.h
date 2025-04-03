@@ -89,7 +89,7 @@ constexpr auto ToRegKind() {
 template <typename Tag, typename MachineRegKind>
 inline constexpr auto kRegKind = ToRegKind<Tag, MachineRegKind>();
 
-enum RegBindingKind { kDef, kDefEarlyClobber, kUse, kUseDef, kUndefined };
+enum RegBindingKind { kDef = 2, kDefEarlyClobber = 3, kUse = 5, kUseDef = 7 };
 
 // Tag classes. They are never instantioned, only used as tags to pass information about
 // bindings.
@@ -248,7 +248,10 @@ constexpr void CallVerifierAssembler(AssemblerType* as, int* register_numbers) {
       }
     }
   });
-  as->gpr_macroassembler_constants = typename AssemblerType::Register(arg_counter);
+  // Macroassembler constants register points to the constant pool. Intrinsics can read from it
+  // but shouldn't change it's address, that's why it's always kUse.
+  as->gpr_macroassembler_constants =
+      typename AssemblerType::Register{arg_counter, intrinsics::bindings::kUse};
   arg_counter = 0;
   int scratch_counter = 0;
   std::apply(
@@ -272,12 +275,14 @@ constexpr void CallVerifierAssembler(AssemblerType* as, int* register_numbers) {
               using RegisterClass = typename decltype(arg)::RegisterClass;
               if constexpr (!std::is_same_v<RegisterClass, intrinsics::bindings::FLAGS>) {
                 if constexpr (RegisterClass::kAsRegister == 'm') {
+                  static_assert(std::is_same_v<typename decltype(arg)::Usage,
+                                               intrinsics::bindings::DefEarlyClobber>);
                   if (scratch_counter == 0) {
-                    as->gpr_macroassembler_scratch =
-                        typename AssemblerType::Register(arg_counter++);
+                    as->gpr_macroassembler_scratch = typename AssemblerType::Register(
+                        arg_counter++, intrinsics::bindings::kDefEarlyClobber);
                   } else if (scratch_counter == 1) {
-                    as->gpr_macroassembler_scratch2 =
-                        typename AssemblerType::Register(arg_counter++);
+                    as->gpr_macroassembler_scratch2 = typename AssemblerType::Register(
+                        arg_counter++, intrinsics::bindings::kDefEarlyClobber);
                   } else {
                     FATAL("Only two scratch registers are supported for now");
                   }

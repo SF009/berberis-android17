@@ -20,6 +20,7 @@
 #include <array>
 #include <cstdint>
 #include <cstdio>
+#include <optional>
 #include <string>
 
 #include "berberis/base/checks.h"
@@ -82,8 +83,8 @@ class VerifierAssembler {
 
   class Register {
    public:
-    constexpr Register(int arg_no)
-        : arg_no_(arg_no), binding_kind_(intrinsics::bindings::kUndefined) {}
+    constexpr Register(std::optional<Register> reg)
+        : Register(reg.has_value() ? *reg : (FATAL("attempt to use undeclared register"), *reg)) {}
     constexpr Register(int arg_no, intrinsics::bindings::RegBindingKind binding_kind)
         : arg_no_(arg_no), binding_kind_(binding_kind) {}
 
@@ -141,8 +142,6 @@ class VerifierAssembler {
   class SIMDRegister {
    public:
     friend class SIMDRegister<384 - kBits>;
-    constexpr SIMDRegister(int arg_no)
-        : arg_no_(arg_no), binding_kind_(intrinsics::bindings::kUndefined) {}
 
     constexpr SIMDRegister(int arg_no, intrinsics::bindings::RegBindingKind binding_kind)
         : arg_no_(arg_no), binding_kind_(binding_kind) {}
@@ -186,8 +185,8 @@ class VerifierAssembler {
   using XRegister = XMMRegister;
 
   struct Operand {
-    Register base = Register{Register::kNoRegister};
-    Register index = Register{Register::kNoRegister};
+    std::optional<Register> base{};
+    std::optional<Register> index{};
     ScaleFactor scale = kTimesOne;
     int32_t disp = 0;
   };
@@ -197,26 +196,28 @@ class VerifierAssembler {
   // These start as Register::kNoRegister but can be changed if they are used as arguments to
   // something else.
   // If they are not coming as arguments then using them is compile-time error!
-  Register gpr_a{Register::kNoRegister};
-  Register gpr_b{Register::kNoRegister};
-  Register gpr_c{Register::kNoRegister};
-  Register gpr_d{Register::kNoRegister};
-  // Note: stack pointer is not reflected in list of arguments, intrinsics use
-  // it implicitly.
-  Register gpr_s{Register::kStackPointer};
+  std::optional<Register> gpr_a{};
+  std::optional<Register> gpr_b{};
+  std::optional<Register> gpr_c{};
+  std::optional<Register> gpr_d{};
+  // Note: stack pointer is not reflected in list of arguments, intrinsics use it implicitly.
+  // It's also always defined on the entrance to intrinsics and, if modified, has to be restored.
+  // But kUse/kDef is not precise enough to describe “this register could be touched but has to be
+  // restored” requirement, thus we define it as kUseDef.
+  Register gpr_s{Register::kStackPointer, intrinsics::bindings::kUseDef};
   // Used in Operand as pseudo-register to temporary operand.
-  Register gpr_scratch{Register::kScratchPointer};
+  std::optional<Register> gpr_scratch{};
 
   // In x86-64 case we could refer to kBerberisMacroAssemblerConstants via %rip.
   // In x86-32 mode, on the other hand, we need complex dance to access it via GOT.
   // Intrinsics which use these constants receive it via additional parameter - and
   // we need to know if it's needed or not.
-  Register gpr_macroassembler_constants{Register::kNoRegister};
+  std::optional<Register> gpr_macroassembler_constants{};
   bool need_gpr_macroassembler_constants() const { return need_gpr_macroassembler_constants_; }
 
-  Register gpr_macroassembler_scratch{Register::kNoRegister};
+  std::optional<Register> gpr_macroassembler_scratch{};
   bool need_gpr_macroassembler_scratch() const { return need_gpr_macroassembler_scratch_; }
-  Register gpr_macroassembler_scratch2{Register::kNoRegister};
+  std::optional<Register> gpr_macroassembler_scratch2{};
 
   bool need_aesavx = false;
   bool need_aes = false;
@@ -767,16 +768,16 @@ class VerifierAssembler {
   constexpr void SetDefinesFLAGS() { defines_flags = true; }
 
   constexpr bool RegisterIsFixed(Register reg) {
-    if (gpr_a.register_initialised()) {
+    if (gpr_a.has_value()) {
       if (reg == gpr_a) return true;
     }
-    if (gpr_b.register_initialised()) {
+    if (gpr_b.has_value()) {
       if (reg == gpr_b) return true;
     }
-    if (gpr_c.register_initialised()) {
+    if (gpr_c.has_value()) {
       if (reg == gpr_c) return true;
     }
-    if (gpr_d.register_initialised()) {
+    if (gpr_d.has_value()) {
       if (reg == gpr_d) return true;
     }
     return false;
