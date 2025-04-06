@@ -312,7 +312,7 @@ class VerifierAssembler {
       }
     }
 
-    constexpr void UpdateIntrinsicDefineDefOrDefEarlyClobberReigster(int reg_arg_no) {
+    constexpr void UpdateIntrinsicDefOrDefEarlyClobberRegister(int reg_arg_no) {
       intrinsic_defined_def_or_def_early_clobber_register[reg_arg_no] = true;
     }
 
@@ -349,9 +349,30 @@ class VerifierAssembler {
       }
     }
 
+    enum {
+      kFixedRegisterShift,
+      kGeneralRegisterShift,
+      kXMMRegisterShift,
+      kNumStateBits,
+    };
+
+    constexpr int GetNonLinearUseDefState() {
+      int state = 0;
+      if (intrinsic_defined_def_fixed_register) {
+        state += 1 << kFixedRegisterShift;
+      }
+      if (intrinsic_defined_def_general_register) {
+        state += 1 << kGeneralRegisterShift;
+      }
+      if (intrinsic_defined_def_xmm_register) {
+        state += 1 << kXMMRegisterShift;
+      }
+      return state;
+    }
+
    private:
-    bool intrinsic_defined_def_general_register = false;
     bool intrinsic_defined_def_fixed_register = false;
+    bool intrinsic_defined_def_general_register = false;
     bool intrinsic_defined_def_xmm_register = false;
 
     bool intrinsic_defined_def_or_def_early_clobber_register[kMaxRegisters] = {};
@@ -388,6 +409,35 @@ class VerifierAssembler {
 
     constexpr void UpdateInstructionXMMRegisterUse() { instruction_used_use_xmm_register = true; }
 
+    constexpr bool CheckVisited(RegisterUsageFlags use_def_flags) {
+      return use_def_state_checked[use_def_flags.GetNonLinearUseDefState()];
+    }
+
+    constexpr void SetVisited(RegisterUsageFlags use_def_flags) {
+      use_def_state_checked[use_def_flags.GetNonLinearUseDefState()] = true;
+    }
+
+    constexpr void ProcessInstructionUseDefs(RegisterUsageFlags& use_def_flags) {
+      if (instruction_used_use_fixed_register) {
+        use_def_flags.CheckValidRegisterUse(true);
+      }
+      if (instruction_used_use_general_register) {
+        use_def_flags.CheckValidRegisterUse(false);
+      }
+      if (instruction_used_use_xmm_register) {
+        use_def_flags.CheckValidXMMRegisterUse();
+      }
+      if (instruction_defined_def_fixed_register) {
+        use_def_flags.UpdateIntrinsicRegisterDef(true);
+      }
+      if (instruction_defined_def_general_register) {
+        use_def_flags.UpdateIntrinsicRegisterDef(false);
+      }
+      if (instruction_defined_def_xmm_register) {
+        use_def_flags.UpdateIntrinsicXMMRegisterDef();
+      }
+    }
+
     bool instruction_defined_def_fixed_register = false;
     bool instruction_defined_def_general_register = false;
     bool instruction_defined_def_xmm_register = false;
@@ -399,6 +449,15 @@ class VerifierAssembler {
     bool is_unconditional_jump = false;
     bool is_conditional_jump = false;
     Label* jump_target = nullptr;
+
+    // The check for each instruction is fully defined by prior `def` register flags.
+    // When we reach an instruction by different paths, we may arrive with different 'def' flags. We
+    // use this array to memorize which `def` combinations we have checked already.
+    //
+    // The state to keep track of is whether a 'def' register of each of the three types (general,
+    // fixed and xmm) has been written in the intrinsic yet. Thus, there are 2^3 = 8 possible states
+    // of an instruction.
+    bool use_def_state_checked[1 << RegisterUsageFlags::kNumStateBits] = {};
   };
 
   constexpr void CheckAppropriateDefEarlyClobbers() {
@@ -412,7 +471,7 @@ class VerifierAssembler {
     if (!intrinsic_is_non_linear) {
       return;
     }
-    for (int i = 0; i < current_instruction; i++) {
+    for (int i = 0; i < num_instructions_; i++) {
       if (instructions[i].is_conditional_jump || instructions[i].is_unconditional_jump) {
         if (instructions[i].jump_target->bound == false) {
           FATAL("error: intrinsic jumps to a label that was never bound");
@@ -421,14 +480,50 @@ class VerifierAssembler {
     }
   }
 
+  constexpr void CheckNonLinearIntrinsicsUseDefRegisters() {
+    if (!intrinsic_is_non_linear) {
+      return;
+    }
+    // Uses DFS to check that a 'use' register is never used after a 'def' register is written on
+    // all paths of a non-linear intrinsic.
+    RegisterUsageFlags use_def_flags{};
+    CheckInstructionRecursive(0, use_def_flags);
+  }
+
+  constexpr void CheckInstructionRecursive(int current_instruction,
+                                           RegisterUsageFlags use_def_flags) {
+    CHECK_LE(current_instruction, num_instructions_);
+    if (current_instruction == num_instructions_) {
+      // Reached end of intrinsic.
+      return;
+    }
+    if (instructions[current_instruction].CheckVisited(use_def_flags)) {
+      // Already visited this instruction with the same use_def state.
+      return;
+    }
+    instructions[current_instruction].SetVisited(use_def_flags);
+    instructions[current_instruction].ProcessInstructionUseDefs(use_def_flags);
+    if (instructions[current_instruction].is_unconditional_jump ||
+        instructions[current_instruction].is_conditional_jump) {
+      // Explore execution path given that jump is taken.
+      CheckInstructionRecursive(instructions[current_instruction].jump_target->index,
+                                use_def_flags);
+    }
+    if (instructions[current_instruction].is_unconditional_jump) {
+      return;
+    }
+    // Explore execution path given that we move to the next instruction.
+    CheckInstructionRecursive(current_instruction + 1, use_def_flags);
+  }
+
   constexpr void Bind(Label* label) {
     CHECK_EQ(label->bound, false);
-    intrinsic_is_non_linear = true;
-    label->index = current_instruction;
+    label->index = num_instructions_;
     label->bound = true;
   }
 
   constexpr Label* MakeLabel() {
+    intrinsic_is_non_linear = true;
     labels_[num_labels_] = {{num_labels_}};
     return &labels_[num_labels_++];
   }
@@ -690,10 +785,10 @@ class VerifierAssembler {
   constexpr void RegisterDef(Register reg) {
     if (reg.get_binding_kind() == intrinsics::bindings::kDef ||
         reg.get_binding_kind() == intrinsics::bindings::kDefEarlyClobber) {
-      register_usage_flags.UpdateIntrinsicDefineDefOrDefEarlyClobberReigster(reg.arg_no());
+      register_usage_flags.UpdateIntrinsicDefOrDefEarlyClobberRegister(reg.arg_no());
     }
     if (reg.get_binding_kind() == intrinsics::bindings::kDef) {
-      instructions[current_instruction].UpdateInstructionRegisterDef(RegisterIsFixed(reg));
+      instructions[num_instructions_].UpdateInstructionRegisterDef(RegisterIsFixed(reg));
       register_usage_flags.UpdateIntrinsicRegisterDef(RegisterIsFixed(reg));
     } else if (reg.get_binding_kind() == intrinsics::bindings::kDefEarlyClobber) {
       register_usage_flags.UpdateIntrinsicRegisterDefEarlyClobber(reg.arg_no(),
@@ -707,10 +802,10 @@ class VerifierAssembler {
   constexpr void RegisterDef(XMMRegister reg) {
     if (reg.get_binding_kind() == intrinsics::bindings::kDef ||
         reg.get_binding_kind() == intrinsics::bindings::kDefEarlyClobber) {
-      register_usage_flags.UpdateIntrinsicDefineDefOrDefEarlyClobberReigster(reg.arg_no());
+      register_usage_flags.UpdateIntrinsicDefOrDefEarlyClobberRegister(reg.arg_no());
     }
     if (reg.get_binding_kind() == intrinsics::bindings::kDef) {
-      instructions[current_instruction].UpdateInstructionXMMRegisterDef();
+      instructions[num_instructions_].UpdateInstructionXMMRegisterDef();
       register_usage_flags.UpdateIntrinsicXMMRegisterDef();
     } else if (reg.get_binding_kind() == intrinsics::bindings::kDefEarlyClobber) {
       register_usage_flags.UpdateIntrinsicXMMRegisterDefEarlyClobber(reg.arg_no());
@@ -722,7 +817,7 @@ class VerifierAssembler {
 
   constexpr void RegisterUse(Register reg) {
     if (reg.get_binding_kind() == intrinsics::bindings::kUse) {
-      instructions[current_instruction].UpdateInstructionRegisterUse(RegisterIsFixed(reg));
+      instructions[num_instructions_].UpdateInstructionRegisterUse(RegisterIsFixed(reg));
     }
     if (intrinsic_is_non_linear) {
       return;
@@ -739,7 +834,7 @@ class VerifierAssembler {
 
   constexpr void RegisterUse(XMMRegister reg) {
     if (reg.get_binding_kind() == intrinsics::bindings::kUse) {
-      instructions[current_instruction].UpdateInstructionXMMRegisterUse();
+      instructions[num_instructions_].UpdateInstructionXMMRegisterUse();
     }
     if (intrinsic_is_non_linear) {
       return;
@@ -761,7 +856,7 @@ class VerifierAssembler {
   constexpr void HandleDefOrDefEarlyClobberRegisterReset(RegisterType reg1, RegisterType reg2) {
     if (reg1 == reg2 && (reg1.get_binding_kind() == intrinsics::bindings::kDef ||
                          reg1.get_binding_kind() == intrinsics::bindings::kDefEarlyClobber)) {
-      register_usage_flags.UpdateIntrinsicDefineDefOrDefEarlyClobberReigster(reg1.arg_no());
+      register_usage_flags.UpdateIntrinsicDefOrDefEarlyClobberRegister(reg1.arg_no());
     }
   }
 
@@ -770,25 +865,25 @@ class VerifierAssembler {
                                                          XMMRegister reg3) {
     if (reg2 == reg3 && (reg1.get_binding_kind() == intrinsics::bindings::kDef ||
                          reg1.get_binding_kind() == intrinsics::bindings::kDefEarlyClobber)) {
-      register_usage_flags.UpdateIntrinsicDefineDefOrDefEarlyClobberReigster(reg1.arg_no());
+      register_usage_flags.UpdateIntrinsicDefOrDefEarlyClobberRegister(reg1.arg_no());
     }
   }
 
   constexpr void HandleConditionalJump([[maybe_unused]] const Label& label) {
-    instructions[current_instruction].is_conditional_jump = true;
-    instructions[current_instruction].jump_target = const_cast<Label*>(&label);
+    instructions[num_instructions_].is_conditional_jump = true;
+    instructions[num_instructions_].jump_target = const_cast<Label*>(&label);
   }
 
   constexpr void HandleUnconditionalJump([[maybe_unused]] const Label& label) {
-    instructions[current_instruction].is_unconditional_jump = true;
-    instructions[current_instruction].jump_target = const_cast<Label*>(&label);
+    instructions[num_instructions_].is_unconditional_jump = true;
+    instructions[num_instructions_].jump_target = const_cast<Label*>(&label);
   }
 
   constexpr void HandleUnconditionalJumpRegister() {
     FATAL("error: intrinsic does jump to register");
   }
 
-  constexpr void EndInstruction() { current_instruction++; }
+  constexpr void EndInstruction() { num_instructions_++; }
 
  private:
   // Time complexity of checking correct use/def register bindings for non linear intrinsics is 2^n.
@@ -798,7 +893,7 @@ class VerifierAssembler {
   Label labels_[kMaxLabels];
   size_t num_labels_ = 0;
 
-  int current_instruction = 0;
+  int num_instructions_ = 0;
   static constexpr int kMaxInstructions = 300;
   Instruction instructions[kMaxInstructions] = {};
 
