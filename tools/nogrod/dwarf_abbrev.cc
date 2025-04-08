@@ -765,7 +765,11 @@ class DwarfClassReference : public DwarfClass {
         offset = cu->unit_offset() + bs->ReadLeb128();
         break;
       case DW_FORM_ref_addr:
-        offset = cu->is_dwarf64() ? bs->ReadUint64() : bs->ReadUint32();
+        if (cu->version() <= 2) {
+          offset = cu->address_size() == 8 ? bs->ReadUint64() : bs->ReadUint32();
+        } else {
+          offset = cu->is_dwarf64() ? bs->ReadUint64() : bs->ReadUint32();
+        }
         break;
       // TODO(dimitry): DW_FORM_ref_sig8?
       default:
