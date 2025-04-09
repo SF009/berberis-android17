@@ -226,9 +226,8 @@ void GenerateTemporaries(FILE* out, int indent) {
     using RegisterClass = typename decltype(arg)::RegisterClass;
     if constexpr (!std::is_same_v<RegisterClass, intrinsics::bindings::FLAGS>) {
       if constexpr (!HaveInput(arg.arg_info) && !HaveOutput(arg.arg_info)) {
-        static_assert(
-            std::is_same_v<typename decltype(arg)::Usage, intrinsics::bindings::Def> ||
-            std::is_same_v<typename decltype(arg)::Usage, intrinsics::bindings::DefEarlyClobber>);
+        static_assert(decltype(arg)::kUsage == intrinsics::bindings::kDef ||
+                      decltype(arg)::kUsage == intrinsics::bindings::kDefEarlyClobber);
         fprintf(out,
                 "%*s%s tmp%zd;\n",
                 indent,
@@ -338,10 +337,9 @@ void GenerateAssemblerOuts(FILE* out, int indent) {
   IntrinsicBindingInfo::ProcessBindings([&outs, &tmp_id](auto arg) {
     using RegisterClass = typename decltype(arg)::RegisterClass;
     if constexpr (!std::is_same_v<RegisterClass, intrinsics::bindings::FLAGS> &&
-                  !std::is_same_v<typename decltype(arg)::Usage, intrinsics::bindings::Use>) {
+                  decltype(arg)::kUsage != intrinsics::bindings::kUse) {
       std::string out = "\"=";
-      if constexpr (std::is_same_v<typename decltype(arg)::Usage,
-                                   intrinsics::bindings::DefEarlyClobber>) {
+      if constexpr (decltype(arg)::kUsage == intrinsics::bindings::kDefEarlyClobber) {
         out += "&";
       }
       out += RegisterClass::kAsRegister;
@@ -370,7 +368,7 @@ void GenerateAssemblerIns(FILE* out,
   IntrinsicBindingInfo::ProcessBindings([&ins](auto arg) {
     using RegisterClass = typename decltype(arg)::RegisterClass;
     if constexpr (!std::is_same_v<RegisterClass, intrinsics::bindings::FLAGS> &&
-                  std::is_same_v<typename decltype(arg)::Usage, intrinsics::bindings::Use>) {
+                  decltype(arg)::kUsage == intrinsics::bindings::kUse) {
       ins.push_back("\"" + std::string(1, RegisterClass::kAsRegister) + "\"(in" +
                     std::to_string(arg.arg_info.from) +
                     (NeedInputShadow<IntrinsicBindingInfo>(arg) ? "_shadow)" : ")"));
@@ -388,7 +386,7 @@ void GenerateAssemblerIns(FILE* out,
     using RegisterClass = typename decltype(arg)::RegisterClass;
     if constexpr (!std::is_same_v<RegisterClass, intrinsics::bindings::FLAGS>) {
       if constexpr (HaveInput(arg.arg_info) &&
-                    !std::is_same_v<typename decltype(arg)::Usage, intrinsics::bindings::Use>) {
+                    decltype(arg)::kUsage != intrinsics::bindings::kUse) {
         ins.push_back("\"" + std::to_string(register_numbers[arg_counter]) + "\"(in" +
                       std::to_string(arg.arg_info.from) +
                       (NeedInputShadow<IntrinsicBindingInfo>(arg) ? "_shadow)" : ")"));

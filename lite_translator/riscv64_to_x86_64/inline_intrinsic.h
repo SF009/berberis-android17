@@ -341,7 +341,7 @@ class TryBindingBasedInlineIntrinsic {
       return std::tuple{std::get<arg_info.from>(input_args_)};
     } else {
       using RegisterClass = typename ArgTraits<ArgBinding>::RegisterClass;
-      using Usage = typename ArgTraits<ArgBinding>::Usage;
+      static constexpr auto kUsage = ArgTraits<ArgBinding>::kUsage;
       if constexpr (arg_info.arg_type == ArgInfo::IN_ARG) {
         using Type =
             std::tuple_element_t<arg_info.from, typename IntrinsicBindingInfo::InputArguments>;
@@ -350,14 +350,14 @@ class TryBindingBasedInlineIntrinsic {
           Mov<typename TypeTraits<int64_t>::Float>(as_, reg, std::get<arg_info.from>(input_args_));
           return std::tuple{reg};
         } else {
-          static_assert(std::is_same_v<Usage, intrinsics::bindings::Use>);
+          static_assert(kUsage == intrinsics::bindings::kUse);
           static_assert(!RegisterClass::kIsImplicitReg);
           return std::tuple{std::get<arg_info.from>(input_args_)};
         }
       } else if constexpr (arg_info.arg_type == ArgInfo::IN_OUT_ARG) {
         using Type =
             std::tuple_element_t<arg_info.from, typename IntrinsicBindingInfo::InputArguments>;
-        static_assert(std::is_same_v<Usage, intrinsics::bindings::UseDef>);
+        static_assert(kUsage == intrinsics::bindings::kUseDef);
         static_assert(!RegisterClass::kIsImplicitReg);
         if constexpr (RegisterClass::kAsRegister == 'x' && std::is_integral_v<Type>) {
           static_assert(std::is_integral_v<
@@ -383,7 +383,7 @@ class TryBindingBasedInlineIntrinsic {
               as_, as_.rax, std::get<arg_info.from>(input_args_));
           return std::tuple{};
         } else {
-          static_assert(std::is_same_v<Usage, intrinsics::bindings::UseDef>);
+          static_assert(kUsage == intrinsics::bindings::kUseDef);
           static_assert(!RegisterClass::kIsImplicitReg);
           auto reg = reg_alloc();
           Mov<std::tuple_element_t<arg_info.from, typename IntrinsicBindingInfo::InputArguments>>(
@@ -393,7 +393,7 @@ class TryBindingBasedInlineIntrinsic {
       } else if constexpr (arg_info.arg_type == ArgInfo::IN_OUT_TMP_ARG) {
         using Type =
             std::tuple_element_t<arg_info.from, typename IntrinsicBindingInfo::InputArguments>;
-        static_assert(std::is_same_v<Usage, intrinsics::bindings::UseDef>);
+        static_assert(kUsage == intrinsics::bindings::kUseDef);
         static_assert(RegisterClass::kIsImplicitReg);
         if constexpr (RegisterClass::kAsRegister == 'a') {
           CHECK_EQ(result_reg_, x86_64::Assembler::no_register);
@@ -406,8 +406,8 @@ class TryBindingBasedInlineIntrinsic {
       } else if constexpr (arg_info.arg_type == ArgInfo::OUT_ARG) {
         using Type =
             std::tuple_element_t<arg_info.to, typename IntrinsicBindingInfo::OutputArguments>;
-        static_assert(std::is_same_v<Usage, intrinsics::bindings::Def> ||
-                      std::is_same_v<Usage, intrinsics::bindings::DefEarlyClobber>);
+        static_assert(kUsage == intrinsics::bindings::kDef ||
+                      kUsage == intrinsics::bindings::kDefEarlyClobber);
         if constexpr (RegisterClass::kAsRegister == 'a') {
           CHECK_EQ(result_reg_, x86_64::Assembler::no_register);
           result_reg_ = as_.rax;
@@ -434,8 +434,8 @@ class TryBindingBasedInlineIntrinsic {
           static_assert(kDependentValueFalse<arg_info.arg_type>);
         }
       } else if constexpr (arg_info.arg_type == ArgInfo::TMP_ARG) {
-        static_assert(std::is_same_v<Usage, intrinsics::bindings::Def> ||
-                      std::is_same_v<Usage, intrinsics::bindings::DefEarlyClobber>);
+        static_assert(kUsage == intrinsics::bindings::kDef ||
+                      kUsage == intrinsics::bindings::kDefEarlyClobber);
         if constexpr (RegisterClass::kAsRegister == 'm') {
           if (scratch_arg_ >= config::kScratchAreaSize / config::kScratchAreaSlotSize) {
             FATAL("Only two scratch registers are supported for now");

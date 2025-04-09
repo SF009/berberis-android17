@@ -896,10 +896,10 @@ def _get_reg_operand_info(arg, info_prefix=None):
     using_info = ''
   else:
     using_info = ', %s::%s' % (info_prefix, {
-        'def': 'Def',
-        'def_early_clobber': 'DefEarlyClobber',
-        'use': 'Use',
-        'use_def': 'UseDef'
+        'def': 'kDef',
+        'def_early_clobber': 'kDefEarlyClobber',
+        'use': 'kUse',
+        'use_def': 'kUseDef'
     }[arg['usage']])
   if arg['usage'] == 'use':
     if need_tmp:
