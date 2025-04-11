@@ -962,6 +962,11 @@ std::optional<std::string> DwarfAttributeValue<std::string>::StringValue() const
 }
 
 template <>
+std::optional<uint64_t> DwarfAttributeValue<int64_t>::Uint64Value() const {
+  return value_;
+}
+
+template <>
 std::optional<uint64_t> DwarfAttributeValue<uint64_t>::Uint64Value() const {
   return value_;
 }
