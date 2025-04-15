@@ -339,19 +339,17 @@ void OptimizeReadFlags(MachineIR* machine_ir) {
 //
 // Note this ideally only be used for small vectors as it's O(n^2).
 bool RemoveRegs(MachineRegVector& remove_from_regs, const MachineRegVector& regs_to_remove) {
-  bool ret = false;
-  if (remove_from_regs.empty()) {
-    return ret;
-  }
-  auto it = remove_from_regs.end();
-  do {
-    it--;
-    if (Contains(regs_to_remove, *it)) {
-      it = remove_from_regs.erase(it);
-      ret = true;
+  auto orig_size = remove_from_regs.size();
+  for (auto rit = remove_from_regs.rbegin(); rit != remove_from_regs.rend();
+       /* Incremented in loop */) {
+    if (Contains(regs_to_remove, *rit)) {
+      // erase only takes forward iterator so we create one from rit.
+      rit = EraseFromReverseIterator(remove_from_regs, rit);
+    } else {
+      rit++;
     }
-  } while (it != remove_from_regs.begin());
-  return ret;
+  }
+  return orig_size != remove_from_regs.size();
 }
 
 // Removes the READFLAGS instruction, finds the instruction which generated the
