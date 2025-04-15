@@ -41,10 +41,6 @@ bool CheckRegsUnusedWithinInsnRange(MachineInsnList::iterator insn_it,
 bool CheckPostLoopNode(MachineBasicBlock* block, const MachineRegVector& regs);
 bool CheckSuccessorNode(Loop* loop, MachineBasicBlock* block, MachineRegVector& regs);
 std::optional<InsnGenerator> GetInsnGen(MachineOpcode opcode);
-bool RegsLiveInBasicBlock(MachineBasicBlock* bb, const MachineRegVector& regs);
-void FindEligibleReadFlagsInLoopTree(MachineIR* machine_ir,
-                                     LoopTreeNode* loop_tree_node,
-                                     ArenaMap<MachineReg, ReadFlagsOptContext>& read_flags_map);
 std::optional<MachineInsnList::iterator> FindFlagSettingInsn(MachineInsnList::iterator insn_it,
                                                              MachineInsnList::iterator begin,
                                                              MachineReg reg);
@@ -58,6 +54,8 @@ std::optional<MachineInsnList::iterator> IsEligibleReadFlag(MachineIR* machine_i
                                                             MachineBasicBlock* bb,
                                                             MachineInsnList::iterator insn_it);
 void OptimizeReadFlags(MachineIR* machine_ir);
+bool RegsLiveInBasicBlock(MachineBasicBlock* bb, const MachineRegVector& regs);
+void RemoveEligibleReadFlagsInLoopTree(MachineIR* machine_ir, LoopTreeNode* loop_tree_node);
 void RemoveReadFlags(MachineIR* machine_ir, ReadFlagsOptContext context);
 bool RemoveRegs(MachineRegVector& remove_from_regs, const MachineRegVector& regs_to_remove);
 // Note flags_regs must not be a reference because we update it with new flag

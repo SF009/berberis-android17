@@ -164,16 +164,12 @@ std::optional<InsnGenerator> GetInsnGen(MachineOpcode opcode) {
   }
 }
 
-// Finds all read flags we can optimize away and adds them to read_flags_map
-// with the basic block where it's found.
-void FindEligibleReadFlagsInLoopTree(MachineIR* machine_ir,
-                                     LoopTreeNode* loop_tree_node,
-                                     ArenaMap<MachineReg, ReadFlagsOptContext>& read_flags_map) {
-  if (loop_tree_node->loop() == nullptr || loop_tree_node->NumInnerloops() > 0) {
+// Finds all read flags we can optimize away and removes them.
+void RemoveEligibleReadFlagsInLoopTree(MachineIR* machine_ir, LoopTreeNode* loop_tree_node) {
+  if (loop_tree_node->NumInnerloops() > 0) {
     // Find inner loops.
     for (size_t i = 0; i < loop_tree_node->NumInnerloops(); i++) {
-      FindEligibleReadFlagsInLoopTree(
-          machine_ir, loop_tree_node->GetInnerloopNode(i), read_flags_map);
+      RemoveEligibleReadFlagsInLoopTree(machine_ir, loop_tree_node->GetInnerloopNode(i));
     }
   } else if (loop_tree_node->loop() == nullptr) {
     // Root loop without innerloops - nothing can be found.
@@ -186,8 +182,7 @@ void FindEligibleReadFlagsInLoopTree(MachineIR* machine_ir,
         if (AsMachineInsnX86_64(*insn_it)->opcode() == kMachineOpPseudoReadFlags) {
           auto flag_set_opt = IsEligibleReadFlag(machine_ir, loop, bb, insn_it);
           if (flag_set_opt.has_value()) {
-            read_flags_map[(*insn_it)->RegAt(0)] =
-                ReadFlagsOptContext{bb, insn_it, flag_set_opt.value()};
+            RemoveReadFlags(machine_ir, ReadFlagsOptContext{bb, insn_it, flag_set_opt.value()});
           }
         }
       }
@@ -326,12 +321,7 @@ std::optional<MachineInsnList::iterator> IsEligibleReadFlag(MachineIR* machine_i
 
 void OptimizeReadFlags(MachineIR* machine_ir) {
   auto loop_tree = BuildLoopTree(machine_ir);
-  ArenaMap<MachineReg, ReadFlagsOptContext> read_flags_map(machine_ir->arena());
-
-  FindEligibleReadFlagsInLoopTree(machine_ir, loop_tree.root(), read_flags_map);
-  for (auto [_, ctx] : read_flags_map) {
-    RemoveReadFlags(machine_ir, ctx);
-  }
+  RemoveEligibleReadFlagsInLoopTree(machine_ir, loop_tree.root());
 }
 
 // Removes all elements of regs_to_remove from remove_from_regs. Returns true if anything was

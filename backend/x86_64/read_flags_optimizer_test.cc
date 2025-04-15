@@ -536,16 +536,16 @@ TEST(MachineIRReadFlagsOptimizer, FindFlagSettingInsn) {
   ASSERT_FALSE(flag_setter.has_value());
 }
 
-TEST(MachineIRReadFlagsOptimizer, FindEligibleReadFlagsInLoopTree) {
+TEST(MachineIRReadFlagsOptimizer, RemoveEligibleReadFlagsInLoopTree) {
   Arena arena;
   x86_64::MachineIR machine_ir(&arena);
   x86_64::MachineIRBuilder builder(&machine_ir);
 
   MachineReg scratch = machine_ir.AllocVReg();
-  // flags0 used in bb1 which is not in inner loop so should fail.
+  // flags0 used in bb1 which is not in inner loop so should not be removed..
   MachineReg flags0 = machine_ir.AllocVReg();
   MachineReg flags00 = machine_ir.AllocVReg();
-  // flags1 used in bb3 should pass.
+  // flags1 used in bb3 should be removed..
   MachineReg flags1 = machine_ir.AllocVReg();
   MachineReg flags11 = machine_ir.AllocVReg();
 
@@ -599,11 +599,15 @@ TEST(MachineIRReadFlagsOptimizer, FindEligibleReadFlagsInLoopTree) {
 
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
   auto loop_tree = BuildLoopTree(&machine_ir);
-  ArenaMap<MachineReg, ReadFlagsOptContext> read_flags_map(machine_ir.arena());
-  FindEligibleReadFlagsInLoopTree(&machine_ir, loop_tree.root(), read_flags_map);
+  RemoveEligibleReadFlagsInLoopTree(&machine_ir, loop_tree.root());
 
-  ASSERT_FALSE(read_flags_map.contains(flags0));
-  ASSERT_TRUE(read_flags_map.contains(flags1));
+  // flags0 should still be there since it's not eligible.
+  auto insn_it = std::next(bb1->insn_list().begin());
+  ASSERT_EQ((*insn_it)->opcode(), kMachineOpPseudoReadFlags);
+
+  // pseudoreadflags flags1 should be removed.
+  insn_it = std::next(bb3->insn_list().begin());
+  ASSERT_NE((*insn_it)->opcode(), kMachineOpPseudoReadFlags);
 }
 
 TEST(MachineIRReadFlagsOptimizer, OptimizeReadFlags) {
