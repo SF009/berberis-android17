@@ -228,7 +228,54 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldRedundantMovl(
   }
 }
 
-std::tuple<bool, MachineInsn*> InsnFolding::TryFoldInsn(const MachineInsnList::iterator insn_it) {
+std::tuple<bool, MachineInsn*> InsnFolding::TryFoldCountLeadingZeroes(
+    MachineInsnList::iterator insn_it,
+    const MachineBasicBlock* bb) {
+  const MachineInsn* insn = *insn_it;
+  CHECK_EQ(insn->opcode(), kMachineOpLzcntqRegReg);
+  MachineReg clz_src_reg = insn->RegAt(1);
+  auto [def_insn_it, def_insn_pos] = def_map_.Get(clz_src_reg);
+  while (true) {
+    if (!def_insn_it.has_value()) {
+      return {false, nullptr};
+    }
+    const MachineInsn* def_insn = *def_insn_it.value();
+    int opcode = def_insn->opcode();
+    if (opcode == kMachineOpPseudoCopy) {
+      clz_src_reg = def_insn->RegAt(1);
+      std::tie(def_insn_it, def_insn_pos) = def_map_.Get(clz_src_reg, def_insn_pos);
+      continue;
+    } else if (opcode == kMachineOpMacroReverseBitsU64) {
+      break;
+    }
+    return {false, nullptr};
+  }
+  if (def_insn_it == bb->insn_list().begin()) {
+    return {false, nullptr};
+  }
+  const MachineInsn* reverse_bits_insn = *def_insn_it.value();
+  MachineInsnList::iterator insn_before_reverse_bits_it = std::prev(def_insn_it.value());
+  const MachineInsn* insn_before_reverse_bits = *insn_before_reverse_bits_it;
+  if (insn_before_reverse_bits->opcode() != kMachineOpPseudoCopy) {
+    return {false, nullptr};
+  }
+  const MachineInsn* pseudo_copy = insn_before_reverse_bits;
+  if (pseudo_copy->RegAt(0) != reverse_bits_insn->RegAt(1) ||
+      pseudo_copy->RegAt(0) == pseudo_copy->RegAt(1)) {
+    return {false, nullptr};
+  }
+  // If ReverseBits insn or any insn after overwrites pseudo_copy->RegAt(1), this will return
+  // std::nullopt.
+  if (std::get<0>(def_map_.Get(pseudo_copy->RegAt(1), def_insn_pos)) == std::nullopt) {
+    return {false, nullptr};
+  }
+  return {
+      true,
+      machine_ir_->NewInsn<TzcntqRegReg>(insn->RegAt(0), pseudo_copy->RegAt(1), insn->RegAt(2))};
+}
+
+std::tuple<bool, MachineInsn*> InsnFolding::TryFoldInsn(const MachineInsnList::iterator insn_it,
+                                                        const MachineBasicBlock* bb) {
   const MachineInsn* insn = *insn_it;
   switch (insn->opcode()) {
     case kMachineOpMovqMemBaseDispReg:
@@ -263,6 +310,8 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldInsn(const MachineInsnList::i
       }
       break;
     }
+    case kMachineOpLzcntqRegReg:
+      return TryFoldCountLeadingZeroes(insn_it, bb);
     default:
       return {false, nullptr};
   }
@@ -275,9 +324,8 @@ void FoldInsns(MachineIR* machine_ir) {
     def_map.Initialize();
     InsnFolding insn_folding(def_map, machine_ir);
     MachineInsnList& insn_list = bb->insn_list();
-
     for (auto insn_it = insn_list.begin(); insn_it != insn_list.end();) {
-      auto [is_folded, new_insn] = insn_folding.TryFoldInsn(insn_it);
+      auto [is_folded, new_insn] = insn_folding.TryFoldInsn(insn_it, bb);
 
       if (is_folded) {
         insn_it = insn_list.erase(insn_it);
