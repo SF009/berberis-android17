@@ -232,17 +232,17 @@ void Mov(x86_64::MachineIRBuilder* builder, MachineReg dest, MachineReg src) {
 template <typename DestRegClass, typename SrcReg>
 void MovFromInput(x86_64::MachineIRBuilder* builder, MachineReg dest, SrcReg src) {
   if constexpr (std::is_same_v<SrcReg, SimdReg>) {
-    Mov<DestRegClass, intrinsics::bindings::XmmReg>(builder, dest, src.machine_reg());
+    Mov<DestRegClass, machine_insn_info::XmmReg>(builder, dest, src.machine_reg());
   } else {
-    Mov<DestRegClass, intrinsics::bindings::GeneralReg64>(builder, dest, src);
+    Mov<DestRegClass, machine_insn_info::GeneralReg64>(builder, dest, src);
   }
 }
 template <typename SrcRegClass, typename DestReg>
 void MovToResult(x86_64::MachineIRBuilder* builder, DestReg dest, MachineReg src) {
   if constexpr (std::is_same_v<DestReg, SimdReg>) {
-    Mov<intrinsics::bindings::XmmReg, SrcRegClass>(builder, dest.machine_reg(), src);
+    Mov<machine_insn_info::XmmReg, SrcRegClass>(builder, dest.machine_reg(), src);
   } else {
-    Mov<intrinsics::bindings::GeneralReg64, SrcRegClass>(builder, dest, src);
+    Mov<machine_insn_info::GeneralReg64, SrcRegClass>(builder, dest, src);
   }
 }
 
@@ -328,28 +328,27 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
     static_assert(std::is_same_v<typename IntrinsicBindingInfo::PreciseNanOperationsHandling,
                                  intrinsics::bindings::NoNansOperation>);
     using CPUIDRestriction = IntrinsicBindingInfo::CPUIDRestriction;
-    if constexpr (std::is_same_v<CPUIDRestriction, intrinsics::bindings::HasAVX>) {
+    if constexpr (std::is_same_v<CPUIDRestriction, machine_insn_info::HasAVX>) {
       if (!host_platform::kHasAVX) {
         return {};
       }
-    } else if constexpr (std::is_same_v<CPUIDRestriction, intrinsics::bindings::HasBMI>) {
+    } else if constexpr (std::is_same_v<CPUIDRestriction, machine_insn_info::HasBMI>) {
       if (!host_platform::kHasBMI) {
         return {};
       }
-    } else if constexpr (std::is_same_v<CPUIDRestriction, intrinsics::bindings::HasFMA>) {
+    } else if constexpr (std::is_same_v<CPUIDRestriction, machine_insn_info::HasFMA>) {
       if (!host_platform::kHasFMA) {
         return {};
       }
-    } else if constexpr (std::is_same_v<CPUIDRestriction, intrinsics::bindings::HasLZCNT>) {
+    } else if constexpr (std::is_same_v<CPUIDRestriction, machine_insn_info::HasLZCNT>) {
       if (!host_platform::kHasLZCNT) {
         return {};
       }
-    } else if constexpr (std::is_same_v<CPUIDRestriction, intrinsics::bindings::HasPOPCNT>) {
+    } else if constexpr (std::is_same_v<CPUIDRestriction, machine_insn_info::HasPOPCNT>) {
       if (!host_platform::kHasPOPCNT) {
         return {};
       }
-    } else if constexpr (std::is_same_v<CPUIDRestriction,
-                                        intrinsics::bindings::NoCPUIDRestriction>) {
+    } else if constexpr (std::is_same_v<CPUIDRestriction, machine_insn_info::NoCPUIDRestriction>) {
       // No restrictions. Do nothing.
     } else {
       static_assert(berberis::kDependentValueFalse<IntrinsicBindingInfo::kCPUIDRestriction>);
@@ -384,7 +383,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
         std::tuple_size_v<typename IntrinsicBindingInfo::OutputArguments>;
 
     if constexpr (arg_info.arg_type == ArgInfo::IN_ARG) {
-      static_assert(kUsage == intrinsics::bindings::kUse);
+      static_assert(kUsage == machine_insn_info::kUse);
       static_assert(!RegisterClass::kIsImplicitReg);
       if constexpr (RegisterClass::kAsRegister == 'x' &&
                     std::is_same_v<std::tuple_element_t<arg_info.from, std::tuple<ArgType...>>,
@@ -397,7 +396,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
       }
     } else if constexpr (arg_info.arg_type == ArgInfo::IN_OUT_ARG) {
       static_assert(!std::is_same_v<ResType, std::monostate>);
-      static_assert(kUsage == intrinsics::bindings::kUseDef);
+      static_assert(kUsage == machine_insn_info::kUseDef);
       static_assert(!RegisterClass::kIsImplicitReg);
       if constexpr (RegisterClass::kAsRegister == 'x') {
         if constexpr (kNumOut > 1) {
@@ -419,7 +418,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
       }
     } else if constexpr (arg_info.arg_type == ArgInfo::IN_OUT_TMP_ARG) {
       static_assert(!std::is_same_v<ResType, std::monostate>);
-      static_assert(kUsage == intrinsics::bindings::kUseDef);
+      static_assert(kUsage == machine_insn_info::kUseDef);
       static_assert(RegisterClass::kIsImplicitReg);
       if constexpr (kNumOut > 1) {
         static_assert(kDependentTypeFalse<ArgTraits<ArgBinding, OperandInfo>>);
@@ -436,7 +435,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
         MovFromInput<RegisterClass>(builder_, implicit_reg, std::get<arg_info.from>(input_args_));
         return std::tuple{implicit_reg};
       } else {
-        static_assert(kUsage == intrinsics::bindings::kUseDef);
+        static_assert(kUsage == machine_insn_info::kUseDef);
         return std::tuple{std::get<arg_info.from>(input_args_)};
       }
     } else if constexpr (arg_info.arg_type == ArgInfo::OUT_TMP_ARG) {
@@ -449,8 +448,8 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
       }
     } else if constexpr (arg_info.arg_type == ArgInfo::OUT_ARG) {
       static_assert(!std::is_same_v<ResType, std::monostate>);
-      static_assert(kUsage == intrinsics::bindings::kDef ||
-                    kUsage == intrinsics::bindings::kDefEarlyClobber);
+      static_assert(kUsage == machine_insn_info::kDef ||
+                    kUsage == machine_insn_info::kDefEarlyClobber);
       if constexpr (RegisterClass::kAsRegister == 'x') {
         CHECK(xmm_result_reg_.IsInvalidReg());
         xmm_result_reg_ = AllocVReg();
@@ -469,10 +468,10 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
         return std::tuple{result_};
       }
     } else if constexpr (arg_info.arg_type == ArgInfo::TMP_ARG) {
-      static_assert(kUsage == intrinsics::bindings::kDef ||
-                    kUsage == intrinsics::bindings::kDefEarlyClobber);
+      static_assert(kUsage == machine_insn_info::kDef ||
+                    kUsage == machine_insn_info::kDefEarlyClobber);
       if constexpr (RegisterClass::kAsRegister == 'm') {
-        static_assert(kUsage == intrinsics::bindings::kDefEarlyClobber);
+        static_assert(kUsage == machine_insn_info::kDefEarlyClobber);
         if (scratch_arg_ >= 2) {
           FATAL("Only two scratch registers are supported for now");
         }

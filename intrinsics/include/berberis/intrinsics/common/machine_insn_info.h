@@ -19,7 +19,7 @@
 
 #include <cstdint>
 
-namespace berberis::intrinsics::bindings {
+namespace berberis::machine_insn_info {
 
 class FLAGS {
  public:
@@ -80,6 +80,6 @@ class OperandInfo {
 // bindings.
 class NoCPUIDRestriction;  // All CPUs have at least “no CPUID restriction” mode.
 
-}  // namespace berberis::intrinsics::bindings
+}  // namespace berberis::machine_insn_info
 
 #endif  // BERBERIS_INTRINSICS_COMMON_MACHINE_INSN_INFO_H_

@@ -146,7 +146,7 @@ template <typename ArgInfo, typename OperandInfo>
 class ArgTraits;
 
 template <int N, typename RegisterClassType, auto kUsageParam>
-class ArgTraits<InArg<N>, intrinsics::bindings::OperandInfo<RegisterClassType, kUsageParam>> {
+class ArgTraits<InArg<N>, machine_insn_info::OperandInfo<RegisterClassType, kUsageParam>> {
  public:
   using Class = RegisterClassType;
   using RegisterClass = RegisterClassType;
@@ -155,7 +155,7 @@ class ArgTraits<InArg<N>, intrinsics::bindings::OperandInfo<RegisterClassType, k
 };
 
 template <int N, typename RegisterClassType, auto kUsageParam>
-class ArgTraits<OutArg<N>, intrinsics::bindings::OperandInfo<RegisterClassType, kUsageParam>> {
+class ArgTraits<OutArg<N>, machine_insn_info::OperandInfo<RegisterClassType, kUsageParam>> {
  public:
   using Class = RegisterClassType;
   using RegisterClass = RegisterClassType;
@@ -164,7 +164,7 @@ class ArgTraits<OutArg<N>, intrinsics::bindings::OperandInfo<RegisterClassType, 
 };
 
 template <int N, typename RegisterClassType, auto kUsageParam>
-class ArgTraits<OutTmpArg<N>, intrinsics::bindings::OperandInfo<RegisterClassType, kUsageParam>> {
+class ArgTraits<OutTmpArg<N>, machine_insn_info::OperandInfo<RegisterClassType, kUsageParam>> {
  public:
   using Class = RegisterClassType;
   using RegisterClass = RegisterClassType;
@@ -173,7 +173,7 @@ class ArgTraits<OutTmpArg<N>, intrinsics::bindings::OperandInfo<RegisterClassTyp
 };
 
 template <int N, int M, typename RegisterClassType, auto kUsageParam>
-class ArgTraits<InOutArg<N, M>, intrinsics::bindings::OperandInfo<RegisterClassType, kUsageParam>> {
+class ArgTraits<InOutArg<N, M>, machine_insn_info::OperandInfo<RegisterClassType, kUsageParam>> {
  public:
   using Class = RegisterClassType;
   using RegisterClass = RegisterClassType;
@@ -182,8 +182,7 @@ class ArgTraits<InOutArg<N, M>, intrinsics::bindings::OperandInfo<RegisterClassT
 };
 
 template <int N, int M, typename RegisterClassType, auto kUsageParam>
-class ArgTraits<InOutTmpArg<N, M>,
-                intrinsics::bindings::OperandInfo<RegisterClassType, kUsageParam>> {
+class ArgTraits<InOutTmpArg<N, M>, machine_insn_info::OperandInfo<RegisterClassType, kUsageParam>> {
  public:
   using Class = RegisterClassType;
   using RegisterClass = RegisterClassType;
@@ -192,7 +191,7 @@ class ArgTraits<InOutTmpArg<N, M>,
 };
 
 template <int N, typename RegisterClassType, auto kUsageParam>
-class ArgTraits<InTmpArg<N>, intrinsics::bindings::OperandInfo<RegisterClassType, kUsageParam>> {
+class ArgTraits<InTmpArg<N>, machine_insn_info::OperandInfo<RegisterClassType, kUsageParam>> {
  public:
   using Class = RegisterClassType;
   using RegisterClass = RegisterClassType;
@@ -202,7 +201,7 @@ class ArgTraits<InTmpArg<N>, intrinsics::bindings::OperandInfo<RegisterClassType
 
 template <int N, typename ImmediateClassType>
 class ArgTraits<ImmArg<N>,
-                intrinsics::bindings::OperandInfo<ImmediateClassType, intrinsics::bindings::kUse>> {
+                machine_insn_info::OperandInfo<ImmediateClassType, machine_insn_info::kUse>> {
  public:
   using Class = ImmediateClassType;
   using ImmediateClass = ImmediateClassType;
@@ -210,7 +209,7 @@ class ArgTraits<ImmArg<N>,
 };
 
 template <typename RegisterClassType, auto kUsageParam>
-class ArgTraits<TmpArg, intrinsics::bindings::OperandInfo<RegisterClassType, kUsageParam>> {
+class ArgTraits<TmpArg, machine_insn_info::OperandInfo<RegisterClassType, kUsageParam>> {
  public:
   using Class = RegisterClassType;
   using RegisterClass = RegisterClassType;

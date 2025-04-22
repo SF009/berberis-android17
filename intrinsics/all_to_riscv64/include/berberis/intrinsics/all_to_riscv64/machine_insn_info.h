@@ -22,7 +22,7 @@
 #include "berberis/assembler/riscv.h"
 #include "berberis/intrinsics/common/machine_insn_info.h"
 
-namespace berberis::intrinsics::bindings {
+namespace berberis::machine_insn_info {
 
 class BImm {
  public:
@@ -92,6 +92,6 @@ class UImm {
 // bindings.
 class NoCPUIDRestriction;
 
-}  // namespace berberis::intrinsics::bindings
+}  // namespace berberis::machine_insn_info
 
 #endif  // BERBERIS_INTRINSICS_COMMON_TO_RISCV_MACHINE_INSN_INFO_H_

@@ -52,8 +52,7 @@ class VerifierAssembler {
    public:
     constexpr Register() : arg_no_(kNoRegister) {}
     constexpr Register(int arg_no) : arg_no_(arg_no) {}
-    constexpr Register(int arg_no,
-                       [[maybe_unused]] intrinsics::bindings::RegBindingKind binding_kind)
+    constexpr Register(int arg_no, [[maybe_unused]] machine_insn_info::RegBindingKind binding_kind)
         : arg_no_(arg_no) {}
 
     int arg_no() const {
@@ -201,7 +200,7 @@ class VerifierAssembler {
  protected:
   template <typename CPUIDRestriction>
   static constexpr const char* CPUIDRestrictionToString() {
-    if constexpr (std::is_same_v<CPUIDRestriction, intrinsics::bindings::NoCPUIDRestriction>) {
+    if constexpr (std::is_same_v<CPUIDRestriction, machine_insn_info::NoCPUIDRestriction>) {
       return nullptr;
     } else {
       static_assert(kDependentTypeFalse<CPUIDRestriction>);

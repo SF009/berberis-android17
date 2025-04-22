@@ -23,7 +23,7 @@
 
 #include "berberis/intrinsics/common/machine_insn_info.h"
 
-namespace berberis::intrinsics::bindings {
+namespace berberis::machine_insn_info {
 
 class Imm2 {
  public:
@@ -339,6 +339,6 @@ class HasX87;
 class HasCustomCapability;
 class IsAuthenticAMD;
 
-}  // namespace berberis::intrinsics::bindings
+}  // namespace berberis::machine_insn_info
 
 #endif  // BERBERIS_INTRINSICS_ALL_TO_X86_32_OR_x86_64_MACHINE_INSN_INFO_H_

@@ -70,7 +70,7 @@ struct ConstructorArg<ArgTraits<T, O>,
                       std::enable_if_t<!ArgTraits<T, O>::Class::kIsImmediate &&
                                            ArgTraits<T, O>::RegisterClass::kAsRegister == 'm',
                                        void>> {
-  static_assert(ArgTraits<T, O>::kUsage == intrinsics::bindings::kDefEarlyClobber);
+  static_assert(ArgTraits<T, O>::kUsage == machine_insn_info::kDefEarlyClobber);
   // Need to emit base register AND disp.
   using type = std::tuple<MachineReg, int32_t>;
 };
@@ -237,7 +237,7 @@ class MachineInsn<intrinsics::bindings::IntrinsicBindingInfo<kIntrinsic,
                                    Binding::RegisterClass::kAsRegister == 'q') {
                 return std::tuple{GetGReg(this->RegAt(reg_idx++))};
               } else if constexpr (Binding::RegisterClass::kAsRegister == 'm' &&
-                                   Binding::kUsage == intrinsics::bindings::kDefEarlyClobber) {
+                                   Binding::kUsage == machine_insn_info::kDefEarlyClobber) {
                 disp_idx++;
                 if (disp_idx == 1) {
                   return std::tuple{Assembler::Operand{.base = GetGReg(this->RegAt(reg_idx++)),
@@ -319,17 +319,17 @@ class MachineInsn<intrinsics::bindings::IntrinsicBindingInfo<kIntrinsic,
     static constexpr auto kRegClass = &T::RegisterClass::template kRegClass<MachineInsnX86_64>;
     static constexpr auto kRegKind = static_cast<MachineRegKind::StandardAccess>(T::kUsage);
     static_assert(MachineRegKind::kDef ==
-                  static_cast<MachineRegKind::StandardAccess>(intrinsics::bindings::kDef));
-    static_assert(MachineRegKind::kDefEarlyClobber == static_cast<MachineRegKind::StandardAccess>(
-                                                          intrinsics::bindings::kDefEarlyClobber));
+                  static_cast<MachineRegKind::StandardAccess>(machine_insn_info::kDef));
+    static_assert(MachineRegKind::kDefEarlyClobber ==
+                  static_cast<MachineRegKind::StandardAccess>(machine_insn_info::kDefEarlyClobber));
     static_assert(MachineRegKind::kUse ==
-                  static_cast<MachineRegKind::StandardAccess>(intrinsics::bindings::kUse));
+                  static_cast<MachineRegKind::StandardAccess>(machine_insn_info::kUse));
     static_assert(MachineRegKind::kUseDef ==
-                  static_cast<MachineRegKind::StandardAccess>(intrinsics::bindings::kUseDef));
+                  static_cast<MachineRegKind::StandardAccess>(machine_insn_info::kUseDef));
   };
   template <typename T>
   struct RegInfo<T, std::enable_if_t<T::RegisterClass::kAsRegister == 'm', void>> {
-    static_assert(T::kUsage == intrinsics::bindings::kDefEarlyClobber);
+    static_assert(T::kUsage == machine_insn_info::kDefEarlyClobber);
     static constexpr auto kRegClass = &kGeneralReg32;
     static constexpr auto kRegKind = MachineRegKind::kUse;
   };

@@ -891,7 +891,7 @@ def _get_reg_operand_info(arg, info_prefix=None):
     if  info_prefix is None:
       return 'ImmArg<%d, int8_t>' % (arg['ir_arg'])
     else:
-      return 'ImmArg<%d>, intrinsics::bindings::OperandInfo<%s, %s::kUse>' % (
+      return 'ImmArg<%d>, machine_insn_info::OperandInfo<%s, %s::kUse>' % (
          arg['ir_arg'], class_info, info_prefix)
   if info_prefix is None:
     using_info = ''
@@ -905,7 +905,7 @@ def _get_reg_operand_info(arg, info_prefix=None):
   if info_prefix is None:
     operand_info = ''
   else:
-    operand_info = ', intrinsics::bindings::OperandInfo<%s%s>' % (
+    operand_info = ', machine_insn_info::OperandInfo<%s%s>' % (
         class_info, using_info)
   if arg['usage'] == 'use':
     if need_tmp:
@@ -1109,12 +1109,12 @@ def _gen_c_intrinsic(name,
   if not check_compatible_assembler(asm):
     return
 
-  cpuid_restriction = 'intrinsics::bindings::NoCPUIDRestriction'
+  cpuid_restriction = 'machine_insn_info::NoCPUIDRestriction'
   if 'feature' in asm:
     if asm['feature'] == 'AuthenticAMD':
-      cpuid_restriction = 'intrinsics::bindings::IsAuthenticAMD'
+      cpuid_restriction = 'machine_insn_info::IsAuthenticAMD'
     else:
-      cpuid_restriction = 'intrinsics::bindings::Has%s' % asm['feature']
+      cpuid_restriction = 'machine_insn_info::Has%s' % asm['feature']
 
   nan_restriction = 'intrinsics::bindings::NoNansOperation'
   if 'nan' in asm:
@@ -1161,7 +1161,7 @@ def _gen_c_intrinsic(name,
          'true' if _intr_has_side_effects(intr) else 'false',
          _get_c_type_tuple(intr['in']),
          _get_c_type_tuple(intr['out']),
-         _get_reg_operands_info(asm['args'], 'intrinsics::bindings')]))
+         _get_reg_operands_info(asm['args'], 'machine_insn_info')]))
   if check_compatible_assembler == _is_translator_compatible_assembler:
     yield '          std::forward<Args>(args)...); result.has_value()) {'
     yield '      return *std::move(result);'

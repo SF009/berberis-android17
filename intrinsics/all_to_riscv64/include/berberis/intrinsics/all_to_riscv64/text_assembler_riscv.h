@@ -283,7 +283,7 @@ class TextAssembler {
  protected:
   template <typename CPUIDRestriction>
   static constexpr const char* CPUIDRestrictionToString() {
-    if constexpr (std::is_same_v<CPUIDRestriction, intrinsics::bindings::NoCPUIDRestriction>) {
+    if constexpr (std::is_same_v<CPUIDRestriction, machine_insn_info::NoCPUIDRestriction>) {
       return nullptr;
     } else {
       static_assert(kDependentTypeFalse<CPUIDRestriction>);

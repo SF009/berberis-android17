@@ -107,8 +107,8 @@ constexpr void AssignRegisterNumbers(int* register_numbers) {
   IntrinsicBindingInfo::ProcessBindings([&id, &arg_counter, &register_numbers](auto arg) {
     if constexpr (!IsImmediate(decltype(arg)::arg_info)) {
       using RegisterClass = typename decltype(arg)::RegisterClass;
-      if constexpr (!std::is_same_v<RegisterClass, intrinsics::bindings::FLAGS>) {
-        if constexpr (decltype(arg)::kUsage != intrinsics::bindings::kUse) {
+      if constexpr (!std::is_same_v<RegisterClass, machine_insn_info::FLAGS>) {
+        if constexpr (decltype(arg)::kUsage != machine_insn_info::kUse) {
           register_numbers[arg_counter] = id++;
         }
         ++arg_counter;
@@ -120,8 +120,8 @@ constexpr void AssignRegisterNumbers(int* register_numbers) {
   IntrinsicBindingInfo::ProcessBindings([&id, &arg_counter, &register_numbers](auto arg) {
     if constexpr (!IsImmediate(decltype(arg)::arg_info)) {
       using RegisterClass = typename decltype(arg)::RegisterClass;
-      if constexpr (!std::is_same_v<RegisterClass, intrinsics::bindings::FLAGS>) {
-        if constexpr (decltype(arg)::kUsage == intrinsics::bindings::kUse) {
+      if constexpr (!std::is_same_v<RegisterClass, machine_insn_info::FLAGS>) {
+        if constexpr (decltype(arg)::kUsage == machine_insn_info::kUse) {
           register_numbers[arg_counter] = id++;
         }
         ++arg_counter;
@@ -136,7 +136,7 @@ constexpr bool CheckIntrinsicHasFlagsBinding() {
   AsmCallInfo::ProcessBindings([&expect_flags](auto arg) constexpr {
     if constexpr (!IsImmediate(decltype(arg)::arg_info)) {
       using RegisterClass = typename decltype(arg)::RegisterClass;
-      if constexpr (std::is_same_v<RegisterClass, intrinsics::bindings::FLAGS>) {
+      if constexpr (std::is_same_v<RegisterClass, machine_insn_info::FLAGS>) {
         expect_flags = true;
       }
     }
@@ -150,7 +150,7 @@ constexpr void CallVerifierAssembler(AssemblerType* as, int* register_numbers) {
   IntrinsicBindingInfo::ProcessBindings([&arg_counter, &as, register_numbers](auto arg) {
     if constexpr (!IsImmediate(decltype(arg)::arg_info)) {
       using RegisterClass = typename decltype(arg)::RegisterClass;
-      if constexpr (!std::is_same_v<RegisterClass, intrinsics::bindings::FLAGS>) {
+      if constexpr (!std::is_same_v<RegisterClass, machine_insn_info::FLAGS>) {
         if constexpr (RegisterClass::kAsRegister != 'm') {
           if constexpr (RegisterClass::kIsImplicitReg) {
             if constexpr (RegisterClass::kAsRegister == 'a') {
@@ -176,7 +176,7 @@ constexpr void CallVerifierAssembler(AssemblerType* as, int* register_numbers) {
   // Macroassembler constants register points to the constant pool. Intrinsics can read from it
   // but shouldn't change it's address, that's why it's always kUse.
   as->gpr_macroassembler_constants =
-      typename AssemblerType::Register{arg_counter, intrinsics::bindings::kUse};
+      typename AssemblerType::Register{arg_counter, machine_insn_info::kUse};
   arg_counter = 0;
   int scratch_counter = 0;
   std::apply(
@@ -198,15 +198,15 @@ constexpr void CallVerifierAssembler(AssemblerType* as, int* register_numbers) {
               return std::tuple{2};
             } else {
               using RegisterClass = typename decltype(arg)::RegisterClass;
-              if constexpr (!std::is_same_v<RegisterClass, intrinsics::bindings::FLAGS>) {
+              if constexpr (!std::is_same_v<RegisterClass, machine_insn_info::FLAGS>) {
                 if constexpr (RegisterClass::kAsRegister == 'm') {
-                  static_assert(decltype(arg)::kUsage == intrinsics::bindings::kDefEarlyClobber);
+                  static_assert(decltype(arg)::kUsage == machine_insn_info::kDefEarlyClobber);
                   if (scratch_counter == 0) {
                     as->gpr_macroassembler_scratch = typename AssemblerType::Register(
-                        arg_counter++, intrinsics::bindings::kDefEarlyClobber);
+                        arg_counter++, machine_insn_info::kDefEarlyClobber);
                   } else if (scratch_counter == 1) {
                     as->gpr_macroassembler_scratch2 = typename AssemblerType::Register(
-                        arg_counter++, intrinsics::bindings::kDefEarlyClobber);
+                        arg_counter++, machine_insn_info::kDefEarlyClobber);
                   } else {
                     FATAL("Only two scratch registers are supported for now");
                   }
