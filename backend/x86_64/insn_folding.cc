@@ -29,7 +29,8 @@
 
 namespace berberis::x86_64 {
 
-void DefMap::MapDefRegs(const MachineInsn* insn) {
+void DefMap::MapDefRegs(MachineInsnList::iterator insn_it) {
+  const MachineInsn* insn = *insn_it;
   for (int op = 0; op < insn->NumRegOperands(); ++op) {
     MachineReg reg = insn->RegAt(op);
     if (insn->RegKindAt(op).RegClass()->IsSubsetOf(&x86_64::kFLAGS)) {
@@ -40,27 +41,28 @@ void DefMap::MapDefRegs(const MachineInsn* insn) {
       CHECK(reg == flags_reg_);
     }
     if (insn->RegKindAt(op).IsDef()) {
-      Set(reg, insn);
+      Set(reg, insn_it);
     }
   }
 }
 
-void DefMap::ProcessInsn(const MachineInsn* insn) {
-  MapDefRegs(insn);
+void DefMap::ProcessInsn(MachineInsnList::iterator insn_it) {
+  MapDefRegs(insn_it);
   ++index_;
 }
 
 void DefMap::Initialize() {
-  std::fill(def_map_.begin(), def_map_.end(), std::pair(nullptr, 0));
+  std::fill(def_map_.begin(), def_map_.end(), std::pair(std::nullopt, 0));
   flags_reg_ = kInvalidMachineReg;
   index_ = 0;
 }
 
 bool InsnFolding::IsRegImm(MachineReg reg, uint64_t* imm) const {
-  auto [general_insn, _] = def_map_.Get(reg);
-  if (!general_insn) {
+  auto [general_insn_it, _] = def_map_.Get(reg);
+  if (!general_insn_it.has_value()) {
     return false;
   }
+  const MachineInsn* general_insn = *general_insn_it.value();
   const auto* insn = AsMachineInsnX86_64(general_insn);
   if (insn->opcode() == kMachineOpMovqRegImm) {
     *imm = insn->imm();
@@ -138,37 +140,40 @@ MachineInsn* InsnFolding::NewImmInsnFromRegInsn(const MachineInsn* insn, int32_t
   return folded_insn;
 }
 
-bool InsnFolding::IsWritingSameFlagsValue(const MachineInsn* write_flags_insn) const {
+bool InsnFolding::IsWritingSameFlagsValue(MachineInsnList::iterator write_flags_insn_it) const {
+  const MachineInsn* write_flags_insn = *write_flags_insn_it;
   CHECK(write_flags_insn && write_flags_insn->opcode() == kMachineOpPseudoWriteFlags);
   MachineReg src_reg = write_flags_insn->RegAt(0);
-  auto [def_insn, def_insn_pos] = def_map_.Get(src_reg);
+  auto [def_insn_it, def_insn_pos] = def_map_.Get(src_reg);
   // Warning: We are assuming that all flags writes in IR happen to the same virtual register.
   while (true) {
-    if (!def_insn) {
+    if (!def_insn_it.has_value()) {
       return false;
     }
-
+    const MachineInsn* def_insn = *def_insn_it.value();
     int opcode = def_insn->opcode();
     if (opcode == kMachineOpPseudoCopy) {
       src_reg = def_insn->RegAt(1);
-      std::tie(def_insn, def_insn_pos) = def_map_.Get(src_reg, def_insn_pos);
+      std::tie(def_insn_it, def_insn_pos) = def_map_.Get(src_reg, def_insn_pos);
       continue;
     } else if (opcode == kMachineOpPseudoReadFlags) {
       break;
     }
     return false;
   }
-
+  const MachineInsn* def_insn = *def_insn_it.value();
   // Instruction is PseudoReadFlags.
   if (write_flags_insn->RegAt(1) != def_insn->RegAt(1)) {
     return false;
   }
   auto [flag_def_insn, _] = def_map_.Get(write_flags_insn->RegAt(1), def_insn_pos);
-  return flag_def_insn != nullptr;
+  return flag_def_insn.has_value();
 }
 
 template <bool is_input_64bit>
-std::tuple<bool, MachineInsn*> InsnFolding::TryFoldImmediateInput(const MachineInsn* insn) {
+std::tuple<bool, MachineInsn*> InsnFolding::TryFoldImmediateInput(
+    MachineInsnList::iterator insn_it) {
+  const MachineInsn* insn = *insn_it;
   auto src = insn->RegAt(1);
   uint64_t imm64;
   if (!IsRegImm(src, &imm64)) {
@@ -197,14 +202,17 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldImmediateInput(const MachineI
   return {false, nullptr};
 }
 
-std::tuple<bool, MachineInsn*> InsnFolding::TryFoldRedundantMovl(const MachineInsn* insn) {
+std::tuple<bool, MachineInsn*> InsnFolding::TryFoldRedundantMovl(
+    MachineInsnList::iterator insn_it) {
+  const MachineInsn* insn = *insn_it;
   CHECK_EQ(insn->opcode(), kMachineOpMovlRegReg);
   auto src = insn->RegAt(1);
-  auto [def_insn, _] = def_map_.Get(src);
+  auto [def_insn_it, _] = def_map_.Get(src);
 
-  if (!def_insn) {
+  if (!def_insn_it.has_value()) {
     return {false, nullptr};
   }
+  const MachineInsn* def_insn = *def_insn_it.value();
 
   // If the definition of src clears its upper half, then we can replace MOVL with PseudoCopy.
   switch (def_insn->opcode()) {
@@ -220,7 +228,8 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldRedundantMovl(const MachineIn
   }
 }
 
-std::tuple<bool, MachineInsn*> InsnFolding::TryFoldInsn(const MachineInsn* insn) {
+std::tuple<bool, MachineInsn*> InsnFolding::TryFoldInsn(const MachineInsnList::iterator insn_it) {
+  const MachineInsn* insn = *insn_it;
   switch (insn->opcode()) {
     case kMachineOpMovqMemBaseDispReg:
     case kMachineOpMovqRegReg:
@@ -231,14 +240,13 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldInsn(const MachineInsn* insn)
     case kMachineOpSubqRegReg:
     case kMachineOpCmpqRegReg:
     case kMachineOpAddqRegReg:
-      return TryFoldImmediateInput<true>(insn);
+      return TryFoldImmediateInput<true>(insn_it);
     case kMachineOpMovlRegReg: {
-      auto [is_folded, folded_insn] = TryFoldImmediateInput<false>(insn);
+      auto [is_folded, folded_insn] = TryFoldImmediateInput<false>(insn_it);
       if (is_folded) {
         return {is_folded, folded_insn};
       }
-
-      return TryFoldRedundantMovl(insn);
+      return TryFoldRedundantMovl(insn_it);
     }
     case kMachineOpMovlMemBaseDispReg:
     case kMachineOpAndlRegReg:
@@ -248,9 +256,9 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldInsn(const MachineInsn* insn)
     case kMachineOpSublRegReg:
     case kMachineOpCmplRegReg:
     case kMachineOpAddlRegReg:
-      return TryFoldImmediateInput<false>(insn);
+      return TryFoldImmediateInput<false>(insn_it);
     case kMachineOpPseudoWriteFlags: {
-      if (IsWritingSameFlagsValue(insn)) {
+      if (IsWritingSameFlagsValue(insn_it)) {
         return {true, nullptr};
       }
       break;
@@ -269,16 +277,16 @@ void FoldInsns(MachineIR* machine_ir) {
     MachineInsnList& insn_list = bb->insn_list();
 
     for (auto insn_it = insn_list.begin(); insn_it != insn_list.end();) {
-      auto [is_folded, new_insn] = insn_folding.TryFoldInsn(*insn_it);
+      auto [is_folded, new_insn] = insn_folding.TryFoldInsn(insn_it);
 
       if (is_folded) {
         insn_it = insn_list.erase(insn_it);
         if (new_insn) {
           insn_list.insert(insn_it, new_insn);
-          def_map.ProcessInsn(new_insn);
+          def_map.ProcessInsn(std::prev(insn_it));
         }
       } else {
-        def_map.ProcessInsn(*insn_it);
+        def_map.ProcessInsn(insn_it);
         ++insn_it;
       }
     }

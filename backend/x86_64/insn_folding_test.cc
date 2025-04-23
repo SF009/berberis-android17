@@ -56,17 +56,17 @@ void TryRegRegInsnFolding(bool is_64bit_mov_imm, uint64_t imm = 0x7777ffffULL) {
   bb->live_out().push_back(vreg2);
 
   DefMap def_map(machine_ir.NumVReg(), machine_ir.arena());
-  for (const auto* insn : bb->insn_list()) {
-    def_map.ProcessInsn(insn);
+  for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end(); ++insn_it) {
+    def_map.ProcessInsn(insn_it);
   }
 
   InsnFolding insn_folding(def_map, &machine_ir);
 
   auto insn_it = bb->insn_list().begin();
-  insn_it++;
+  ++insn_it;
   const MachineInsn* insn = *insn_it;
 
-  auto [is_folded, folded_insn] = insn_folding.TryFoldInsn(insn);
+  auto [is_folded, folded_insn] = insn_folding.TryFoldInsn(insn_it);
 
   if (!is_folded) {
     EXPECT_FALSE(kExpectSuccess);
@@ -103,17 +103,17 @@ void TryMovInsnFolding(bool is_64bit_mov_imm, uint64_t imm) {
   bb->live_out().push_back(vreg2);
 
   DefMap def_map(machine_ir.NumVReg(), machine_ir.arena());
-  for (const auto* insn : bb->insn_list()) {
-    def_map.ProcessInsn(insn);
+  for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end(); ++insn_it) {
+    def_map.ProcessInsn(insn_it);
   }
 
   InsnFolding insn_folding(def_map, &machine_ir);
 
   auto insn_it = bb->insn_list().begin();
-  insn_it++;
+  ++insn_it;
   const MachineInsn* insn = *insn_it;
 
-  auto [is_folded, folded_insn] = insn_folding.TryFoldInsn(insn);
+  auto [is_folded, folded_insn] = insn_folding.TryFoldInsn(insn_it);
 
   EXPECT_TRUE(is_folded);
   EXPECT_EQ(InsnTypeRegImm::kInfo.opcode, folded_insn->opcode());
@@ -151,16 +151,20 @@ TEST(InsnFoldingTest, DefMapGetsLatestDef) {
   bb->live_out().push_back(vreg2);
 
   DefMap def_map(machine_ir.NumVReg(), machine_ir.arena());
-  for (const auto* insn : bb->insn_list()) {
-    def_map.ProcessInsn(insn);
+  for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end(); ++insn_it) {
+    def_map.ProcessInsn(insn_it);
   }
 
-  auto [vreg1_def, index1] = def_map.Get(vreg1);
+  auto [vreg1_def_it, index1] = def_map.Get(vreg1);
+  EXPECT_TRUE(vreg1_def_it.has_value());
+  const MachineInsn* vreg1_def = *vreg1_def_it.value();
   EXPECT_EQ(kMachineOpMovqRegImm, vreg1_def->opcode());
   EXPECT_EQ(vreg1, vreg1_def->RegAt(0));
   EXPECT_EQ(index1, 0);
 
-  auto [vreg2_def, index2] = def_map.Get(vreg2);
+  auto [vreg2_def_it, index2] = def_map.Get(vreg2);
+  EXPECT_TRUE(vreg2_def_it.has_value());
+  const MachineInsn* vreg2_def = *vreg2_def_it.value();
   EXPECT_EQ(kMachineOpAddqRegReg, vreg2_def->opcode());
   EXPECT_EQ(vreg2, vreg2_def->RegAt(0));
   EXPECT_EQ(index2, 2);
@@ -198,17 +202,17 @@ TEST(InsnFoldingTest, SingleMovqMemBaseDispImm32Folding) {
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
   DefMap def_map(machine_ir.NumVReg(), machine_ir.arena());
-  for (const auto* insn : bb->insn_list()) {
-    def_map.ProcessInsn(insn);
+  for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end(); ++insn_it) {
+    def_map.ProcessInsn(insn_it);
   }
 
   InsnFolding insn_folding(def_map, &machine_ir);
 
   auto insn_it = bb->insn_list().begin();
-  insn_it++;
+  ++insn_it;
   const MachineInsn* insn = *insn_it;
 
-  auto [_, folded_insn] = insn_folding.TryFoldInsn(insn);
+  auto [_, folded_insn] = insn_folding.TryFoldInsn(insn_it);
   EXPECT_EQ(kMachineOpMovqMemBaseDispImm, folded_insn->opcode());
   EXPECT_EQ(kMachineRegRAX, folded_insn->RegAt(0));
   EXPECT_EQ(2UL, AsMachineInsnX86_64(folded_insn)->imm());
@@ -236,17 +240,17 @@ TEST(InsnFoldingTest, SingleMovlMemBaseDispImm32Folding) {
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
   DefMap def_map(machine_ir.NumVReg(), machine_ir.arena());
-  for (const auto* insn : bb->insn_list()) {
-    def_map.ProcessInsn(insn);
+  for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end(); ++insn_it) {
+    def_map.ProcessInsn(insn_it);
   }
 
   InsnFolding insn_folding(def_map, &machine_ir);
 
   auto insn_it = bb->insn_list().begin();
-  insn_it++;
+  ++insn_it;
   const MachineInsn* insn = *insn_it;
 
-  auto [_, folded_insn] = insn_folding.TryFoldInsn(insn);
+  auto [_, folded_insn] = insn_folding.TryFoldInsn(insn_it);
   EXPECT_EQ(kMachineOpMovlMemBaseDispImm, folded_insn->opcode());
   EXPECT_EQ(kMachineRegRAX, folded_insn->RegAt(0));
   EXPECT_EQ(3UL, AsMachineInsnX86_64(folded_insn)->imm());
@@ -274,16 +278,16 @@ TEST(InsnFoldingTest, RedundantMovlFolding) {
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
   DefMap def_map(machine_ir.NumVReg(), machine_ir.arena());
-  for (const auto* insn : bb->insn_list()) {
-    def_map.ProcessInsn(insn);
+  for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end(); ++insn_it) {
+    def_map.ProcessInsn(insn_it);
   }
 
   InsnFolding insn_folding(def_map, &machine_ir);
 
   auto insn_it = bb->insn_list().begin();
-  const MachineInsn* insn = *std::next(insn_it);
+  ++insn_it;
 
-  auto [_, folded_insn] = insn_folding.TryFoldInsn(insn);
+  auto [_, folded_insn] = insn_folding.TryFoldInsn(insn_it);
   EXPECT_EQ(kMachineOpPseudoCopy, folded_insn->opcode());
   EXPECT_EQ(vreg1, folded_insn->RegAt(0));
   EXPECT_EQ(vreg2, folded_insn->RegAt(1));
@@ -307,15 +311,15 @@ TEST(InsnFoldingTest, GracefulHandlingOfVRegDefinedInPreviousBasicBlock) {
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
   DefMap def_map(machine_ir.NumVReg(), machine_ir.arena());
-  for (const auto* insn : bb->insn_list()) {
-    def_map.ProcessInsn(insn);
+  for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end(); ++insn_it) {
+    def_map.ProcessInsn(insn_it);
   }
 
   InsnFolding insn_folding(def_map, &machine_ir);
 
-  const MachineInsn* insn = *(bb->insn_list().begin());
+  auto insn_it = bb->insn_list().begin();
 
-  auto [success, _] = insn_folding.TryFoldInsn(insn);
+  auto [success, _] = insn_folding.TryFoldInsn(insn_it);
   EXPECT_FALSE(success);
 }
 
@@ -422,7 +426,7 @@ TEST(InsnFoldingTest, PseudoWriteFlagsErased) {
   EXPECT_EQ(bb->insn_list().size(), 4UL);
 
   auto insn_it = bb->insn_list().rbegin();
-  insn_it++;
+  ++insn_it;
   const MachineInsn* insn = *insn_it;
 
   EXPECT_EQ(kMachineOpPseudoCopy, insn->opcode());
@@ -503,7 +507,7 @@ TEST(InsnFoldingTest, FoldInsnsSmoke) {
   EXPECT_EQ(bb->insn_list().size(), 3UL);
 
   auto insn_it = bb->insn_list().begin();
-  insn_it++;
+  ++insn_it;
   MachineInsn* insn = *insn_it;
 
   EXPECT_EQ(insn->opcode(), kMachineOpAddqRegImm);
