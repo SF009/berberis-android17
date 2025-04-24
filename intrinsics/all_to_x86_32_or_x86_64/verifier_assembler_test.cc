@@ -16,9 +16,10 @@
 
 #include "gtest/gtest.h"
 
-#include "berberis/intrinsics/all_to_x86_32_or_x86_64/intrinsics_bindings.h"
 #include "berberis/intrinsics/all_to_x86_32_or_x86_64/intrinsics_float.h"
+#include "berberis/intrinsics/all_to_x86_32_or_x86_64/machine_insn_info.h"
 #include "berberis/intrinsics/all_to_x86_32_or_x86_64/verifier_assembler_x86_32_and_x86_64.h"
+#include "berberis/intrinsics/common/intrinsics_bindings.h"
 
 namespace berberis {
 
@@ -194,8 +195,12 @@ TEST(VerifierAssembler, TestCorrectCPUID) {
       false,
       std::tuple<SIMD128Register, SIMD128Register>,
       std::tuple<SIMD128Register>,
-      std::tuple<InOutArg<0, 0, intrinsics::bindings::XmmReg, intrinsics::bindings::kDef>,
-                 InArg<1, intrinsics::bindings::XmmReg, intrinsics::bindings::kUse>>>;
+      std::tuple<ArgTraits<InOutArg<0, 0>,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::XmmReg,
+                                                             intrinsics::bindings::kDef>>,
+                 ArgTraits<InArg<1>,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::XmmReg,
+                                                             intrinsics::bindings::kUse>>>>;
 
   VerifyIntrinsic<IntrinsicBindingInfo>();
 }
@@ -211,8 +216,12 @@ TEST(VerifierAssembler, TestIncorrectCPUID) {
       false,
       std::tuple<SIMD128Register, SIMD128Register>,
       std::tuple<SIMD128Register>,
-      std::tuple<InOutArg<0, 0, intrinsics::bindings::XmmReg, intrinsics::bindings::kDef>,
-                 InArg<1, intrinsics::bindings::XmmReg, intrinsics::bindings::kUse>>>;
+      std::tuple<ArgTraits<InOutArg<0, 0>,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::XmmReg,
+                                                             intrinsics::bindings::kDef>>,
+                 ArgTraits<InArg<1>,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::XmmReg,
+                                                             intrinsics::bindings::kUse>>>>;
 
   ASSERT_DEATH(VerifyIntrinsic<IntrinsicBindingInfo>(), "error: expect_sse3 != need_sse3");
 }
@@ -229,9 +238,15 @@ TEST(VerifierAssembler, TestFlagsIntrinsicWithNoFlagsBinding) {
       std::tuple<uint32_t, uint32_t>,
       std::tuple<uint32_t>,
       std::tuple<
-          OutArg<0, intrinsics::bindings::GeneralReg32, intrinsics::bindings::kDefEarlyClobber>,
-          InOutArg<1, 1, intrinsics::bindings::GeneralReg32, intrinsics::bindings::kUseDef>,
-          InArg<2, intrinsics::bindings::GeneralReg32, intrinsics::bindings::kUse>>>;
+          ArgTraits<OutArg<0>,
+                    intrinsics::bindings::OperandInfo<intrinsics::bindings::GeneralReg32,
+                                                      intrinsics::bindings::kDefEarlyClobber>>,
+          ArgTraits<InOutArg<1, 1>,
+                    intrinsics::bindings::OperandInfo<intrinsics::bindings::GeneralReg32,
+                                                      intrinsics::bindings::kUseDef>>,
+          ArgTraits<InArg<2>,
+                    intrinsics::bindings::OperandInfo<intrinsics::bindings::GeneralReg32,
+                                                      intrinsics::bindings::kUse>>>>;
 
   ASSERT_DEATH(VerifyIntrinsic<IntrinsicBindingInfo>(), "error: expect_flags != defines_flags");
 }
@@ -247,10 +262,19 @@ TEST(VerifierAssembler, TestNoFlagsIntrinsicWithFlagsBinding) {
       false,
       std::tuple<SIMD128Register, SIMD128Register>,
       std::tuple<SIMD128Register>,
-      std::tuple<OutArg<0, intrinsics::bindings::XmmReg, intrinsics::bindings::kDefEarlyClobber>,
-                 InArg<0, intrinsics::bindings::XmmReg, intrinsics::bindings::kUse>,
-                 InArg<1, intrinsics::bindings::XmmReg, intrinsics::bindings::kUse>,
-                 TmpArg<intrinsics::bindings::FLAGS, intrinsics::bindings::kDef>>>;
+      std::tuple<
+          ArgTraits<OutArg<0>,
+                    intrinsics::bindings::OperandInfo<intrinsics::bindings::XmmReg,
+                                                      intrinsics::bindings::kDefEarlyClobber>>,
+          ArgTraits<InArg<0>,
+                    intrinsics::bindings::OperandInfo<intrinsics::bindings::XmmReg,
+                                                      intrinsics::bindings::kUse>>,
+          ArgTraits<InArg<1>,
+                    intrinsics::bindings::OperandInfo<intrinsics::bindings::XmmReg,
+                                                      intrinsics::bindings::kUse>>,
+          ArgTraits<TmpArg,
+                    intrinsics::bindings::OperandInfo<intrinsics::bindings::FLAGS,
+                                                      intrinsics::bindings::kDef>>>>;
 
   ASSERT_DEATH(VerifyIntrinsic<IntrinsicBindingInfo>(), "error: expect_flags != defines_flags");
 }
@@ -267,10 +291,18 @@ TEST(VerifierAssembler, TestValidRegisterUseDef) {
       std::tuple<uint32_t, uint32_t>,
       std::tuple<uint32_t>,
       std::tuple<
-          OutArg<0, intrinsics::bindings::GeneralReg32, intrinsics::bindings::kDefEarlyClobber>,
-          InOutArg<1, 1, intrinsics::bindings::GeneralReg32, intrinsics::bindings::kUseDef>,
-          InArg<2, intrinsics::bindings::GeneralReg32, intrinsics::bindings::kUse>,
-          TmpArg<intrinsics::bindings::FLAGS, intrinsics::bindings::kDef>>>;
+          ArgTraits<OutArg<0>,
+                    intrinsics::bindings::OperandInfo<intrinsics::bindings::GeneralReg32,
+                                                      intrinsics::bindings::kDefEarlyClobber>>,
+          ArgTraits<InOutArg<1, 1>,
+                    intrinsics::bindings::OperandInfo<intrinsics::bindings::GeneralReg32,
+                                                      intrinsics::bindings::kUseDef>>,
+          ArgTraits<InArg<2>,
+                    intrinsics::bindings::OperandInfo<intrinsics::bindings::GeneralReg32,
+                                                      intrinsics::bindings::kUse>>,
+          ArgTraits<TmpArg,
+                    intrinsics::bindings::OperandInfo<intrinsics::bindings::FLAGS,
+                                                      intrinsics::bindings::kDef>>>>;
 
   VerifyIntrinsic<IntrinsicBindingInfo>();
 }
@@ -286,10 +318,18 @@ TEST(VerifierAssembler, TestInvalidRegisterUseDef) {
       false,
       std::tuple<uint32_t, uint32_t>,
       std::tuple<uint32_t>,
-      std::tuple<OutArg<0, intrinsics::bindings::GeneralReg32, intrinsics::bindings::kDef>,
-                 InOutArg<1, 1, intrinsics::bindings::GeneralReg32, intrinsics::bindings::kUseDef>,
-                 InArg<2, intrinsics::bindings::GeneralReg32, intrinsics::bindings::kUse>,
-                 TmpArg<intrinsics::bindings::FLAGS, intrinsics::bindings::kDef>>>;
+      std::tuple<ArgTraits<OutArg<0>,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::GeneralReg32,
+                                                             intrinsics::bindings::kDef>>,
+                 ArgTraits<InOutArg<1, 1>,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::GeneralReg32,
+                                                             intrinsics::bindings::kUseDef>>,
+                 ArgTraits<InArg<2>,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::GeneralReg32,
+                                                             intrinsics::bindings::kUse>>,
+                 ArgTraits<TmpArg,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::FLAGS,
+                                                             intrinsics::bindings::kDef>>>>;
 
   ASSERT_DEATH(
       VerifyIntrinsic<IntrinsicBindingInfo>(),
@@ -307,9 +347,16 @@ TEST(VerifierAssembler, TestValidXMMRegisterUseDef) {
       false,
       std::tuple<SIMD128Register, SIMD128Register>,
       std::tuple<SIMD128Register>,
-      std::tuple<OutArg<0, intrinsics::bindings::XmmReg, intrinsics::bindings::kDefEarlyClobber>,
-                 InArg<0, intrinsics::bindings::XmmReg, intrinsics::bindings::kUse>,
-                 InArg<1, intrinsics::bindings::XmmReg, intrinsics::bindings::kUse>>>;
+      std::tuple<
+          ArgTraits<OutArg<0>,
+                    intrinsics::bindings::OperandInfo<intrinsics::bindings::XmmReg,
+                                                      intrinsics::bindings::kDefEarlyClobber>>,
+          ArgTraits<InArg<0>,
+                    intrinsics::bindings::OperandInfo<intrinsics::bindings::XmmReg,
+                                                      intrinsics::bindings::kUse>>,
+          ArgTraits<InArg<1>,
+                    intrinsics::bindings::OperandInfo<intrinsics::bindings::XmmReg,
+                                                      intrinsics::bindings::kUse>>>>;
 
   VerifyIntrinsic<IntrinsicBindingInfo>();
 }
@@ -325,9 +372,15 @@ TEST(VerifierAssembler, TestInvalidXMMRegisterUseDef) {
       false,
       std::tuple<SIMD128Register, SIMD128Register>,
       std::tuple<SIMD128Register>,
-      std::tuple<OutArg<0, intrinsics::bindings::XmmReg, intrinsics::bindings::kDef>,
-                 InArg<0, intrinsics::bindings::XmmReg, intrinsics::bindings::kUse>,
-                 InArg<1, intrinsics::bindings::XmmReg, intrinsics::bindings::kUse>>>;
+      std::tuple<ArgTraits<OutArg<0>,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::XmmReg,
+                                                             intrinsics::bindings::kDef>>,
+                 ArgTraits<InArg<0>,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::XmmReg,
+                                                             intrinsics::bindings::kUse>>,
+                 ArgTraits<InArg<1>,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::XmmReg,
+                                                             intrinsics::bindings::kUse>>>>;
 
   ASSERT_DEATH(VerifyIntrinsic<IntrinsicBindingInfo>(),
                "error: intrinsic used a 'use' xmm register after writing to a 'def' xmm register");
@@ -344,8 +397,12 @@ TEST(VerifierAssembler, TestValidInfinitelyLoopingValidIntrinsic) {
       false,
       std::tuple<uint32_t>,
       std::tuple<uint32_t>,
-      std::tuple<OutArg<0, intrinsics::bindings::GeneralReg32, intrinsics::bindings::kDef>,
-                 InArg<0, intrinsics::bindings::GeneralReg32, intrinsics::bindings::kUse>>>;
+      std::tuple<ArgTraits<OutArg<0>,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::GeneralReg32,
+                                                             intrinsics::bindings::kDef>>,
+                 ArgTraits<InArg<0>,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::GeneralReg32,
+                                                             intrinsics::bindings::kUse>>>>;
 
   VerifyIntrinsic<IntrinsicBindingInfo>();
 }
@@ -361,9 +418,15 @@ TEST(VerifierAssembler, TestInvalidInfinitelyLoopingIntrinsic) {
       false,
       std::tuple<uint32_t>,
       std::tuple<uint32_t>,
-      std::tuple<OutArg<0, intrinsics::bindings::GeneralReg32, intrinsics::bindings::kDef>,
-                 InArg<0, intrinsics::bindings::GeneralReg32, intrinsics::bindings::kUse>,
-                 TmpArg<intrinsics::bindings::FLAGS, intrinsics::bindings::kDef>>>;
+      std::tuple<ArgTraits<OutArg<0>,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::GeneralReg32,
+                                                             intrinsics::bindings::kDef>>,
+                 ArgTraits<InArg<0>,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::GeneralReg32,
+                                                             intrinsics::bindings::kUse>>,
+                 ArgTraits<TmpArg,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::FLAGS,
+                                                             intrinsics::bindings::kDef>>>>;
 
   ASSERT_DEATH(
       VerifyIntrinsic<IntrinsicBindingInfo>(),
@@ -381,9 +444,15 @@ TEST(VerifierAssembler, TestValidForwardJumpingIntrinsic) {
       false,
       std::tuple<uint32_t>,
       std::tuple<uint32_t>,
-      std::tuple<OutArg<0, intrinsics::bindings::GeneralReg32, intrinsics::bindings::kDef>,
-                 InArg<0, intrinsics::bindings::GeneralReg32, intrinsics::bindings::kUse>,
-                 TmpArg<intrinsics::bindings::FLAGS, intrinsics::bindings::kDef>>>;
+      std::tuple<ArgTraits<OutArg<0>,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::GeneralReg32,
+                                                             intrinsics::bindings::kDef>>,
+                 ArgTraits<InArg<0>,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::GeneralReg32,
+                                                             intrinsics::bindings::kUse>>,
+                 ArgTraits<TmpArg,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::FLAGS,
+                                                             intrinsics::bindings::kDef>>>>;
 
   VerifyIntrinsic<IntrinsicBindingInfo>();
 }
@@ -399,9 +468,15 @@ TEST(VerifierAssembler, TestInvalidForwardJumpingIntrinsic) {
       false,
       std::tuple<uint32_t>,
       std::tuple<uint32_t>,
-      std::tuple<OutArg<0, intrinsics::bindings::GeneralReg32, intrinsics::bindings::kDef>,
-                 InArg<0, intrinsics::bindings::GeneralReg32, intrinsics::bindings::kUse>,
-                 TmpArg<intrinsics::bindings::FLAGS, intrinsics::bindings::kDef>>>;
+      std::tuple<ArgTraits<OutArg<0>,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::GeneralReg32,
+                                                             intrinsics::bindings::kDef>>,
+                 ArgTraits<InArg<0>,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::GeneralReg32,
+                                                             intrinsics::bindings::kUse>>,
+                 ArgTraits<TmpArg,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::FLAGS,
+                                                             intrinsics::bindings::kDef>>>>;
 
   ASSERT_DEATH(
       VerifyIntrinsic<IntrinsicBindingInfo>(),
@@ -419,8 +494,12 @@ TEST(VerifierAssembler, TestInvalidLoopingIntrinsic) {
       false,
       std::tuple<SIMD128Register>,
       std::tuple<SIMD128Register>,
-      std::tuple<OutArg<0, intrinsics::bindings::XmmReg, intrinsics::bindings::kDef>,
-                 InArg<0, intrinsics::bindings::XmmReg, intrinsics::bindings::kUse>>>;
+      std::tuple<ArgTraits<OutArg<0>,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::XmmReg,
+                                                             intrinsics::bindings::kDef>>,
+                 ArgTraits<InArg<0>,
+                           intrinsics::bindings::OperandInfo<intrinsics::bindings::XmmReg,
+                                                             intrinsics::bindings::kUse>>>>;
 
   ASSERT_DEATH(VerifyIntrinsic<IntrinsicBindingInfo>(),
                "error: intrinsic used a 'use' xmm register after writing to a 'def' xmm register");

@@ -319,29 +319,33 @@ class TryBindingBasedInlineIntrinsic {
     return {true};
   }
 
-  template <typename ArgBinding, typename IntrinsicBindingInfo>
-  auto /*MakeTuplefromBindingsClient*/ operator()(ArgTraits<ArgBinding>, IntrinsicBindingInfo) {
-    static constexpr const auto& arg_info = ArgTraits<ArgBinding>::arg_info;
+  template <typename ArgBinding, typename OperandInfo, typename IntrinsicBindingInfo>
+  auto /*MakeTuplefromBindingsClient*/ operator()(ArgTraits<ArgBinding, OperandInfo>,
+                                                  IntrinsicBindingInfo) {
+    static constexpr const auto& arg_info = ArgTraits<ArgBinding, OperandInfo>::arg_info;
     if constexpr (arg_info.arg_type == ArgInfo::IMM_ARG) {
-      return ProcessArgInput<ArgBinding, IntrinsicBindingInfo>(reg_alloc_);
+      return ProcessArgInput<ArgBinding, OperandInfo, IntrinsicBindingInfo>(reg_alloc_);
     } else {
-      using RegisterClass = typename ArgTraits<ArgBinding>::RegisterClass;
+      using RegisterClass = typename ArgTraits<ArgBinding, OperandInfo>::RegisterClass;
       if constexpr (RegisterClass::kAsRegister == 'x') {
-        return ProcessArgInput<ArgBinding, IntrinsicBindingInfo>(simd_reg_alloc_);
+        return ProcessArgInput<ArgBinding, OperandInfo, IntrinsicBindingInfo>(simd_reg_alloc_);
       } else {
-        return ProcessArgInput<ArgBinding, IntrinsicBindingInfo>(reg_alloc_);
+        return ProcessArgInput<ArgBinding, OperandInfo, IntrinsicBindingInfo>(reg_alloc_);
       }
     }
   }
 
-  template <typename ArgBinding, typename IntrinsicBindingInfo, typename RegAllocForArg>
+  template <typename ArgBinding,
+            typename OperandInfo,
+            typename IntrinsicBindingInfo,
+            typename RegAllocForArg>
   auto ProcessArgInput(RegAllocForArg&& reg_alloc) {
-    static constexpr const auto& arg_info = ArgTraits<ArgBinding>::arg_info;
+    static constexpr const auto& arg_info = ArgTraits<ArgBinding, OperandInfo>::arg_info;
     if constexpr (arg_info.arg_type == ArgInfo::IMM_ARG) {
       return std::tuple{std::get<arg_info.from>(input_args_)};
     } else {
-      using RegisterClass = typename ArgTraits<ArgBinding>::RegisterClass;
-      static constexpr auto kUsage = ArgTraits<ArgBinding>::kUsage;
+      using RegisterClass = typename ArgTraits<ArgBinding, OperandInfo>::RegisterClass;
+      static constexpr auto kUsage = ArgTraits<ArgBinding, OperandInfo>::kUsage;
       if constexpr (arg_info.arg_type == ArgInfo::IN_ARG) {
         using Type =
             std::tuple_element_t<arg_info.from, typename IntrinsicBindingInfo::InputArguments>;

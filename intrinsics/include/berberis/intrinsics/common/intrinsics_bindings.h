@@ -20,55 +20,13 @@
 #include <cstdint>
 
 #include "berberis/base/dependent_false.h"
+#include "berberis/intrinsics/common/machine_insn_info.h"
 #include "berberis/intrinsics/intrinsics_args.h"
 #include "berberis/intrinsics/type_traits.h"
 
 namespace berberis {
 
 namespace intrinsics::bindings {
-
-class FLAGS {
- public:
-  static constexpr bool kIsImmediate = false;
-  static constexpr bool kIsImplicitReg = true;
-  static constexpr char kAsRegister = 0;
-  template <typename MachineInsnArch>
-  static constexpr auto kRegClass = MachineInsnArch::kFLAGS;
-};
-
-class Mem8 {
- public:
-  using Type = uint8_t;
-  static constexpr bool kIsImmediate = false;
-  static constexpr char kAsRegister = 'm';
-};
-
-class Mem16 {
- public:
-  using Type = uint16_t;
-  static constexpr bool kIsImmediate = false;
-  static constexpr char kAsRegister = 'm';
-};
-
-class Mem32 {
- public:
-  using Type = uint32_t;
-  static constexpr bool kIsImmediate = false;
-  static constexpr char kAsRegister = 'm';
-};
-
-class Mem64 {
- public:
-  using Type = uint64_t;
-  static constexpr bool kIsImmediate = false;
-  static constexpr char kAsRegister = 'm';
-};
-
-enum RegBindingKind { kDef = 2, kDefEarlyClobber = 3, kUse = 5, kUseDef = 7 };
-
-// Tag classes. They are never instantioned, only used as tags to pass information about
-// bindings.
-class NoCPUIDRestriction;  // All CPUs have at least “no CPUID restriction” mode.
 
 // Tag classes. They are never instantioned, only used as tags to pass information about
 // bindings.
@@ -121,15 +79,15 @@ class IntrinsicBindingInfo<kIntrinsicTemplateName,
       TypeTraits<OutputArgumentsTypes>::kName...};
   template <typename Callback, typename... Args>
   constexpr static void ProcessBindings(Callback&& callback, Args&&... args) {
-    (callback(ArgTraits<BindingsTypes>(), std::forward<Args>(args)...), ...);
+    (callback(BindingsTypes(), std::forward<Args>(args)...), ...);
   }
   template <typename Callback, typename... Args>
   constexpr static bool VerifyBindings(Callback&& callback, Args&&... args) {
-    return (callback(ArgTraits<BindingsTypes>(), std::forward<Args>(args)...) && ...);
+    return (callback(BindingsTypes(), std::forward<Args>(args)...) && ...);
   }
   template <typename Callback, typename... Args>
   constexpr static auto MakeTuplefromBindings(Callback&& callback, Args&&... args) {
-    return std::tuple_cat(callback(ArgTraits<BindingsTypes>(), std::forward<Args>(args)...)...);
+    return std::tuple_cat(callback(BindingsTypes(), std::forward<Args>(args)...)...);
   }
   using InputArguments = std::tuple<InputArgumentsTypes...>;
   using OutputArguments = std::tuple<OutputArgumentsTypes...>;
