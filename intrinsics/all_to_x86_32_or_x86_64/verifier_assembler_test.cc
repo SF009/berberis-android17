@@ -195,12 +195,10 @@ TEST(VerifierAssembler, TestCorrectCPUID) {
       false,
       std::tuple<SIMD128Register, SIMD128Register>,
       std::tuple<SIMD128Register>,
-      std::tuple<ArgTraits<InOutArg<0, 0>,
-                           machine_insn_info::OperandInfo<machine_insn_info::XmmReg,
-                                                          machine_insn_info::kDef>>,
-                 ArgTraits<InArg<1>,
-                           machine_insn_info::OperandInfo<machine_insn_info::XmmReg,
-                                                          machine_insn_info::kUse>>>>;
+      std::tuple<InOutArg<0, 0>, InArg<1>>,
+      std::tuple<
+          machine_insn_info::OperandInfo<machine_insn_info::XmmReg, machine_insn_info::kDef>,
+          machine_insn_info::OperandInfo<machine_insn_info::XmmReg, machine_insn_info::kUse>>>;
 
   VerifyIntrinsic<IntrinsicBindingInfo>();
 }
@@ -216,12 +214,10 @@ TEST(VerifierAssembler, TestIncorrectCPUID) {
       false,
       std::tuple<SIMD128Register, SIMD128Register>,
       std::tuple<SIMD128Register>,
-      std::tuple<ArgTraits<InOutArg<0, 0>,
-                           machine_insn_info::OperandInfo<machine_insn_info::XmmReg,
-                                                          machine_insn_info::kDef>>,
-                 ArgTraits<InArg<1>,
-                           machine_insn_info::OperandInfo<machine_insn_info::XmmReg,
-                                                          machine_insn_info::kUse>>>>;
+      std::tuple<InOutArg<0, 0>, InArg<1>>,
+      std::tuple<
+          machine_insn_info::OperandInfo<machine_insn_info::XmmReg, machine_insn_info::kDef>,
+          machine_insn_info::OperandInfo<machine_insn_info::XmmReg, machine_insn_info::kUse>>>;
 
   ASSERT_DEATH(VerifyIntrinsic<IntrinsicBindingInfo>(), "error: expect_sse3 != need_sse3");
 }
@@ -237,15 +233,13 @@ TEST(VerifierAssembler, TestFlagsIntrinsicWithNoFlagsBinding) {
       false,
       std::tuple<uint32_t, uint32_t>,
       std::tuple<uint32_t>,
-      std::tuple<ArgTraits<OutArg<0>,
-                           machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
-                                                          machine_insn_info::kDefEarlyClobber>>,
-                 ArgTraits<InOutArg<1, 1>,
-                           machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
-                                                          machine_insn_info::kUseDef>>,
-                 ArgTraits<InArg<2>,
-                           machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
-                                                          machine_insn_info::kUse>>>>;
+      std::tuple<OutArg<0>, InOutArg<1, 1>, InArg<2>>,
+      std::tuple<machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
+                                                machine_insn_info::kDefEarlyClobber>,
+                 machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
+                                                machine_insn_info::kUseDef>,
+                 machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
+                                                machine_insn_info::kUse>>>;
 
   ASSERT_DEATH(VerifyIntrinsic<IntrinsicBindingInfo>(), "error: expect_flags != defines_flags");
 }
@@ -261,18 +255,13 @@ TEST(VerifierAssembler, TestNoFlagsIntrinsicWithFlagsBinding) {
       false,
       std::tuple<SIMD128Register, SIMD128Register>,
       std::tuple<SIMD128Register>,
-      std::tuple<ArgTraits<OutArg<0>,
-                           machine_insn_info::OperandInfo<machine_insn_info::XmmReg,
-                                                          machine_insn_info::kDefEarlyClobber>>,
-                 ArgTraits<InArg<0>,
-                           machine_insn_info::OperandInfo<machine_insn_info::XmmReg,
-                                                          machine_insn_info::kUse>>,
-                 ArgTraits<InArg<1>,
-                           machine_insn_info::OperandInfo<machine_insn_info::XmmReg,
-                                                          machine_insn_info::kUse>>,
-                 ArgTraits<TmpArg,
-                           machine_insn_info::OperandInfo<machine_insn_info::FLAGS,
-                                                          machine_insn_info::kDef>>>>;
+      std::tuple<OutArg<0>, InArg<0>, InArg<1>, TmpArg>,
+      std::tuple<
+          machine_insn_info::OperandInfo<machine_insn_info::XmmReg,
+                                         machine_insn_info::kDefEarlyClobber>,
+          machine_insn_info::OperandInfo<machine_insn_info::XmmReg, machine_insn_info::kUse>,
+          machine_insn_info::OperandInfo<machine_insn_info::XmmReg, machine_insn_info::kUse>,
+          machine_insn_info::OperandInfo<machine_insn_info::FLAGS, machine_insn_info::kDef>>>;
 
   ASSERT_DEATH(VerifyIntrinsic<IntrinsicBindingInfo>(), "error: expect_flags != defines_flags");
 }
@@ -288,18 +277,14 @@ TEST(VerifierAssembler, TestValidRegisterUseDef) {
       false,
       std::tuple<uint32_t, uint32_t>,
       std::tuple<uint32_t>,
-      std::tuple<ArgTraits<OutArg<0>,
-                           machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
-                                                          machine_insn_info::kDefEarlyClobber>>,
-                 ArgTraits<InOutArg<1, 1>,
-                           machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
-                                                          machine_insn_info::kUseDef>>,
-                 ArgTraits<InArg<2>,
-                           machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
-                                                          machine_insn_info::kUse>>,
-                 ArgTraits<TmpArg,
-                           machine_insn_info::OperandInfo<machine_insn_info::FLAGS,
-                                                          machine_insn_info::kDef>>>>;
+      std::tuple<OutArg<0>, InOutArg<1, 1>, InArg<2>, TmpArg>,
+      std::tuple<
+          machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
+                                         machine_insn_info::kDefEarlyClobber>,
+          machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
+                                         machine_insn_info::kUseDef>,
+          machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32, machine_insn_info::kUse>,
+          machine_insn_info::OperandInfo<machine_insn_info::FLAGS, machine_insn_info::kDef>>>;
 
   VerifyIntrinsic<IntrinsicBindingInfo>();
 }
@@ -315,18 +300,13 @@ TEST(VerifierAssembler, TestInvalidRegisterUseDef) {
       false,
       std::tuple<uint32_t, uint32_t>,
       std::tuple<uint32_t>,
-      std::tuple<ArgTraits<OutArg<0>,
-                           machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
-                                                          machine_insn_info::kDef>>,
-                 ArgTraits<InOutArg<1, 1>,
-                           machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
-                                                          machine_insn_info::kUseDef>>,
-                 ArgTraits<InArg<2>,
-                           machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
-                                                          machine_insn_info::kUse>>,
-                 ArgTraits<TmpArg,
-                           machine_insn_info::OperandInfo<machine_insn_info::FLAGS,
-                                                          machine_insn_info::kDef>>>>;
+      std::tuple<OutArg<0>, InOutArg<1, 1>, InArg<2>, TmpArg>,
+      std::tuple<
+          machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32, machine_insn_info::kDef>,
+          machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
+                                         machine_insn_info::kUseDef>,
+          machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32, machine_insn_info::kUse>,
+          machine_insn_info::OperandInfo<machine_insn_info::FLAGS, machine_insn_info::kDef>>>;
 
   ASSERT_DEATH(
       VerifyIntrinsic<IntrinsicBindingInfo>(),
@@ -344,15 +324,12 @@ TEST(VerifierAssembler, TestValidXMMRegisterUseDef) {
       false,
       std::tuple<SIMD128Register, SIMD128Register>,
       std::tuple<SIMD128Register>,
-      std::tuple<ArgTraits<OutArg<0>,
-                           machine_insn_info::OperandInfo<machine_insn_info::XmmReg,
-                                                          machine_insn_info::kDefEarlyClobber>>,
-                 ArgTraits<InArg<0>,
-                           machine_insn_info::OperandInfo<machine_insn_info::XmmReg,
-                                                          machine_insn_info::kUse>>,
-                 ArgTraits<InArg<1>,
-                           machine_insn_info::OperandInfo<machine_insn_info::XmmReg,
-                                                          machine_insn_info::kUse>>>>;
+      std::tuple<OutArg<0>, InArg<0>, InArg<1>>,
+      std::tuple<
+          machine_insn_info::OperandInfo<machine_insn_info::XmmReg,
+                                         machine_insn_info::kDefEarlyClobber>,
+          machine_insn_info::OperandInfo<machine_insn_info::XmmReg, machine_insn_info::kUse>,
+          machine_insn_info::OperandInfo<machine_insn_info::XmmReg, machine_insn_info::kUse>>>;
 
   VerifyIntrinsic<IntrinsicBindingInfo>();
 }
@@ -368,15 +345,11 @@ TEST(VerifierAssembler, TestInvalidXMMRegisterUseDef) {
       false,
       std::tuple<SIMD128Register, SIMD128Register>,
       std::tuple<SIMD128Register>,
-      std::tuple<ArgTraits<OutArg<0>,
-                           machine_insn_info::OperandInfo<machine_insn_info::XmmReg,
-                                                          machine_insn_info::kDef>>,
-                 ArgTraits<InArg<0>,
-                           machine_insn_info::OperandInfo<machine_insn_info::XmmReg,
-                                                          machine_insn_info::kUse>>,
-                 ArgTraits<InArg<1>,
-                           machine_insn_info::OperandInfo<machine_insn_info::XmmReg,
-                                                          machine_insn_info::kUse>>>>;
+      std::tuple<OutArg<0>, InArg<0>, InArg<1>>,
+      std::tuple<
+          machine_insn_info::OperandInfo<machine_insn_info::XmmReg, machine_insn_info::kDef>,
+          machine_insn_info::OperandInfo<machine_insn_info::XmmReg, machine_insn_info::kUse>,
+          machine_insn_info::OperandInfo<machine_insn_info::XmmReg, machine_insn_info::kUse>>>;
 
   ASSERT_DEATH(VerifyIntrinsic<IntrinsicBindingInfo>(),
                "error: intrinsic used a 'use' xmm register after writing to a 'def' xmm register");
@@ -393,12 +366,11 @@ TEST(VerifierAssembler, TestValidInfinitelyLoopingValidIntrinsic) {
       false,
       std::tuple<uint32_t>,
       std::tuple<uint32_t>,
-      std::tuple<ArgTraits<OutArg<0>,
-                           machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
-                                                          machine_insn_info::kDef>>,
-                 ArgTraits<InArg<0>,
-                           machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
-                                                          machine_insn_info::kUse>>>>;
+      std::tuple<OutArg<0>, InArg<0>>,
+      std::tuple<
+          machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32, machine_insn_info::kDef>,
+          machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
+                                         machine_insn_info::kUse>>>;
 
   VerifyIntrinsic<IntrinsicBindingInfo>();
 }
@@ -414,15 +386,11 @@ TEST(VerifierAssembler, TestInvalidInfinitelyLoopingIntrinsic) {
       false,
       std::tuple<uint32_t>,
       std::tuple<uint32_t>,
-      std::tuple<ArgTraits<OutArg<0>,
-                           machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
-                                                          machine_insn_info::kDef>>,
-                 ArgTraits<InArg<0>,
-                           machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
-                                                          machine_insn_info::kUse>>,
-                 ArgTraits<TmpArg,
-                           machine_insn_info::OperandInfo<machine_insn_info::FLAGS,
-                                                          machine_insn_info::kDef>>>>;
+      std::tuple<OutArg<0>, InArg<0>, TmpArg>,
+      std::tuple<
+          machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32, machine_insn_info::kDef>,
+          machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32, machine_insn_info::kUse>,
+          machine_insn_info::OperandInfo<machine_insn_info::FLAGS, machine_insn_info::kDef>>>;
 
   ASSERT_DEATH(
       VerifyIntrinsic<IntrinsicBindingInfo>(),
@@ -440,15 +408,11 @@ TEST(VerifierAssembler, TestValidForwardJumpingIntrinsic) {
       false,
       std::tuple<uint32_t>,
       std::tuple<uint32_t>,
-      std::tuple<ArgTraits<OutArg<0>,
-                           machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
-                                                          machine_insn_info::kDef>>,
-                 ArgTraits<InArg<0>,
-                           machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
-                                                          machine_insn_info::kUse>>,
-                 ArgTraits<TmpArg,
-                           machine_insn_info::OperandInfo<machine_insn_info::FLAGS,
-                                                          machine_insn_info::kDef>>>>;
+      std::tuple<OutArg<0>, InArg<0>, TmpArg>,
+      std::tuple<
+          machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32, machine_insn_info::kDef>,
+          machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32, machine_insn_info::kUse>,
+          machine_insn_info::OperandInfo<machine_insn_info::FLAGS, machine_insn_info::kDef>>>;
 
   VerifyIntrinsic<IntrinsicBindingInfo>();
 }
@@ -464,15 +428,11 @@ TEST(VerifierAssembler, TestInvalidForwardJumpingIntrinsic) {
       false,
       std::tuple<uint32_t>,
       std::tuple<uint32_t>,
-      std::tuple<ArgTraits<OutArg<0>,
-                           machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
-                                                          machine_insn_info::kDef>>,
-                 ArgTraits<InArg<0>,
-                           machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32,
-                                                          machine_insn_info::kUse>>,
-                 ArgTraits<TmpArg,
-                           machine_insn_info::OperandInfo<machine_insn_info::FLAGS,
-                                                          machine_insn_info::kDef>>>>;
+      std::tuple<OutArg<0>, InArg<0>, TmpArg>,
+      std::tuple<
+          machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32, machine_insn_info::kDef>,
+          machine_insn_info::OperandInfo<machine_insn_info::GeneralReg32, machine_insn_info::kUse>,
+          machine_insn_info::OperandInfo<machine_insn_info::FLAGS, machine_insn_info::kDef>>>;
 
   ASSERT_DEATH(
       VerifyIntrinsic<IntrinsicBindingInfo>(),
@@ -490,12 +450,10 @@ TEST(VerifierAssembler, TestInvalidLoopingIntrinsic) {
       false,
       std::tuple<SIMD128Register>,
       std::tuple<SIMD128Register>,
-      std::tuple<ArgTraits<OutArg<0>,
-                           machine_insn_info::OperandInfo<machine_insn_info::XmmReg,
-                                                          machine_insn_info::kDef>>,
-                 ArgTraits<InArg<0>,
-                           machine_insn_info::OperandInfo<machine_insn_info::XmmReg,
-                                                          machine_insn_info::kUse>>>>;
+      std::tuple<OutArg<0>, InArg<0>>,
+      std::tuple<
+          machine_insn_info::OperandInfo<machine_insn_info::XmmReg, machine_insn_info::kDef>,
+          machine_insn_info::OperandInfo<machine_insn_info::XmmReg, machine_insn_info::kUse>>>;
 
   ASSERT_DEATH(VerifyIntrinsic<IntrinsicBindingInfo>(),
                "error: intrinsic used a 'use' xmm register after writing to a 'def' xmm register");

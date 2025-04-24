@@ -358,7 +358,8 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
         UnwrapSimdReg(IntrinsicBindingInfo::template MakeTuplefromBindings<
                       TryBindingBasedInlineIntrinsicForHeavyOptimizer&>(*this, asm_call_info))));
     ProcessBindingsResults<IntrinsicBindingInfo>(
-        type_wrapper<typename IntrinsicBindingInfo::Bindings>());
+        type_wrapper<typename IntrinsicBindingInfo::Bindings>(),
+        type_wrapper<typename IntrinsicBindingInfo::Operands>());
     return true;
   }
 
@@ -500,7 +501,8 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
   };
 
   template <typename IntrinsicBindingInfo, typename... ArgBinding, typename... OperandInfo>
-  void ProcessBindingsResults(type_wrapper<std::tuple<ArgTraits<ArgBinding, OperandInfo>...>>) {
+  void ProcessBindingsResults(type_wrapper<std::tuple<ArgBinding...>>,
+                              type_wrapper<std::tuple<OperandInfo...>>) {
     (ProcessBindingResult<ArgBinding, OperandInfo, IntrinsicBindingInfo>(), ...);
     if constexpr (std::tuple_size_v<typename IntrinsicBindingInfo::OutputArguments> == 0) {
       // No return value. Do nothing.

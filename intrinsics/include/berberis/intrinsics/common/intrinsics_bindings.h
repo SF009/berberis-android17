@@ -53,7 +53,8 @@ template <auto kIntrinsicTemplateName,
           bool kSideEffectsTemplateValue,
           typename... InputArgumentsTypes,
           typename... OutputArgumentsTypes,
-          typename... BindingsTypes>
+          typename... BindingsTypes,
+          typename... OperandsTypes>
 class IntrinsicBindingInfo<kIntrinsicTemplateName,
                            kMacroInstructionTemplateName,
                            kMnemo,
@@ -63,7 +64,8 @@ class IntrinsicBindingInfo<kIntrinsicTemplateName,
                            kSideEffectsTemplateValue,
                            std::tuple<InputArgumentsTypes...>,
                            std::tuple<OutputArgumentsTypes...>,
-                           std::tuple<BindingsTypes...>>
+                           std::tuple<BindingsTypes...>,
+                           std::tuple<OperandsTypes...>>
     final {
  public:
   static constexpr auto kIntrinsic = kIntrinsicTemplateName;
@@ -79,19 +81,22 @@ class IntrinsicBindingInfo<kIntrinsicTemplateName,
       TypeTraits<OutputArgumentsTypes>::kName...};
   template <typename Callback, typename... Args>
   constexpr static void ProcessBindings(Callback&& callback, Args&&... args) {
-    (callback(BindingsTypes(), std::forward<Args>(args)...), ...);
+    (callback(ArgTraits<BindingsTypes, OperandsTypes>(), std::forward<Args>(args)...), ...);
   }
   template <typename Callback, typename... Args>
   constexpr static bool VerifyBindings(Callback&& callback, Args&&... args) {
-    return (callback(BindingsTypes(), std::forward<Args>(args)...) && ...);
+    return (callback(ArgTraits<BindingsTypes, OperandsTypes>(), std::forward<Args>(args)...) &&
+            ...);
   }
   template <typename Callback, typename... Args>
   constexpr static auto MakeTuplefromBindings(Callback&& callback, Args&&... args) {
-    return std::tuple_cat(callback(BindingsTypes(), std::forward<Args>(args)...)...);
+    return std::tuple_cat(
+        callback(ArgTraits<BindingsTypes, OperandsTypes>(), std::forward<Args>(args)...)...);
   }
   using InputArguments = std::tuple<InputArgumentsTypes...>;
   using OutputArguments = std::tuple<OutputArgumentsTypes...>;
   using Bindings = std::tuple<BindingsTypes...>;
+  using Operands = std::tuple<OperandsTypes...>;
   using IntrinsicType = std::conditional_t<std::tuple_size_v<OutputArguments> == 0,
                                            void (*)(InputArgumentsTypes...),
                                            OutputArguments (*)(InputArgumentsTypes...)>;
