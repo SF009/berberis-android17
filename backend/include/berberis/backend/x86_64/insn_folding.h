@@ -45,7 +45,7 @@ class DefMap {
       return {std::nullopt, 0};
     }
     auto [def_insn, def_insn_index] = def_map_.at(reg.GetVRegIndex());
-    if (!def_insn || def_insn_index > use_index) {
+    if (!def_insn || def_insn_index >= use_index) {
       return {std::nullopt, 0};
     }
     return {def_insn, def_insn_index};
