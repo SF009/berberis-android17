@@ -121,7 +121,8 @@ template <auto kIntrinsic,
           bool kSideEffects,
           typename... InputArguments,
           typename... OutputArguments,
-          typename... Bindings>
+          typename... Bindings,
+          typename... Operands>
 class MachineInsn<intrinsics::bindings::IntrinsicBindingInfo<kIntrinsic,
                                                              kMacroInstruction,
                                                              kMnemo,
@@ -131,23 +132,27 @@ class MachineInsn<intrinsics::bindings::IntrinsicBindingInfo<kIntrinsic,
                                                              kSideEffects,
                                                              std::tuple<InputArguments...>,
                                                              std::tuple<OutputArguments...>,
-                                                             std::tuple<Bindings...>>>
+                                                             std::tuple<Bindings...>,
+                                                             std::tuple<Operands...>>>
     final : public MachineInsnX86_64 {
  private:
   template <typename>
   struct GenMachineInsnInfoT;
   // We want to filter out any bindings that are not used for Register args.
-  using RegBindings = filter_t<has_reg_class_t, Bindings...>;
+  using RegBindings = filter_t<has_reg_class_t, ArgTraits<Bindings, Operands>...>;
 
  public:
   // This static simplifies constructing this MachineInsn in intrinsic implementations.
-  static constexpr MachineInsn* (MachineIRBuilder::*kGenFunc)(constructor_args_t<Bindings...>) =
+  static constexpr MachineInsn* (MachineIRBuilder::*kGenFunc)(
+      constructor_args_t<ArgTraits<Bindings, Operands>...>) =
       &MachineIRBuilder::template Gen<MachineInsn>;
 
-  explicit MachineInsn(constructor_args_t<Bindings...> args) : MachineInsnX86_64(&kInfo) {
+  explicit MachineInsn(constructor_args_t<ArgTraits<Bindings, Operands>...> args)
+      : MachineInsnX86_64(&kInfo) {
     std::apply(
         [this](auto... args) {
-          this->ProcessArgs<0 /* reg_idx */, 0 /* disp_idx */, Bindings...>(args...);
+          this->ProcessArgs<0 /* reg_idx */, 0 /* disp_idx */, ArgTraits<Bindings, Operands>...>(
+              args...);
         },
         args);
   }
@@ -165,7 +170,7 @@ class MachineInsn<intrinsics::bindings::IntrinsicBindingInfo<kIntrinsic,
                       return Binding::Class::kAsRegister == 'm';
                     }
                     return false;
-                  }.template operator()<Bindings>() +
+                  }.template operator()<ArgTraits<Bindings, Operands>>() +
                    ... + 0) <= 2);
     size_t arg_idx{}, reg_idx{}, disp_idx{};
     (
@@ -205,7 +210,7 @@ class MachineInsn<intrinsics::bindings::IntrinsicBindingInfo<kIntrinsic,
             s += GetRegOperandDebugString(static_cast<const MachineInsnX86_64*>(this), reg_idx);
             arg_idx++, reg_idx++;
           }
-        }.template operator()<Bindings>(),
+        }.template operator()<ArgTraits<Bindings, Operands>>(),
         ...);
 
     if (this->recovery_pc()) {
@@ -221,7 +226,7 @@ class MachineInsn<intrinsics::bindings::IntrinsicBindingInfo<kIntrinsic,
                       return Binding::Class::kAsRegister == 'm';
                     }
                     return false;
-                  }.template operator()<Bindings>() +
+                  }.template operator()<ArgTraits<Bindings, Operands>>() +
                    ... + 0) <= 2);
     size_t reg_idx{}, disp_idx{};
     std::apply(
@@ -251,7 +256,7 @@ class MachineInsn<intrinsics::bindings::IntrinsicBindingInfo<kIntrinsic,
               } else {
                 static_assert(kDependentTypeFalse<Binding>);
               }
-            }.template operator()<Bindings>()...));
+            }.template operator()<ArgTraits<Bindings, Operands>>()...));
   }
 
  private:
