@@ -156,14 +156,14 @@ TEST(InsnFoldingTest, DefMapGetsLatestDef) {
   }
 
   auto [vreg1_def_it, index1] = def_map.Get(vreg1);
-  EXPECT_TRUE(vreg1_def_it.has_value());
+  ASSERT_TRUE(vreg1_def_it.has_value());
   const MachineInsn* vreg1_def = *vreg1_def_it.value();
   EXPECT_EQ(kMachineOpMovqRegImm, vreg1_def->opcode());
   EXPECT_EQ(vreg1, vreg1_def->RegAt(0));
   EXPECT_EQ(index1, 0);
 
   auto [vreg2_def_it, index2] = def_map.Get(vreg2);
-  EXPECT_TRUE(vreg2_def_it.has_value());
+  ASSERT_TRUE(vreg2_def_it.has_value());
   const MachineInsn* vreg2_def = *vreg2_def_it.value();
   EXPECT_EQ(kMachineOpAddqRegReg, vreg2_def->opcode());
   EXPECT_EQ(vreg2, vreg2_def->RegAt(0));
@@ -194,7 +194,7 @@ TEST(InsnFoldingTest, DefMapReturnsNoDefIfVRegIsOverwrittenByInsn) {
   }
 
   auto [vreg1_def_insn_it, vreg_def_insn_pos] = def_map.Get(vreg1);
-  EXPECT_TRUE(vreg1_def_insn_it.has_value());
+  ASSERT_TRUE(vreg1_def_insn_it.has_value());
   EXPECT_EQ(kMachineOpAddqRegReg, (*vreg1_def_insn_it.value())->opcode());
 
   // Checking def_map for vreg1 at the position of an instruction that overwrites it.
