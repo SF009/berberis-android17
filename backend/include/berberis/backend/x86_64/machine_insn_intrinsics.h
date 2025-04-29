@@ -123,17 +123,18 @@ template <auto kIntrinsic,
           typename... OutputArguments,
           typename... Bindings,
           typename... Operands>
-class MachineInsn<intrinsics::bindings::IntrinsicBindingInfo<kIntrinsic,
-                                                             kMacroInstruction,
-                                                             kMnemo,
-                                                             GetOpcode,
-                                                             CPUIDRestriction,
-                                                             PreciseNanOperationsHandling,
-                                                             kSideEffects,
-                                                             std::tuple<InputArguments...>,
-                                                             std::tuple<OutputArguments...>,
-                                                             std::tuple<Bindings...>,
-                                                             std::tuple<Operands...>>>
+class MachineInsn<intrinsics::bindings::IntrinsicBindingInfo<
+    kIntrinsic,
+    PreciseNanOperationsHandling,
+    kSideEffects,
+    std::tuple<InputArguments...>,
+    std::tuple<OutputArguments...>,
+    std::tuple<Bindings...>,
+    machine_insn_info::AsmCallInfo<kMacroInstruction,
+                                   kMnemo,
+                                   GetOpcode,
+                                   CPUIDRestriction,
+                                   std::tuple<Operands...>>>>
     final : public MachineInsnX86_64 {
  private:
   template <typename>

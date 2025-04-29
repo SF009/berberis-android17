@@ -209,10 +209,6 @@ class TryBindingBasedInlineIntrinsic {
                                                                 Result def_result,
                                                                 Args&&... args);
   template <auto kIntrinsicTemplateName,
-            auto kMacroInstructionTemplateName,
-            auto kMnemo,
-            auto GetOpcode,
-            typename kCPUIDRestrictionTemplateValue,
             typename kPreciseNanOperationsHandlingTemplateValue,
             bool kSideEffectsTemplateValue,
             typename... Types>

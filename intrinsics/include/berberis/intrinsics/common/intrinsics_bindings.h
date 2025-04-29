@@ -35,10 +35,6 @@ class PreciseNanOperationsHandling;
 class ImpreciseNanOperationsHandling;
 
 template <auto kIntrinsicTemplateName,
-          auto kMacroInstructionTemplateName,
-          auto kMnemo,
-          auto GetOpcode,
-          typename CPUIDRestrictionTemplateValue,
           typename PreciseNanOperationsHandlingTemplateValue,
           bool kSideEffectsTemplateValue,
           typename... Types>
@@ -56,16 +52,16 @@ template <auto kIntrinsicTemplateName,
           typename... BindingsTypes,
           typename... OperandsTypes>
 class IntrinsicBindingInfo<kIntrinsicTemplateName,
-                           kMacroInstructionTemplateName,
-                           kMnemo,
-                           GetOpcode,
-                           CPUIDRestrictionTemplateValue,
                            PreciseNanOperationsHandlingTemplateValue,
                            kSideEffectsTemplateValue,
                            std::tuple<InputArgumentsTypes...>,
                            std::tuple<OutputArgumentsTypes...>,
                            std::tuple<BindingsTypes...>,
-                           std::tuple<OperandsTypes...>>
+                           machine_insn_info::AsmCallInfo<kMacroInstructionTemplateName,
+                                                          kMnemo,
+                                                          GetOpcode,
+                                                          CPUIDRestrictionTemplateValue,
+                                                          std::tuple<OperandsTypes...>>>
     final {
  public:
   static constexpr auto kIntrinsic = kIntrinsicTemplateName;
@@ -100,6 +96,8 @@ class IntrinsicBindingInfo<kIntrinsicTemplateName,
   using IntrinsicType = std::conditional_t<std::tuple_size_v<OutputArguments> == 0,
                                            void (*)(InputArgumentsTypes...),
                                            OutputArguments (*)(InputArgumentsTypes...)>;
+  using AsmCallInfo = machine_insn_info::
+      AsmCallInfo<kMacroInstruction, kMnemo, GetOpcode, CPUIDRestriction, Operands>;
 };
 
 }  // namespace intrinsics::bindings

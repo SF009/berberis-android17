@@ -1140,18 +1140,20 @@ def _gen_c_intrinsic(name,
   else:
     yield '    callback('
   yield '          intrinsics::bindings::IntrinsicBindingInfo<'
-  yield '              %s>(),' % (
+  yield '              %s,' % (
     ',\n              '.join(
         [name_label,
-         _get_asm_reference(asm),
-         mnemo_label,
-         _get_builder_reference(intr, asm),
-         cpuid_restriction,
          nan_restriction,
          'true' if _intr_has_side_effects(intr) else 'false',
          _get_c_type_tuple(intr['in']),
          _get_c_type_tuple(intr['out']),
-         _get_bindings_info(asm['args']),
+         _get_bindings_info(asm['args'])]))
+  yield '              machine_insn_info::AsmCallInfo<%s>>(),' % (
+    ',\n                  '.join(
+        [_get_asm_reference(asm),
+         mnemo_label,
+         _get_builder_reference(intr, asm),
+         cpuid_restriction,
          _get_reg_operands_info(asm['args'])]))
   if check_compatible_assembler == _is_translator_compatible_assembler:
     yield '          std::forward<Args>(args)...); result.has_value()) {'
