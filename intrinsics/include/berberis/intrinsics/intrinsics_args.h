@@ -149,7 +149,6 @@ template <int N, typename RegisterClassType, auto kUsageParam>
 class ArgTraits<InArg<N>, machine_insn_info::OperandInfo<RegisterClassType, kUsageParam>> {
  public:
   using Class = RegisterClassType;
-  using RegisterClass = RegisterClassType;
   static constexpr auto kUsage = kUsageParam;
   static constexpr ArgInfo arg_info{.arg_type = ArgInfo::IN_ARG, .from = N};
 };
@@ -158,7 +157,6 @@ template <int N, typename RegisterClassType, auto kUsageParam>
 class ArgTraits<OutArg<N>, machine_insn_info::OperandInfo<RegisterClassType, kUsageParam>> {
  public:
   using Class = RegisterClassType;
-  using RegisterClass = RegisterClassType;
   static constexpr auto kUsage = kUsageParam;
   static constexpr ArgInfo arg_info{.arg_type = ArgInfo::OUT_ARG, .to = N};
 };
@@ -167,7 +165,6 @@ template <int N, typename RegisterClassType, auto kUsageParam>
 class ArgTraits<OutTmpArg<N>, machine_insn_info::OperandInfo<RegisterClassType, kUsageParam>> {
  public:
   using Class = RegisterClassType;
-  using RegisterClass = RegisterClassType;
   static constexpr auto kUsage = kUsageParam;
   static constexpr ArgInfo arg_info{.arg_type = ArgInfo::OUT_TMP_ARG, .to = N};
 };
@@ -176,7 +173,6 @@ template <int N, int M, typename RegisterClassType, auto kUsageParam>
 class ArgTraits<InOutArg<N, M>, machine_insn_info::OperandInfo<RegisterClassType, kUsageParam>> {
  public:
   using Class = RegisterClassType;
-  using RegisterClass = RegisterClassType;
   static constexpr auto kUsage = kUsageParam;
   static constexpr ArgInfo arg_info{.arg_type = ArgInfo::IN_OUT_ARG, .from = N, .to = M};
 };
@@ -185,7 +181,6 @@ template <int N, int M, typename RegisterClassType, auto kUsageParam>
 class ArgTraits<InOutTmpArg<N, M>, machine_insn_info::OperandInfo<RegisterClassType, kUsageParam>> {
  public:
   using Class = RegisterClassType;
-  using RegisterClass = RegisterClassType;
   static constexpr auto kUsage = kUsageParam;
   static constexpr ArgInfo arg_info{.arg_type = ArgInfo::IN_OUT_TMP_ARG, .from = N, .to = M};
 };
@@ -194,7 +189,6 @@ template <int N, typename RegisterClassType, auto kUsageParam>
 class ArgTraits<InTmpArg<N>, machine_insn_info::OperandInfo<RegisterClassType, kUsageParam>> {
  public:
   using Class = RegisterClassType;
-  using RegisterClass = RegisterClassType;
   static constexpr auto kUsage = kUsageParam;
   static constexpr ArgInfo arg_info{.arg_type = ArgInfo::IN_TMP_ARG, .from = N};
 };
@@ -204,7 +198,6 @@ class ArgTraits<ImmArg<N>,
                 machine_insn_info::OperandInfo<ImmediateClassType, machine_insn_info::kUse>> {
  public:
   using Class = ImmediateClassType;
-  using ImmediateClass = ImmediateClassType;
   static constexpr ArgInfo arg_info{.arg_type = ArgInfo::IMM_ARG, .from = N};
 };
 
@@ -212,7 +205,6 @@ template <typename RegisterClassType, auto kUsageParam>
 class ArgTraits<TmpArg, machine_insn_info::OperandInfo<RegisterClassType, kUsageParam>> {
  public:
   using Class = RegisterClassType;
-  using RegisterClass = RegisterClassType;
   static constexpr auto kUsage = kUsageParam;
   static constexpr ArgInfo arg_info{.arg_type = ArgInfo::TMP_ARG};
 };

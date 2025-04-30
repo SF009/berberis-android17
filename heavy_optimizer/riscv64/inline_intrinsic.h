@@ -374,8 +374,8 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
   template <typename ArgBinding, typename OperandInfo, typename IntrinsicBindingInfo>
   auto ProcessArgInput() {
     static constexpr const auto& arg_info = ArgTraits<ArgBinding, OperandInfo>::arg_info;
-    using RegisterClass = typename ArgTraits<ArgBinding, OperandInfo>::RegisterClass;
-    static constexpr auto kUsage = ArgTraits<ArgBinding, OperandInfo>::kUsage;
+    using RegisterClass = typename OperandInfo::Class;
+    static constexpr auto kUsage = OperandInfo::kUsage;
     static constexpr auto kNumOut =
         std::tuple_size_v<typename IntrinsicBindingInfo::OutputArguments>;
 
@@ -532,7 +532,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
     if constexpr (ArgTraits<ArgBinding, OperandInfo>::Class::kIsImmediate) {
       return;
     } else {
-      using RegisterClass = typename ArgTraits<ArgBinding, OperandInfo>::RegisterClass;
+      using RegisterClass = typename OperandInfo::Class;
       static constexpr const auto& arg_info = ArgTraits<ArgBinding, OperandInfo>::arg_info;
       if constexpr (RegisterClass::kAsRegister == 'm' || RegisterClass::kAsRegister == 0) {
         return;
