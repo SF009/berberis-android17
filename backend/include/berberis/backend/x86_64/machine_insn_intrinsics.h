@@ -101,33 +101,22 @@ constexpr size_t mem_count_v = std::tuple_size_v<filter_t<is_mem_t, Operands...>
 template <size_t N, typename... Operands>
 constexpr bool has_n_mem_v = mem_count_v<Operands...> > (N - 1);
 
-template <typename IntrinsicBindingInfo>
+template <typename IntrinsicBindingInfo, bool kSideEffects>
 class MachineInsn;
 
 // Use specialization to extract the tuple parameter pack generated from constructor_args_t above.
-template <auto kIntrinsic,
-          auto kMacroInstruction,
+template <auto kMacroInstruction,
           auto kMnemo,
           auto GetOpcode,
           typename CPUIDRestriction,
-          typename PreciseNanOperationsHandling,
-          bool kSideEffects,
-          typename... InputArguments,
-          typename... OutputArguments,
-          typename... Bindings,
-          typename... Operands>
-class MachineInsn<intrinsics::bindings::IntrinsicBindingInfo<
-    kIntrinsic,
-    PreciseNanOperationsHandling,
-    kSideEffects,
-    std::tuple<InputArguments...>,
-    std::tuple<OutputArguments...>,
-    std::tuple<Bindings...>,
-    machine_insn_info::AsmCallInfo<kMacroInstruction,
-                                   kMnemo,
-                                   GetOpcode,
-                                   CPUIDRestriction,
-                                   std::tuple<Operands...>>>>
+          typename... Operands,
+          bool kSideEffects>
+class MachineInsn<machine_insn_info::AsmCallInfo<kMacroInstruction,
+                                                 kMnemo,
+                                                 GetOpcode,
+                                                 CPUIDRestriction,
+                                                 std::tuple<Operands...>>,
+                  kSideEffects>
     final : public MachineInsnX86_64 {
  private:
   template <typename>
@@ -171,34 +160,21 @@ class MachineInsn<intrinsics::bindings::IntrinsicBindingInfo<
             s += ", ";
           }
           if constexpr (Operand::Class::kIsImmediate) {
-            // Without static_cast here compilation fails with extemely criptic error message:
-            // error: implicit instantiation of undefined template 'berberis::InOutArg<0, 0, …>'
-            //   …
-            // machine_insn_intrinsics.h:161:18: note: in instantiation of template class
-            //  'std::tuple<berberis::InOutArg<0, 0, …>, berberis::InArg<1, …>' requested here
-            // 187            s += GetImmOperandDebugString(this);
-            //
-            // Same below.
-            s += GetImmOperandDebugString(static_cast<const MachineInsnX86_64*>(this));
+            s += GetImmOperandDebugString(this);
             arg_idx++;
           } else if constexpr (Operand::Class::kAsRegister == 'm') {
             if (disp_idx == 0) {
-              s += GetBaseDispMemOperandDebugString(static_cast<const MachineInsnX86_64*>(this),
-                                                    reg_idx);
+              s += GetBaseDispMemOperandDebugString(this, reg_idx);
             } else /* disp_idx == 1 */ {
               s += StringPrintf(
-                  "[%s + 0x%x]",
-                  GetRegOperandDebugString(static_cast<const MachineInsnX86_64*>(this), reg_idx)
-                      .c_str(),
-                  disp2());
+                  "[%s + 0x%x]", GetRegOperandDebugString(this, reg_idx).c_str(), disp2());
             }
             arg_idx++, reg_idx++, disp_idx++;
           } else if constexpr (Operand::Class::kIsImplicitReg) {
-            s += GetImplicitRegOperandDebugString(static_cast<const MachineInsnX86_64*>(this),
-                                                  reg_idx);
+            s += GetImplicitRegOperandDebugString(this, reg_idx);
             arg_idx++, reg_idx++;
           } else {
-            s += GetRegOperandDebugString(static_cast<const MachineInsnX86_64*>(this), reg_idx);
+            s += GetRegOperandDebugString(this, reg_idx);
             arg_idx++, reg_idx++;
           }
         }.template operator()<Operands>(),
