@@ -80,9 +80,10 @@ class InsnFolding {
   bool IsWritingSameFlagsValue(MachineInsnList::iterator insn_it) const;
   std::tuple<std::optional<MachineInsnList::iterator>, int> FindNonPseudoCopyDef(
       MachineReg src_reg) const;
-  template <bool is_input_64bit>
+  template <bool kIsInput64Bit>
   std::tuple<bool, MachineInsn*> TryFoldImmediateInput(MachineInsnList::iterator insn_it);
   std::tuple<bool, MachineInsn*> TryFoldRedundantMovl(MachineInsnList::iterator insn_it);
+  template <bool kIsInput64Bit>
   std::tuple<bool, MachineInsn*> TryFoldCountLeadingZeroes(MachineInsnList::iterator insn_it,
                                                            const MachineBasicBlock* bb);
   MachineInsn* NewImmInsnFromRegInsn(const MachineInsn* insn, int32_t imm);

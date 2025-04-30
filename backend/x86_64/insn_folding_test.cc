@@ -611,7 +611,25 @@ class MacroReverseBitsU64 : public MachineInsnForArch {
   void Emit([[maybe_unused]] CodeEmitter* as) const override {}
 };
 
-TEST(InsnFoldingTest, CountTrailingZeroesFolding) {
+class MacroReverseBitsU32 : public MachineInsnForArch {
+ public:
+  MacroReverseBitsU32(MachineReg r0, MachineReg r1, MachineReg r2) : MachineInsnForArch(&kInfo) {
+    SetRegAt(0, r0);
+    SetRegAt(1, r1);
+    SetRegAt(2, r2);
+  }
+  static constexpr MachineInsnInfo kInfo =
+      MachineInsnInfo({kMachineOpMacroReverseBitsU32,
+                       3,
+                       {{&kGeneralReg64, MachineRegKind::kDef},
+                        {&kGeneralReg64, MachineRegKind::kUseDef},
+                        {&kFLAGS, MachineRegKind::kDef}},
+                       kMachineInsnDefault});
+  std::string GetDebugString() const override { return ""; }
+  void Emit([[maybe_unused]] CodeEmitter* as) const override {}
+};
+
+TEST(InsnFoldingTest, CountTrailingZeroesFolding64) {
   Arena arena;
   MachineIR machine_ir(&arena);
 
@@ -639,6 +657,35 @@ TEST(InsnFoldingTest, CountTrailingZeroesFolding) {
   MachineInsn* insn = *insn_it;
   EXPECT_EQ(insn->opcode(), kMachineOpTzcntqRegReg);
   EXPECT_EQ(insn->RegAt(0), vreg6);
+  EXPECT_EQ(insn->RegAt(1), vreg1);
+}
+
+TEST(InsnFoldingTest, CountTrailingZeroesFolding32) {
+  Arena arena;
+  MachineIR machine_ir(&arena);
+
+  MachineIRBuilder builder(&machine_ir);
+
+  auto* bb = machine_ir.NewBasicBlock();
+
+  MachineReg vreg1 = machine_ir.AllocVReg();
+  MachineReg vreg2 = machine_ir.AllocVReg();
+  MachineReg vreg3 = machine_ir.AllocVReg();
+  MachineReg vreg4 = machine_ir.AllocVReg();
+  MachineReg vreg5 = machine_ir.AllocVReg();
+  MachineReg flags = machine_ir.AllocVReg();
+
+  builder.StartBasicBlock(bb);
+  builder.Gen<MovqRegImm>(vreg1, 3);
+  builder.Gen<PseudoCopy>(vreg2, vreg1, 8);
+  builder.Gen<MacroReverseBitsU32>(vreg3, vreg2, flags);
+  builder.Gen<PseudoCopy>(vreg4, vreg3, 8);
+  builder.Gen<LzcntlRegReg>(vreg5, vreg4, flags);
+  FoldInsns(&machine_ir);
+  auto insn_it = std::prev(bb->insn_list().end());
+  MachineInsn* insn = *insn_it;
+  EXPECT_EQ(insn->opcode(), kMachineOpTzcntlRegReg);
+  EXPECT_EQ(insn->RegAt(0), vreg5);
   EXPECT_EQ(insn->RegAt(1), vreg1);
 }
 
