@@ -315,8 +315,7 @@ class TryBindingBasedInlineIntrinsic {
   }
 
   template <typename ArgBinding, typename OperandInfo, typename IntrinsicBindingInfo>
-  auto /*MakeTuplefromBindingsClient*/ operator()(ArgTraits<ArgBinding, OperandInfo>,
-                                                  IntrinsicBindingInfo) {
+  auto /*MakeTuplefromBindingsClient*/ operator()(IntrinsicBindingInfo) {
     static constexpr const auto& arg_info = ArgTraits<ArgBinding, OperandInfo>::arg_info;
     if constexpr (arg_info.arg_type == ArgInfo::IMM_ARG) {
       return ProcessArgInput<ArgBinding, OperandInfo, IntrinsicBindingInfo>(reg_alloc_);
