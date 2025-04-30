@@ -100,7 +100,7 @@ template <typename IntrinsicBindingInfo>
 constexpr void CallAssembler(MacroAssembler<TextAssembler>* as, int* register_numbers) {
   int arg_counter = 0;
   IntrinsicBindingInfo::ProcessBindings([&arg_counter, &as, register_numbers](auto arg) {
-    using RegisterClass = typename decltype(arg)::RegisterClass;
+    using RegisterClass = typename decltype(arg)::Class;
     if constexpr (!std::is_same_v<RegisterClass, machine_insn_info::FLAGS>) {
       if constexpr (RegisterClass::kAsRegister != 'm') {
         if constexpr (RegisterClass::kIsImplicitReg) {
@@ -131,7 +131,7 @@ constexpr void CallAssembler(MacroAssembler<TextAssembler>* as, int* register_nu
                  std::tuple<MacroAssembler<TextAssembler>&>{*as},
                  IntrinsicBindingInfo::MakeTuplefromBindings(
                      [&as, &arg_counter, &scratch_counter, register_numbers](auto arg) {
-                       using RegisterClass = typename decltype(arg)::RegisterClass;
+                       using RegisterClass = typename decltype(arg)::Class;
                        if constexpr (!std::is_same_v<RegisterClass, machine_insn_info::FLAGS>) {
                          if constexpr (RegisterClass::kAsRegister == 'm') {
                            if (scratch_counter == 0) {
@@ -223,7 +223,7 @@ template <typename IntrinsicBindingInfo>
 void GenerateTemporaries(FILE* out, int indent) {
   std::size_t id = 0;
   IntrinsicBindingInfo::ProcessBindings([out, &id, indent](auto arg) {
-    using RegisterClass = typename decltype(arg)::RegisterClass;
+    using RegisterClass = typename decltype(arg)::Class;
     if constexpr (!std::is_same_v<RegisterClass, machine_insn_info::FLAGS>) {
       if constexpr (!HaveInput(arg.arg_info) && !HaveOutput(arg.arg_info)) {
         static_assert(decltype(arg)::kUsage == machine_insn_info::kDef ||
@@ -242,7 +242,7 @@ void GenerateTemporaries(FILE* out, int indent) {
 template <typename IntrinsicBindingInfo>
 void GenerateInShadows(FILE* out, int indent) {
   IntrinsicBindingInfo::ProcessBindings([out, indent](auto arg) {
-    using RegisterClass = typename decltype(arg)::RegisterClass;
+    using RegisterClass = typename decltype(arg)::Class;
     if constexpr (RegisterClass::kAsRegister == 'm') {
       // Only temporary memory scratch area is supported.
       static_assert(!HaveInput(arg.arg_info) && !HaveOutput(arg.arg_info));
@@ -335,7 +335,7 @@ void GenerateAssemblerOuts(FILE* out, int indent) {
   std::vector<std::string> outs;
   int tmp_id = 0;
   IntrinsicBindingInfo::ProcessBindings([&outs, &tmp_id](auto arg) {
-    using RegisterClass = typename decltype(arg)::RegisterClass;
+    using RegisterClass = typename decltype(arg)::Class;
     if constexpr (!std::is_same_v<RegisterClass, machine_insn_info::FLAGS> &&
                   decltype(arg)::kUsage != machine_insn_info::kUse) {
       std::string out = "\"=";
@@ -366,7 +366,7 @@ void GenerateAssemblerIns(FILE* out,
                           bool need_gpr_macroassembler_constants) {
   std::vector<std::string> ins;
   IntrinsicBindingInfo::ProcessBindings([&ins](auto arg) {
-    using RegisterClass = typename decltype(arg)::RegisterClass;
+    using RegisterClass = typename decltype(arg)::Class;
     if constexpr (!std::is_same_v<RegisterClass, machine_insn_info::FLAGS> &&
                   decltype(arg)::kUsage == machine_insn_info::kUse) {
       ins.push_back("\"" + std::string(1, RegisterClass::kAsRegister) + "\"(in" +
@@ -383,7 +383,7 @@ void GenerateAssemblerIns(FILE* out,
   }
   int arg_counter = 0;
   IntrinsicBindingInfo::ProcessBindings([&ins, &arg_counter, register_numbers](auto arg) {
-    using RegisterClass = typename decltype(arg)::RegisterClass;
+    using RegisterClass = typename decltype(arg)::Class;
     if constexpr (!std::is_same_v<RegisterClass, machine_insn_info::FLAGS>) {
       if constexpr (HaveInput(arg.arg_info) && decltype(arg)::kUsage != machine_insn_info::kUse) {
         ins.push_back("\"" + std::to_string(register_numbers[arg_counter]) + "\"(in" +
@@ -399,7 +399,7 @@ void GenerateAssemblerIns(FILE* out,
 template <typename IntrinsicBindingInfo>
 void GenerateOutShadows(FILE* out, int indent) {
   IntrinsicBindingInfo::ProcessBindings([out, indent](auto arg) {
-    using RegisterClass = typename decltype(arg)::RegisterClass;
+    using RegisterClass = typename decltype(arg)::Class;
     if constexpr (RegisterClass::kAsRegister == 'r') {
       // TODO(b/138439904): remove when clang handling of 'r' constraint would be fixed.
       if constexpr (HaveOutput(arg.arg_info)) {
@@ -478,7 +478,7 @@ void GenerateElementsList(FILE* out,
 
 template <typename IntrinsicBindingInfo, typename Arg>
 constexpr bool NeedInputShadow(Arg arg) {
-  using RegisterClass = typename Arg::RegisterClass;
+  using RegisterClass = typename Arg::Class;
   // Without shadow clang silently converts 'r' restriction into 'q' restriction which
   // is wrong: if %ah or %bh is picked we would produce incorrect result here.
   // TODO(b/138439904): remove when clang handling of 'r' constraint would be fixed.
@@ -499,7 +499,7 @@ constexpr bool NeedInputShadow(Arg arg) {
 
 template <typename IntrinsicBindingInfo, typename Arg>
 constexpr bool NeedOutputShadow(Arg arg) {
-  using RegisterClass = typename Arg::RegisterClass;
+  using RegisterClass = typename Arg::Class;
   // Without shadow clang silently converts 'r' restriction into 'q' restriction which
   // is wrong: if %ah or %bh is picked we would produce incorrect result here.
   // TODO(b/138439904): remove when clang handling of 'r' constraint would be fixed.

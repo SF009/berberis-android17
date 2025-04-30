@@ -109,7 +109,7 @@ constexpr void AssignRegisterNumbers(int* register_numbers) {
   int arg_counter = 0;
   IntrinsicBindingInfo::ProcessBindings([&id, &arg_counter, &register_numbers](auto arg) {
     if constexpr (!IsImmediate(decltype(arg)::arg_info)) {
-      using RegisterClass = typename decltype(arg)::RegisterClass;
+      using RegisterClass = typename decltype(arg)::Class;
       if constexpr (!std::is_same_v<RegisterClass, machine_insn_info::FLAGS>) {
         if constexpr (decltype(arg)::kUsage != machine_insn_info::kUse) {
           register_numbers[arg_counter] = id++;
@@ -122,7 +122,7 @@ constexpr void AssignRegisterNumbers(int* register_numbers) {
   arg_counter = 0;
   IntrinsicBindingInfo::ProcessBindings([&id, &arg_counter, &register_numbers](auto arg) {
     if constexpr (!IsImmediate(decltype(arg)::arg_info)) {
-      using RegisterClass = typename decltype(arg)::RegisterClass;
+      using RegisterClass = typename decltype(arg)::Class;
       if constexpr (!std::is_same_v<RegisterClass, machine_insn_info::FLAGS>) {
         if constexpr (decltype(arg)::kUsage == machine_insn_info::kUse) {
           register_numbers[arg_counter] = id++;
@@ -138,7 +138,7 @@ constexpr bool CheckIntrinsicHasFlagsBinding() {
   bool expect_flags = false;
   AsmCallInfo::ProcessBindings([&expect_flags](auto arg) constexpr {
     if constexpr (!IsImmediate(decltype(arg)::arg_info)) {
-      using RegisterClass = typename decltype(arg)::RegisterClass;
+      using RegisterClass = typename decltype(arg)::Class;
       if constexpr (std::is_same_v<RegisterClass, machine_insn_info::FLAGS>) {
         expect_flags = true;
       }
@@ -152,7 +152,7 @@ constexpr void CallVerifierAssembler(AssemblerType* as, int* register_numbers) {
   int arg_counter = 0;
   IntrinsicBindingInfo::ProcessBindings([&arg_counter, &as, register_numbers](auto arg) {
     if constexpr (!IsImmediate(decltype(arg)::arg_info)) {
-      using RegisterClass = typename decltype(arg)::RegisterClass;
+      using RegisterClass = typename decltype(arg)::Class;
       if constexpr (!std::is_same_v<RegisterClass, machine_insn_info::FLAGS>) {
         if constexpr (RegisterClass::kAsRegister != 'm') {
           if constexpr (RegisterClass::kIsImplicitReg) {
@@ -200,7 +200,7 @@ constexpr void CallVerifierAssembler(AssemblerType* as, int* register_numbers) {
               // intrinsics.
               return std::tuple{2};
             } else {
-              using RegisterClass = typename decltype(arg)::RegisterClass;
+              using RegisterClass = typename decltype(arg)::Class;
               if constexpr (!std::is_same_v<RegisterClass, machine_insn_info::FLAGS>) {
                 if constexpr (RegisterClass::kAsRegister == 'm') {
                   static_assert(decltype(arg)::kUsage == machine_insn_info::kDefEarlyClobber);
