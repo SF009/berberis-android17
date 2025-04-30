@@ -360,8 +360,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
   }
 
   template <typename ArgBinding, typename OperandInfo, typename IntrinsicBindingInfo>
-  auto /*MakeTuplefromBindingsClient*/ operator()(ArgTraits<ArgBinding, OperandInfo>,
-                                                  IntrinsicBindingInfo) {
+  auto /*MakeTuplefromBindingsClient*/ operator()(IntrinsicBindingInfo) {
     static constexpr const auto& arg_info = ArgTraits<ArgBinding, OperandInfo>::arg_info;
     if constexpr (arg_info.arg_type == ArgInfo::IMM_ARG) {
       auto imm = std::get<arg_info.from>(input_args_);
