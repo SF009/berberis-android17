@@ -205,6 +205,43 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldImmediateInput(
   return {false, nullptr};
 }
 
+MachineInsn* InsnFolding::NewInsnFromTwoImmediatesOperation(const MachineInsn* insn,
+                                                            uint64_t imm1,
+                                                            uint64_t imm2) {
+  MachineInsn* folded_insn;
+  uint64_t result;
+  switch (insn->opcode()) {
+    case kMachineOpShlqRegImm:
+      return machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm1 << imm2);
+    case kMachineOpShrqRegImm:
+      return machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm1 >> imm2);
+    default:
+      LOG_ALWAYS_FATAL("unexpected opcode");
+  }
+
+  return folded_insn;
+}
+
+std::tuple<bool, MachineInsn*> InsnFolding::TryFoldTwoImmediates(
+    MachineInsnList::iterator insn_it) {
+  const MachineInsn* insn = *insn_it;
+  CHECK(insn->opcode() == kMachineOpShlqRegImm || insn->opcode() == kMachineOpShrqRegImm);
+  MachineReg src_reg = insn->RegAt(0);
+  auto [def_insn_it, def_insn_pos] = FindNonPseudoCopyDef(src_reg);
+  if (!def_insn_it.has_value()) {
+    return {false, nullptr};
+  }
+  const MachineInsn* def_insn = *def_insn_it.value();
+  if (def_insn->opcode() != kMachineOpMovqRegImm) {
+    return {false, nullptr};
+  }
+  uint64_t imm1 = AsMachineInsnX86_64(def_insn)->imm();
+  uint64_t imm2 = AsMachineInsnX86_64(insn)->imm();
+  // Check no value loss when imm2 is represented using 32 bits.
+  CHECK(imm2 == static_cast<uint64_t>(static_cast<int32_t>(imm2)));
+  return {true, NewInsnFromTwoImmediatesOperation(insn, imm1, imm2)};
+}
+
 std::tuple<bool, MachineInsn*> InsnFolding::TryFoldRedundantMovl(
     MachineInsnList::iterator insn_it) {
   const MachineInsn* insn = *insn_it;
@@ -316,6 +353,9 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldInsn(const MachineInsnList::i
       }
       break;
     }
+    case kMachineOpShlqRegImm:
+    case kMachineOpShrqRegImm:
+      return TryFoldTwoImmediates(insn_it);
     case kMachineOpLzcntlRegReg:
       return TryFoldCountLeadingZeroes<false>(insn_it, bb);
     case kMachineOpLzcntqRegReg:
