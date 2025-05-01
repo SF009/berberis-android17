@@ -316,7 +316,7 @@ class TryBindingBasedInlineIntrinsic {
 
   template <typename ArgBinding, typename OperandInfo, typename IntrinsicBindingInfo>
   auto /*MakeTuplefromBindingsClient*/ operator()(IntrinsicBindingInfo) {
-    static constexpr const auto& arg_info = ArgTraits<ArgBinding, OperandInfo>::arg_info;
+    static constexpr const auto& arg_info = ArgTraits<ArgBinding>::arg_info;
     if constexpr (arg_info.arg_type == ArgInfo::IMM_ARG) {
       return ProcessArgInput<ArgBinding, OperandInfo, IntrinsicBindingInfo>(reg_alloc_);
     } else {
@@ -334,12 +334,12 @@ class TryBindingBasedInlineIntrinsic {
             typename IntrinsicBindingInfo,
             typename RegAllocForArg>
   auto ProcessArgInput(RegAllocForArg&& reg_alloc) {
-    static constexpr const auto& arg_info = ArgTraits<ArgBinding, OperandInfo>::arg_info;
+    static constexpr const auto& arg_info = ArgTraits<ArgBinding>::arg_info;
     if constexpr (arg_info.arg_type == ArgInfo::IMM_ARG) {
       return std::tuple{std::get<arg_info.from>(input_args_)};
     } else {
       using RegisterClass = typename OperandInfo::Class;
-      static constexpr auto kUsage = ArgTraits<ArgBinding, OperandInfo>::kUsage;
+      static constexpr auto kUsage = OperandInfo::kUsage;
       if constexpr (arg_info.arg_type == ArgInfo::IN_ARG) {
         using Type =
             std::tuple_element_t<arg_info.from, typename IntrinsicBindingInfo::InputArguments>;

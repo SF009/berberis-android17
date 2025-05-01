@@ -363,7 +363,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
 
   template <typename ArgBinding, typename OperandInfo, typename IntrinsicBindingInfo>
   auto /*MakeTuplefromBindingsClient*/ operator()(IntrinsicBindingInfo) {
-    static constexpr const auto& arg_info = ArgTraits<ArgBinding, OperandInfo>::arg_info;
+    static constexpr const auto& arg_info = ArgTraits<ArgBinding>::arg_info;
     if constexpr (arg_info.arg_type == ArgInfo::IMM_ARG) {
       auto imm = std::get<arg_info.from>(input_args_);
       return std::tuple{imm};
@@ -374,7 +374,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
 
   template <typename ArgBinding, typename OperandInfo, typename IntrinsicBindingInfo>
   auto ProcessArgInput() {
-    static constexpr const auto& arg_info = ArgTraits<ArgBinding, OperandInfo>::arg_info;
+    static constexpr const auto& arg_info = ArgTraits<ArgBinding>::arg_info;
     using RegisterClass = typename OperandInfo::Class;
     static constexpr auto kUsage = OperandInfo::kUsage;
     static constexpr auto kNumOut =
@@ -398,7 +398,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
       static_assert(!RegisterClass::kIsImplicitReg);
       if constexpr (RegisterClass::kAsRegister == 'x') {
         if constexpr (kNumOut > 1) {
-          static_assert(kDependentTypeFalse<ArgTraits<ArgBinding, OperandInfo>>);
+          static_assert(kDependentTypeFalse<ArgTraits<ArgBinding>>);
         } else {
           CHECK(xmm_result_reg_.IsInvalidReg());
           xmm_result_reg_ = AllocVReg();
@@ -419,7 +419,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
       static_assert(kUsage == machine_insn_info::kUseDef);
       static_assert(RegisterClass::kIsImplicitReg);
       if constexpr (kNumOut > 1) {
-        static_assert(kDependentTypeFalse<ArgTraits<ArgBinding, OperandInfo>>);
+        static_assert(kDependentTypeFalse<ArgTraits<ArgBinding>>);
       } else {
         CHECK(implicit_result_reg_.IsInvalidReg());
         implicit_result_reg_ = AllocVReg();
@@ -438,7 +438,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
       }
     } else if constexpr (arg_info.arg_type == ArgInfo::OUT_TMP_ARG) {
       if constexpr (kNumOut > 1) {
-        static_assert(kDependentTypeFalse<ArgTraits<ArgBinding, OperandInfo>>);
+        static_assert(kDependentTypeFalse<ArgTraits<ArgBinding>>);
       } else {
         CHECK(implicit_result_reg_.IsInvalidReg());
         implicit_result_reg_ = AllocVReg();
@@ -530,11 +530,11 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
 
   template <typename ArgBinding, typename OperandInfo, typename IntrinsicBindingInfo>
   void ProcessBindingResult() {
-    if constexpr (ArgTraits<ArgBinding, OperandInfo>::Class::kIsImmediate) {
+    if constexpr (OperandInfo::Class::kIsImmediate) {
       return;
     } else {
       using RegisterClass = typename OperandInfo::Class;
-      static constexpr const auto& arg_info = ArgTraits<ArgBinding, OperandInfo>::arg_info;
+      static constexpr const auto& arg_info = ArgTraits<ArgBinding>::arg_info;
       if constexpr (RegisterClass::kAsRegister == 'm' || RegisterClass::kAsRegister == 0) {
         return;
       } else if constexpr ((arg_info.arg_type == ArgInfo::IN_OUT_ARG ||
