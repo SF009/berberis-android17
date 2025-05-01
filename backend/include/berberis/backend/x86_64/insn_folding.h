@@ -70,7 +70,8 @@ class InsnFolding {
   explicit InsnFolding(DefMap& def_map, MachineIR* machine_ir)
       : def_map_(def_map), machine_ir_(machine_ir) {}
 
-  std::tuple<bool, MachineInsn*> TryFoldInsn(const MachineInsnList::iterator insn);
+  std::tuple<bool, MachineInsn*> TryFoldInsn(const MachineInsnList::iterator insn,
+                                             const MachineBasicBlock* bb);
 
  private:
   DefMap& def_map_;
@@ -80,6 +81,8 @@ class InsnFolding {
   template <bool is_input_64bit>
   std::tuple<bool, MachineInsn*> TryFoldImmediateInput(MachineInsnList::iterator insn_it);
   std::tuple<bool, MachineInsn*> TryFoldRedundantMovl(MachineInsnList::iterator insn_it);
+  std::tuple<bool, MachineInsn*> TryFoldCountLeadingZeroes(MachineInsnList::iterator insn_it,
+                                                           const MachineBasicBlock* bb);
   MachineInsn* NewImmInsnFromRegInsn(const MachineInsn* insn, int32_t imm);
 };
 

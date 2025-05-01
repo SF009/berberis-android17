@@ -66,7 +66,7 @@ void TryRegRegInsnFolding(bool is_64bit_mov_imm, uint64_t imm = 0x7777ffffULL) {
   ++insn_it;
   const MachineInsn* insn = *insn_it;
 
-  auto [is_folded, folded_insn] = insn_folding.TryFoldInsn(insn_it);
+  auto [is_folded, folded_insn] = insn_folding.TryFoldInsn(insn_it, bb);
 
   if (!is_folded) {
     EXPECT_FALSE(kExpectSuccess);
@@ -113,7 +113,7 @@ void TryMovInsnFolding(bool is_64bit_mov_imm, uint64_t imm) {
   ++insn_it;
   const MachineInsn* insn = *insn_it;
 
-  auto [is_folded, folded_insn] = insn_folding.TryFoldInsn(insn_it);
+  auto [is_folded, folded_insn] = insn_folding.TryFoldInsn(insn_it, bb);
 
   EXPECT_TRUE(is_folded);
   EXPECT_EQ(InsnTypeRegImm::kInfo.opcode, folded_insn->opcode());
@@ -244,7 +244,7 @@ TEST(InsnFoldingTest, SingleMovqMemBaseDispImm32Folding) {
   ++insn_it;
   const MachineInsn* insn = *insn_it;
 
-  auto [_, folded_insn] = insn_folding.TryFoldInsn(insn_it);
+  auto [_, folded_insn] = insn_folding.TryFoldInsn(insn_it, bb);
   EXPECT_EQ(kMachineOpMovqMemBaseDispImm, folded_insn->opcode());
   EXPECT_EQ(kMachineRegRAX, folded_insn->RegAt(0));
   EXPECT_EQ(2UL, AsMachineInsnX86_64(folded_insn)->imm());
@@ -282,7 +282,7 @@ TEST(InsnFoldingTest, SingleMovlMemBaseDispImm32Folding) {
   ++insn_it;
   const MachineInsn* insn = *insn_it;
 
-  auto [_, folded_insn] = insn_folding.TryFoldInsn(insn_it);
+  auto [_, folded_insn] = insn_folding.TryFoldInsn(insn_it, bb);
   EXPECT_EQ(kMachineOpMovlMemBaseDispImm, folded_insn->opcode());
   EXPECT_EQ(kMachineRegRAX, folded_insn->RegAt(0));
   EXPECT_EQ(3UL, AsMachineInsnX86_64(folded_insn)->imm());
@@ -319,7 +319,7 @@ TEST(InsnFoldingTest, RedundantMovlFolding) {
   auto insn_it = bb->insn_list().begin();
   ++insn_it;
 
-  auto [_, folded_insn] = insn_folding.TryFoldInsn(insn_it);
+  auto [_, folded_insn] = insn_folding.TryFoldInsn(insn_it, bb);
   EXPECT_EQ(kMachineOpPseudoCopy, folded_insn->opcode());
   EXPECT_EQ(vreg1, folded_insn->RegAt(0));
   EXPECT_EQ(vreg2, folded_insn->RegAt(1));
@@ -351,7 +351,7 @@ TEST(InsnFoldingTest, GracefulHandlingOfVRegDefinedInPreviousBasicBlock) {
 
   auto insn_it = bb->insn_list().begin();
 
-  auto [success, _] = insn_folding.TryFoldInsn(insn_it);
+  auto [success, _] = insn_folding.TryFoldInsn(insn_it, bb);
   EXPECT_FALSE(success);
 }
 
