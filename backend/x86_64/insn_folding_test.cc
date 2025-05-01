@@ -590,6 +590,88 @@ TEST(InsnFoldingTest, FoldWriteFlags) {
   TestFoldCond(Cond::kNoOverflow, Cond::kEqual, PseudoWriteFlags::Flags::kOverflow);
 }
 
+class MacroReverseBitsU64 : public MachineInsnForArch {
+ public:
+  MacroReverseBitsU64(MachineReg r0, MachineReg r1, MachineReg r2, MachineReg r3)
+      : MachineInsnForArch(&kInfo) {
+    SetRegAt(0, r0);
+    SetRegAt(1, r1);
+    SetRegAt(2, r2);
+    SetRegAt(3, r3);
+  }
+  static constexpr MachineInsnInfo kInfo =
+      MachineInsnInfo({kMachineOpMacroReverseBitsU64,
+                       4,
+                       {{&kGeneralReg64, MachineRegKind::kDef},
+                        {&kGeneralReg64, MachineRegKind::kUseDef},
+                        {&kGeneralReg64, MachineRegKind::kDef},
+                        {&kFLAGS, MachineRegKind::kDef}},
+                       kMachineInsnDefault});
+  std::string GetDebugString() const override { return ""; }
+  void Emit([[maybe_unused]] CodeEmitter* as) const override {}
+};
+
+TEST(InsnFoldingTest, CountTrailingZeroesFolding) {
+  Arena arena;
+  MachineIR machine_ir(&arena);
+
+  MachineIRBuilder builder(&machine_ir);
+
+  auto* bb = machine_ir.NewBasicBlock();
+
+  MachineReg vreg1 = machine_ir.AllocVReg();
+  MachineReg vreg2 = machine_ir.AllocVReg();
+  MachineReg vreg3 = machine_ir.AllocVReg();
+  MachineReg vreg4 = machine_ir.AllocVReg();
+  MachineReg vreg5 = machine_ir.AllocVReg();
+  MachineReg vreg6 = machine_ir.AllocVReg();
+  MachineReg flags = machine_ir.AllocVReg();
+
+  builder.StartBasicBlock(bb);
+  builder.Gen<MovqRegImm>(vreg1, 3);
+  builder.Gen<PseudoCopy>(vreg2, vreg1, 8);
+  builder.Gen<MacroReverseBitsU64>(vreg3, vreg2, vreg4, flags);
+  builder.Gen<PseudoCopy>(vreg5, vreg3, 8);
+  builder.Gen<LzcntqRegReg>(vreg6, vreg5, flags);
+
+  FoldInsns(&machine_ir);
+  auto insn_it = std::prev(bb->insn_list().end());
+  MachineInsn* insn = *insn_it;
+  EXPECT_EQ(insn->opcode(), kMachineOpTzcntqRegReg);
+  EXPECT_EQ(insn->RegAt(0), vreg6);
+  EXPECT_EQ(insn->RegAt(1), vreg1);
+}
+
+TEST(InsnFoldingTest, CountTrailingZeroesFoldingCancelledIfArgNotAlive) {
+  Arena arena;
+  MachineIR machine_ir(&arena);
+
+  MachineIRBuilder builder(&machine_ir);
+
+  auto* bb = machine_ir.NewBasicBlock();
+
+  MachineReg vreg1 = machine_ir.AllocVReg();
+  MachineReg vreg2 = machine_ir.AllocVReg();
+  MachineReg vreg3 = machine_ir.AllocVReg();
+  MachineReg vreg4 = machine_ir.AllocVReg();
+  MachineReg vreg5 = machine_ir.AllocVReg();
+  MachineReg vreg6 = machine_ir.AllocVReg();
+  MachineReg flags = machine_ir.AllocVReg();
+
+  builder.StartBasicBlock(bb);
+  builder.Gen<MovqRegImm>(vreg1, 3);
+  builder.Gen<PseudoCopy>(vreg2, vreg1, 8);
+  builder.Gen<MacroReverseBitsU64>(vreg3, vreg2, vreg4, flags);
+  builder.Gen<MovqRegImm>(vreg1, 4);  // invalidates vreg1
+  builder.Gen<PseudoCopy>(vreg5, vreg3, 8);
+  builder.Gen<LzcntqRegReg>(vreg6, vreg5, flags);
+
+  FoldInsns(&machine_ir);
+  auto insn_it = std::prev(bb->insn_list().end());
+  MachineInsn* insn = *insn_it;
+  EXPECT_EQ(insn->opcode(), kMachineOpLzcntqRegReg);
+}
+
 }  // namespace
 
 }  // namespace berberis::x86_64

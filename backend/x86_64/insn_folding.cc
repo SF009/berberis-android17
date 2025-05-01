@@ -140,28 +140,31 @@ MachineInsn* InsnFolding::NewImmInsnFromRegInsn(const MachineInsn* insn, int32_t
   return folded_insn;
 }
 
+std::tuple<std::optional<MachineInsnList::iterator>, int> InsnFolding::FindNonPseudoCopyDef(
+    MachineReg src_reg) const {
+  auto [def_insn_it, def_insn_pos] = def_map_.Get(src_reg);
+  while (def_insn_it.has_value()) {
+    const MachineInsn* def_insn = *def_insn_it.value();
+    if (def_insn->opcode() != kMachineOpPseudoCopy) {
+      return {def_insn_it, def_insn_pos};
+    }
+    std::tie(def_insn_it, def_insn_pos) = def_map_.Get(def_insn->RegAt(1), def_insn_pos);
+  }
+  return {std::nullopt, 0};
+}
+
 bool InsnFolding::IsWritingSameFlagsValue(MachineInsnList::iterator write_flags_insn_it) const {
   const MachineInsn* write_flags_insn = *write_flags_insn_it;
   CHECK(write_flags_insn && write_flags_insn->opcode() == kMachineOpPseudoWriteFlags);
   MachineReg src_reg = write_flags_insn->RegAt(0);
-  auto [def_insn_it, def_insn_pos] = def_map_.Get(src_reg);
-  // Warning: We are assuming that all flags writes in IR happen to the same virtual register.
-  while (true) {
-    if (!def_insn_it.has_value()) {
-      return false;
-    }
-    const MachineInsn* def_insn = *def_insn_it.value();
-    int opcode = def_insn->opcode();
-    if (opcode == kMachineOpPseudoCopy) {
-      src_reg = def_insn->RegAt(1);
-      std::tie(def_insn_it, def_insn_pos) = def_map_.Get(src_reg, def_insn_pos);
-      continue;
-    } else if (opcode == kMachineOpPseudoReadFlags) {
-      break;
-    }
+  auto [def_insn_it, def_insn_pos] = FindNonPseudoCopyDef(src_reg);
+  if (!def_insn_it.has_value()) {
     return false;
   }
   const MachineInsn* def_insn = *def_insn_it.value();
+  if (def_insn->opcode() != kMachineOpPseudoReadFlags) {
+    return false;
+  }
   // Instruction is PseudoReadFlags.
   if (write_flags_insn->RegAt(1) != def_insn->RegAt(1)) {
     return false;
@@ -234,26 +237,18 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldCountLeadingZeroes(
   const MachineInsn* insn = *insn_it;
   CHECK_EQ(insn->opcode(), kMachineOpLzcntqRegReg);
   MachineReg clz_src_reg = insn->RegAt(1);
-  auto [def_insn_it, def_insn_pos] = def_map_.Get(clz_src_reg);
-  while (true) {
-    if (!def_insn_it.has_value()) {
-      return {false, nullptr};
-    }
-    const MachineInsn* def_insn = *def_insn_it.value();
-    int opcode = def_insn->opcode();
-    if (opcode == kMachineOpPseudoCopy) {
-      clz_src_reg = def_insn->RegAt(1);
-      std::tie(def_insn_it, def_insn_pos) = def_map_.Get(clz_src_reg, def_insn_pos);
-      continue;
-    } else if (opcode == kMachineOpMacroReverseBitsU64) {
-      break;
-    }
+  auto [def_insn_it, def_insn_pos] = FindNonPseudoCopyDef(clz_src_reg);
+  if (!def_insn_it.has_value()) {
     return {false, nullptr};
   }
   if (def_insn_it == bb->insn_list().begin()) {
     return {false, nullptr};
   }
-  const MachineInsn* reverse_bits_insn = *def_insn_it.value();
+  const MachineInsn* def_insn = *def_insn_it.value();
+  if (def_insn->opcode() != kMachineOpMacroReverseBitsU64) {
+    return {false, nullptr};
+  }
+  const MachineInsn* reverse_bits_insn = def_insn;
   MachineInsnList::iterator insn_before_reverse_bits_it = std::prev(def_insn_it.value());
   const MachineInsn* insn_before_reverse_bits = *insn_before_reverse_bits_it;
   if (insn_before_reverse_bits->opcode() != kMachineOpPseudoCopy) {
