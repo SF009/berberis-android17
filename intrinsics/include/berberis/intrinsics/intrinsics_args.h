@@ -21,7 +21,6 @@
 #include <cstdio>
 
 #include "berberis/base/checks.h"
-#include "berberis/intrinsics/common/machine_insn_info.h"
 
 namespace berberis {
 
@@ -120,77 +119,50 @@ struct ArgInfo {
 };
 
 template <int N>
-class InArg;
+class InArg {
+ public:
+  static constexpr ArgInfo kArgInfo{.arg_type = ArgInfo::IN_ARG, .from = N};
+};
 
 template <int N>
-class OutArg;
+class OutArg {
+ public:
+  static constexpr ArgInfo kArgInfo{.arg_type = ArgInfo::OUT_ARG, .to = N};
+};
 
 template <int N>
-class OutTmpArg;
+class OutTmpArg {
+ public:
+  static constexpr ArgInfo kArgInfo{.arg_type = ArgInfo::OUT_TMP_ARG, .to = N};
+};
 
 template <int N, int M>
-class InOutArg;
+class InOutArg {
+ public:
+  static constexpr ArgInfo kArgInfo{.arg_type = ArgInfo::IN_OUT_ARG, .from = N, .to = M};
+};
 
 template <int N, int M>
-class InOutTmpArg;
+class InOutTmpArg {
+ public:
+  static constexpr ArgInfo kArgInfo{.arg_type = ArgInfo::IN_OUT_TMP_ARG, .from = N, .to = M};
+};
 
 template <int N>
-class InTmpArg;
+class InTmpArg {
+ public:
+  static constexpr ArgInfo kArgInfo{.arg_type = ArgInfo::IN_TMP_ARG, .from = N};
+};
 
 template <int N, typename ImmType = void>
-class ImmArg;
-
-class TmpArg;
-
-template <typename ArgInfo>
-class ArgTraits;
-
-template <int N>
-class ArgTraits<InArg<N>> {
+class ImmArg {
  public:
-  static constexpr ArgInfo arg_info{.arg_type = ArgInfo::IN_ARG, .from = N};
+  static constexpr ArgInfo kArgInfo{.arg_type = ArgInfo::IMM_ARG, .from = N};
 };
 
-template <int N>
-class ArgTraits<OutArg<N>> {
+class TmpArg {
  public:
-  static constexpr ArgInfo arg_info{.arg_type = ArgInfo::OUT_ARG, .to = N};
-};
-
-template <int N>
-class ArgTraits<OutTmpArg<N>> {
- public:
-  static constexpr ArgInfo arg_info{.arg_type = ArgInfo::OUT_TMP_ARG, .to = N};
-};
-
-template <int N, int M>
-class ArgTraits<InOutArg<N, M>> {
- public:
-  static constexpr ArgInfo arg_info{.arg_type = ArgInfo::IN_OUT_ARG, .from = N, .to = M};
-};
-
-template <int N, int M>
-class ArgTraits<InOutTmpArg<N, M>> {
- public:
-  static constexpr ArgInfo arg_info{.arg_type = ArgInfo::IN_OUT_TMP_ARG, .from = N, .to = M};
-};
-
-template <int N>
-class ArgTraits<InTmpArg<N>> {
- public:
-  static constexpr ArgInfo arg_info{.arg_type = ArgInfo::IN_TMP_ARG, .from = N};
-};
-
-template <int N>
-class ArgTraits<ImmArg<N>> {
- public:
-  static constexpr ArgInfo arg_info{.arg_type = ArgInfo::IMM_ARG, .from = N};
-};
-
-template <>
-class ArgTraits<TmpArg> {
- public:
-  static constexpr ArgInfo arg_info{.arg_type = ArgInfo::TMP_ARG};
+  static constexpr ArgInfo kArgInfo{.arg_type = ArgInfo::TMP_ARG};
 };
 
 // We couldn't use standard "throw std::logic_error(...)" approach here because that code is
@@ -253,7 +225,7 @@ constexpr bool IsCompatible(const ArgInfo* arguments) {
 
 template <typename MachineInsn, typename... Args, typename... Operands>
 constexpr bool IsCompatible() {
-  const ArgInfo arguments[] = {ArgTraits<Args>::arg_info...};
+  const ArgInfo arguments[] = {Args::kArgInfo...};
   // Note: we couldn't pass arguments as an array into IsCompatible by reference
   // because this would cause compilation error in case where we have no arguments.
   //

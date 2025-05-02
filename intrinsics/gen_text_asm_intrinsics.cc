@@ -228,10 +228,9 @@ template <typename IntrinsicBindingInfo>
 void GenerateTemporaries(FILE* out, int indent) {
   std::size_t id = 0;
   IntrinsicBindingInfo::ProcessBindings([out, &id, indent]<typename Binding, typename Operand> {
-    constexpr auto kArgInfo = ArgTraits<Binding>::arg_info;
     using RegisterClass = Operand::Class;
     if constexpr (!std::is_same_v<RegisterClass, machine_insn_info::FLAGS>) {
-      if constexpr (!HaveInput(kArgInfo) && !HaveOutput(kArgInfo)) {
+      if constexpr (!HaveInput(Binding::kArgInfo) && !HaveOutput(Binding::kArgInfo)) {
         static_assert(Operand::kUsage == machine_insn_info::kDef ||
                       Operand::kUsage == machine_insn_info::kDefEarlyClobber);
         fprintf(out,
@@ -248,30 +247,34 @@ void GenerateTemporaries(FILE* out, int indent) {
 template <typename IntrinsicBindingInfo>
 void GenerateInShadows(FILE* out, int indent) {
   IntrinsicBindingInfo::ProcessBindings([out, indent]<typename Binding, typename Operand> {
-    constexpr auto kArgInfo = ArgTraits<Binding>::arg_info;
     using RegisterClass = Operand::Class;
     if constexpr (RegisterClass::kAsRegister == 'm') {
       // Only temporary memory scratch area is supported.
-      static_assert(!HaveInput(kArgInfo) && !HaveOutput(kArgInfo));
+      static_assert(!HaveInput(Binding::kArgInfo) && !HaveOutput(Binding::kArgInfo));
     } else if constexpr (RegisterClass::kAsRegister == 'r') {
       // TODO(b/138439904): remove when clang handling of 'r' constraint would be fixed.
       if constexpr (NeedInputShadow<IntrinsicBindingInfo, Binding, Operand>()) {
-        fprintf(out, "%2$*1$suint32_t in%3$d_shadow = in%3$d;\n", indent, "", kArgInfo.from);
+        fprintf(
+            out, "%2$*1$suint32_t in%3$d_shadow = in%3$d;\n", indent, "", Binding::kArgInfo.from);
       }
       if constexpr (NeedOutputShadow<IntrinsicBindingInfo, Binding, Operand>()) {
-        fprintf(out, "%*suint32_t out%d_shadow;\n", indent, "", kArgInfo.to);
+        fprintf(out, "%*suint32_t out%d_shadow;\n", indent, "", Binding::kArgInfo.to);
       }
     } else if constexpr (RegisterClass::kAsRegister == 'x') {
-      if constexpr (HaveInput(kArgInfo)) {
-        using Type =
-            std::tuple_element_t<kArgInfo.from, typename IntrinsicBindingInfo::InputArguments>;
+      if constexpr (HaveInput(Binding::kArgInfo)) {
+        using Type = std::tuple_element_t<Binding::kArgInfo.from,
+                                          typename IntrinsicBindingInfo::InputArguments>;
         const char* type_name = TypeTraits<Type>::kName;
         const char* xmm_type_name;
         const char* expanded = "";
         // Types allowed for 'x' restriction are float, double and __m128/__m128i/__m128d
         // First two work for {,u}int32_t and {,u}int64_t, but small integer types must be expanded.
         if constexpr (std::is_integral_v<Type> && sizeof(Type) < sizeof(int32_t)) {
-          fprintf(out, "%2$*1$suint32_t in%3$d_expanded = in%3$d;\n", indent, "", kArgInfo.from);
+          fprintf(out,
+                  "%2$*1$suint32_t in%3$d_expanded = in%3$d;\n",
+                  indent,
+                  "",
+                  Binding::kArgInfo.from);
           type_name = TypeTraits<uint32_t>::kName;
           xmm_type_name =
               TypeTraits<typename TypeTraits<typename TypeTraits<uint32_t>::Float>::Raw>::kName;
@@ -283,12 +286,12 @@ void GenerateInShadows(FILE* out, int indent) {
         } else if constexpr (std::is_same_v<Type, intrinsics::Float16>) {
           // It's a bit strange that _Float16 is not accepted in XMM register, but it's also not
           // clear if it's a bug or not. Just use __m128 for now.
-          fprintf(out, "%2$*1$s__m128 in%3$d_expanded;\n", indent, "", kArgInfo.from);
+          fprintf(out, "%2$*1$s__m128 in%3$d_expanded;\n", indent, "", Binding::kArgInfo.from);
           fprintf(out,
                   "%2$*1$smemcpy(&in%3$d_expanded, &in%3$d, sizeof(Float16));\n",
                   indent,
                   "",
-                  kArgInfo.from);
+                  Binding::kArgInfo.from);
           type_name = "__m128";
           xmm_type_name = "__m128";
           expanded = "_expanded";
@@ -296,7 +299,7 @@ void GenerateInShadows(FILE* out, int indent) {
           // Float32/Float64 can not be used, we need to use raw float/double.
           xmm_type_name = TypeTraits<typename TypeTraits<Type>::Raw>::kName;
         }
-        fprintf(out, "%*s%s in%d_shadow;\n", indent, "", xmm_type_name, kArgInfo.from);
+        fprintf(out, "%*s%s in%d_shadow;\n", indent, "", xmm_type_name, Binding::kArgInfo.from);
         fprintf(out,
                 "%*sstatic_assert(sizeof(%s) == sizeof(%s));\n",
                 indent,
@@ -310,13 +313,13 @@ void GenerateInShadows(FILE* out, int indent) {
                 "%2$*1$smemcpy(&in%3$d_shadow, &in%3$d%4$s, sizeof(%5$s));\n",
                 indent,
                 "",
-                kArgInfo.from,
+                Binding::kArgInfo.from,
                 expanded,
                 xmm_type_name);
       }
-      if constexpr (HaveOutput(kArgInfo)) {
-        using Type =
-            std::tuple_element_t<kArgInfo.to, typename IntrinsicBindingInfo::OutputArguments>;
+      if constexpr (HaveOutput(Binding::kArgInfo)) {
+        using Type = std::tuple_element_t<Binding::kArgInfo.to,
+                                          typename IntrinsicBindingInfo::OutputArguments>;
         const char* xmm_type_name;
         // {,u}int32_t and {,u}int64_t have to be converted to float/double.
         if constexpr (std::is_integral_v<Type>) {
@@ -330,7 +333,7 @@ void GenerateInShadows(FILE* out, int indent) {
           // Float32/Float64 can not be used, we need to use raw float/double.
           xmm_type_name = TypeTraits<typename TypeTraits<Type>::Raw>::kName;
         }
-        fprintf(out, "%*s%s out%d_shadow;\n", indent, "", xmm_type_name, kArgInfo.to);
+        fprintf(out, "%*s%s out%d_shadow;\n", indent, "", xmm_type_name, Binding::kArgInfo.to);
       }
     }
   });
@@ -341,7 +344,6 @@ void GenerateAssemblerOuts(FILE* out, int indent) {
   std::vector<std::string> outs;
   int tmp_id = 0;
   IntrinsicBindingInfo::ProcessBindings([&outs, &tmp_id]<typename Binding, typename Operand> {
-    constexpr auto kArgInfo = ArgTraits<Binding>::arg_info;
     using RegisterClass = Operand::Class;
     if constexpr (!std::is_same_v<RegisterClass, machine_insn_info::FLAGS> &&
                   Operand::kUsage != machine_insn_info::kUse) {
@@ -350,12 +352,12 @@ void GenerateAssemblerOuts(FILE* out, int indent) {
         out += "&";
       }
       out += RegisterClass::kAsRegister;
-      if constexpr (HaveOutput(kArgInfo)) {
+      if constexpr (HaveOutput(Binding::kArgInfo)) {
         bool need_shadow = NeedOutputShadow<IntrinsicBindingInfo, Binding, Operand>();
-        out += "\"(out" + std::to_string(kArgInfo.to) + (need_shadow ? "_shadow)" : ")");
-      } else if constexpr (HaveInput(kArgInfo)) {
+        out += "\"(out" + std::to_string(Binding::kArgInfo.to) + (need_shadow ? "_shadow)" : ")");
+      } else if constexpr (HaveInput(Binding::kArgInfo)) {
         bool need_shadow = NeedInputShadow<IntrinsicBindingInfo, Binding, Operand>();
-        out += "\"(in" + std::to_string(kArgInfo.from) + (need_shadow ? "_shadow)" : ")");
+        out += "\"(in" + std::to_string(Binding::kArgInfo.from) + (need_shadow ? "_shadow)" : ")");
       } else {
         out += "\"(tmp" + std::to_string(tmp_id++) + ")";
       }
@@ -373,12 +375,11 @@ void GenerateAssemblerIns(FILE* out,
                           bool need_gpr_macroassembler_constants) {
   std::vector<std::string> ins;
   IntrinsicBindingInfo::ProcessBindings([&ins]<typename Binding, typename Operand> {
-    constexpr auto kArgInfo = ArgTraits<Binding>::arg_info;
     using RegisterClass = Operand::Class;
     if constexpr (!std::is_same_v<RegisterClass, machine_insn_info::FLAGS> &&
                   Operand::kUsage == machine_insn_info::kUse) {
       ins.push_back("\"" + std::string(1, RegisterClass::kAsRegister) + "\"(in" +
-                    std::to_string(kArgInfo.from) +
+                    std::to_string(Binding::kArgInfo.from) +
                     (NeedInputShadow<IntrinsicBindingInfo, Binding, Operand>() ? "_shadow)" : ")"));
     }
   });
@@ -392,13 +393,13 @@ void GenerateAssemblerIns(FILE* out,
   int arg_counter = 0;
   IntrinsicBindingInfo::ProcessBindings(
       [&ins, &arg_counter, register_numbers]<typename Binding, typename Operand> {
-        constexpr auto kArgInfo = ArgTraits<Binding>::arg_info;
         using RegisterClass = Operand::Class;
         if constexpr (!std::is_same_v<RegisterClass, machine_insn_info::FLAGS>) {
-          if constexpr (HaveInput(kArgInfo) && Operand::kUsage != machine_insn_info::kUse) {
+          if constexpr (HaveInput(Binding::kArgInfo) &&
+                        Operand::kUsage != machine_insn_info::kUse) {
             ins.push_back(
                 "\"" + std::to_string(register_numbers[arg_counter]) + "\"(in" +
-                std::to_string(kArgInfo.from) +
+                std::to_string(Binding::kArgInfo.from) +
                 (NeedInputShadow<IntrinsicBindingInfo, Binding, Operand>() ? "_shadow)" : ")"));
           }
           ++arg_counter;
@@ -410,21 +411,20 @@ void GenerateAssemblerIns(FILE* out,
 template <typename IntrinsicBindingInfo>
 void GenerateOutShadows(FILE* out, int indent) {
   IntrinsicBindingInfo::ProcessBindings([out, indent]<typename Binding, typename Operand> {
-    constexpr auto kArgInfo = ArgTraits<Binding>::arg_info;
     using RegisterClass = Operand::Class;
     if constexpr (RegisterClass::kAsRegister == 'r') {
       // TODO(b/138439904): remove when clang handling of 'r' constraint would be fixed.
-      if constexpr (HaveOutput(kArgInfo)) {
-        using Type =
-            std::tuple_element_t<kArgInfo.to, typename IntrinsicBindingInfo::OutputArguments>;
+      if constexpr (HaveOutput(Binding::kArgInfo)) {
+        using Type = std::tuple_element_t<Binding::kArgInfo.to,
+                                          typename IntrinsicBindingInfo::OutputArguments>;
         if constexpr (sizeof(Type) == sizeof(uint8_t)) {
-          fprintf(out, "%2$*1$sout%3$d = out%3$d_shadow;\n", indent, "", kArgInfo.to);
+          fprintf(out, "%2$*1$sout%3$d = out%3$d_shadow;\n", indent, "", Binding::kArgInfo.to);
         }
       }
     } else if constexpr (RegisterClass::kAsRegister == 'x') {
-      if constexpr (HaveOutput(kArgInfo)) {
-        using Type =
-            std::tuple_element_t<kArgInfo.to, typename IntrinsicBindingInfo::OutputArguments>;
+      if constexpr (HaveOutput(Binding::kArgInfo)) {
+        using Type = std::tuple_element_t<Binding::kArgInfo.to,
+                                          typename IntrinsicBindingInfo::OutputArguments>;
         const char* type_name = TypeTraits<Type>::kName;
         const char* xmm_type_name;
         // {,u}int32_t and {,u}int64_t have to be converted to float/double.
@@ -453,7 +453,7 @@ void GenerateOutShadows(FILE* out, int indent) {
                 "%2$*1$smemcpy(&out%3$d, &out%3$d_shadow, sizeof(%4$s));\n",
                 indent,
                 "",
-                kArgInfo.to,
+                Binding::kArgInfo.to,
                 xmm_type_name);
       }
     }
@@ -490,16 +490,15 @@ void GenerateElementsList(FILE* out,
 
 template <typename IntrinsicBindingInfo, typename Binding, typename Operand>
 constexpr bool NeedInputShadow() {
-  constexpr auto kArgInfo = ArgTraits<Binding>::arg_info;
-  using RegisterClass = typename Operand::Class;
+  using RegisterClass = Operand::Class;
   // Without shadow clang silently converts 'r' restriction into 'q' restriction which
   // is wrong: if %ah or %bh is picked we would produce incorrect result here.
   // TODO(b/138439904): remove when clang handling of 'r' constraint would be fixed.
-  if constexpr (RegisterClass::kAsRegister == 'r' && HaveInput(kArgInfo)) {
+  if constexpr (RegisterClass::kAsRegister == 'r' && HaveInput(Binding::kArgInfo)) {
     // Only 8-bit registers are special because each 16-bit registers include two of them
     // (%al/%ah, %cl/%ch, %dl/%dh, %bl/%bh).
     // Mix of 16-bit and 64-bit registers doesn't trigger bug in Clang.
-    if constexpr (sizeof(std::tuple_element_t<kArgInfo.from,
+    if constexpr (sizeof(std::tuple_element_t<Binding::kArgInfo.from,
                                               typename IntrinsicBindingInfo::InputArguments>) ==
                   sizeof(uint8_t)) {
       return true;
@@ -512,16 +511,15 @@ constexpr bool NeedInputShadow() {
 
 template <typename IntrinsicBindingInfo, typename Binding, typename Operand>
 constexpr bool NeedOutputShadow() {
-  constexpr auto kArgInfo = ArgTraits<Binding>::arg_info;
-  using RegisterClass = typename Operand::Class;
+  using RegisterClass = Operand::Class;
   // Without shadow clang silently converts 'r' restriction into 'q' restriction which
   // is wrong: if %ah or %bh is picked we would produce incorrect result here.
   // TODO(b/138439904): remove when clang handling of 'r' constraint would be fixed.
-  if constexpr (RegisterClass::kAsRegister == 'r' && HaveOutput(kArgInfo)) {
+  if constexpr (RegisterClass::kAsRegister == 'r' && HaveOutput(Binding::kArgInfo)) {
     // Only 8-bit registers are special because each some 16-bit registers include two of
     // them (%al/%ah, %cl/%ch, %dl/%dh, %bl/%bh).
     // Mix of 16-bit and 64-bit registers don't trigger bug in Clang.
-    if constexpr (sizeof(std::tuple_element_t<kArgInfo.to,
+    if constexpr (sizeof(std::tuple_element_t<Binding::kArgInfo.to,
                                               typename IntrinsicBindingInfo::OutputArguments>) ==
                   sizeof(uint8_t)) {
       return true;

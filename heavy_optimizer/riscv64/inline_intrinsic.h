@@ -363,9 +363,8 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
 
   template <typename ArgBinding, typename OperandInfo, typename IntrinsicBindingInfo>
   auto /*MakeTuplefromBindingsClient*/ operator()(IntrinsicBindingInfo) {
-    static constexpr const auto& arg_info = ArgTraits<ArgBinding>::arg_info;
-    if constexpr (arg_info.arg_type == ArgInfo::IMM_ARG) {
-      auto imm = std::get<arg_info.from>(input_args_);
+    if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::IMM_ARG) {
+      auto imm = std::get<ArgBinding::kArgInfo.from>(input_args_);
       return std::tuple{imm};
     } else {
       return ProcessArgInput<ArgBinding, OperandInfo, IntrinsicBindingInfo>();
@@ -374,77 +373,81 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
 
   template <typename ArgBinding, typename OperandInfo, typename IntrinsicBindingInfo>
   auto ProcessArgInput() {
-    static constexpr const auto& arg_info = ArgTraits<ArgBinding>::arg_info;
     using RegisterClass = typename OperandInfo::Class;
     static constexpr auto kUsage = OperandInfo::kUsage;
     static constexpr auto kNumOut =
         std::tuple_size_v<typename IntrinsicBindingInfo::OutputArguments>;
 
-    if constexpr (arg_info.arg_type == ArgInfo::IN_ARG) {
+    if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::IN_ARG) {
       static_assert(kUsage == machine_insn_info::kUse);
       static_assert(!RegisterClass::kIsImplicitReg);
       if constexpr (RegisterClass::kAsRegister == 'x' &&
-                    std::is_same_v<std::tuple_element_t<arg_info.from, std::tuple<ArgType...>>,
-                                   MachineReg>) {
+                    std::is_same_v<
+                        std::tuple_element_t<ArgBinding::kArgInfo.from, std::tuple<ArgType...>>,
+                        MachineReg>) {
         auto xmm_reg = AllocVReg();
-        MovFromInput<RegisterClass>(builder_, xmm_reg, std::get<arg_info.from>(input_args_));
+        MovFromInput<RegisterClass>(
+            builder_, xmm_reg, std::get<ArgBinding::kArgInfo.from>(input_args_));
         return std::tuple{xmm_reg};
       } else {
-        return std::tuple{std::get<arg_info.from>(input_args_)};
+        return std::tuple{std::get<ArgBinding::kArgInfo.from>(input_args_)};
       }
-    } else if constexpr (arg_info.arg_type == ArgInfo::IN_OUT_ARG) {
+    } else if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::IN_OUT_ARG) {
       static_assert(!std::is_same_v<ResType, std::monostate>);
       static_assert(kUsage == machine_insn_info::kUseDef);
       static_assert(!RegisterClass::kIsImplicitReg);
       if constexpr (RegisterClass::kAsRegister == 'x') {
         if constexpr (kNumOut > 1) {
-          static_assert(kDependentTypeFalse<ArgTraits<ArgBinding>>);
+          static_assert(kDependentTypeFalse<ArgBinding>);
         } else {
           CHECK(xmm_result_reg_.IsInvalidReg());
           xmm_result_reg_ = AllocVReg();
           MovFromInput<RegisterClass>(
-              builder_, xmm_result_reg_, std::get<arg_info.from>(input_args_));
+              builder_, xmm_result_reg_, std::get<ArgBinding::kArgInfo.from>(input_args_));
           return std::tuple{xmm_result_reg_};
         }
       } else if constexpr (kNumOut > 1) {
-        auto res = std::get<arg_info.to>(result_);
-        MovFromInput<RegisterClass>(builder_, res, std::get<arg_info.from>(input_args_));
+        auto res = std::get<ArgBinding::kArgInfo.to>(result_);
+        MovFromInput<RegisterClass>(
+            builder_, res, std::get<ArgBinding::kArgInfo.from>(input_args_));
         return std::tuple{res};
       } else {
-        MovFromInput<RegisterClass>(builder_, result_, std::get<arg_info.from>(input_args_));
+        MovFromInput<RegisterClass>(
+            builder_, result_, std::get<ArgBinding::kArgInfo.from>(input_args_));
         return std::tuple{result_};
       }
-    } else if constexpr (arg_info.arg_type == ArgInfo::IN_OUT_TMP_ARG) {
+    } else if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::IN_OUT_TMP_ARG) {
       static_assert(!std::is_same_v<ResType, std::monostate>);
       static_assert(kUsage == machine_insn_info::kUseDef);
       static_assert(RegisterClass::kIsImplicitReg);
       if constexpr (kNumOut > 1) {
-        static_assert(kDependentTypeFalse<ArgTraits<ArgBinding>>);
+        static_assert(kDependentTypeFalse<ArgBinding>);
       } else {
         CHECK(implicit_result_reg_.IsInvalidReg());
         implicit_result_reg_ = AllocVReg();
         MovFromInput<RegisterClass>(
-            builder_, implicit_result_reg_, std::get<arg_info.from>(input_args_));
+            builder_, implicit_result_reg_, std::get<ArgBinding::kArgInfo.from>(input_args_));
         return std::tuple{implicit_result_reg_};
       }
-    } else if constexpr (arg_info.arg_type == ArgInfo::IN_TMP_ARG) {
+    } else if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::IN_TMP_ARG) {
       if constexpr (RegisterClass::kIsImplicitReg) {
         auto implicit_reg = AllocVReg();
-        MovFromInput<RegisterClass>(builder_, implicit_reg, std::get<arg_info.from>(input_args_));
+        MovFromInput<RegisterClass>(
+            builder_, implicit_reg, std::get<ArgBinding::kArgInfo.from>(input_args_));
         return std::tuple{implicit_reg};
       } else {
         static_assert(kUsage == machine_insn_info::kUseDef);
-        return std::tuple{std::get<arg_info.from>(input_args_)};
+        return std::tuple{std::get<ArgBinding::kArgInfo.from>(input_args_)};
       }
-    } else if constexpr (arg_info.arg_type == ArgInfo::OUT_TMP_ARG) {
+    } else if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::OUT_TMP_ARG) {
       if constexpr (kNumOut > 1) {
-        static_assert(kDependentTypeFalse<ArgTraits<ArgBinding>>);
+        static_assert(kDependentTypeFalse<ArgBinding>);
       } else {
         CHECK(implicit_result_reg_.IsInvalidReg());
         implicit_result_reg_ = AllocVReg();
         return std::tuple{implicit_result_reg_};
       }
-    } else if constexpr (arg_info.arg_type == ArgInfo::OUT_ARG) {
+    } else if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::OUT_ARG) {
       static_assert(!std::is_same_v<ResType, std::monostate>);
       static_assert(kUsage == machine_insn_info::kDef ||
                     kUsage == machine_insn_info::kDefEarlyClobber);
@@ -453,7 +456,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
         xmm_result_reg_ = AllocVReg();
         return std::tuple{xmm_result_reg_};
       } else if constexpr (kNumOut > 1) {
-        return std::tuple{std::get<arg_info.to>(result_)};
+        return std::tuple{std::get<ArgBinding::kArgInfo.to>(result_)};
       } else if constexpr (RegisterClass::kIsImplicitReg) {
         if constexpr (RegisterClass::kAsRegister == 0) {
           return std::tuple{flag_register_};
@@ -465,7 +468,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
       } else {
         return std::tuple{result_};
       }
-    } else if constexpr (arg_info.arg_type == ArgInfo::TMP_ARG) {
+    } else if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::TMP_ARG) {
       static_assert(kUsage == machine_insn_info::kDef ||
                     kUsage == machine_insn_info::kDefEarlyClobber);
       if constexpr (RegisterClass::kAsRegister == 'm') {
@@ -488,7 +491,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
         return std::tuple{reg};
       }
     } else {
-      static_assert(berberis::kDependentValueFalse<arg_info.arg_type>);
+      static_assert(berberis::kDependentValueFalse<ArgBinding::kArgInfo.arg_type>);
     }
   }
 
@@ -534,17 +537,16 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
       return;
     } else {
       using RegisterClass = typename OperandInfo::Class;
-      static constexpr const auto& arg_info = ArgTraits<ArgBinding>::arg_info;
       if constexpr (RegisterClass::kAsRegister == 'm' || RegisterClass::kAsRegister == 0) {
         return;
-      } else if constexpr ((arg_info.arg_type == ArgInfo::IN_OUT_ARG ||
-                            arg_info.arg_type == ArgInfo::OUT_ARG) &&
+      } else if constexpr ((ArgBinding::kArgInfo.arg_type == ArgInfo::IN_OUT_ARG ||
+                            ArgBinding::kArgInfo.arg_type == ArgInfo::OUT_ARG) &&
                            RegisterClass::kAsRegister == 'x') {
         CHECK(!xmm_result_reg_.IsInvalidReg());
         MovToResult<RegisterClass>(builder_, result_, xmm_result_reg_);
-      } else if constexpr ((arg_info.arg_type == ArgInfo::OUT_ARG ||
-                            arg_info.arg_type == ArgInfo::IN_OUT_TMP_ARG ||
-                            arg_info.arg_type == ArgInfo::OUT_TMP_ARG) &&
+      } else if constexpr ((ArgBinding::kArgInfo.arg_type == ArgInfo::OUT_ARG ||
+                            ArgBinding::kArgInfo.arg_type == ArgInfo::IN_OUT_TMP_ARG ||
+                            ArgBinding::kArgInfo.arg_type == ArgInfo::OUT_TMP_ARG) &&
                            RegisterClass::kIsImplicitReg) {
         CHECK(!implicit_result_reg_.IsInvalidReg());
         MovToResult<RegisterClass>(builder_, result_, implicit_result_reg_);
