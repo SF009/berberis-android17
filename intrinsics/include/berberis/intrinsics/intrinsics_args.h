@@ -142,70 +142,54 @@ class ImmArg;
 
 class TmpArg;
 
-template <typename ArgInfo, typename OperandInfo>
+template <typename ArgInfo>
 class ArgTraits;
 
-template <int N, typename RegisterClassType, auto kUsageParam>
-class ArgTraits<InArg<N>, machine_insn_info::OperandInfo<RegisterClassType, kUsageParam>> {
+template <int N>
+class ArgTraits<InArg<N>> {
  public:
-  using Class = RegisterClassType;
-  static constexpr auto kUsage = kUsageParam;
   static constexpr ArgInfo arg_info{.arg_type = ArgInfo::IN_ARG, .from = N};
 };
 
-template <int N, typename RegisterClassType, auto kUsageParam>
-class ArgTraits<OutArg<N>, machine_insn_info::OperandInfo<RegisterClassType, kUsageParam>> {
+template <int N>
+class ArgTraits<OutArg<N>> {
  public:
-  using Class = RegisterClassType;
-  static constexpr auto kUsage = kUsageParam;
   static constexpr ArgInfo arg_info{.arg_type = ArgInfo::OUT_ARG, .to = N};
 };
 
-template <int N, typename RegisterClassType, auto kUsageParam>
-class ArgTraits<OutTmpArg<N>, machine_insn_info::OperandInfo<RegisterClassType, kUsageParam>> {
+template <int N>
+class ArgTraits<OutTmpArg<N>> {
  public:
-  using Class = RegisterClassType;
-  static constexpr auto kUsage = kUsageParam;
   static constexpr ArgInfo arg_info{.arg_type = ArgInfo::OUT_TMP_ARG, .to = N};
 };
 
-template <int N, int M, typename RegisterClassType, auto kUsageParam>
-class ArgTraits<InOutArg<N, M>, machine_insn_info::OperandInfo<RegisterClassType, kUsageParam>> {
+template <int N, int M>
+class ArgTraits<InOutArg<N, M>> {
  public:
-  using Class = RegisterClassType;
-  static constexpr auto kUsage = kUsageParam;
   static constexpr ArgInfo arg_info{.arg_type = ArgInfo::IN_OUT_ARG, .from = N, .to = M};
 };
 
-template <int N, int M, typename RegisterClassType, auto kUsageParam>
-class ArgTraits<InOutTmpArg<N, M>, machine_insn_info::OperandInfo<RegisterClassType, kUsageParam>> {
+template <int N, int M>
+class ArgTraits<InOutTmpArg<N, M>> {
  public:
-  using Class = RegisterClassType;
-  static constexpr auto kUsage = kUsageParam;
   static constexpr ArgInfo arg_info{.arg_type = ArgInfo::IN_OUT_TMP_ARG, .from = N, .to = M};
 };
 
-template <int N, typename RegisterClassType, auto kUsageParam>
-class ArgTraits<InTmpArg<N>, machine_insn_info::OperandInfo<RegisterClassType, kUsageParam>> {
+template <int N>
+class ArgTraits<InTmpArg<N>> {
  public:
-  using Class = RegisterClassType;
-  static constexpr auto kUsage = kUsageParam;
   static constexpr ArgInfo arg_info{.arg_type = ArgInfo::IN_TMP_ARG, .from = N};
 };
 
-template <int N, typename ImmediateClassType>
-class ArgTraits<ImmArg<N>,
-                machine_insn_info::OperandInfo<ImmediateClassType, machine_insn_info::kUse>> {
+template <int N>
+class ArgTraits<ImmArg<N>> {
  public:
-  using Class = ImmediateClassType;
   static constexpr ArgInfo arg_info{.arg_type = ArgInfo::IMM_ARG, .from = N};
 };
 
-template <typename RegisterClassType, auto kUsageParam>
-class ArgTraits<TmpArg, machine_insn_info::OperandInfo<RegisterClassType, kUsageParam>> {
+template <>
+class ArgTraits<TmpArg> {
  public:
-  using Class = RegisterClassType;
-  static constexpr auto kUsage = kUsageParam;
   static constexpr ArgInfo arg_info{.arg_type = ArgInfo::TMP_ARG};
 };
 
@@ -269,7 +253,7 @@ constexpr bool IsCompatible(const ArgInfo* arguments) {
 
 template <typename MachineInsn, typename... Args, typename... Operands>
 constexpr bool IsCompatible() {
-  const ArgInfo arguments[] = {ArgTraits<Args, Operands>::arg_info...};
+  const ArgInfo arguments[] = {ArgTraits<Args>::arg_info...};
   // Note: we couldn't pass arguments as an array into IsCompatible by reference
   // because this would cause compilation error in case where we have no arguments.
   //
