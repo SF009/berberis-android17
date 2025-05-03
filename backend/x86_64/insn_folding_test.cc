@@ -30,6 +30,9 @@ namespace berberis::x86_64 {
 
 namespace {
 
+constexpr auto kMachineRegRAX = MachineRegs::kRAX;
+constexpr auto kMachineRegRDI = MachineRegs::kRDI;
+
 // By default for the successful folding the immediate must be sign-extended from 32-bit to the same
 // 64-bit integer number.
 template <typename InsnTypeRegReg, typename InsnTypeRegImm, bool kExpectSuccess = true>
