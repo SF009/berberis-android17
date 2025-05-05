@@ -58,7 +58,7 @@ void DefMap::Initialize() {
 }
 
 bool InsnFolding::IsRegImm(MachineReg reg, uint64_t* imm) const {
-  auto [general_insn_it, _] = def_map_.Get(reg);
+  auto [general_insn_it, _] = FindNonPseudoCopyDef(reg);
   if (!general_insn_it.has_value()) {
     return false;
   }

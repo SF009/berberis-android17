@@ -84,6 +84,38 @@ void TryRegRegInsnFolding(bool is_64bit_mov_imm, uint64_t imm = 0x7777ffffULL) {
 }
 
 template <typename InsnTypeRegReg, typename InsnTypeRegImm>
+void TryRegRegInsnFoldingExtraPseudoCopy(bool is_64bit_mov_imm, uint64_t imm = 0x7777ffffULL) {
+  Arena arena;
+  MachineIR machine_ir(&arena);
+  auto* bb = machine_ir.NewBasicBlock();
+
+  MachineIRBuilder builder(&machine_ir);
+
+  MachineReg vreg1 = machine_ir.AllocVReg();
+  MachineReg vreg2 = machine_ir.AllocVReg();
+  MachineReg vreg3 = machine_ir.AllocVReg();
+  MachineReg flags = machine_ir.AllocVReg();
+
+  builder.StartBasicBlock(bb);
+  if (is_64bit_mov_imm) {
+    builder.Gen<MovqRegImm>(vreg1, imm);
+  } else {
+    builder.Gen<MovlRegImm>(vreg1, imm);
+  }
+  builder.Gen<PseudoCopy>(vreg2, vreg1, 8);
+  builder.Gen<InsnTypeRegReg>(vreg3, vreg2, flags);
+
+  FoldInsns(&machine_ir);
+  auto insn_it = std::prev(bb->insn_list().end());
+  MachineInsn* folded_insn = *insn_it;
+  EXPECT_EQ(InsnTypeRegImm::kInfo.opcode, folded_insn->opcode());
+  EXPECT_EQ(vreg3, folded_insn->RegAt(0));
+  EXPECT_EQ(flags, folded_insn->RegAt(1));
+  EXPECT_EQ(static_cast<uint64_t>(static_cast<int32_t>(imm)),
+            AsMachineInsnX86_64(folded_insn)->imm());
+}
+
+template <typename InsnTypeRegReg, typename InsnTypeRegImm>
 void TryMovInsnFolding(bool is_64bit_mov_imm, uint64_t imm) {
   Arena arena;
   MachineIR machine_ir(&arena);
@@ -375,6 +407,22 @@ TEST(InsnFoldingTest, RegRegInsnTypeFolding) {
     TryRegRegInsnFolding<XorlRegReg, XorlRegImm>(is_64bit_mov_imm);
     TryRegRegInsnFolding<AndlRegReg, AndlRegImm>(is_64bit_mov_imm);
     TryRegRegInsnFolding<TestlRegReg, TestlRegImm>(is_64bit_mov_imm);
+
+    TryRegRegInsnFoldingExtraPseudoCopy<AddqRegReg, AddqRegImm>(is_64bit_mov_imm);
+    TryRegRegInsnFoldingExtraPseudoCopy<SubqRegReg, SubqRegImm>(is_64bit_mov_imm);
+    TryRegRegInsnFoldingExtraPseudoCopy<CmpqRegReg, CmpqRegImm>(is_64bit_mov_imm);
+    TryRegRegInsnFoldingExtraPseudoCopy<OrqRegReg, OrqRegImm>(is_64bit_mov_imm);
+    TryRegRegInsnFoldingExtraPseudoCopy<XorqRegReg, XorqRegImm>(is_64bit_mov_imm);
+    TryRegRegInsnFoldingExtraPseudoCopy<AndqRegReg, AndqRegImm>(is_64bit_mov_imm);
+    TryRegRegInsnFoldingExtraPseudoCopy<TestqRegReg, TestqRegImm>(is_64bit_mov_imm);
+
+    TryRegRegInsnFoldingExtraPseudoCopy<AddlRegReg, AddlRegImm>(is_64bit_mov_imm);
+    TryRegRegInsnFoldingExtraPseudoCopy<SublRegReg, SublRegImm>(is_64bit_mov_imm);
+    TryRegRegInsnFoldingExtraPseudoCopy<CmplRegReg, CmplRegImm>(is_64bit_mov_imm);
+    TryRegRegInsnFoldingExtraPseudoCopy<OrlRegReg, OrlRegImm>(is_64bit_mov_imm);
+    TryRegRegInsnFoldingExtraPseudoCopy<XorlRegReg, XorlRegImm>(is_64bit_mov_imm);
+    TryRegRegInsnFoldingExtraPseudoCopy<AndlRegReg, AndlRegImm>(is_64bit_mov_imm);
+    TryRegRegInsnFoldingExtraPseudoCopy<TestlRegReg, TestlRegImm>(is_64bit_mov_imm);
   }
 }
 
