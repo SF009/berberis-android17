@@ -271,6 +271,10 @@ class XmmReg {
 
 class MemX87 {
  public:
+  // MemX87 can only be used as temporary argument, but having type here simplifies metaprogramming:
+  // it can not be used as actual type of variable or parameter, but can be used with
+  // std::conditional_t to pick some other type.
+  using Type = void;
   static constexpr bool kIsImmediate = false;
   static constexpr char kAsRegister = 'm';
 };
