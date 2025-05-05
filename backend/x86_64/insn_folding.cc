@@ -177,18 +177,26 @@ template <bool kIsInput64Bit>
 std::tuple<bool, MachineInsn*> InsnFolding::TryFoldImmediateInput(
     MachineInsnList::iterator insn_it) {
   const MachineInsn* insn = *insn_it;
-  auto src = insn->RegAt(1);
-  uint64_t imm64;
-  if (!IsRegImm(src, &imm64)) {
+  auto src1 = insn->RegAt(1);
+  uint64_t imm64_1;
+  if (!IsRegImm(src1, &imm64_1)) {
     return {false, nullptr};
+  }
+
+  auto src0 = insn->RegAt(0);
+  uint64_t imm64_0;
+  if (IsRegImm(src0, &imm64_0)) {
+    // Both operands are immediates. This insn can be folded into one Movq.
+    if (insn->opcode() == kMachineOpAndqRegReg || insn->opcode() == kMachineOpOrqRegReg)
+      return {true, NewInsnFromTwoImmediatesOperation(insn, imm64_0, imm64_1)};
   }
 
   // MovqRegReg is the only instruction that can encode full 64-bit immediate.
   if (insn->opcode() == kMachineOpMovqRegReg) {
-    return {true, machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm64)};
+    return {true, machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm64_1)};
   }
 
-  int64_t signed_imm = bit_cast<int64_t>(imm64);
+  int64_t signed_imm = bit_cast<int64_t>(imm64_1);
   int32_t signed_imm32 = static_cast<int32_t>(signed_imm);
   if (!kIsInput64Bit) {
     // Use the lower half of the register as the immediate operand.
@@ -213,6 +221,12 @@ MachineInsn* InsnFolding::NewInsnFromTwoImmediatesOperation(const MachineInsn* i
       return machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm1 << imm2);
     case kMachineOpShrqRegImm:
       return machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm1 >> imm2);
+    case kMachineOpAndqRegImm:
+    case kMachineOpAndqRegReg:
+      return machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm1 & imm2);
+    case kMachineOpOrqRegImm:
+    case kMachineOpOrqRegReg:
+      return machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm1 | imm2);
     default:
       LOG_ALWAYS_FATAL("unexpected opcode");
       return nullptr;
@@ -222,7 +236,7 @@ MachineInsn* InsnFolding::NewInsnFromTwoImmediatesOperation(const MachineInsn* i
 std::tuple<bool, MachineInsn*> InsnFolding::TryFoldTwoImmediates(
     MachineInsnList::iterator insn_it) {
   const MachineInsn* insn = *insn_it;
-  CHECK(insn->opcode() == kMachineOpShlqRegImm || insn->opcode() == kMachineOpShrqRegImm);
+  CHECK(insn->NumRegOperands() >= 2);
   MachineReg src_reg = insn->RegAt(0);
   auto [def_insn_it, def_insn_pos] = FindNonPseudoCopyDef(src_reg);
   if (!def_insn_it.has_value()) {
@@ -352,6 +366,8 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldInsn(const MachineInsnList::i
     }
     case kMachineOpShlqRegImm:
     case kMachineOpShrqRegImm:
+    case kMachineOpAndqRegImm:
+    case kMachineOpOrqRegImm:
       return TryFoldTwoImmediates(insn_it);
     case kMachineOpLzcntlRegReg:
       return TryFoldCountLeadingZeroes<false>(insn_it, bb);
