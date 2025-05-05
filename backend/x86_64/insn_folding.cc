@@ -173,7 +173,7 @@ bool InsnFolding::IsWritingSameFlagsValue(MachineInsnList::iterator write_flags_
   return flag_def_insn.has_value();
 }
 
-template <bool is_input_64bit>
+template <bool kIsInput64Bit>
 std::tuple<bool, MachineInsn*> InsnFolding::TryFoldImmediateInput(
     MachineInsnList::iterator insn_it) {
   const MachineInsn* insn = *insn_it;
@@ -190,7 +190,7 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldImmediateInput(
 
   int64_t signed_imm = bit_cast<int64_t>(imm64);
   int32_t signed_imm32 = static_cast<int32_t>(signed_imm);
-  if (!is_input_64bit) {
+  if (!kIsInput64Bit) {
     // Use the lower half of the register as the immediate operand.
     return {true, NewImmInsnFromRegInsn(insn, signed_imm32)};
   }
@@ -231,11 +231,14 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldRedundantMovl(
   }
 }
 
+template <bool kIsInput64Bit>
 std::tuple<bool, MachineInsn*> InsnFolding::TryFoldCountLeadingZeroes(
     MachineInsnList::iterator insn_it,
     const MachineBasicBlock* bb) {
   const MachineInsn* insn = *insn_it;
-  CHECK_EQ(insn->opcode(), kMachineOpLzcntqRegReg);
+  const MachineOpcode clz_insn_opcode =
+      kIsInput64Bit ? kMachineOpLzcntqRegReg : kMachineOpLzcntlRegReg;
+  CHECK_EQ(insn->opcode(), clz_insn_opcode);
   MachineReg clz_src_reg = insn->RegAt(1);
   auto [def_insn_it, def_insn_pos] = FindNonPseudoCopyDef(clz_src_reg);
   if (!def_insn_it.has_value()) {
@@ -245,7 +248,9 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldCountLeadingZeroes(
     return {false, nullptr};
   }
   const MachineInsn* def_insn = *def_insn_it.value();
-  if (def_insn->opcode() != kMachineOpMacroReverseBitsU64) {
+  const MachineOpcode reverse_bits_insn_opcode =
+      kIsInput64Bit ? kMachineOpMacroReverseBitsU64 : kMachineOpMacroReverseBitsU32;
+  if (def_insn->opcode() != reverse_bits_insn_opcode) {
     return {false, nullptr};
   }
   const MachineInsn* reverse_bits_insn = def_insn;
@@ -264,9 +269,15 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldCountLeadingZeroes(
   if (std::get<0>(def_map_.Get(pseudo_copy->RegAt(1), def_insn_pos)) == std::nullopt) {
     return {false, nullptr};
   }
-  return {
-      true,
-      machine_ir_->NewInsn<TzcntqRegReg>(insn->RegAt(0), pseudo_copy->RegAt(1), insn->RegAt(2))};
+  MachineInsn* new_insn;
+  if (kIsInput64Bit) {
+    new_insn =
+        machine_ir_->NewInsn<TzcntqRegReg>(insn->RegAt(0), pseudo_copy->RegAt(1), insn->RegAt(2));
+  } else {
+    new_insn =
+        machine_ir_->NewInsn<TzcntlRegReg>(insn->RegAt(0), pseudo_copy->RegAt(1), insn->RegAt(2));
+  }
+  return {true, new_insn};
 }
 
 std::tuple<bool, MachineInsn*> InsnFolding::TryFoldInsn(const MachineInsnList::iterator insn_it,
@@ -305,8 +316,10 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldInsn(const MachineInsnList::i
       }
       break;
     }
+    case kMachineOpLzcntlRegReg:
+      return TryFoldCountLeadingZeroes<false>(insn_it, bb);
     case kMachineOpLzcntqRegReg:
-      return TryFoldCountLeadingZeroes(insn_it, bb);
+      return TryFoldCountLeadingZeroes<true>(insn_it, bb);
     default:
       return {false, nullptr};
   }
