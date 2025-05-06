@@ -106,20 +106,8 @@ constexpr void CallAssembler(MacroAssembler<TextAssembler>* as, int* register_nu
     if constexpr (machine_insn_info::kIsRegister<Operand> &&
                   !std::is_same_v<RegisterClass, machine_insn_info::FLAGS>) {
       if constexpr (RegisterClass::kIsImplicitReg) {
-        if constexpr (RegisterClass::kAsRegister == 'a') {
-          as->gpr_a =
-              typename MacroAssembler<TextAssembler>::Register(register_numbers[arg_counter]);
-        } else if constexpr (RegisterClass::kAsRegister == 'b') {
-          as->gpr_b =
-              typename MacroAssembler<TextAssembler>::Register(register_numbers[arg_counter]);
-        } else if constexpr (RegisterClass::kAsRegister == 'c') {
-          as->gpr_c =
-              typename MacroAssembler<TextAssembler>::Register(register_numbers[arg_counter]);
-        } else {
-          static_assert(RegisterClass::kAsRegister == 'd');
-          as->gpr_d =
-              typename MacroAssembler<TextAssembler>::Register(register_numbers[arg_counter]);
-        }
+        as->*(RegisterClass::template kAssemblerRegisterPointer<MacroAssembler<TextAssembler>>) =
+            typename MacroAssembler<TextAssembler>::Register(register_numbers[arg_counter]);
       }
       ++arg_counter;
     }
