@@ -91,8 +91,8 @@ class InsnFolding {
                                                                   const MachineBasicBlock* bb);
   MachineInsn* NewImmInsnFromRegInsn(const MachineInsn* insn, int32_t imm);
   MachineInsn* NewInsnFromTwoImmediatesOperation(const MachineInsn* insn,
-                                                 uint64_t operand_1,
-                                                 uint64_t operand_2);
+                                                 uint64_t imm1,
+                                                 uint64_t imm2);
 };
 
 void FoldInsns(MachineIR* machine_ir);

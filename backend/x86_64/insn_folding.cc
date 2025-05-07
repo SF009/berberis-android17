@@ -187,11 +187,13 @@ std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldImmediateInput(
   uint64_t imm64_0;
   if (IsRegImm(src0, &imm64_0)) {
     // Both operands are immediates. This insn can be folded into one Movq.
-    if (insn->opcode() == kMachineOpAndqRegReg || insn->opcode() == kMachineOpOrqRegReg)
+    if (insn->opcode() == kMachineOpAndqRegReg || insn->opcode() == kMachineOpAndlRegReg ||
+        insn->opcode() == kMachineOpOrqRegReg || insn->opcode() == kMachineOpOrlRegReg) {
       // Rest of IR may use the value of flags set by current insn. Therefore, we don't remove
       // current insn, rather simply insert the folded insn. The dead code eliminator will
       // remove the current insn if possible.
       return {FoldingType::kInsertInsn, NewInsnFromTwoImmediatesOperation(insn, imm64_0, imm64_1)};
+    }
   }
 
   // MovqRegReg is the only instruction that can encode full 64-bit immediate.
@@ -224,9 +226,15 @@ MachineInsn* InsnFolding::NewInsnFromTwoImmediatesOperation(const MachineInsn* i
       return machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm1 << imm2);
     case kMachineOpShrqRegImm:
       return machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm1 >> imm2);
+    case kMachineOpAndlRegImm:
+    case kMachineOpAndlRegReg:
+      return machine_ir_->NewInsn<MovlRegImm>(insn->RegAt(0), static_cast<uint32_t>(imm1 & imm2));
     case kMachineOpAndqRegImm:
     case kMachineOpAndqRegReg:
       return machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm1 & imm2);
+    case kMachineOpOrlRegImm:
+    case kMachineOpOrlRegReg:
+      return machine_ir_->NewInsn<MovlRegImm>(insn->RegAt(0), static_cast<uint32_t>(imm1 | imm2));
     case kMachineOpOrqRegImm:
     case kMachineOpOrqRegReg:
       return machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm1 | imm2);
@@ -246,7 +254,7 @@ std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldTwoImmediates(
     return {FoldingType::kImpossible, nullptr};
   }
   const MachineInsn* def_insn = *def_insn_it.value();
-  if (def_insn->opcode() != kMachineOpMovqRegImm) {
+  if (def_insn->opcode() != kMachineOpMovqRegImm && def_insn->opcode() != kMachineOpMovlRegImm) {
     return {FoldingType::kImpossible, nullptr};
   }
   uint64_t imm1 = AsMachineInsnX86_64(def_insn)->imm();
@@ -371,6 +379,8 @@ std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldInsn(
       }
       break;
     }
+    case kMachineOpAndlRegImm:
+    case kMachineOpOrlRegImm:
     case kMachineOpShlqRegImm:
     case kMachineOpShrqRegImm:
     case kMachineOpAndqRegImm:
