@@ -208,8 +208,6 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldImmediateInput(
 MachineInsn* InsnFolding::NewInsnFromTwoImmediatesOperation(const MachineInsn* insn,
                                                             uint64_t imm1,
                                                             uint64_t imm2) {
-  MachineInsn* folded_insn;
-  uint64_t result;
   switch (insn->opcode()) {
     case kMachineOpShlqRegImm:
       return machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm1 << imm2);
@@ -217,9 +215,8 @@ MachineInsn* InsnFolding::NewInsnFromTwoImmediatesOperation(const MachineInsn* i
       return machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm1 >> imm2);
     default:
       LOG_ALWAYS_FATAL("unexpected opcode");
+      return nullptr;
   }
-
-  return folded_insn;
 }
 
 std::tuple<bool, MachineInsn*> InsnFolding::TryFoldTwoImmediates(
