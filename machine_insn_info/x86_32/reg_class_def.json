@@ -16,33 +16,23 @@
   ],
   "reg_classes": [
     {
-      "name": "GeneralReg64",
-      "size": 8,
-      "comment": ["Legacy registers (those other than r8-15) save a byte in ",
-	          "encoding, but RAX, RCX and RDX are often implicit operands"],
+      "name": "GeneralReg32",
+      "size": 4,
+      "comment": ["EAX, ECX and EDX are often implicit operands, allocate them at the end"],
       "regs": [
-        "RDI",
-        "RSI",
-        "RBX",
-        "R10",
-        "R11",
-        "R13",
-        "R14",
-        "R15",
-        "R8",
-        "R9",
-        "RDX",
-        "R12",
-        "RCX",
-        "RAX"
+        "EDI",
+        "ESI",
+        "EBX",
+        "EDX",
+        "ECX",
+        "EAX"
       ],
       "gcc_asm_name": "r"
     },
     {
       "name": "XmmReg",
       "size": 16,
-      "comment": ["XMM0-7 save a byte in encoding, but XMM0 can be ",
-	          "an implicit operand in some instructions"],
+      "comment": ["XMM0 can be an implicit operand in some instructions, allocate it at the end"],
       "regs": [
         "XMM1",
         "XMM2",
@@ -51,14 +41,6 @@
         "XMM5",
         "XMM6",
         "XMM7",
-        "XMM8",
-        "XMM9",
-        "XMM10",
-        "XMM11",
-        "XMM12",
-        "XMM13",
-        "XMM14",
-        "XMM15",
         "XMM0"
       ],
       "gcc_asm_name": "x"
@@ -72,33 +54,18 @@
       "gcc_asm_name": "x"
     },
     {
-      "name": "Reg64",
-      "size": 8,
-      "regs": [
-        "GeneralReg64",
-        "XmmReg"
-      ]
-    },
-    {
       "name": "Reg32",
       "size": 4,
       "regs": [
-        "Reg64"
+        "GeneralReg32",
+        "XmmReg"
       ]
-    },
-    {
-      "name": "GeneralReg32",
-      "size": 4,
-      "regs": [
-        "GeneralReg64"
-      ],
-      "gcc_asm_name": "r"
     },
     {
       "name": "GeneralReg16",
       "size": 2,
       "regs": [
-        "GeneralReg64"
+        "GeneralReg32"
       ],
       "gcc_asm_name": "r"
     },
@@ -106,7 +73,10 @@
       "name": "GeneralReg8",
       "size": 1,
       "regs": [
-        "GeneralReg64"
+        "EBX",
+        "EDX",
+        "ECX",
+        "EAX"
       ],
       "gcc_asm_name": "r"
     },
@@ -143,18 +113,10 @@
       "gcc_asm_name": "x"
     },
     {
-      "name": "RAX",
-      "size": 8,
-      "regs": [
-        "RAX"
-      ],
-      "gcc_asm_name": "a"
-    },
-    {
       "name": "EAX",
       "size": 4,
       "regs": [
-        "RAX"
+        "EAX"
       ],
       "gcc_asm_name": "a"
     },
@@ -162,7 +124,7 @@
       "name": "AX",
       "size": 2,
       "regs": [
-        "RAX"
+        "EAX"
       ],
       "gcc_asm_name": "a"
     },
@@ -170,39 +132,23 @@
       "name": "AL",
       "size": 1,
       "regs": [
-        "RAX"
+        "EAX"
       ],
       "gcc_asm_name": "a"
-    },
-    {
-      "name": "RBX",
-      "size": 8,
-      "regs": [
-        "RBX"
-      ],
-      "gcc_asm_name": "b"
     },
     {
       "name": "EBX",
       "size": 4,
       "regs": [
-        "RBX"
+        "EBX"
       ],
       "gcc_asm_name": "b"
-    },
-    {
-      "name": "RCX",
-      "size": 8,
-      "regs": [
-        "RCX"
-      ],
-      "gcc_asm_name": "c"
     },
     {
       "name": "ECX",
       "size": 4,
       "regs": [
-        "RCX"
+        "ECX"
       ],
       "gcc_asm_name": "c"
     },
@@ -210,23 +156,15 @@
       "name": "CL",
       "size": 1,
       "regs": [
-        "RCX"
+        "ECX"
       ],
       "gcc_asm_name": "c"
-    },
-    {
-      "name": "RDX",
-      "size": 8,
-      "regs": [
-        "RDX"
-      ],
-      "gcc_asm_name": "d"
     },
     {
       "name": "EDX",
       "size": 4,
       "regs": [
-        "RDX"
+        "EDX"
       ],
       "gcc_asm_name": "d"
     },
@@ -234,81 +172,25 @@
       "name": "DX",
       "size": 2,
       "regs": [
-        "RDX"
+        "EDX"
       ],
       "gcc_asm_name": "d"
     },
     {
-      "name": "RSI",
-      "size": 8,
+      "name": "ESI",
+      "size": 4,
       "regs": [
-        "RSI"
+        "ESI"
       ],
       "gcc_asm_name": "S"
     },
     {
-      "name": "RDI",
-      "size": 8,
+      "name": "EDI",
+      "size": 4,
       "regs": [
-        "RDI"
+        "EDI"
       ],
       "gcc_asm_name": "D"
-    },
-    {
-      "name": "R8",
-      "size": 8,
-      "regs": [
-        "R8"
-      ]
-    },
-    {
-      "name": "R9",
-      "size": 8,
-      "regs": [
-        "R9"
-      ]
-    },
-    {
-      "name": "R10",
-      "size": 8,
-      "regs": [
-        "R10"
-      ]
-    },
-    {
-      "name": "R11",
-      "size": 8,
-      "regs": [
-        "R11"
-      ]
-    },
-    {
-      "name": "R12",
-      "size": 8,
-      "regs": [
-        "R12"
-      ]
-    },
-    {
-      "name": "R13",
-      "size": 8,
-      "regs": [
-        "R13"
-      ]
-    },
-    {
-      "name": "R14",
-      "size": 8,
-      "regs": [
-        "R14"
-      ]
-    },
-    {
-      "name": "R15",
-      "size": 8,
-      "regs": [
-        "R15"
-      ]
     },
     {
       "name": "XMM0",
@@ -365,70 +247,6 @@
       "regs": [
         "XMM7"
       ]
-    },
-    {
-      "name": "XMM8",
-      "size": 16,
-      "regs": [
-        "XMM8"
-      ]
-    },
-    {
-      "name": "XMM9",
-      "size": 16,
-      "regs": [
-        "XMM9"
-      ]
-    },
-    {
-      "name": "XMM10",
-      "size": 16,
-      "regs": [
-        "XMM10"
-      ]
-    },
-    {
-      "name": "XMM11",
-      "size": 16,
-      "regs": [
-        "XMM11"
-      ]
-    },
-    {
-      "name": "XMM12",
-      "size": 16,
-      "regs": [
-        "XMM12"
-      ]
-    },
-    {
-      "name": "XMM13",
-      "size": 16,
-      "regs": [
-        "XMM13"
-      ]
-    },
-    {
-      "name": "XMM14",
-      "size": 16,
-      "regs": [
-        "XMM14"
-      ]
-    },
-    {
-      "name": "XMM15",
-      "size": 16,
-      "regs": [
-        "XMM15"
-      ]
-    },
-    {
-      "name": "FLAGS",
-      "size": 0,
-      "regs": [
-        "FLAGS"
-      ],
-      "gcc_asm_name": 0
     }
   ]
 }
