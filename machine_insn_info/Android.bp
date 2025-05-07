@@ -30,8 +30,21 @@ python_library_host {
 }
 
 filegroup {
+    name: "libberberis_machine_insn_info_reg_class_gen_inputs_x86_32",
+    srcs: ["x86_32/reg_class_def.json"],
+}
+
+filegroup {
     name: "libberberis_machine_insn_info_reg_class_gen_inputs_x86_64",
     srcs: ["x86_64/reg_class_def.json"],
+}
+
+genrule {
+    name: "libberberis_machine_insn_info_reg_class_gen_headers_x86_32",
+    out: ["berberis/machine_insn_info/x86_32/machine_reg_class-inl.h"],
+    srcs: [":libberberis_machine_insn_info_reg_class_gen_inputs_x86_32"],
+    tools: ["berberis_gen_reg_class"],
+    cmd: "$(location berberis_gen_reg_class) $(out) $(in)",
 }
 
 genrule {
@@ -51,10 +64,16 @@ cc_library_headers {
         "libberberis_assembler_headers",
         "libberberis_base_headers",
     ],
-    generated_headers: ["libberberis_machine_insn_info_reg_class_gen_headers_x86_64"],
+    generated_headers: [
+        "libberberis_machine_insn_info_reg_class_gen_headers_x86_32",
+        "libberberis_machine_insn_info_reg_class_gen_headers_x86_64",
+    ],
     export_header_lib_headers: [
         "libberberis_assembler_headers",
         "libberberis_base_headers",
     ],
-    export_generated_headers: ["libberberis_machine_insn_info_reg_class_gen_headers_x86_64"],
+    export_generated_headers: [
+        "libberberis_machine_insn_info_reg_class_gen_headers_x86_32",
+        "libberberis_machine_insn_info_reg_class_gen_headers_x86_64",
+    ],
 }
