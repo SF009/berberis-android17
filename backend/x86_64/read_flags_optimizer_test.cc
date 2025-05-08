@@ -374,6 +374,51 @@ TEST(MachineIRReadFlagsOptimizer, GetInsnGen) {
           PseudoReadFlags::kWithOverflow, machine_ir.AllocVReg(), kMachineRegFLAGS));
 }
 
+TEST(MachineIRReadFlagsOptimizer, InsertFlagGenInstructionsAddsCmc) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  auto flags0 = machine_ir.AllocVReg();
+  auto input0 = machine_ir.AllocVReg();
+  auto input1 = machine_ir.AllocVReg();
+
+  auto bb0 = machine_ir.NewBasicBlock();
+  auto bb1 = machine_ir.NewBasicBlock();
+  machine_ir.AddEdge(bb0, bb1);
+
+  builder.StartBasicBlock(bb0);
+  builder.Gen<AddqRegReg>(input0, input1, kMachineRegFLAGS);
+  builder.Gen<Cmc>(kMachineRegFLAGS);
+  builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS);
+  builder.Gen<PseudoBranch>(bb1);
+
+  builder.StartBasicBlock(bb1);
+  builder.Gen<MovqRegReg>(flags0, flags0);
+
+  auto context = ReadFlagsOptContext{
+      bb1, std::next(bb0->insn_list().begin(), 2), FlagSettingInsn{bb0->insn_list().begin(), true}};
+  InsertFlagGenInstructions(
+      &machine_ir,
+      context,
+      bb1->insn_list().begin(),
+      ArenaMap<MachineReg, MachineReg>({{input0, input0}, {input1, input1}}, machine_ir.arena()),
+      flags0);
+
+  auto insn_it = bb1->insn_list().begin();
+  ASSERT_EQ((*insn_it)->opcode(), kMachineOpPseudoCopy);
+  insn_it++;
+  ASSERT_EQ((*insn_it)->opcode(), kMachineOpAddqRegReg);
+  auto flags_reg = (*insn_it)->RegAt(2);
+  insn_it++;
+  ASSERT_EQ((*insn_it)->opcode(), kMachineOpCmc);
+  ASSERT_EQ((*insn_it)->RegAt(0), flags_reg);
+  insn_it++;
+  ASSERT_EQ((*insn_it)->opcode(), kMachineOpPseudoReadFlags);
+  ASSERT_EQ((*insn_it)->RegAt(1), flags_reg);
+  insn_it++;
+}
+
 TEST(MachineIRReadFlagsOptimizer, InsertFlagGenInstructionsSavesFlagReg) {
   Arena arena;
   x86_64::MachineIR machine_ir(&arena);
@@ -389,9 +434,10 @@ TEST(MachineIRReadFlagsOptimizer, InsertFlagGenInstructionsSavesFlagReg) {
       PseudoReadFlags::kWithOverflow, machine_ir.AllocVReg(), kMachineRegFLAGS));
   testloop.postloop->insn_list().push_front(machine_ir.NewInsn<MovqRegReg>(flags, flags));
 
-  auto context = ReadFlagsOptContext{testloop.postloop,
-                                     std::next(testloop.loop_exit->insn_list().begin()),
-                                     testloop.loop_exit->insn_list().begin()};
+  auto context =
+      ReadFlagsOptContext{testloop.postloop,
+                          std::next(testloop.loop_exit->insn_list().begin()),
+                          FlagSettingInsn{testloop.loop_exit->insn_list().begin(), false}};
   InsertFlagGenInstructions(
       &machine_ir,
       context,
@@ -542,7 +588,7 @@ TEST(MachineIRReadFlagsOptimizer, IsEligibleReadFlagReturnsSetter) {
   auto res = IsEligibleReadFlag(
       &machine_ir, loop_tree.root()->GetInnerloopNode(0)->loop(), testloop.loop_exit, insn_it);
   ASSERT_TRUE(res.has_value());
-  ASSERT_EQ((*res.value())->opcode(), kMachineOpAddqRegReg);
+  ASSERT_EQ((*res.value().insn)->opcode(), kMachineOpAddqRegReg);
 }
 
 TEST(MachineIRReadFlagsOptimizer, FindFlagSettingInsn) {
@@ -572,13 +618,34 @@ TEST(MachineIRReadFlagsOptimizer, FindFlagSettingInsn) {
 
   auto flag_setter = FindFlagSettingInsn(insn_it, bb->insn_list().begin(), flags0);
   ASSERT_TRUE(flag_setter.has_value());
-  ASSERT_EQ((*flag_setter.value())->opcode(), kMachineOpSubqRegImm);
+  ASSERT_EQ((*flag_setter.value().insn)->opcode(), kMachineOpSubqRegImm);
 
   // Test that we exit properly when we can't find the instruction.
   // Move to second AddqRegReg.
   insn_it--;
   flag_setter = FindFlagSettingInsn(insn_it, bb->insn_list().begin(), flags1);
   ASSERT_FALSE(flag_setter.has_value());
+}
+
+TEST(MachineIRReadFlagsOptimizer, FindFlagSettingInsnSetsCmc) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  auto bb = machine_ir.NewBasicBlock();
+  builder.StartBasicBlock(bb);
+  builder.Gen<AddqRegReg>(machine_ir.AllocVReg(), machine_ir.AllocVReg(), kMachineRegFLAGS);
+  builder.Gen<Cmc>(kMachineRegFLAGS);
+  builder.Gen<PseudoReadFlags>(
+      PseudoReadFlags::kWithOverflow, machine_ir.AllocVReg(), kMachineRegFLAGS);
+  builder.Gen<PseudoJump>(kNullGuestAddr);
+
+  ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+
+  auto flag_setter = FindFlagSettingInsn(
+      std::next(bb->insn_list().begin(), 2), bb->insn_list().begin(), kMachineRegFLAGS);
+  ASSERT_TRUE(flag_setter.has_value());
+  ASSERT_TRUE(flag_setter.value().cmc);
 }
 
 TEST(MachineIRReadFlagsOptimizer, NeedsToSaveFlags) {
@@ -823,7 +890,7 @@ TEST(MachineIRReadFlagsOptimizer, RemoveReadFlags) {
                   ReadFlagsOptContext{
                       bb2,
                       std::find(bb2->insn_list().begin(), bb2->insn_list().end(), readflag_insn),
-                      bb2->insn_list().begin()});
+                      FlagSettingInsn{bb2->insn_list().begin(), false}});
 
   // Check ReadFlags gone.
   ASSERT_TRUE(std::none_of(bb2->insn_list().begin(), bb2->insn_list().end(), [](MachineInsn* insn) {
@@ -917,7 +984,7 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersRecursesOnNeighbors) {
                               PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS)},
                           machine_ir.arena()}
               .begin(),
-          bb0->insn_list().begin(),
+          FlagSettingInsn{bb0->insn_list().begin(), false},
       },
       bb0->insn_list().begin(),
       MachineRegVector({flags0}, machine_ir.arena()),
@@ -961,7 +1028,7 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersReplacesInstructions) {
                               PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS)},
                           machine_ir.arena()}
               .begin(),
-          bb0->insn_list().begin(),
+          FlagSettingInsn{bb0->insn_list().begin(), false},
       },
       bb0->insn_list().begin(),
       MachineRegVector({flags0}, machine_ir.arena()),
@@ -1012,9 +1079,11 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersUpdatesLiveInOut) {
                               PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS)},
                           machine_ir.arena()}
               .begin(),
-          MachineInsnList{{machine_ir.NewInsn<AddqRegReg>(input0, input1, kMachineRegFLAGS)},
-                          machine_ir.arena()}
-              .begin(),
+          FlagSettingInsn{
+              MachineInsnList{{machine_ir.NewInsn<AddqRegReg>(input0, input1, kMachineRegFLAGS)},
+                              machine_ir.arena()}
+                  .begin(),
+              false},
       },
       bb0->insn_list().begin(),
       MachineRegVector({flags0}, machine_ir.arena()),
@@ -1054,9 +1123,11 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersDeletesCopies) {
                               PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS)},
                           machine_ir.arena()}
               .begin(),
-          MachineInsnList{{machine_ir.NewInsn<AddqRegReg>(flags0, flags0, kMachineRegFLAGS)},
-                          machine_ir.arena()}
-              .begin(),
+          FlagSettingInsn{
+              MachineInsnList{{machine_ir.NewInsn<AddqRegReg>(flags0, flags0, kMachineRegFLAGS)},
+                              machine_ir.arena()}
+                  .begin(),
+              false},
       },
       bb0->insn_list().begin(),
       MachineRegVector({flags0}, machine_ir.arena()),
@@ -1097,9 +1168,11 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersCopiesDefRegisters) {
                               PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS)},
                           machine_ir.arena()}
               .begin(),
-          MachineInsnList{{machine_ir.NewInsn<AddqRegReg>(input0, input1, kMachineRegFLAGS)},
-                          machine_ir.arena()}
-              .begin(),
+          FlagSettingInsn{
+              MachineInsnList{{machine_ir.NewInsn<AddqRegReg>(input0, input1, kMachineRegFLAGS)},
+                              machine_ir.arena()}
+                  .begin(),
+              false},
       },
       bb0->insn_list().begin(),
       MachineRegVector({flags0}, machine_ir.arena()),

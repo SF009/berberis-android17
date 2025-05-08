@@ -27,12 +27,17 @@ namespace berberis::x86_64 {
 
 using InsnGenerator = MachineInsn* (*)(MachineIR*, MachineInsn*);
 
+struct FlagSettingInsn {
+  MachineInsnList::iterator insn;
+  bool cmc;
+};
+
 struct ReadFlagsOptContext {
   MachineBasicBlock* bb;
   // Original readflag instruction.
   MachineInsnList::iterator readflags_insn;
   // Original instruction that set flag register.
-  MachineInsnList::iterator flag_set_insn;
+  FlagSettingInsn flag_set_insn;
 };
 
 bool CheckRegsUnusedWithinInsnRange(MachineInsnList::iterator insn_it,
@@ -41,18 +46,18 @@ bool CheckRegsUnusedWithinInsnRange(MachineInsnList::iterator insn_it,
 bool CheckPostLoopNode(MachineBasicBlock* block, const MachineRegVector& regs);
 bool CheckSuccessorNode(Loop* loop, MachineBasicBlock* block, MachineRegVector& regs);
 std::optional<InsnGenerator> GetInsnGen(MachineOpcode opcode);
-std::optional<MachineInsnList::iterator> FindFlagSettingInsn(MachineInsnList::iterator insn_it,
-                                                             MachineInsnList::iterator begin,
-                                                             MachineReg reg);
+std::optional<FlagSettingInsn> FindFlagSettingInsn(MachineInsnList::iterator insn_it,
+                                                   MachineInsnList::iterator begin,
+                                                   MachineReg reg);
 void InsertFlagGenInstructions(MachineIR* machine_ir,
                                ReadFlagsOptContext& context,
                                MachineInsnList::iterator insn_it,
                                const ArenaMap<MachineReg, MachineReg>& reg_map,
                                MachineReg reg);
-std::optional<MachineInsnList::iterator> IsEligibleReadFlag(MachineIR* machine_ir,
-                                                            Loop* loop,
-                                                            MachineBasicBlock* bb,
-                                                            MachineInsnList::iterator insn_it);
+std::optional<FlagSettingInsn> IsEligibleReadFlag(MachineIR* machine_ir,
+                                                  Loop* loop,
+                                                  MachineBasicBlock* bb,
+                                                  MachineInsnList::iterator insn_it);
 std::optional<MachineReg> NeedsToSaveFlags(MachineBasicBlock* bb,
                                            MachineInsnList::iterator insn_it);
 void OptimizeReadFlags(MachineIR* machine_ir);
