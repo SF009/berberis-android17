@@ -236,7 +236,7 @@ MachineInsn* InsnFolding::NewInsnFromTwoImmediatesOperation(const MachineInsn* i
 std::tuple<bool, MachineInsn*> InsnFolding::TryFoldTwoImmediates(
     MachineInsnList::iterator insn_it) {
   const MachineInsn* insn = *insn_it;
-  CHECK(insn->NumRegOperands() >= 2);
+  CHECK_GE(insn->NumRegOperands(), 2);
   MachineReg src_reg = insn->RegAt(0);
   auto [def_insn_it, def_insn_pos] = FindNonPseudoCopyDef(src_reg);
   if (!def_insn_it.has_value()) {
