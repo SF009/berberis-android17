@@ -29,7 +29,6 @@ class FLAGS {
   using Type = void;
   static constexpr bool kIsImmediate = false;
   static constexpr bool kIsImplicitReg = true;
-  static constexpr char kAsRegister = 0;
   template <typename MachineInsnArch>
   static constexpr auto kRegClass = MachineInsnArch::kFLAGS;
 };
@@ -63,6 +62,17 @@ class Mem64 {
 };
 
 template <typename OperandClass, typename = void>
+inline constexpr bool kIsFLAGS = false;
+
+template <>
+inline constexpr bool kIsFLAGS<FLAGS> = true;
+
+template <typename OperandClass>
+inline constexpr bool
+    kIsFLAGS<OperandClass, std::enable_if_t<sizeof(typename OperandClass::Class) >= 1>> =
+        kIsFLAGS<typename OperandClass::Class>;
+
+template <typename OperandClass, typename = void>
 inline constexpr bool kIsImmediate = false;
 
 template <typename ImmediateClass>
@@ -77,6 +87,9 @@ inline constexpr bool
 
 template <typename OperandClass, typename = void>
 inline constexpr bool kIsRegister = false;
+
+template <>
+inline constexpr bool kIsRegister<FLAGS> = true;
 
 template <typename RegisterClass>
 inline constexpr bool

@@ -320,7 +320,9 @@ class TryBindingBasedInlineIntrinsic {
       return ProcessArgInput<ArgBinding, OperandInfo, IntrinsicBindingInfo>(reg_alloc_);
     } else {
       using RegisterClass = typename OperandInfo::Class;
-      if constexpr (RegisterClass::kAsRegister == 'x') {
+      if constexpr (machine_insn_info::kIsFLAGS<OperandInfo>) {
+        return ProcessArgInput<ArgBinding, OperandInfo, IntrinsicBindingInfo>(nullptr);
+      } else if constexpr (RegisterClass::kAsRegister == 'x') {
         return ProcessArgInput<ArgBinding, OperandInfo, IntrinsicBindingInfo>(simd_reg_alloc_);
       } else {
         return ProcessArgInput<ArgBinding, OperandInfo, IntrinsicBindingInfo>(reg_alloc_);
