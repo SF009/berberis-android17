@@ -19,7 +19,7 @@
 
 #include <cstdint>
 
-namespace berberis::machine_insn_info_backend {
+namespace berberis::machine_insn_info {
 
 class Mem8 {
  public:
@@ -149,6 +149,6 @@ class AsmCallInfo<kMacroInstructionTemplateName,
   using Operands = std::tuple<OperandsTypes...>;
 };
 
-}  // namespace berberis::machine_insn_info_backend
+}  // namespace berberis::machine_insn_info
 
 #endif  // BERBERIS_MACHINE_INSN_INFO_COMMON_MACHINE_INSN_INFO_H_
