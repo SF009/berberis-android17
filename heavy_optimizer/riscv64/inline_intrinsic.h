@@ -451,27 +451,27 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
       static_assert(!std::is_same_v<ResType, std::monostate>);
       static_assert(kUsage == machine_insn_info::kDef ||
                     kUsage == machine_insn_info::kDefEarlyClobber);
-      if constexpr (RegisterClass::kAsRegister == 'x') {
+      if constexpr (machine_insn_info::kIsFLAGS<OperandInfo>) {
+        return std::tuple{flag_register_};
+      } else if constexpr (RegisterClass::kAsRegister == 'x') {
         CHECK(xmm_result_reg_.IsInvalidReg());
         xmm_result_reg_ = AllocVReg();
         return std::tuple{xmm_result_reg_};
       } else if constexpr (kNumOut > 1) {
         return std::tuple{std::get<ArgBinding::kArgInfo.to>(result_)};
       } else if constexpr (RegisterClass::kIsImplicitReg) {
-        if constexpr (RegisterClass::kAsRegister == 0) {
-          return std::tuple{flag_register_};
-        } else {
-          CHECK(implicit_result_reg_.IsInvalidReg());
-          implicit_result_reg_ = AllocVReg();
-          return std::tuple{implicit_result_reg_};
-        }
+        CHECK(implicit_result_reg_.IsInvalidReg());
+        implicit_result_reg_ = AllocVReg();
+        return std::tuple{implicit_result_reg_};
       } else {
         return std::tuple{result_};
       }
     } else if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::TMP_ARG) {
       static_assert(kUsage == machine_insn_info::kDef ||
                     kUsage == machine_insn_info::kDefEarlyClobber);
-      if constexpr (machine_insn_info::kIsMemoryOperand<OperandInfo>) {
+      if constexpr (machine_insn_info::kIsFLAGS<OperandInfo>) {
+        return std::tuple{flag_register_};
+      } else if constexpr (machine_insn_info::kIsMemoryOperand<OperandInfo>) {
         static_assert(kUsage == machine_insn_info::kDefEarlyClobber);
         if (scratch_arg_ >= 2) {
           FATAL("Only two scratch registers are supported for now");
@@ -479,13 +479,6 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
         return std::tuple{x86_64::kMachineRegRBP,
                           static_cast<int32_t>(offsetof(ThreadState, intrinsics_scratch_area) +
                                                config::kScratchAreaSlotSize * scratch_arg_++)};
-      } else if constexpr (RegisterClass::kIsImplicitReg) {
-        if constexpr (RegisterClass::kAsRegister == 0) {
-          return std::tuple{flag_register_};
-        } else {
-          auto implicit_reg = AllocVReg();
-          return std::tuple{implicit_reg};
-        }
       } else {
         auto reg = AllocVReg();
         return std::tuple{reg};
@@ -534,15 +527,14 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
   template <typename ArgBinding, typename OperandInfo, typename IntrinsicBindingInfo>
   void ProcessBindingResult() {
     if constexpr (machine_insn_info::kIsImmediate<OperandInfo> ||
+                  machine_insn_info::kIsFLAGS<OperandInfo> ||
                   machine_insn_info::kIsMemoryOperand<OperandInfo>) {
       return;
     } else {
       using RegisterClass = typename OperandInfo::Class;
-      if constexpr (!RegisterClass::kAsRegister) {
-        return;
-      } else if constexpr ((ArgBinding::kArgInfo.arg_type == ArgInfo::IN_OUT_ARG ||
-                            ArgBinding::kArgInfo.arg_type == ArgInfo::OUT_ARG) &&
-                           RegisterClass::kAsRegister == 'x') {
+      if constexpr ((ArgBinding::kArgInfo.arg_type == ArgInfo::IN_OUT_ARG ||
+                     ArgBinding::kArgInfo.arg_type == ArgInfo::OUT_ARG) &&
+                    RegisterClass::kAsRegister == 'x') {
         CHECK(!xmm_result_reg_.IsInvalidReg());
         MovToResult<RegisterClass>(builder_, result_, xmm_result_reg_);
       } else if constexpr ((ArgBinding::kArgInfo.arg_type == ArgInfo::OUT_ARG ||

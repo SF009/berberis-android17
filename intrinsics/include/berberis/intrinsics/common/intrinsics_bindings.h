@@ -110,28 +110,24 @@ constexpr void AssignRegisterNumbers(int* register_numbers) {
   int arg_counter = 0;
   IntrinsicBindingInfo::ProcessBindings(
       [&id, &arg_counter, &register_numbers]<typename Binding, typename Operand> {
-        if constexpr (!machine_insn_info::kIsImmediate<Operand>) {
-          using RegisterClass = Operand::Class;
-          if constexpr (!std::is_same_v<RegisterClass, machine_insn_info::FLAGS>) {
-            if constexpr (Operand::kUsage != machine_insn_info::kUse) {
-              register_numbers[arg_counter] = id++;
-            }
-            ++arg_counter;
+        if constexpr (!machine_insn_info::kIsImmediate<Operand> &&
+                      !machine_insn_info::kIsFLAGS<Operand>) {
+          if constexpr (Operand::kUsage != machine_insn_info::kUse) {
+            register_numbers[arg_counter] = id++;
           }
+          ++arg_counter;
         }
       });
   // Assign numbers for input arguments.
   arg_counter = 0;
   IntrinsicBindingInfo::ProcessBindings(
       [&id, &arg_counter, &register_numbers]<typename Binding, typename Operand> {
-        if constexpr (!machine_insn_info::kIsImmediate<Operand>) {
-          using RegisterClass = Operand::Class;
-          if constexpr (!std::is_same_v<RegisterClass, machine_insn_info::FLAGS>) {
-            if constexpr (Operand::kUsage == machine_insn_info::kUse) {
-              register_numbers[arg_counter] = id++;
-            }
-            ++arg_counter;
+        if constexpr (!machine_insn_info::kIsImmediate<Operand> &&
+                      !machine_insn_info::kIsFLAGS<Operand>) {
+          if constexpr (Operand::kUsage == machine_insn_info::kUse) {
+            register_numbers[arg_counter] = id++;
           }
+          ++arg_counter;
         }
       });
 }
@@ -140,11 +136,8 @@ template <typename AsmCallInfo>
 constexpr bool CheckIntrinsicHasFlagsBinding() {
   bool expect_flags = false;
   AsmCallInfo::ProcessBindings([&expect_flags]<typename Binding, typename Operand> {
-    if constexpr (!machine_insn_info::kIsImmediate<Operand>) {
-      using RegisterClass = Operand::Class;
-      if constexpr (std::is_same_v<RegisterClass, machine_insn_info::FLAGS>) {
-        expect_flags = true;
-      }
+    if constexpr (machine_insn_info::kIsFLAGS<Operand>) {
+      expect_flags = true;
     }
   });
   return expect_flags;
@@ -156,7 +149,7 @@ constexpr void CallVerifierAssembler(AssemblerType* as, int* register_numbers) {
   IntrinsicBindingInfo::ProcessBindings(
       [&arg_counter, &as, register_numbers]<typename Binding, typename Operand> {
         if constexpr (machine_insn_info::kIsRegister<Operand> &&
-                      !std::is_same_v<typename Operand::Class, machine_insn_info::FLAGS>) {
+                      !machine_insn_info::kIsFLAGS<Operand>) {
           using RegisterClass = Operand::Class;
           if constexpr (RegisterClass::kIsImplicitReg) {
             if constexpr (RegisterClass::kAsRegister == 'a') {
@@ -221,7 +214,7 @@ constexpr void CallVerifierAssembler(AssemblerType* as, int* register_numbers) {
                           static_cast<int32_t>(config::kScratchAreaSlotSize * scratch_counter++)}};
                 } else {
                   using RegisterClass = Operand::Class;
-                  if constexpr (!std::is_same_v<RegisterClass, machine_insn_info::FLAGS>) {
+                  if constexpr (!machine_insn_info::kIsFLAGS<Operand>) {
                     if constexpr (RegisterClass::kIsImplicitReg) {
                       ++arg_counter;
                       return std::tuple{};
