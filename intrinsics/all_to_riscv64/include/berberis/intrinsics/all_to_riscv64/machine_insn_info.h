@@ -14,20 +14,15 @@
  * limitations under the License.
  */
 
-#ifndef BERBERIS_MACHINE_INSN_INFO_RISCV64_MACHINE_INSN_INFO_H_
-#define BERBERIS_MACHINE_INSN_INFO_RISCV64_MACHINE_INSN_INFO_H_
+#ifndef BERBERIS_INTRINSICS_COMMON_TO_RISCV_MACHINE_INSN_INFO_H_
+#define BERBERIS_INTRINSICS_COMMON_TO_RISCV_MACHINE_INSN_INFO_H_
 
 #include <cstdint>
 
 #include "berberis/assembler/riscv.h"
-#include "berberis/machine_insn_info/common/machine_insn_info.h"
+#include "berberis/intrinsics/common/machine_insn_info.h"
 
-namespace berberis::riscv64::machine_insn_info_backend {
-
-// Note: normally using namespace is forbidden in headers, but these two namespaces literally
-// only exist to be imported here (and in other device CPU-specific headers).
-
-using namespace berberis::machine_insn_info_backend;
+namespace berberis::machine_insn_info {
 
 class BImm {
  public:
@@ -39,6 +34,16 @@ class CsrImm {
  public:
   using Type = riscv::CsrImmediate;
   static constexpr bool kIsImmediate = true;
+};
+
+class GeneralReg {
+ public:
+  using Type = uint64_t;
+  static constexpr bool kIsImmediate = false;
+  static constexpr bool kIsImplicitReg = false;
+  static constexpr char kAsRegister = 'r';
+  template <typename MachineInsnArch>
+  static constexpr auto kRegClass = MachineInsnArch::kGeneralReg;
 };
 
 class IImm {
@@ -83,8 +88,10 @@ class UImm {
   static constexpr bool kIsImmediate = true;
 };
 
-#include "berberis/machine_insn_info/riscv64/machine_reg_class-inl.h"
+// Tag classes. They are never instantioned, only used as tags to pass information about
+// bindings.
+class NoCPUIDRestriction;
 
-}  // namespace berberis::riscv64::machine_insn_info_backend
+}  // namespace berberis::machine_insn_info
 
-#endif  // BERBERIS_MACHINE_INSN_INFO_RISCV64_MACHINE_INSN_INFO_H_
+#endif  // BERBERIS_INTRINSICS_COMMON_TO_RISCV_MACHINE_INSN_INFO_H_

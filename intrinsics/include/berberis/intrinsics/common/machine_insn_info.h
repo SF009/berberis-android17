@@ -14,12 +14,24 @@
  * limitations under the License.
  */
 
-#ifndef BERBERIS_MACHINE_INSN_INFO_COMMON_MACHINE_INSN_INFO_H_
-#define BERBERIS_MACHINE_INSN_INFO_COMMON_MACHINE_INSN_INFO_H_
+#ifndef BERBERIS_INTRINSICS_COMMON_MACHINE_INSN_INFO_H_
+#define BERBERIS_INTRINSICS_COMMON_MACHINE_INSN_INFO_H_
 
 #include <cstdint>
 
-namespace berberis::machine_insn_info_backend {
+namespace berberis::machine_insn_info {
+
+class FLAGS {
+ public:
+  // FLAGS can not be passed as arguments (at least not in a traditional sense), but having type
+  // here simplifies metaprogramming: it can not be used as actual type of variable or parameter,
+  // but can be used with std::conditional_t to pick some other type.
+  using Type = void;
+  static constexpr bool kIsImmediate = false;
+  static constexpr bool kIsImplicitReg = true;
+  template <typename MachineInsnArch>
+  static constexpr auto kRegClass = MachineInsnArch::kFLAGS;
+};
 
 class Mem8 {
  public:
@@ -52,6 +64,9 @@ class Mem64 {
 template <typename OperandClass, typename = void>
 inline constexpr bool kIsFLAGS = false;
 
+template <>
+inline constexpr bool kIsFLAGS<FLAGS> = true;
+
 template <typename OperandClass>
 inline constexpr bool
     kIsFLAGS<OperandClass, std::enable_if_t<sizeof(typename OperandClass::Class) >= 1>> =
@@ -72,6 +87,9 @@ inline constexpr bool
 
 template <typename OperandClass, typename = void>
 inline constexpr bool kIsRegister = false;
+
+template <>
+inline constexpr bool kIsRegister<FLAGS> = true;
 
 template <typename RegisterClass>
 inline constexpr bool
@@ -149,6 +167,6 @@ class AsmCallInfo<kMacroInstructionTemplateName,
   using Operands = std::tuple<OperandsTypes...>;
 };
 
-}  // namespace berberis::machine_insn_info_backend
+}  // namespace berberis::machine_insn_info
 
-#endif  // BERBERIS_MACHINE_INSN_INFO_COMMON_MACHINE_INSN_INFO_H_
+#endif  // BERBERIS_INTRINSICS_COMMON_MACHINE_INSN_INFO_H_
