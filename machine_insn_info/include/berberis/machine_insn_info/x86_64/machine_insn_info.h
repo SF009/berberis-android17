@@ -25,26 +25,26 @@
 
 namespace berberis {
 
-namespace x86_64::machine_insn_info_backend {
+namespace x86_64::machine_insn_info {
 
 // Note: normally using namespace is forbidden in headers, but these two namespaces literally
 // only exist to be imported here (and in other device CPU-specific headers).
 
-using namespace berberis::x86_32_or_x86_64::machine_insn_info_backend;
+using namespace berberis::x86_32_or_x86_64::machine_insn_info;
 
 #include "berberis/machine_insn_info/x86_64/machine_reg_class-inl.h"
 
-}  // namespace x86_64::machine_insn_info_backend
+}  // namespace x86_64::machine_insn_info
 
-namespace machine_insn_info_backend {
-
-template <>
-inline constexpr bool kIsFLAGS<x86_64::machine_insn_info_backend::FLAGS> = true;
+namespace machine_insn_info {
 
 template <>
-inline constexpr bool kIsRegister<x86_64::machine_insn_info_backend::FLAGS> = true;
+inline constexpr bool kIsFLAGS<x86_64::machine_insn_info::FLAGS> = true;
 
-}  // namespace machine_insn_info_backend
+template <>
+inline constexpr bool kIsRegister<x86_64::machine_insn_info::FLAGS> = true;
+
+}  // namespace machine_insn_info
 
 }  // namespace berberis
 

@@ -228,7 +228,7 @@ class MachineInsn<machine_insn_info::AsmCallInfo<kMacroInstruction,
   struct RegInfo;
   template <typename Operand>
   struct RegInfo<Operand, std::enable_if_t<machine_insn_info::kIsRegister<Operand>>> {
-    static constexpr auto kRegClass = &Operand::Class::template kRegClass<MachineInsnX86_64>;
+    static constexpr auto kRegClass = &kRegisterClass<typename Operand::Class>;
     static constexpr auto kRegKind = static_cast<MachineRegKind::StandardAccess>(Operand::kUsage);
     static_assert(MachineRegKind::kDef ==
                   static_cast<MachineRegKind::StandardAccess>(machine_insn_info::kDef));

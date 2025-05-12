@@ -20,9 +20,9 @@
 #include <cstdint>
 
 #include "berberis/base/dependent_false.h"
-#include "berberis/intrinsics/common/machine_insn_info.h"
 #include "berberis/intrinsics/intrinsics_args.h"
 #include "berberis/intrinsics/type_traits.h"
+#include "berberis/machine_insn_info/common/machine_insn_info.h"
 
 namespace berberis {
 
