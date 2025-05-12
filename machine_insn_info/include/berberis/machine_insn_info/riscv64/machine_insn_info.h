@@ -32,47 +32,58 @@ using namespace berberis::machine_insn_info_backend;
 class BImm {
  public:
   using Type = riscv::BImmediate;
+  static constexpr bool kIsImmediate = true;
 };
 
 class CsrImm {
  public:
   using Type = riscv::CsrImmediate;
+  static constexpr bool kIsImmediate = true;
 };
 
 class IImm {
  public:
   using Type = riscv::IImmediate;
+  static constexpr bool kIsImmediate = true;
 };
 
 class JImm {
  public:
   using Type = riscv::JImmediate;
+  static constexpr bool kIsImmediate = true;
 };
 
 class PImm {
  public:
   using Type = riscv::PImmediate;
+  static constexpr bool kIsImmediate = true;
 };
 
 class SImm {
  public:
   using Type = riscv::SImmediate;
+  static constexpr bool kIsImmediate = true;
 };
 
 class Shift32Imm {
  public:
   using Type = riscv::Shift32Immediate;
+  static constexpr bool kIsImmediate = true;
 };
 
 class Shift64Imm {
  public:
   using Type = riscv::Shift64Immediate;
+  static constexpr bool kIsImmediate = true;
 };
 
 class UImm {
  public:
   using Type = riscv::UImmediate;
+  static constexpr bool kIsImmediate = true;
 };
+
+#include "berberis/machine_insn_info/riscv64/machine_reg_class-inl.h"
 
 }  // namespace berberis::riscv64::machine_insn_info_backend
 
