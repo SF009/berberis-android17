@@ -57,22 +57,20 @@ void DefMap::Initialize() {
   index_ = 0;
 }
 
-bool InsnFolding::IsRegImm(MachineReg reg, uint64_t* imm) const {
+std::optional<uint64_t> InsnFolding::GetImmValueIfPossible(MachineReg reg) const {
   auto [general_insn_it, _] = FindNonPseudoCopyDef(reg);
   if (!general_insn_it.has_value()) {
-    return false;
+    return std::nullopt;
   }
   const MachineInsn* general_insn = *general_insn_it.value();
   const auto* insn = AsMachineInsnX86_64(general_insn);
   if (insn->opcode() == kMachineOpMovqRegImm) {
-    *imm = insn->imm();
-    return true;
+    return insn->imm();
   } else if (insn->opcode() == kMachineOpMovlRegImm) {
     // Take into account zero-extension by MOVL.
-    *imm = static_cast<uint64_t>(static_cast<uint32_t>(insn->imm()));
-    return true;
+    return static_cast<uint64_t>(static_cast<uint32_t>(insn->imm()));
   }
-  return false;
+  return std::nullopt;
 }
 
 MachineInsn* InsnFolding::NewImmInsnFromRegInsn(const MachineInsn* insn, int32_t imm32) {
@@ -178,30 +176,32 @@ std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldImmediateInput(
     MachineInsnList::iterator insn_it) {
   const MachineInsn* insn = *insn_it;
   auto src1 = insn->RegAt(1);
-  uint64_t imm64_1;
-  if (!IsRegImm(src1, &imm64_1)) {
+  std::optional<uint64_t> imm64_1 = GetImmValueIfPossible(src1);
+  if (!imm64_1.has_value()) {
     return {FoldingType::kImpossible, nullptr};
   }
 
   auto src0 = insn->RegAt(0);
-  uint64_t imm64_0;
-  if (IsRegImm(src0, &imm64_0)) {
+  std::optional<uint64_t> imm64_0 = GetImmValueIfPossible(src0);
+  if (imm64_0.has_value()) {
     // Both operands are immediates. This insn can be folded into one Movq.
     if (insn->opcode() == kMachineOpAndqRegReg || insn->opcode() == kMachineOpAndlRegReg ||
         insn->opcode() == kMachineOpOrqRegReg || insn->opcode() == kMachineOpOrlRegReg) {
       // Rest of IR may use the value of flags set by current insn. Therefore, we don't remove
       // current insn, rather simply insert the folded insn. The dead code eliminator will
       // remove the current insn if possible.
-      return {FoldingType::kInsertInsn, NewInsnFromTwoImmediatesOperation(insn, imm64_0, imm64_1)};
+      return {FoldingType::kInsertInsn,
+              NewInsnFromTwoImmediatesOperation(insn, imm64_0.value(), imm64_1.value())};
     }
   }
 
   // MovqRegReg is the only instruction that can encode full 64-bit immediate.
   if (insn->opcode() == kMachineOpMovqRegReg) {
-    return {FoldingType::kReplaceInsn, machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm64_1)};
+    return {FoldingType::kReplaceInsn,
+            machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm64_1.value())};
   }
 
-  int64_t signed_imm = bit_cast<int64_t>(imm64_1);
+  int64_t signed_imm = bit_cast<int64_t>(imm64_1.value());
   int32_t signed_imm32 = static_cast<int32_t>(signed_imm);
   if (!kIsInput64Bit) {
     // Use the lower half of the register as the immediate operand.
@@ -248,23 +248,18 @@ std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldTwoImmediates(
     MachineInsnList::iterator insn_it) {
   const MachineInsn* insn = *insn_it;
   CHECK_GE(insn->NumRegOperands(), 2);
-  MachineReg src_reg = insn->RegAt(0);
-  auto [def_insn_it, def_insn_pos] = FindNonPseudoCopyDef(src_reg);
-  if (!def_insn_it.has_value()) {
+  MachineReg imm1_reg = insn->RegAt(0);
+  std::optional<uint64_t> imm1 = GetImmValueIfPossible(imm1_reg);
+  if (!imm1.has_value()) {
     return {FoldingType::kImpossible, nullptr};
   }
-  const MachineInsn* def_insn = *def_insn_it.value();
-  if (def_insn->opcode() != kMachineOpMovqRegImm && def_insn->opcode() != kMachineOpMovlRegImm) {
-    return {FoldingType::kImpossible, nullptr};
-  }
-  uint64_t imm1 = AsMachineInsnX86_64(def_insn)->imm();
   uint64_t imm2 = AsMachineInsnX86_64(insn)->imm();
   // Check no value loss when imm2 is represented using 32 bits.
   CHECK(imm2 == static_cast<uint64_t>(static_cast<int32_t>(imm2)));
   // Rest of IR may use the value of flags set by current insn. Therefore, we don't remove
   // current insn, rather simply insert the folded insn. The dead code eliminator will
   // remove the current insn if possible.
-  return {FoldingType::kInsertInsn, NewInsnFromTwoImmediatesOperation(insn, imm1, imm2)};
+  return {FoldingType::kInsertInsn, NewInsnFromTwoImmediatesOperation(insn, imm1.value(), imm2)};
 }
 
 std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldRedundantMovl(

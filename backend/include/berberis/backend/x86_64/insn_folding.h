@@ -78,7 +78,7 @@ class InsnFolding {
  private:
   DefMap& def_map_;
   MachineIR* machine_ir_;
-  bool IsRegImm(MachineReg reg, uint64_t* imm) const;
+  std::optional<uint64_t> GetImmValueIfPossible(MachineReg reg) const;
   bool IsWritingSameFlagsValue(MachineInsnList::iterator insn_it) const;
   std::tuple<std::optional<MachineInsnList::iterator>, int> FindNonPseudoCopyDef(
       MachineReg src_reg) const;
