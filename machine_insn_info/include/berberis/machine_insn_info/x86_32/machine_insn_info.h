@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef BERBERIS_MACHINE_INSN_INFO_X86_64_MACHINE_INSN_INFO_H_
-#define BERBERIS_MACHINE_INSN_INFO_X86_64_MACHINE_INSN_INFO_H_
+#ifndef BERBERIS_MACHINE_INSN_INFO_X86_32_MACHINE_INSN_INFO_H_
+#define BERBERIS_MACHINE_INSN_INFO_X86_32_MACHINE_INSN_INFO_H_
 
 #include <xmmintrin.h>
 
@@ -25,27 +25,27 @@
 
 namespace berberis {
 
-namespace x86_64::machine_insn_info_backend {
+namespace x86_32::machine_insn_info_backend {
 
 // Note: normally using namespace is forbidden in headers, but these two namespaces literally
 // only exist to be imported here (and in other device CPU-specific headers).
 
 using namespace berberis::x86_32_or_x86_64::machine_insn_info_backend;
 
-#include "berberis/machine_insn_info/x86_64/machine_reg_class-inl.h"
+#include "berberis/machine_insn_info/x86_32/machine_reg_class-inl.h"
 
-}  // namespace x86_64::machine_insn_info_backend
+}  // namespace x86_32::machine_insn_info_backend
 
 namespace machine_insn_info_backend {
 
 template <>
-inline constexpr bool kIsFLAGS<x86_64::machine_insn_info_backend::FLAGS> = true;
+inline constexpr bool kIsFLAGS<x86_32::machine_insn_info_backend::FLAGS> = true;
 
 template <>
-inline constexpr bool kIsRegister<x86_64::machine_insn_info_backend::FLAGS> = true;
+inline constexpr bool kIsRegister<x86_32::machine_insn_info_backend::FLAGS> = true;
 
 }  // namespace machine_insn_info_backend
 
 }  // namespace berberis
 
-#endif  // BERBERIS_INTRINSICS_X86_64_MACHINE_INSN_INFO_H_
+#endif  // BERBERIS_INTRINSICS_X86_32_MACHINE_INSN_INFO_H_
