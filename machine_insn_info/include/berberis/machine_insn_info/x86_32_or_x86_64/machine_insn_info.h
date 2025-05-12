@@ -26,9 +26,9 @@
 // Note: normally using namespace is forbidden in headers, but these two namespaces literally
 // only exist to be imported here (and in other device CPU-specific headers).
 
-namespace berberis::x86_32_or_x86_64::machine_insn_info {
+namespace berberis::x86_32_or_x86_64::machine_insn_info_backend {
 
-using namespace berberis::machine_insn_info;
+using namespace berberis::machine_insn_info_backend;
 
 class Imm2 {
  public:
@@ -133,6 +133,6 @@ class HasX87;
 class HasCustomCapability;
 class IsAuthenticAMD;
 
-}  // namespace berberis::x86_32_or_x86_64::machine_insn_info
+}  // namespace berberis::x86_32_or_x86_64::machine_insn_info_backend
 
 #endif  // BERBERIS_MACHINE_INSN_INFO_ALL_TO_X86_32_OR_x86_64_MACHINE_INSN_INFO_H_
