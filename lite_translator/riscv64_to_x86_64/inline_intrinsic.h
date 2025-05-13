@@ -205,9 +205,9 @@ class TryBindingBasedInlineIntrinsic {
             typename Result,
             typename Callback,
             typename... Args>
-  friend constexpr Result intrinsics::bindings::ProcessBindings(Callback callback,
-                                                                Result def_result,
-                                                                Args&&... args);
+  friend constexpr Result x86_64::intrinsics::bindings::ProcessBindings(Callback callback,
+                                                                        Result def_result,
+                                                                        Args&&... args);
   template <auto kIntrinsicTemplateName,
             typename kPreciseNanOperationsHandlingTemplateValue,
             bool kSideEffectsTemplateValue,
@@ -244,27 +244,32 @@ class TryBindingBasedInlineIntrinsic {
     static_assert(std::is_same_v<typename IntrinsicBindingInfo::PreciseNanOperationsHandling,
                                  intrinsics::bindings::NoNansOperation>);
     using CPUIDRestriction = IntrinsicBindingInfo::CPUIDRestriction;
-    if constexpr (std::is_same_v<CPUIDRestriction, machine_insn_info::HasAVX>) {
+    if constexpr (std::is_same_v<CPUIDRestriction, x86_32_or_x86_64::machine_insn_info::HasAVX>) {
       if (!host_platform::kHasAVX) {
         return {};
       }
-    } else if constexpr (std::is_same_v<CPUIDRestriction, machine_insn_info::HasBMI>) {
+    } else if constexpr (std::is_same_v<CPUIDRestriction,
+                                        x86_32_or_x86_64::machine_insn_info::HasBMI>) {
       if (!host_platform::kHasBMI) {
         return {};
       }
-    } else if constexpr (std::is_same_v<CPUIDRestriction, machine_insn_info::HasFMA>) {
+    } else if constexpr (std::is_same_v<CPUIDRestriction,
+                                        x86_32_or_x86_64::machine_insn_info::HasFMA>) {
       if (!host_platform::kHasFMA) {
         return {};
       }
-    } else if constexpr (std::is_same_v<CPUIDRestriction, machine_insn_info::HasLZCNT>) {
+    } else if constexpr (std::is_same_v<CPUIDRestriction,
+                                        x86_32_or_x86_64::machine_insn_info::HasLZCNT>) {
       if (!host_platform::kHasLZCNT) {
         return {};
       }
-    } else if constexpr (std::is_same_v<CPUIDRestriction, machine_insn_info::HasPOPCNT>) {
+    } else if constexpr (std::is_same_v<CPUIDRestriction,
+                                        x86_32_or_x86_64::machine_insn_info::HasPOPCNT>) {
       if (!host_platform::kHasPOPCNT) {
         return {};
       }
-    } else if constexpr (std::is_same_v<CPUIDRestriction, machine_insn_info::NoCPUIDRestriction>) {
+    } else if constexpr (std::is_same_v<CPUIDRestriction,
+                                        x86_32_or_x86_64::machine_insn_info::NoCPUIDRestriction>) {
       // No restrictions. Do nothing.
     } else {
       static_assert(kDependentValueFalse<IntrinsicBindingInfo::kCPUIDRestriction>);

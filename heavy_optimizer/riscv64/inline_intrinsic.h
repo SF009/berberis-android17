@@ -177,7 +177,7 @@ template <typename DestRegClass, typename SrcRegClass>
 void Mov(x86_64::MachineIRBuilder* builder, MachineReg dest, MachineReg src) {
   using DestType = typename DestRegClass::Type;
   using SrcType = typename SrcRegClass::Type;
-  constexpr const auto src_reg_class = SrcRegClass::template kRegClass<x86_64::MachineInsnX86_64>;
+  constexpr const auto& src_reg_class = x86_64::kRegisterClass<SrcRegClass>;
   if constexpr (std::is_integral_v<DestType>) {
     if constexpr (std::is_integral_v<SrcType>) {
       builder->Gen<PseudoCopy>(dest, src, src_reg_class.RegSize());
@@ -232,17 +232,17 @@ void Mov(x86_64::MachineIRBuilder* builder, MachineReg dest, MachineReg src) {
 template <typename DestRegClass, typename SrcReg>
 void MovFromInput(x86_64::MachineIRBuilder* builder, MachineReg dest, SrcReg src) {
   if constexpr (std::is_same_v<SrcReg, SimdReg>) {
-    Mov<DestRegClass, machine_insn_info::XmmReg>(builder, dest, src.machine_reg());
+    Mov<DestRegClass, x86_64::machine_insn_info::XmmReg>(builder, dest, src.machine_reg());
   } else {
-    Mov<DestRegClass, machine_insn_info::GeneralReg64>(builder, dest, src);
+    Mov<DestRegClass, x86_64::machine_insn_info::GeneralReg64>(builder, dest, src);
   }
 }
 template <typename SrcRegClass, typename DestReg>
 void MovToResult(x86_64::MachineIRBuilder* builder, DestReg dest, MachineReg src) {
   if constexpr (std::is_same_v<DestReg, SimdReg>) {
-    Mov<machine_insn_info::XmmReg, SrcRegClass>(builder, dest.machine_reg(), src);
+    Mov<x86_64::machine_insn_info::XmmReg, SrcRegClass>(builder, dest.machine_reg(), src);
   } else {
-    Mov<machine_insn_info::GeneralReg64, SrcRegClass>(builder, dest, src);
+    Mov<x86_64::machine_insn_info::GeneralReg64, SrcRegClass>(builder, dest, src);
   }
 }
 
@@ -266,9 +266,9 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
             typename Result,
             typename Callback,
             typename... Args>
-  friend constexpr Result intrinsics::bindings::ProcessBindings(Callback callback,
-                                                                Result def_result,
-                                                                Args&&... args);
+  friend constexpr Result x86_64::intrinsics::bindings::ProcessBindings(Callback callback,
+                                                                        Result def_result,
+                                                                        Args&&... args);
 
   template <auto kIntrinsicTemplateName,
             typename PreciseNanOperationsHandlingTemplateValue,
@@ -324,27 +324,32 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
     static_assert(std::is_same_v<typename IntrinsicBindingInfo::PreciseNanOperationsHandling,
                                  intrinsics::bindings::NoNansOperation>);
     using CPUIDRestriction = IntrinsicBindingInfo::CPUIDRestriction;
-    if constexpr (std::is_same_v<CPUIDRestriction, machine_insn_info::HasAVX>) {
+    if constexpr (std::is_same_v<CPUIDRestriction, x86_32_or_x86_64::machine_insn_info::HasAVX>) {
       if (!host_platform::kHasAVX) {
         return {};
       }
-    } else if constexpr (std::is_same_v<CPUIDRestriction, machine_insn_info::HasBMI>) {
+    } else if constexpr (std::is_same_v<CPUIDRestriction,
+                                        x86_32_or_x86_64::machine_insn_info::HasBMI>) {
       if (!host_platform::kHasBMI) {
         return {};
       }
-    } else if constexpr (std::is_same_v<CPUIDRestriction, machine_insn_info::HasFMA>) {
+    } else if constexpr (std::is_same_v<CPUIDRestriction,
+                                        x86_32_or_x86_64::machine_insn_info::HasFMA>) {
       if (!host_platform::kHasFMA) {
         return {};
       }
-    } else if constexpr (std::is_same_v<CPUIDRestriction, machine_insn_info::HasLZCNT>) {
+    } else if constexpr (std::is_same_v<CPUIDRestriction,
+                                        x86_32_or_x86_64::machine_insn_info::HasLZCNT>) {
       if (!host_platform::kHasLZCNT) {
         return {};
       }
-    } else if constexpr (std::is_same_v<CPUIDRestriction, machine_insn_info::HasPOPCNT>) {
+    } else if constexpr (std::is_same_v<CPUIDRestriction,
+                                        x86_32_or_x86_64::machine_insn_info::HasPOPCNT>) {
       if (!host_platform::kHasPOPCNT) {
         return {};
       }
-    } else if constexpr (std::is_same_v<CPUIDRestriction, machine_insn_info::NoCPUIDRestriction>) {
+    } else if constexpr (std::is_same_v<CPUIDRestriction,
+                                        x86_32_or_x86_64::machine_insn_info::NoCPUIDRestriction>) {
       // No restrictions. Do nothing.
     } else {
       static_assert(berberis::kDependentValueFalse<IntrinsicBindingInfo::kCPUIDRestriction>);

@@ -70,7 +70,7 @@ genrule {
 
 cc_library_headers {
     name: "libberberis_machine_insn_info_headers",
-    defaults: ["berberis_defaults"],
+    defaults: ["berberis_all_hosts_defaults"],
     host_supported: true,
     export_include_dirs: ["include"],
     header_libs: [
