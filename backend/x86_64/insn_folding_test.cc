@@ -198,7 +198,7 @@ void TryTwoImmediatesRegRegInsnFolding(uint64_t imm1, uint64_t imm2, uint64_t ex
     builder.Gen<MovlRegImm>(vreg1, static_cast<uint32_t>(imm1));
     builder.Gen<MovlRegImm>(vreg2, static_cast<uint32_t>(imm2));
   }
-  builder.Gen<InsnTypeRegReg>(vreg2, vreg1, flags);
+  builder.Gen<InsnTypeRegReg>(vreg1, vreg2, flags);
 
   MachineInsnList::iterator insn_it = FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   MachineInsn* insn = *insn_it;
@@ -407,6 +407,8 @@ TEST(InsnFoldingTest, RegRegInsnTypeFolding) {
     TryRegRegInsnFolding<XorqRegReg, XorqRegImm>(is_64bit_mov_imm);
     TryRegRegInsnFolding<AndqRegReg, AndqRegImm>(is_64bit_mov_imm);
     TryRegRegInsnFolding<TestqRegReg, TestqRegImm>(is_64bit_mov_imm);
+    TryRegRegInsnFolding<ShlqRegReg, ShlqRegImm>(is_64bit_mov_imm, 10);
+    TryRegRegInsnFolding<ShrqRegReg, ShrqRegImm>(is_64bit_mov_imm, 11);
 
     TryRegRegInsnFolding<AddlRegReg, AddlRegImm>(is_64bit_mov_imm);
     TryRegRegInsnFolding<SublRegReg, SublRegImm>(is_64bit_mov_imm);
@@ -415,6 +417,8 @@ TEST(InsnFoldingTest, RegRegInsnTypeFolding) {
     TryRegRegInsnFolding<XorlRegReg, XorlRegImm>(is_64bit_mov_imm);
     TryRegRegInsnFolding<AndlRegReg, AndlRegImm>(is_64bit_mov_imm);
     TryRegRegInsnFolding<TestlRegReg, TestlRegImm>(is_64bit_mov_imm);
+    TryRegRegInsnFolding<ShllRegReg, ShllRegImm>(is_64bit_mov_imm, 10);
+    TryRegRegInsnFolding<ShrlRegReg, ShrlRegImm>(is_64bit_mov_imm, 11);
 
     TryRegRegInsnFoldingExtraPseudoCopy<AddqRegReg, AddqRegImm>(is_64bit_mov_imm);
     TryRegRegInsnFoldingExtraPseudoCopy<SubqRegReg, SubqRegImm>(is_64bit_mov_imm);
@@ -779,16 +783,18 @@ TEST(InsnFoldingTest, FoldTwoImmediatesRegImmInsn32) {
       imm, static_cast<int32_t>(0xf0f0'f0f0), imm & uint32_t{0xf0f0'f0f0});
   TryTwoImmediatesRegImmInsnFolding<OrlRegImm, false>(
       imm, static_cast<int32_t>(0xf0f0'f0f0), imm | uint32_t{0xf0f0'f0f0});
+  TryTwoImmediatesRegImmInsnFolding<ShllRegImm, false>(imm, 10, imm << 10);
+  TryTwoImmediatesRegImmInsnFolding<ShrlRegImm, false>(imm, 11, imm >> 11);
 }
 
 TEST(InsnFoldingTest, FoldTwoImmediatesRegImmInsn64) {
   uint64_t imm = 0x1234'5678'9abc'def0;
-  TryTwoImmediatesRegImmInsnFolding<ShlqRegImm, true>(imm, 10, imm << 10);
-  TryTwoImmediatesRegImmInsnFolding<ShrqRegImm, true>(imm, 11, imm >> 11);
   TryTwoImmediatesRegImmInsnFolding<AndqRegImm, true>(
       imm, static_cast<int32_t>(0xf0f0'f0f0), imm & uint64_t{0xffff'ffff'f0f0'f0f0});
   TryTwoImmediatesRegImmInsnFolding<OrqRegImm, true>(
       imm, static_cast<int32_t>(0xf0f0'f0f0), imm | uint64_t{0xffff'ffff'f0f0'f0f0});
+  TryTwoImmediatesRegImmInsnFolding<ShlqRegImm, true>(imm, 10, imm << 10);
+  TryTwoImmediatesRegImmInsnFolding<ShrqRegImm, true>(imm, 11, imm >> 11);
 }
 
 TEST(InsnFoldingTest, FoldTwoImmediatesRegRegInsn32) {
@@ -796,6 +802,8 @@ TEST(InsnFoldingTest, FoldTwoImmediatesRegRegInsn32) {
   uint32_t imm2 = 0xf0f0'f0f0;
   TryTwoImmediatesRegRegInsnFolding<AndlRegReg, false>(imm1, imm2, imm1 & imm2);
   TryTwoImmediatesRegRegInsnFolding<OrlRegReg, false>(imm1, imm2, imm1 | imm2);
+  TryTwoImmediatesRegRegInsnFolding<ShllRegReg, false>(imm1, 10, imm1 << 10);
+  TryTwoImmediatesRegRegInsnFolding<ShrlRegReg, false>(imm1, 11, imm1 >> 11);
 }
 
 TEST(InsnFoldingTest, FoldTwoImmediatesRegRegInsn64) {
@@ -803,6 +811,8 @@ TEST(InsnFoldingTest, FoldTwoImmediatesRegRegInsn64) {
   uint64_t imm2 = 0xf0f0'f0f0'f0f0'f0f0;
   TryTwoImmediatesRegRegInsnFolding<AndqRegReg, true>(imm1, imm2, imm1 & imm2);
   TryTwoImmediatesRegRegInsnFolding<OrqRegReg, true>(imm1, imm2, imm1 | imm2);
+  TryTwoImmediatesRegRegInsnFolding<ShlqRegReg, true>(imm1, 10, imm1 << 10);
+  TryTwoImmediatesRegRegInsnFolding<ShrqRegReg, true>(imm1, 11, imm1 >> 11);
 }
 
 }  // namespace

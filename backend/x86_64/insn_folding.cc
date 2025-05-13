@@ -96,6 +96,12 @@ MachineInsn* InsnFolding::NewImmInsnFromRegInsn(const MachineInsn* insn, int32_t
     case kMachineOpTestqRegReg:
       folded_insn = machine_ir_->NewInsn<TestqRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
       break;
+    case kMachineOpShlqRegReg:
+      folded_insn = machine_ir_->NewInsn<ShlqRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
+      break;
+    case kMachineOpShrqRegReg:
+      folded_insn = machine_ir_->NewInsn<ShrqRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
+      break;
     case kMachineOpMovlRegReg:
       folded_insn = machine_ir_->NewInsn<MovlRegImm>(insn->RegAt(0), imm32);
       break;
@@ -119,6 +125,12 @@ MachineInsn* InsnFolding::NewImmInsnFromRegInsn(const MachineInsn* insn, int32_t
       break;
     case kMachineOpTestlRegReg:
       folded_insn = machine_ir_->NewInsn<TestlRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
+      break;
+    case kMachineOpShllRegReg:
+      folded_insn = machine_ir_->NewInsn<ShllRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
+      break;
+    case kMachineOpShrlRegReg:
+      folded_insn = machine_ir_->NewInsn<ShrlRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpMovlMemBaseDispReg:
       folded_insn = machine_ir_->NewInsn<MovlMemBaseDispImm>(
@@ -185,10 +197,9 @@ std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldImmediateInput(
   if (imm64_0.has_value()) {
     // Both operands are immediates. This insn can be folded into one Movq.
     if (insn->opcode() == kMachineOpAndqRegReg || insn->opcode() == kMachineOpAndlRegReg ||
-        insn->opcode() == kMachineOpOrqRegReg || insn->opcode() == kMachineOpOrlRegReg) {
-      // Rest of IR may use the value of flags set by current insn. Therefore, we don't remove
-      // current insn, rather simply insert the folded insn. The dead code eliminator will
-      // remove the current insn if possible.
+        insn->opcode() == kMachineOpOrqRegReg || insn->opcode() == kMachineOpOrlRegReg ||
+        insn->opcode() == kMachineOpShlqRegReg || insn->opcode() == kMachineOpShllRegReg ||
+        insn->opcode() == kMachineOpShrqRegReg || insn->opcode() == kMachineOpShrlRegReg) {
       return {FoldingType::kInsertInsn,
               NewInsnFromTwoImmediatesOperation(insn, imm64_0.value(), imm64_1.value())};
     }
@@ -221,10 +232,24 @@ MachineInsn* InsnFolding::NewInsnFromTwoImmediatesOperation(const MachineInsn* i
                                                             uint64_t imm1,
                                                             uint64_t imm2) {
   switch (insn->opcode()) {
+    case kMachineOpShllRegImm:
+    case kMachineOpShllRegReg:
+      // In 32 bit shift operations, count operand is masked to size 5 bits.
+      return machine_ir_->NewInsn<MovlRegImm>(insn->RegAt(0),
+                                              static_cast<uint32_t>(imm1 << (imm2 % 32)));
     case kMachineOpShlqRegImm:
-      return machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm1 << imm2);
+    case kMachineOpShlqRegReg:
+      // In 64 bit shift operations, count operand is masked to size 6 bits.
+      return machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm1 << (imm2 % 64));
+    case kMachineOpShrlRegImm:
+    case kMachineOpShrlRegReg:
+      // In 32 bit shift operations, count operand is masked to size 5 bits.
+      return machine_ir_->NewInsn<MovlRegImm>(insn->RegAt(0),
+                                              static_cast<uint32_t>(imm1 >> (imm2 % 32)));
     case kMachineOpShrqRegImm:
-      return machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm1 >> imm2);
+    case kMachineOpShrqRegReg:
+      // In 64 bit shift operations, count operand is masked to size 6 bits.
+      return machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm1 >> (imm2 % 64));
     case kMachineOpAndlRegImm:
     case kMachineOpAndlRegReg:
       return machine_ir_->NewInsn<MovlRegImm>(insn->RegAt(0), static_cast<uint32_t>(imm1 & imm2));
@@ -350,6 +375,8 @@ std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldInsn(
     case kMachineOpSubqRegReg:
     case kMachineOpCmpqRegReg:
     case kMachineOpAddqRegReg:
+    case kMachineOpShlqRegReg:
+    case kMachineOpShrqRegReg:
       return TryFoldImmediateInput<true>(insn_it);
     case kMachineOpMovlRegReg: {
       auto [folding_type, folded_insn] = TryFoldImmediateInput<false>(insn_it);
@@ -366,6 +393,8 @@ std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldInsn(
     case kMachineOpSublRegReg:
     case kMachineOpCmplRegReg:
     case kMachineOpAddlRegReg:
+    case kMachineOpShllRegReg:
+    case kMachineOpShrlRegReg:
       return TryFoldImmediateInput<false>(insn_it);
     case kMachineOpPseudoWriteFlags: {
       if (IsWritingSameFlagsValue(insn_it)) {
@@ -373,12 +402,14 @@ std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldInsn(
       }
       break;
     }
-    case kMachineOpAndlRegImm:
-    case kMachineOpOrlRegImm:
     case kMachineOpShlqRegImm:
     case kMachineOpShrqRegImm:
     case kMachineOpAndqRegImm:
     case kMachineOpOrqRegImm:
+    case kMachineOpShllRegImm:
+    case kMachineOpShrlRegImm:
+    case kMachineOpAndlRegImm:
+    case kMachineOpOrlRegImm:
       return TryFoldTwoImmediates(insn_it);
     case kMachineOpLzcntlRegReg:
       return TryFoldCountLeadingZeroes<false>(insn_it, bb);
