@@ -652,7 +652,7 @@ int main(int argc, char* argv[]) {
 #define %2$s_%3$s_INTRINSICS_INTRINSICS_H_
 
 #if defined(__i386__) || defined(__x86_64__)
-#include <xmmintrin.h>
+#include <x86intrin.h>
 #endif
 
 #include "berberis/base/config.h"

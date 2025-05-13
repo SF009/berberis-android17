@@ -17,7 +17,7 @@
 #ifndef BERBERIS_MACHINE_INSN_INFO_ALL_TO_X86_32_OR_x86_64_MACHINE_INSN_INFO_H_
 #define BERBERIS_MACHINE_INSN_INFO_ALL_TO_X86_32_OR_x86_64_MACHINE_INSN_INFO_H_
 
-#include <xmmintrin.h>
+#include <x86intrin.h>
 
 #include <cstdint>
 
