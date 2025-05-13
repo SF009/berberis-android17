@@ -266,8 +266,7 @@ std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldRedundantMovl(
   const MachineInsn* insn = *insn_it;
   CHECK_EQ(insn->opcode(), kMachineOpMovlRegReg);
   auto src = insn->RegAt(1);
-  auto [def_insn_it, _] = def_map_.Get(src);
-
+  auto [def_insn_it, _] = FindNonPseudoCopyDef(src);
   if (!def_insn_it.has_value()) {
     return {FoldingType::kImpossible, nullptr};
   }
