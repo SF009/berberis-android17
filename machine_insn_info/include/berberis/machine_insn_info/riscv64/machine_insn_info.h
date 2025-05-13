@@ -22,12 +22,12 @@
 #include "berberis/assembler/riscv.h"
 #include "berberis/machine_insn_info/common/machine_insn_info.h"
 
-namespace berberis::riscv64::machine_insn_info_backend {
+namespace berberis::riscv64::machine_insn_info {
 
 // Note: normally using namespace is forbidden in headers, but these two namespaces literally
 // only exist to be imported here (and in other device CPU-specific headers).
 
-using namespace berberis::machine_insn_info_backend;
+using namespace berberis::machine_insn_info;
 
 class BImm {
  public:
@@ -85,6 +85,6 @@ class UImm {
 
 #include "berberis/machine_insn_info/riscv64/machine_reg_class-inl.h"
 
-}  // namespace berberis::riscv64::machine_insn_info_backend
+}  // namespace berberis::riscv64::machine_insn_info
 
 #endif  // BERBERIS_MACHINE_INSN_INFO_RISCV64_MACHINE_INSN_INFO_H_
