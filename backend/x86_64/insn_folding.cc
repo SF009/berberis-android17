@@ -188,7 +188,10 @@ std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldImmediateInput(
   if (IsRegImm(src0, &imm64_0)) {
     // Both operands are immediates. This insn can be folded into one Movq.
     if (insn->opcode() == kMachineOpAndqRegReg || insn->opcode() == kMachineOpOrqRegReg)
-      return {FoldingType::kReplaceInsn, NewInsnFromTwoImmediatesOperation(insn, imm64_0, imm64_1)};
+      // Rest of IR may use the value of flags set by current insn. Therefore, we don't remove
+      // current insn, rather simply insert the folded insn. The dead code eliminator will
+      // remove the current insn if possible.
+      return {FoldingType::kInsertInsn, NewInsnFromTwoImmediatesOperation(insn, imm64_0, imm64_1)};
   }
 
   // MovqRegReg is the only instruction that can encode full 64-bit immediate.
@@ -250,7 +253,10 @@ std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldTwoImmediates(
   uint64_t imm2 = AsMachineInsnX86_64(insn)->imm();
   // Check no value loss when imm2 is represented using 32 bits.
   CHECK(imm2 == static_cast<uint64_t>(static_cast<int32_t>(imm2)));
-  return {FoldingType::kReplaceInsn, NewInsnFromTwoImmediatesOperation(insn, imm1, imm2)};
+  // Rest of IR may use the value of flags set by current insn. Therefore, we don't remove
+  // current insn, rather simply insert the folded insn. The dead code eliminator will
+  // remove the current insn if possible.
+  return {FoldingType::kInsertInsn, NewInsnFromTwoImmediatesOperation(insn, imm1, imm2)};
 }
 
 std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldRedundantMovl(
@@ -388,17 +394,22 @@ void FoldInsns(MachineIR* machine_ir) {
     MachineInsnList& insn_list = bb->insn_list();
     for (auto insn_it = insn_list.begin(); insn_it != insn_list.end();) {
       auto [folding_type, new_insn] = insn_folding.TryFoldInsn(insn_it, bb);
-      if (folding_type != FoldingType::kImpossible) {
+      if (folding_type == FoldingType::kRemoveInsn) {
         insn_it = insn_list.erase(insn_it);
-        if (folding_type == FoldingType::kReplaceInsn) {
-          CHECK(new_insn);
-          insn_list.insert(insn_it, new_insn);
-          def_map.ProcessInsn(std::prev(insn_it));
-        }
-      } else {
-        def_map.ProcessInsn(insn_it);
-        ++insn_it;
+        continue;
       }
+
+      if (folding_type == FoldingType::kReplaceInsn) {
+        CHECK(new_insn);
+        *insn_it = new_insn;
+      } else if (folding_type == FoldingType::kInsertInsn) {
+        CHECK(new_insn);
+        insn_list.insert(std::next(insn_it), new_insn);
+      } else {
+        CHECK(folding_type == FoldingType::kImpossible);
+      }
+      def_map.ProcessInsn(insn_it);
+      ++insn_it;
     }
   }
 }

@@ -99,6 +99,10 @@ void TryRegRegInsnFoldingExtraPseudoCopy(bool is_64bit_mov_imm, uint64_t imm = 0
   EXPECT_EQ(flags, folded_insn->RegAt(1));
   EXPECT_EQ(static_cast<uint64_t>(static_cast<int32_t>(imm)),
             AsMachineInsnX86_64(folded_insn)->imm());
+
+  auto prev_insn_it = std::prev(insn_it);
+  MachineInsn* prev_insn = *prev_insn_it;
+  EXPECT_EQ(prev_insn->opcode(), kMachineOpPseudoCopy);
 }
 
 template <typename InsnTypeRegReg, typename InsnTypeRegImm>
@@ -160,6 +164,10 @@ void TryTwoImmediatesRegImmInsnFolding(uint64_t imm1, int32_t imm2, uint64_t exp
   MachineInsn* insn = *insn_it;
   EXPECT_EQ(insn->opcode(), kMachineOpMovqRegImm);
   EXPECT_EQ(AsMachineInsnX86_64(insn)->imm(), expected_op_result);
+
+  auto prev_insn_it = std::prev(insn_it);
+  MachineInsn* prev_insn = *prev_insn_it;
+  EXPECT_EQ(prev_insn->opcode(), InsnTypeRegImm::kInfo.opcode);
 }
 
 template <typename InsnTypeRegReg>
@@ -185,6 +193,10 @@ void TryTwoImmediatesRegRegInsnFolding(uint64_t imm1, uint64_t imm2, uint64_t ex
   MachineInsn* insn = *insn_it;
   EXPECT_EQ(insn->opcode(), kMachineOpMovqRegImm);
   EXPECT_EQ(AsMachineInsnX86_64(insn)->imm(), expected_op_result);
+
+  auto prev_insn_it = std::prev(insn_it);
+  MachineInsn* prev_insn = *prev_insn_it;
+  EXPECT_EQ(prev_insn->opcode(), InsnTypeRegReg::kInfo.opcode);
 }
 
 TEST(InsnFoldingTest, DefMapGetsLatestDef) {

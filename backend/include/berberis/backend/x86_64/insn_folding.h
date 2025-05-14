@@ -24,7 +24,7 @@
 
 namespace berberis::x86_64 {
 
-enum class FoldingType { kImpossible, kReplaceInsn, kRemoveInsn };
+enum class FoldingType { kImpossible, kReplaceInsn, kInsertInsn, kRemoveInsn };
 
 // The DefMap class stores a map between registers and their latest definitions and positions.
 class DefMap {
