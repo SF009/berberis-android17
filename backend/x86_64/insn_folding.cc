@@ -198,6 +198,7 @@ std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldImmediateInput(
     // Both operands are immediates. This insn can be folded into one Movq.
     if (insn->opcode() == kMachineOpAndqRegReg || insn->opcode() == kMachineOpAndlRegReg ||
         insn->opcode() == kMachineOpOrqRegReg || insn->opcode() == kMachineOpOrlRegReg ||
+        insn->opcode() == kMachineOpXorqRegReg || insn->opcode() == kMachineOpXorlRegReg ||
         insn->opcode() == kMachineOpShlqRegReg || insn->opcode() == kMachineOpShllRegReg ||
         insn->opcode() == kMachineOpShrqRegReg || insn->opcode() == kMachineOpShrlRegReg) {
       return {FoldingType::kInsertInsn,
@@ -262,6 +263,12 @@ MachineInsn* InsnFolding::NewInsnFromTwoImmediatesOperation(const MachineInsn* i
     case kMachineOpOrqRegImm:
     case kMachineOpOrqRegReg:
       return machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm1 | imm2);
+    case kMachineOpXorlRegImm:
+    case kMachineOpXorlRegReg:
+      return machine_ir_->NewInsn<MovlRegImm>(insn->RegAt(0), static_cast<uint32_t>(imm1 ^ imm2));
+    case kMachineOpXorqRegImm:
+    case kMachineOpXorqRegReg:
+      return machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm1 ^ imm2);
     default:
       LOG_ALWAYS_FATAL("unexpected opcode");
       return nullptr;
@@ -406,10 +413,12 @@ std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldInsn(
     case kMachineOpShrqRegImm:
     case kMachineOpAndqRegImm:
     case kMachineOpOrqRegImm:
+    case kMachineOpXorqRegImm:
     case kMachineOpShllRegImm:
     case kMachineOpShrlRegImm:
     case kMachineOpAndlRegImm:
     case kMachineOpOrlRegImm:
+    case kMachineOpXorlRegImm:
       return TryFoldTwoImmediates(insn_it);
     case kMachineOpLzcntlRegReg:
       return TryFoldCountLeadingZeroes<false>(insn_it, bb);

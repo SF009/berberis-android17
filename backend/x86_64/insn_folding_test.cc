@@ -783,6 +783,8 @@ TEST(InsnFoldingTest, FoldTwoImmediatesRegImmInsn32) {
       imm, static_cast<int32_t>(0xf0f0'f0f0), imm & uint32_t{0xf0f0'f0f0});
   TryTwoImmediatesRegImmInsnFolding<OrlRegImm, false>(
       imm, static_cast<int32_t>(0xf0f0'f0f0), imm | uint32_t{0xf0f0'f0f0});
+  TryTwoImmediatesRegImmInsnFolding<XorlRegImm, false>(
+      imm, static_cast<int32_t>(0xf0f0'f0f0), imm ^ uint32_t{0xf0f0'f0f0});
   TryTwoImmediatesRegImmInsnFolding<ShllRegImm, false>(imm, 10, imm << 10);
   TryTwoImmediatesRegImmInsnFolding<ShrlRegImm, false>(imm, 11, imm >> 11);
 }
@@ -793,6 +795,8 @@ TEST(InsnFoldingTest, FoldTwoImmediatesRegImmInsn64) {
       imm, static_cast<int32_t>(0xf0f0'f0f0), imm & uint64_t{0xffff'ffff'f0f0'f0f0});
   TryTwoImmediatesRegImmInsnFolding<OrqRegImm, true>(
       imm, static_cast<int32_t>(0xf0f0'f0f0), imm | uint64_t{0xffff'ffff'f0f0'f0f0});
+  TryTwoImmediatesRegImmInsnFolding<XorqRegImm, true>(
+      imm, static_cast<int32_t>(0xf0f0'f0f0), imm ^ uint64_t{0xffff'ffff'f0f0'f0f0});
   TryTwoImmediatesRegImmInsnFolding<ShlqRegImm, true>(imm, 10, imm << 10);
   TryTwoImmediatesRegImmInsnFolding<ShrqRegImm, true>(imm, 11, imm >> 11);
 }
@@ -802,6 +806,7 @@ TEST(InsnFoldingTest, FoldTwoImmediatesRegRegInsn32) {
   uint32_t imm2 = 0xf0f0'f0f0;
   TryTwoImmediatesRegRegInsnFolding<AndlRegReg, false>(imm1, imm2, imm1 & imm2);
   TryTwoImmediatesRegRegInsnFolding<OrlRegReg, false>(imm1, imm2, imm1 | imm2);
+  TryTwoImmediatesRegRegInsnFolding<XorlRegReg, false>(imm1, imm2, imm1 ^ imm2);
   TryTwoImmediatesRegRegInsnFolding<ShllRegReg, false>(imm1, 10, imm1 << 10);
   TryTwoImmediatesRegRegInsnFolding<ShrlRegReg, false>(imm1, 11, imm1 >> 11);
 }
@@ -811,6 +816,7 @@ TEST(InsnFoldingTest, FoldTwoImmediatesRegRegInsn64) {
   uint64_t imm2 = 0xf0f0'f0f0'f0f0'f0f0;
   TryTwoImmediatesRegRegInsnFolding<AndqRegReg, true>(imm1, imm2, imm1 & imm2);
   TryTwoImmediatesRegRegInsnFolding<OrqRegReg, true>(imm1, imm2, imm1 | imm2);
+  TryTwoImmediatesRegRegInsnFolding<XorqRegReg, true>(imm1, imm2, imm1 ^ imm2);
   TryTwoImmediatesRegRegInsnFolding<ShlqRegReg, true>(imm1, 10, imm1 << 10);
   TryTwoImmediatesRegRegInsnFolding<ShrqRegReg, true>(imm1, 11, imm1 >> 11);
 }
