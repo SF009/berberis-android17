@@ -24,6 +24,8 @@
 
 namespace berberis::x86_64 {
 
+enum class FoldingType { kImpossible, kReplaceInsn, kRemoveInsn };
+
 // The DefMap class stores a map between registers and their latest definitions and positions.
 class DefMap {
  public:
@@ -70,8 +72,8 @@ class InsnFolding {
   explicit InsnFolding(DefMap& def_map, MachineIR* machine_ir)
       : def_map_(def_map), machine_ir_(machine_ir) {}
 
-  std::tuple<bool, MachineInsn*> TryFoldInsn(const MachineInsnList::iterator insn,
-                                             const MachineBasicBlock* bb);
+  std::tuple<FoldingType, MachineInsn*> TryFoldInsn(const MachineInsnList::iterator insn,
+                                                    const MachineBasicBlock* bb);
 
  private:
   DefMap& def_map_;
@@ -81,12 +83,12 @@ class InsnFolding {
   std::tuple<std::optional<MachineInsnList::iterator>, int> FindNonPseudoCopyDef(
       MachineReg src_reg) const;
   template <bool kIsInput64Bit>
-  std::tuple<bool, MachineInsn*> TryFoldImmediateInput(MachineInsnList::iterator insn_it);
-  std::tuple<bool, MachineInsn*> TryFoldTwoImmediates(MachineInsnList::iterator insn_it);
-  std::tuple<bool, MachineInsn*> TryFoldRedundantMovl(MachineInsnList::iterator insn_it);
+  std::tuple<FoldingType, MachineInsn*> TryFoldImmediateInput(MachineInsnList::iterator insn_it);
+  std::tuple<FoldingType, MachineInsn*> TryFoldTwoImmediates(MachineInsnList::iterator insn_it);
+  std::tuple<FoldingType, MachineInsn*> TryFoldRedundantMovl(MachineInsnList::iterator insn_it);
   template <bool kIsInput64Bit>
-  std::tuple<bool, MachineInsn*> TryFoldCountLeadingZeroes(MachineInsnList::iterator insn_it,
-                                                           const MachineBasicBlock* bb);
+  std::tuple<FoldingType, MachineInsn*> TryFoldCountLeadingZeroes(MachineInsnList::iterator insn_it,
+                                                                  const MachineBasicBlock* bb);
   MachineInsn* NewImmInsnFromRegInsn(const MachineInsn* insn, int32_t imm);
   MachineInsn* NewInsnFromTwoImmediatesOperation(const MachineInsn* insn,
                                                  uint64_t operand_1,
