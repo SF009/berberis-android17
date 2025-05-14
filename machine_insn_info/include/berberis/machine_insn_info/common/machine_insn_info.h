@@ -24,76 +24,79 @@ namespace berberis::machine_insn_info {
 class Mem8 {
  public:
   using Type = uint8_t;
-  static constexpr bool kIsImmediate = false;
   static constexpr char kAsRegister = 'm';
 };
 
 class Mem16 {
  public:
   using Type = uint16_t;
-  static constexpr bool kIsImmediate = false;
   static constexpr char kAsRegister = 'm';
 };
 
 class Mem32 {
  public:
   using Type = uint32_t;
-  static constexpr bool kIsImmediate = false;
   static constexpr char kAsRegister = 'm';
 };
 
 class Mem64 {
  public:
   using Type = uint64_t;
-  static constexpr bool kIsImmediate = false;
   static constexpr char kAsRegister = 'm';
 };
 
 template <typename OperandClass, typename = void>
 inline constexpr bool kIsFLAGS = false;
 
+template <typename OperandClass, typename = void>
+inline constexpr bool kIsImmediate = false;
+
+template <typename OperandClass, typename = void>
+inline constexpr bool kIsMemoryOperand = false;
+
+template <typename OperandClass, typename = void>
+inline constexpr bool kIsRegister = !kIsImmediate<OperandClass> && !kIsMemoryOperand<OperandClass>;
+
+template <typename OperandClass, typename = void>
+inline constexpr bool kIsImplicitReg = false;
+
 template <typename OperandClass>
 inline constexpr bool
     kIsFLAGS<OperandClass, std::enable_if_t<sizeof(typename OperandClass::Class) >= 1>> =
         kIsFLAGS<typename OperandClass::Class>;
-
-template <typename OperandClass, typename = void>
-inline constexpr bool kIsImmediate = false;
-
-template <typename ImmediateClass>
-inline constexpr bool
-    kIsImmediate<ImmediateClass, std::enable_if_t<sizeof(ImmediateClass::kIsImmediate) >= 1>> =
-        ImmediateClass::kIsImmediate;
 
 template <typename OperandClass>
 inline constexpr bool
     kIsImmediate<OperandClass, std::enable_if_t<sizeof(typename OperandClass::Class) >= 1>> =
         kIsImmediate<typename OperandClass::Class>;
 
-template <typename OperandClass, typename = void>
-inline constexpr bool kIsRegister = false;
-
 template <typename RegisterClass>
-inline constexpr bool
-    kIsRegister<RegisterClass, std::enable_if_t<RegisterClass::kAsRegister != 'm'>> = true;
+inline constexpr bool kIsImplicitReg<
+    RegisterClass,
+    std::enable_if_t<kIsRegister<RegisterClass> &&
+                     std::tuple_size_v<typename RegisterClass::RegistersList> == 1>> = true;
 
 template <typename OperandClass>
 inline constexpr bool
-    kIsRegister<OperandClass, std::enable_if_t<sizeof(typename OperandClass::Class) >= 1>> =
-        kIsRegister<typename OperandClass::Class>;
-
-template <typename OperandClass, typename = void>
-inline constexpr bool kIsMemoryOperand = false;
-
-template <typename MemoryOperandClass>
-inline constexpr bool
-    kIsMemoryOperand<MemoryOperandClass, std::enable_if_t<MemoryOperandClass::kAsRegister == 'm'>> =
-        true;
+    kIsImplicitReg<OperandClass, std::enable_if_t<sizeof(typename OperandClass::Class) >= 1>> =
+        kIsImplicitReg<typename OperandClass::Class>;
 
 template <typename OperandClass>
 inline constexpr bool
     kIsMemoryOperand<OperandClass, std::enable_if_t<sizeof(typename OperandClass::Class) >= 1>> =
         kIsMemoryOperand<typename OperandClass::Class>;
+
+template <>
+inline constexpr bool kIsMemoryOperand<Mem8> = true;
+
+template <>
+inline constexpr bool kIsMemoryOperand<Mem16> = true;
+
+template <>
+inline constexpr bool kIsMemoryOperand<Mem32> = true;
+
+template <>
+inline constexpr bool kIsMemoryOperand<Mem64> = true;
 
 // Note: value of RegBindingKind and MachineRegKind have to be the same since we convert one to
 // another with a static_cast in berberis/backend/x86_64/machine_insn_intrinsics.h. We don't care

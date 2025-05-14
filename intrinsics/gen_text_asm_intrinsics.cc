@@ -104,9 +104,8 @@ constexpr void CallAssembler(MacroAssembler<TextAssembler>* as, int* register_nu
                                          register_numbers]<typename Binding, typename Operand> {
     if constexpr (machine_insn_info::kIsRegister<Operand> &&
                   !machine_insn_info::kIsFLAGS<Operand>) {
-      using RegisterClass = Operand::Class;
-      if constexpr (RegisterClass::kIsImplicitReg) {
-        as->*(RegisterClass::template kAssemblerRegisterPointer<MacroAssembler<TextAssembler>>) =
+      if constexpr (machine_insn_info::kIsImplicitReg<Operand>) {
+        as->*(Operand::Class::template kAssemblerRegisterPointer<MacroAssembler<TextAssembler>>) =
             typename MacroAssembler<TextAssembler>::Register(register_numbers[arg_counter]);
       }
       ++arg_counter;
@@ -142,7 +141,7 @@ constexpr void CallAssembler(MacroAssembler<TextAssembler>* as, int* register_nu
                                                               scratch_counter++)}};
                            } else if constexpr (machine_insn_info::kIsRegister<Operand> &&
                                                 !machine_insn_info::kIsFLAGS<Operand>) {
-                             if constexpr (Operand::Class::kIsImplicitReg) {
+                             if constexpr (machine_insn_info::kIsImplicitReg<Operand>) {
                                ++arg_counter;
                                return std::tuple{};
                              } else {

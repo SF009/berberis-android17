@@ -148,27 +148,12 @@ constexpr void CallVerifierAssembler(AssemblerType* as, int* register_numbers) {
   int arg_counter = 0;
   IntrinsicBindingInfo::ProcessBindings(
       [&arg_counter, &as, register_numbers]<typename Binding, typename Operand> {
-        if constexpr (machine_insn_info::kIsRegister<Operand> &&
+        if constexpr (machine_insn_info::kIsImplicitReg<Operand> &&
                       !machine_insn_info::kIsFLAGS<Operand>) {
-          using RegisterClass = Operand::Class;
-          if constexpr (RegisterClass::kIsImplicitReg) {
-            if constexpr (RegisterClass::kAsRegister == 'a') {
-              as->gpr_a =
-                  typename AssemblerType::Register{register_numbers[arg_counter], Operand::kUsage};
-            } else if constexpr (RegisterClass::kAsRegister == 'b') {
-              as->gpr_b =
-                  typename AssemblerType::Register{register_numbers[arg_counter], Operand::kUsage};
-            } else if constexpr (RegisterClass::kAsRegister == 'c') {
-              as->gpr_c =
-                  typename AssemblerType::Register{register_numbers[arg_counter], Operand::kUsage};
-            } else {
-              static_assert(RegisterClass::kAsRegister == 'd');
-              as->gpr_d =
-                  typename AssemblerType::Register{register_numbers[arg_counter], Operand::kUsage};
-            }
-          }
-          ++arg_counter;
+          as->*(Operand::Class::template kAssemblerRegisterPointer<AssemblerType>) =
+              typename AssemblerType::Register{register_numbers[arg_counter], Operand::kUsage};
         }
+        ++arg_counter;
       });
   // Macroassembler constants register points to the constant pool. Intrinsics can read from it
   // but shouldn't change it's address, that's why it's always kUse.
@@ -213,12 +198,12 @@ constexpr void CallVerifierAssembler(AssemblerType* as, int* register_numbers) {
                       .disp =
                           static_cast<int32_t>(config::kScratchAreaSlotSize * scratch_counter++)}};
                 } else {
-                  using RegisterClass = Operand::Class;
                   if constexpr (!machine_insn_info::kIsFLAGS<Operand>) {
-                    if constexpr (RegisterClass::kIsImplicitReg) {
+                    if constexpr (machine_insn_info::kIsImplicitReg<Operand>) {
                       ++arg_counter;
                       return std::tuple{};
                     } else {
+                      using RegisterClass = Operand::Class;
                       if constexpr (RegisterClass::kAsRegister == 'q' ||
                                     RegisterClass::kAsRegister == 'r') {
                         return std::tuple{typename AssemblerType::Register{

@@ -27,7 +27,6 @@ def gen_machine_reg_class_inc(f, reg_classes):
     print(' public:', file=f)
     print(f'  static constexpr const char* kName = "{name}";', file=f)
     print('  static constexpr size_t kSizeInBits = %d;' % size, file=f)
-    print('  static constexpr bool kIsImmediate = false;', file=f)
     print('  using RegistersList = std::tuple<%s>;' % ', '.join(regs), file=f)
     if 'gcc_asm_name' in reg_class:
       if 'type' in reg_class:
@@ -49,12 +48,9 @@ def gen_machine_reg_class_inc(f, reg_classes):
       # to declare arguments of functions, or local variables.
       print('  using Type = void;', file=f)
     if len(regs) == 1:
-      print('  static constexpr bool kIsImplicitReg = true;', file=f)
       print('  template <typename Assembler>', file=f)
       print('  static constexpr auto kAssemblerRegisterPointer = '
             f'&Assembler::gpr_{gcc_asm_name};', file=f)
-    else:
-      print('  static constexpr bool kIsImplicitReg = false;', file=f)
     print('  template <typename MachineRegDefinitions>', file=f)
     print('  static constexpr auto kMachineRegId = '
           f'MachineRegDefinitions::k{name};', file=f)

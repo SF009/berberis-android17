@@ -26,38 +26,35 @@
 // Note: normally using namespace is forbidden in headers, but these two namespaces literally
 // only exist to be imported here (and in other device CPU-specific headers).
 
-namespace berberis::x86_32_or_x86_64::machine_insn_info {
+namespace berberis {
+
+namespace x86_32_or_x86_64::machine_insn_info {
 
 using namespace berberis::machine_insn_info;
 
 class Imm2 {
  public:
   using Type = int8_t;
-  static constexpr bool kIsImmediate = true;
 };
 
 class Imm8 {
  public:
   using Type = int8_t;
-  static constexpr bool kIsImmediate = true;
 };
 
 class Imm16 {
  public:
   using Type = int16_t;
-  static constexpr bool kIsImmediate = true;
 };
 
 class Imm32 {
  public:
   using Type = int32_t;
-  static constexpr bool kIsImmediate = true;
 };
 
 class Imm64 {
  public:
   using Type = int64_t;
-  static constexpr bool kIsImmediate = true;
 };
 
 class MemX87 {
@@ -133,6 +130,30 @@ class HasX87;
 class HasCustomCapability;
 class IsAuthenticAMD;
 
-}  // namespace berberis::x86_32_or_x86_64::machine_insn_info
+}  // namespace x86_32_or_x86_64::machine_insn_info
+
+namespace machine_insn_info {
+
+template <>
+inline constexpr bool kIsImmediate<x86_32_or_x86_64::machine_insn_info::Imm2> = true;
+
+template <>
+inline constexpr bool kIsImmediate<x86_32_or_x86_64::machine_insn_info::Imm8> = true;
+
+template <>
+inline constexpr bool kIsImmediate<x86_32_or_x86_64::machine_insn_info::Imm16> = true;
+
+template <>
+inline constexpr bool kIsImmediate<x86_32_or_x86_64::machine_insn_info::Imm32> = true;
+
+template <>
+inline constexpr bool kIsImmediate<x86_32_or_x86_64::machine_insn_info::Imm64> = true;
+
+template <>
+inline constexpr bool kIsMemoryOperand<x86_32_or_x86_64::machine_insn_info::MemX87> = true;
+
+}  // namespace machine_insn_info
+
+}  // namespace berberis
 
 #endif  // BERBERIS_MACHINE_INSN_INFO_ALL_TO_X86_32_OR_x86_64_MACHINE_INSN_INFO_H_

@@ -22,7 +22,9 @@
 #include "berberis/assembler/riscv.h"
 #include "berberis/machine_insn_info/common/machine_insn_info.h"
 
-namespace berberis::riscv64::machine_insn_info {
+namespace berberis {
+
+namespace riscv64::machine_insn_info {
 
 // Note: normally using namespace is forbidden in headers, but these two namespaces literally
 // only exist to be imported here (and in other device CPU-specific headers).
@@ -32,59 +34,83 @@ using namespace berberis::machine_insn_info;
 class BImm {
  public:
   using Type = riscv::BImmediate;
-  static constexpr bool kIsImmediate = true;
 };
 
 class CsrImm {
  public:
   using Type = riscv::CsrImmediate;
-  static constexpr bool kIsImmediate = true;
 };
 
 class IImm {
  public:
   using Type = riscv::IImmediate;
-  static constexpr bool kIsImmediate = true;
 };
 
 class JImm {
  public:
   using Type = riscv::JImmediate;
-  static constexpr bool kIsImmediate = true;
 };
 
 class PImm {
  public:
   using Type = riscv::PImmediate;
-  static constexpr bool kIsImmediate = true;
 };
 
 class SImm {
  public:
   using Type = riscv::SImmediate;
-  static constexpr bool kIsImmediate = true;
 };
 
 class Shift32Imm {
  public:
   using Type = riscv::Shift32Immediate;
-  static constexpr bool kIsImmediate = true;
 };
 
 class Shift64Imm {
  public:
   using Type = riscv::Shift64Immediate;
-  static constexpr bool kIsImmediate = true;
 };
 
 class UImm {
  public:
   using Type = riscv::UImmediate;
-  static constexpr bool kIsImmediate = true;
 };
 
 #include "berberis/machine_insn_info/riscv64/machine_reg_class-inl.h"
 
-}  // namespace berberis::riscv64::machine_insn_info
+}  // namespace riscv64::machine_insn_info
+
+namespace machine_insn_info {
+
+template <>
+inline constexpr bool kIsImmediate<riscv64::machine_insn_info::BImm> = true;
+
+template <>
+inline constexpr bool kIsImmediate<riscv64::machine_insn_info::CsrImm> = true;
+
+template <>
+inline constexpr bool kIsImmediate<riscv64::machine_insn_info::IImm> = true;
+
+template <>
+inline constexpr bool kIsImmediate<riscv64::machine_insn_info::JImm> = true;
+
+template <>
+inline constexpr bool kIsImmediate<riscv64::machine_insn_info::PImm> = true;
+
+template <>
+inline constexpr bool kIsImmediate<riscv64::machine_insn_info::SImm> = true;
+
+template <>
+inline constexpr bool kIsImmediate<riscv64::machine_insn_info::Shift32Imm> = true;
+
+template <>
+inline constexpr bool kIsImmediate<riscv64::machine_insn_info::Shift64Imm> = true;
+
+template <>
+inline constexpr bool kIsImmediate<riscv64::machine_insn_info::UImm> = true;
+
+}  // namespace machine_insn_info
+
+}  // namespace berberis
 
 #endif  // BERBERIS_MACHINE_INSN_INFO_RISCV64_MACHINE_INSN_INFO_H_

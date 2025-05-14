@@ -111,7 +111,7 @@ class MachineInsn<machine_insn_info::AsmCallInfo<kMacroInstruction,
                   "[%s + 0x%x]", GetRegOperandDebugString(this, reg_idx).c_str(), disp2());
             }
             arg_idx++, reg_idx++, disp_idx++;
-          } else if constexpr (Operand::Class::kIsImplicitReg) {
+          } else if constexpr (machine_insn_info::kIsImplicitReg<Operand>) {
             s += GetImplicitRegOperandDebugString(this, reg_idx);
             arg_idx++, reg_idx++;
           } else {
@@ -152,7 +152,7 @@ class MachineInsn<machine_insn_info::AsmCallInfo<kMacroInstruction,
                   return std::tuple{Assembler::Operand{.base = GetGReg(this->RegAt(reg_idx++)),
                                                        .disp = static_cast<int32_t>(disp2())}};
                 }
-              } else if constexpr (Operand::Class::kIsImplicitReg) {
+              } else if constexpr (machine_insn_info::kIsImplicitReg<Operand>) {
                 return std::tuple{};
               } else if constexpr (Operand::Class::kAsRegister == 'x') {
                 return std::tuple{GetXReg(this->RegAt(reg_idx++))};
