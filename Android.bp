@@ -479,3 +479,9 @@ berberis_phony_rule {
         },
     },
 }
+
+python_binary_host {
+    name: "berberis_gen_gtest_failure_template",
+    main: "tests/gen_gtest_failure_template.py",
+    srcs: ["tests/gen_gtest_failure_template.py"],
+}
