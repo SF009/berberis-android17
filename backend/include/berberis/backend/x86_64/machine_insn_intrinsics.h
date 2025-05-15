@@ -73,6 +73,7 @@ class MachineInsn<machine_insn_info::AsmCallInfo<kMacroInstruction,
 
  public:
   // This static simplifies constructing this MachineInsn in intrinsic implementations.
+  template <typename MachineIRBuilder>
   static constexpr MachineInsn* (MachineIRBuilder::*kGenFunc)(ConstructorArgs) =
       &MachineIRBuilder::template Gen<MachineInsn>;
 

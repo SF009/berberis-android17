@@ -338,6 +338,10 @@ def _gen_insn_class(f, insn):
   print('class %s : public MachineInsnForArch {' % (name), file=f)
   print(' public:', file=f)
   print('  explicit %s(%s);' % (name, ', '.join(params)), file=f)
+  print('  template <typename MachineIRBuilder>', file=f)
+  print('  static constexpr %s* (MachineIRBuilder::*kGenFunc)(%s) =' %
+     (name, ', '.join(params)), file=f)
+  print('      &MachineIRBuilder::template Gen<%s>;' % name, file=f)
   print('  static constexpr MachineInsnInfo kInfo =', file=f)
   print('      MachineInsnInfo({kMachineOp%s,' % (name), file=f)
   print('                       %d,' % (len(regs)), file=f)
