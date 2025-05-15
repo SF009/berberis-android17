@@ -33,6 +33,11 @@ namespace {
 constexpr auto kMachineRegRAX = MachineRegs::kRAX;
 constexpr auto kMachineRegRDI = MachineRegs::kRDI;
 
+MachineInsnList::iterator FoldInsnsAndGetLastInsnIt(MachineIR* machine_ir, MachineBasicBlock* bb) {
+  FoldInsns(machine_ir);
+  return std::prev(bb->insn_list().end());
+}
+
 // By default for the successful folding the immediate must be sign-extended from 32-bit to the same
 // 64-bit integer number.
 template <typename InsnTypeRegReg, typename InsnTypeRegImm, bool kExpectSuccess = true>
@@ -55,9 +60,7 @@ void TryRegRegInsnFolding(bool is_64bit_mov_imm, uint64_t imm = 0x7777ffffULL) {
   }
   builder.Gen<InsnTypeRegReg>(vreg2, vreg1, flags);
 
-  FoldInsns(&machine_ir);
-  auto insn_it = std::prev(bb->insn_list().end());
-  MachineInsn* folded_insn = *insn_it;
+  MachineInsn* folded_insn = *FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   if (!kExpectSuccess) {
     EXPECT_EQ(InsnTypeRegReg::kInfo.opcode, folded_insn->opcode());
     return;
@@ -91,16 +94,15 @@ void TryRegRegInsnFoldingExtraPseudoCopy(bool is_64bit_mov_imm, uint64_t imm = 0
   builder.Gen<PseudoCopy>(vreg2, vreg1, 8);
   builder.Gen<InsnTypeRegReg>(vreg3, vreg2, flags);
 
-  FoldInsns(&machine_ir);
-  auto insn_it = std::prev(bb->insn_list().end());
-  MachineInsn* folded_insn = *insn_it;
+  MachineInsnList::iterator folded_insn_it = FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
+  MachineInsn* folded_insn = *folded_insn_it;
   EXPECT_EQ(InsnTypeRegImm::kInfo.opcode, folded_insn->opcode());
   EXPECT_EQ(vreg3, folded_insn->RegAt(0));
   EXPECT_EQ(flags, folded_insn->RegAt(1));
   EXPECT_EQ(static_cast<uint64_t>(static_cast<int32_t>(imm)),
             AsMachineInsnX86_64(folded_insn)->imm());
 
-  auto prev_insn_it = std::prev(insn_it);
+  auto prev_insn_it = std::prev(folded_insn_it);
   MachineInsn* prev_insn = *prev_insn_it;
   EXPECT_EQ(prev_insn->opcode(), kMachineOpPseudoCopy);
 }
@@ -124,10 +126,7 @@ void TryMovInsnFolding(bool is_64bit_mov_imm, uint64_t imm) {
   }
   builder.Gen<InsnTypeRegReg>(vreg2, vreg1);
 
-  FoldInsns(&machine_ir);
-  auto insn_it = std::prev(bb->insn_list().end());
-  MachineInsn* folded_insn = *insn_it;
-
+  MachineInsn* folded_insn = *FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   EXPECT_EQ(InsnTypeRegImm::kInfo.opcode, folded_insn->opcode());
   EXPECT_EQ(vreg2, folded_insn->RegAt(0));
   // MovqRegReg is the only instruction that can take full 64-bit imm.
@@ -159,8 +158,7 @@ void TryTwoImmediatesRegImmInsnFolding(uint64_t imm1, int32_t imm2, uint64_t exp
   builder.Gen<PseudoCopy>(vreg2, vreg1, 8);
   builder.Gen<InsnTypeRegImm>(vreg2, imm2, flags);
 
-  FoldInsns(&machine_ir);
-  auto insn_it = std::prev(bb->insn_list().end());
+  MachineInsnList::iterator insn_it = FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   MachineInsn* insn = *insn_it;
   EXPECT_EQ(insn->opcode(), kMachineOpMovqRegImm);
   EXPECT_EQ(AsMachineInsnX86_64(insn)->imm(), expected_op_result);
@@ -188,8 +186,7 @@ void TryTwoImmediatesRegRegInsnFolding(uint64_t imm1, uint64_t imm2, uint64_t ex
   builder.Gen<MovqRegImm>(vreg2, imm2);
   builder.Gen<InsnTypeRegReg>(vreg2, vreg1, flags);
 
-  FoldInsns(&machine_ir);
-  auto insn_it = std::prev(bb->insn_list().end());
+  MachineInsnList::iterator insn_it = FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   MachineInsn* insn = *insn_it;
   EXPECT_EQ(insn->opcode(), kMachineOpMovqRegImm);
   EXPECT_EQ(AsMachineInsnX86_64(insn)->imm(), expected_op_result);
@@ -302,10 +299,7 @@ TEST(InsnFoldingTest, SingleMovqMemBaseDispImm32Folding) {
   builder.SetRecoveryPointAtLastInsn(recovery_bb);
   builder.SetRecoveryWithGuestPCAtLastInsn(42);
 
-  FoldInsns(&machine_ir);
-  auto insn_it = std::prev(bb->insn_list().end());
-  MachineInsn* folded_insn = *insn_it;
-
+  MachineInsn* folded_insn = *FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   EXPECT_EQ(kMachineOpMovqMemBaseDispImm, folded_insn->opcode());
   EXPECT_EQ(kMachineRegRAX, folded_insn->RegAt(0));
   EXPECT_EQ(2UL, AsMachineInsnX86_64(folded_insn)->imm());
@@ -331,10 +325,7 @@ TEST(InsnFoldingTest, SingleMovlMemBaseDispImm32Folding) {
   builder.SetRecoveryPointAtLastInsn(recovery_bb);
   builder.SetRecoveryWithGuestPCAtLastInsn(42);
 
-  FoldInsns(&machine_ir);
-  auto insn_it = std::prev(bb->insn_list().end());
-  MachineInsn* folded_insn = *insn_it;
-
+  MachineInsn* folded_insn = *FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   EXPECT_EQ(kMachineOpMovlMemBaseDispImm, folded_insn->opcode());
   EXPECT_EQ(kMachineRegRAX, folded_insn->RegAt(0));
   EXPECT_EQ(3UL, AsMachineInsnX86_64(folded_insn)->imm());
@@ -360,10 +351,7 @@ TEST(InsnFoldingTest, RedundantMovlFolding) {
   builder.Gen<AddlRegReg>(vreg2, vreg3, flags);
   builder.Gen<MovlRegReg>(vreg1, vreg2);
 
-  FoldInsns(&machine_ir);
-  auto insn_it = std::prev(bb->insn_list().end());
-  MachineInsn* folded_insn = *insn_it;
-
+  MachineInsn* folded_insn = *FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   EXPECT_EQ(kMachineOpPseudoCopy, folded_insn->opcode());
   EXPECT_EQ(vreg1, folded_insn->RegAt(0));
   EXPECT_EQ(vreg2, folded_insn->RegAt(1));
@@ -385,10 +373,7 @@ TEST(InsnFoldingTest, GracefulHandlingOfVRegDefinedInPreviousBasicBlock) {
   builder.StartBasicBlock(bb);
   builder.Gen<MovlRegReg>(vreg1, vreg2);
 
-  FoldInsns(&machine_ir);
-  auto insn_it = std::prev(bb->insn_list().end());
-  MachineInsn* folded_insn = *insn_it;
-
+  MachineInsn* folded_insn = *FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   EXPECT_EQ(folded_insn->opcode(), kMachineOpMovlRegReg);
   EXPECT_EQ(vreg1, folded_insn->RegAt(0));
   EXPECT_EQ(vreg2, folded_insn->RegAt(1));
@@ -707,9 +692,7 @@ TEST(InsnFoldingTest, CountTrailingZeroesFolding64) {
   builder.Gen<PseudoCopy>(vreg5, vreg3, 8);
   builder.Gen<LzcntqRegReg>(vreg6, vreg5, flags);
 
-  FoldInsns(&machine_ir);
-  auto insn_it = std::prev(bb->insn_list().end());
-  MachineInsn* insn = *insn_it;
+  MachineInsn* insn = *FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   EXPECT_EQ(insn->opcode(), kMachineOpTzcntqRegReg);
   EXPECT_EQ(insn->RegAt(0), vreg6);
   EXPECT_EQ(insn->RegAt(1), vreg1);
@@ -736,9 +719,8 @@ TEST(InsnFoldingTest, CountTrailingZeroesFolding32) {
   builder.Gen<MacroReverseBitsU32>(vreg3, vreg2, flags);
   builder.Gen<PseudoCopy>(vreg4, vreg3, 8);
   builder.Gen<LzcntlRegReg>(vreg5, vreg4, flags);
-  FoldInsns(&machine_ir);
-  auto insn_it = std::prev(bb->insn_list().end());
-  MachineInsn* insn = *insn_it;
+
+  MachineInsn* insn = *FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   EXPECT_EQ(insn->opcode(), kMachineOpTzcntlRegReg);
   EXPECT_EQ(insn->RegAt(0), vreg5);
   EXPECT_EQ(insn->RegAt(1), vreg1);
@@ -768,9 +750,7 @@ TEST(InsnFoldingTest, CountTrailingZeroesFoldingCancelledIfArgNotAlive) {
   builder.Gen<PseudoCopy>(vreg5, vreg3, 8);
   builder.Gen<LzcntqRegReg>(vreg6, vreg5, flags);
 
-  FoldInsns(&machine_ir);
-  auto insn_it = std::prev(bb->insn_list().end());
-  MachineInsn* insn = *insn_it;
+  MachineInsn* insn = *FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   EXPECT_EQ(insn->opcode(), kMachineOpLzcntqRegReg);
 }
 
