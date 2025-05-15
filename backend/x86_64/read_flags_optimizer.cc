@@ -104,6 +104,8 @@ bool CheckSuccessorNode(Loop* loop, MachineBasicBlock* bb, MachineRegVector& reg
 // * the node must have only one in_edge - this guarantees the register is coming
 // from the readflags
 // * nothing in regs should be in live_out
+// * does not redefine registers in regs - this simplifies the logic of figuring out when to
+// insert instructions (see b/417321580 for more context)
 bool CheckPostLoopNode(MachineBasicBlock* bb, const MachineRegVector& regs) {
   // If the node doesn't actually use any of regs we can just skip it.
   if (!RegsLiveInBasicBlock(bb, regs)) {
@@ -120,6 +122,15 @@ bool CheckPostLoopNode(MachineBasicBlock* bb, const MachineRegVector& regs) {
       return false;
     }
   }
+
+  for (auto insn : bb->insn_list()) {
+    for (int i = 0; i < insn->NumRegOperands(); i++) {
+      if (Contains(regs, insn->RegAt(i)) && insn->RegKindAt(i).IsDef()) {
+        return false;
+      }
+    }
+  }
+
   return true;
 }
 
