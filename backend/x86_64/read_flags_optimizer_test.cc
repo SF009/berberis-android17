@@ -20,7 +20,7 @@
 
 #include "berberis/backend/x86_64/read_flags_optimizer.h"
 
-#include "berberis/backend/common/machine_ir.h"
+#include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/backend/x86_64/machine_ir_analysis.h"
 #include "berberis/backend/x86_64/machine_ir_builder.h"
 #include "berberis/backend/x86_64/machine_ir_check.h"
