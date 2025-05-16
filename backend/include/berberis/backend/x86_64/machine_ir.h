@@ -115,6 +115,24 @@ struct MachineInsnInfo {
   int num_reg_operands;
   MachineRegKind reg_kinds[kMaxMachineRegOperands];
   MachineInsnKind kind;
+  constexpr int InputRegistersCount() const {
+    int result = 0;
+    for (int index = 0; index < num_reg_operands; ++index) {
+      if (reg_kinds[index].IsInput()) {
+        result++;
+      }
+    }
+    return result;
+  }
+  constexpr int OutputRegistersCount() const {
+    int result = 0;
+    for (int index = 0; index < num_reg_operands; ++index) {
+      if (reg_kinds[index].IsDef()) {
+        result++;
+      }
+    }
+    return result;
+  }
 };
 
 enum class MachineMemOperandScale {
@@ -141,13 +159,13 @@ template <typename MachineInsnInfoClass>
 inline constexpr MachineRegClass kRegisterClass =
     MachineRegClassFromMachineInsnInfoClass<MachineInsnInfoClass>();
 
-inline constexpr auto kRAX = kRegisterClass<machine_insn_info::RAX>;
-inline constexpr auto kGeneralReg32 = kRegisterClass<machine_insn_info::GeneralReg32>;
-inline constexpr auto kGeneralReg64 = kRegisterClass<machine_insn_info::GeneralReg64>;
-inline constexpr auto kReg32 = kRegisterClass<machine_insn_info::Reg32>;
-inline constexpr auto kReg64 = kRegisterClass<machine_insn_info::Reg64>;
-inline constexpr auto kXmmReg = kRegisterClass<machine_insn_info::XmmReg>;
-inline constexpr auto kFLAGS = kRegisterClass<machine_insn_info::FLAGS>;
+inline constexpr auto& kRAX = kRegisterClass<machine_insn_info::RAX>;
+inline constexpr auto& kGeneralReg32 = kRegisterClass<machine_insn_info::GeneralReg32>;
+inline constexpr auto& kGeneralReg64 = kRegisterClass<machine_insn_info::GeneralReg64>;
+inline constexpr auto& kReg32 = kRegisterClass<machine_insn_info::Reg32>;
+inline constexpr auto& kReg64 = kRegisterClass<machine_insn_info::Reg64>;
+inline constexpr auto& kXmmReg = kRegisterClass<machine_insn_info::XmmReg>;
+inline constexpr auto& kFLAGS = kRegisterClass<machine_insn_info::FLAGS>;
 
 class MachineInsnX86_64 : public MachineInsn {
  public:

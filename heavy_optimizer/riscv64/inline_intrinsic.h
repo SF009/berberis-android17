@@ -356,10 +356,10 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
     }
 
     (builder_->*berberis::x86_64::MachineInsn<typename IntrinsicBindingInfo::AsmCallInfo,
-                                              IntrinsicBindingInfo::kSideEffects>::kGenFunc)(
-        std::tuple_cat(UnwrapSimdReg(
-            IntrinsicBindingInfo::template MakeTuplefromBindings<
-                TryBindingBasedInlineIntrinsicForHeavyOptimizer&>(*this, asm_call_info))));
+                                              IntrinsicBindingInfo::kSideEffects>::
+                    template kGenFunc<x86_64::MachineIRBuilder>)(std::tuple_cat(
+        UnwrapSimdReg(IntrinsicBindingInfo::template MakeTuplefromBindings<
+                      TryBindingBasedInlineIntrinsicForHeavyOptimizer&>(*this, asm_call_info))));
     ProcessBindingsResults<IntrinsicBindingInfo>(
         type_wrapper<typename IntrinsicBindingInfo::Bindings>(),
         type_wrapper<typename IntrinsicBindingInfo::Operands>());
