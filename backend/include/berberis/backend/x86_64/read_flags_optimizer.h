@@ -17,7 +17,6 @@
 #ifndef BERBERIS_BACKEND_X86_64_READ_FLAGS_OPTIMIZER_H_
 #define BERBERIS_BACKEND_X86_64_READ_FLAGS_OPTIMIZER_H_
 
-#include "berberis/backend/common/machine_ir.h"
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/backend/x86_64/machine_ir_analysis.h"
 #include "berberis/base/arena_map.h"
