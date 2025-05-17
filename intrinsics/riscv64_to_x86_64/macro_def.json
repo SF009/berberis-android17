@@ -442,41 +442,6 @@
       "mnemo": "FLT_F64"
     },
     {
-      "name": "NanBoxFloat32",
-      "args": [
-        { "class": "FpReg64", "usage": "use_def" }
-      ],
-      "asm": "NanBox<Float32>",
-      "mnemo": "BOX_F32"
-    },
-    {
-      "name": "NanBoxFloat32AVX",
-      "args": [
-        { "class": "FpReg64", "usage": "def" },
-        { "class": "FpReg32", "usage": "use" }
-      ],
-      "asm": "NanBoxAVX<Float32>",
-      "mnemo": "BOX_F32"
-    },
-    {
-      "name": "UnboxNanFloat32",
-      "args": [
-        { "class": "FpReg32", "usage": "def" },
-        { "class": "FpReg64", "usage": "use_def" }
-      ],
-      "asm": "UnboxNan<Float32>",
-      "mnemo": "UNBOX_F32"
-    },
-    {
-      "name": "UnboxNanFloat32AVX",
-      "args": [
-        { "class": "FpReg32", "usage": "def" },
-        { "class": "FpReg64", "usage": "use_def" }
-      ],
-      "asm": "UnboxNanAVX<Float32>",
-      "mnemo": "UNBOX_F32"
-    },
-    {
       "name": "MaxInt64",
       "args": [
         { "class": "GeneralReg64", "usage": "def_early_clobber" },
@@ -519,6 +484,23 @@
       ],
       "asm": "Min<uint64_t>",
       "mnemo": "MIN_U64"
+    },
+    {
+      "name": "NanBoxFloat32",
+      "args": [
+        { "class": "FpReg64", "usage": "use_def" }
+      ],
+      "asm": "NanBox<Float32>",
+      "mnemo": "BOX_F32"
+    },
+    {
+      "name": "NanBoxFloat32AVX",
+      "args": [
+        { "class": "FpReg64", "usage": "def" },
+        { "class": "FpReg32", "usage": "use" }
+      ],
+      "asm": "NanBoxAVX<Float32>",
+      "mnemo": "BOX_F32"
     },
     {
       "name": "Orcb",
@@ -676,6 +658,24 @@
       ],
       "asm": "Sh3adduw",
       "mnemo": "SH3ADDUW"
+    },
+    {
+      "name": "UnboxNanFloat32",
+      "args": [
+        { "class": "FpReg32", "usage": "def" },
+        { "class": "FpReg64", "usage": "use_def" }
+      ],
+      "asm": "UnboxNan<Float32>",
+      "mnemo": "UNBOX_F32"
+    },
+    {
+      "name": "UnboxNanFloat32AVX",
+      "args": [
+        { "class": "FpReg32", "usage": "def" },
+        { "class": "FpReg64", "usage": "use_def" }
+      ],
+      "asm": "UnboxNanAVX<Float32>",
+      "mnemo": "UNBOX_F32"
     }
   ]
 }
