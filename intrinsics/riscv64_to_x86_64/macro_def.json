@@ -112,90 +112,90 @@
       "mnemo": "CTZ_I64"
     },
     {
-      "name": "DivInt8",
+      "name": "DivI8RiscV",
       "args": [
         { "class": "GeneralReg8", "usage": "use" },
         { "class": "AX", "usage": "use_def" },
         { "class": "FLAGS", "usage": "def" }
       ],
-      "asm": "MacroDiv<int8_t>",
-      "mnemo": "MACRO_DIV8"
+      "asm": "DivRiscV<int8_t>",
+      "mnemo": "DIV_I8_RISCV"
     },
     {
-      "name": "DivInt16",
+      "name": "DivI16RiscV",
       "args": [
         { "class": "GeneralReg16", "usage": "use" },
         { "class": "AX", "usage": "use_def" },
         { "class": "DX", "usage": "def_early_clobber" },
         { "class": "FLAGS", "usage": "def" }
       ],
-      "asm": "MacroDiv<int16_t>",
-      "mnemo": "MACRO_DIV16"
+      "asm": "DivRiscV<int16_t>",
+      "mnemo": "DIV_I16_RISCV"
     },
     {
-      "name": "DivInt32",
+      "name": "DivI32RiscV",
       "args": [
         { "class": "GeneralReg32", "usage": "use" },
         { "class": "EAX", "usage": "use_def" },
         { "class": "EDX", "usage": "def_early_clobber" },
         { "class": "FLAGS", "usage": "def" }
       ],
-      "asm": "MacroDiv<int32_t>",
-      "mnemo": "MACRO_DIV32"
+      "asm": "DivRiscV<int32_t>",
+      "mnemo": "DIV_I32_RISCV"
     },
     {
-      "name": "DivInt64",
+      "name": "DivI64RiscV",
       "args": [
         { "class": "GeneralReg64", "usage": "use" },
         { "class": "EAX", "usage": "use_def" },
         { "class": "EDX", "usage": "def_early_clobber" },
         { "class": "FLAGS", "usage": "def" }
       ],
-      "asm": "MacroDiv<int64_t>",
-      "mnemo": "MACRO_DIV64"
+      "asm": "DivRiscV<int64_t>",
+      "mnemo": "DIV_I64_RISCV"
     },
     {
-      "name": "DivUInt8",
+      "name": "DivU8RiscV",
       "args": [
         { "class": "GeneralReg8", "usage": "use" },
         { "class": "AX", "usage": "use_def" },
         { "class": "FLAGS", "usage": "def" }
       ],
-      "asm": "MacroDiv<uint8_t>",
-      "mnemo": "MACRO_UDIV8"
+      "asm": "DivRiscV<uint8_t>",
+      "mnemo": "DIV_U8_RISCV"
     },
     {
-      "name": "DivUInt16",
+      "name": "DivU16RiscV",
       "args": [
         { "class": "GeneralReg16", "usage": "use" },
         { "class": "AX", "usage": "use_def" },
         { "class": "DX", "usage": "def_early_clobber" },
         { "class": "FLAGS", "usage": "def" }
       ],
-      "asm": "MacroDiv<uint16_t>",
-      "mnemo": "MACRO_UDIV16"
+      "asm": "DivRiscV<uint16_t>",
+      "mnemo": "DIV_U16_RISCV"
     },
     {
-      "name": "DivUInt32",
+      "name": "DivU32RiscV",
       "args": [
         { "class": "GeneralReg32", "usage": "use" },
         { "class": "EAX", "usage": "use_def" },
         { "class": "EDX", "usage": "def_early_clobber" },
         { "class": "FLAGS", "usage": "def" }
       ],
-      "asm": "MacroDiv<uint32_t>",
-      "mnemo": "MACRO_UDIV32"
+      "asm": "DivRiscV<uint32_t>",
+      "mnemo": "DIV_U32_RISCV"
     },
     {
-      "name": "DivUInt64",
+      "name": "DivU64RiscV",
       "args": [
         { "class": "GeneralReg64", "usage": "use" },
         { "class": "EAX", "usage": "use_def" },
         { "class": "EDX", "usage": "def_early_clobber" },
         { "class": "FLAGS", "usage": "def" }
       ],
-      "asm": "MacroDiv<uint64_t>",
-      "mnemo": "MACRO_UDIV64"
+      "asm": "DivRiscV<uint64_t>",
+      "mnemo": "DIV_U64_RISCV"
     },
     {
       "name": "MacroFCvtFloat32ToInt32",
@@ -538,90 +538,90 @@
       "mnemo": "MACRO_ORCB"
     },
     {
-      "name": "RemInt8",
+      "name": "RemI8RiscV",
       "args": [
         { "class": "GeneralReg8", "usage": "use" },
         { "class": "AX", "usage": "use_def" },
         { "class": "FLAGS", "usage": "def" }
       ],
-      "asm": "MacroRem<int8_t>",
-      "mnemo": "MACRO_REM8"
+      "asm": "RemRiscV<int8_t>",
+      "mnemo": "REM_I8_RISCV"
     },
     {
-      "name": "RemInt16",
+      "name": "RemI16RiscV",
       "args": [
         { "class": "GeneralReg16", "usage": "use" },
         { "class": "AX", "usage": "use_def" },
         { "class": "DX", "usage": "def_early_clobber" },
         { "class": "FLAGS", "usage": "def" }
       ],
-      "asm": "MacroRem<int16_t>",
-      "mnemo": "MACRO_REM16"
+      "asm": "RemRiscV<int16_t>",
+      "mnemo": "REM_I16_RISCV"
     },
     {
-      "name": "RemInt32",
+      "name": "RemI32RiscV",
       "args": [
         { "class": "GeneralReg32", "usage": "use" },
         { "class": "EAX", "usage": "use_def" },
         { "class": "EDX", "usage": "def_early_clobber" },
         { "class": "FLAGS", "usage": "def" }
       ],
-      "asm": "MacroRem<int32_t>",
-      "mnemo": "MACRO_REM32"
+      "asm": "RemRiscV<int32_t>",
+      "mnemo": "REM_I32_RISCV"
     },
     {
-      "name": "RemInt64",
+      "name": "RemI64RiscV",
       "args": [
         { "class": "GeneralReg64", "usage": "use" },
         { "class": "EAX", "usage": "use_def" },
         { "class": "EDX", "usage": "def_early_clobber" },
         { "class": "FLAGS", "usage": "def" }
       ],
-      "asm": "MacroRem<int64_t>",
-      "mnemo": "MACRO_REM64"
+      "asm": "RemRiscV<int64_t>",
+      "mnemo": "REM_I64_RISCV"
     },
     {
-      "name": "RemUInt8",
+      "name": "RemU8RiscV",
       "args": [
         { "class": "GeneralReg8", "usage": "use" },
         { "class": "AX", "usage": "use_def" },
         { "class": "FLAGS", "usage": "def" }
       ],
-      "asm": "MacroRem<uint8_t>",
-      "mnemo": "MACRO_UREM8"
+      "asm": "RemRiscV<uint8_t>",
+      "mnemo": "REM_U8_RISCV"
     },
     {
-      "name": "RemUInt16",
+      "name": "RemU16RiscV",
       "args": [
         { "class": "GeneralReg16", "usage": "use" },
         { "class": "AX", "usage": "use_def" },
         { "class": "DX", "usage": "def_early_clobber" },
         { "class": "FLAGS", "usage": "def" }
       ],
-      "asm": "MacroRem<uint16_t>",
-      "mnemo": "MACRO_UREM16"
+      "asm": "RemRiscV<uint16_t>",
+      "mnemo": "REM_U16_RISCV"
     },
     {
-      "name": "RemUInt32",
+      "name": "RemU32RiscV",
       "args": [
         { "class": "GeneralReg32", "usage": "use" },
         { "class": "EAX", "usage": "use_def" },
         { "class": "EDX", "usage": "def_early_clobber" },
         { "class": "FLAGS", "usage": "def" }
       ],
-      "asm": "MacroRem<uint32_t>",
-      "mnemo": "MACRO_UREM32"
+      "asm": "RemRiscV<uint32_t>",
+      "mnemo": "REM_U32_RISCV"
     },
     {
-      "name": "RemUInt64",
+      "name": "RemU64RiscV",
       "args": [
         { "class": "GeneralReg64", "usage": "use" },
         { "class": "EAX", "usage": "use_def" },
         { "class": "EDX", "usage": "def_early_clobber" },
         { "class": "FLAGS", "usage": "def" }
       ],
-      "asm": "MacroRem<uint64_t>",
-      "mnemo": "MACRO_UREM64"
+      "asm": "RemRiscV<uint64_t>",
+      "mnemo": "REM_U64_RISCV"
     },
     {
       "name": "Sh1add",

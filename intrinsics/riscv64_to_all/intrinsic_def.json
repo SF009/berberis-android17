@@ -268,7 +268,7 @@
     "in": [ "Type0" ],
     "out": [ "int64_t" ]
   },
-  "Div": {
+  "DivRiscV": {
     "comment": "Integer division",
     "class": "template",
     "variants": [
@@ -634,7 +634,7 @@
     "in": [ "uint64_t" ],
     "out": [ "uint64_t" ]
   },
-  "Rem": {
+  "RemRiscV": {
     "comment": "Integer remainder",
     "class": "template",
     "variants": [

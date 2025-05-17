@@ -135,50 +135,50 @@
     "out": [ 0 ]
   },
   {
-    "name": "Div<int8_t>",
-    "insn": "DivInt8",
+    "name": "DivRiscV<int8_t>",
+    "insn": "DivI8RiscV",
     "in": [ 1, 0 ],
     "out": [ 1 ]
   },
   {
-    "name": "Div<int16_t>",
-    "insn": "DivInt16",
+    "name": "DivRiscV<int16_t>",
+    "insn": "DivI16RiscV",
     "in": [ 1, 0 ],
     "out": [ 1 ]
   },
   {
-    "name": "Div<int32_t>",
-    "insn": "DivInt32",
+    "name": "DivRiscV<int32_t>",
+    "insn": "DivI32RiscV",
     "in": [ 1, 0 ],
     "out": [ 1 ]
   },
   {
-    "name": "Div<int64_t>",
-    "insn": "DivInt64",
+    "name": "DivRiscV<int64_t>",
+    "insn": "DivI64RiscV",
     "in": [ 1, 0 ],
     "out": [ 1 ]
   },
   {
-    "name": "Div<uint8_t>",
-    "insn": "DivUInt8",
+    "name": "DivRiscV<uint8_t>",
+    "insn": "DivU8RiscV",
     "in": [ 1, 0 ],
     "out": [ 1 ]
   },
   {
-    "name": "Div<uint16_t>",
-    "insn": "DivUInt16",
+    "name": "DivRiscV<uint16_t>",
+    "insn": "DivU16RiscV",
     "in": [ 1, 0 ],
     "out": [ 1 ]
   },
   {
-    "name": "Div<uint32_t>",
-    "insn": "DivUInt32",
+    "name": "DivRiscV<uint32_t>",
+    "insn": "DivU32RiscV",
     "in": [ 1, 0 ],
     "out": [ 1 ]
   },
   {
-    "name": "Div<uint64_t>",
-    "insn": "DivUInt64",
+    "name": "DivRiscV<uint64_t>",
+    "insn": "DivU64RiscV",
     "in": [ 1, 0 ],
     "out": [ 1 ]
   },
@@ -602,50 +602,50 @@
     "out": [ 0 ]
   },
   {
-    "name": "Rem<int8_t>",
-    "insn": "RemInt8",
+    "name": "RemRiscV<int8_t>",
+    "insn": "RemI8RiscV",
     "in": [ 1, 0 ],
     "out": [ 1 ]
   },
   {
-    "name": "Rem<int16_t>",
-    "insn": "RemInt16",
+    "name": "RemRiscV<int16_t>",
+    "insn": "RemI16RiscV",
     "in": [ 1, 0 ],
     "out": [ 2 ]
   },
   {
-    "name": "Rem<int32_t>",
-    "insn": "RemInt32",
+    "name": "RemRiscV<int32_t>",
+    "insn": "RemI32RiscV",
     "in": [ 1, 0 ],
     "out": [ 2 ]
   },
   {
-    "name": "Rem<int64_t>",
-    "insn": "RemInt64",
+    "name": "RemRiscV<int64_t>",
+    "insn": "RemI64RiscV",
     "in": [ 1, 0 ],
     "out": [ 2 ]
   },
   {
-    "name": "Rem<uint8_t>",
-    "insn": "RemUInt8",
+    "name": "RemRiscV<uint8_t>",
+    "insn": "RemU8RiscV",
     "in": [ 1, 0 ],
     "out": [ 1 ]
   },
   {
-    "name": "Rem<uint16_t>",
-    "insn": "RemUInt16",
+    "name": "RemRiscV<uint16_t>",
+    "insn": "RemU16RiscV",
     "in": [ 1, 0 ],
     "out": [ 2 ]
   },
   {
-    "name": "Rem<uint32_t>",
-    "insn": "RemUInt32",
+    "name": "RemRiscV<uint32_t>",
+    "insn": "RemU32RiscV",
     "in": [ 1, 0 ],
     "out": [ 2 ]
   },
   {
-    "name": "Rem<uint64_t>",
-    "insn": "RemUInt64",
+    "name": "RemRiscV<uint64_t>",
+    "insn": "RemU64RiscV",
     "in": [ 1, 0 ],
     "out": [ 2 ]
   },
