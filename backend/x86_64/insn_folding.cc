@@ -296,7 +296,7 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldCountLeadingZeroes(
   }
   const MachineInsn* def_insn = *def_insn_it.value();
   const MachineOpcode reverse_bits_insn_opcode =
-      kIsInput64Bit ? kMachineOpMacroReverseBitsU64 : kMachineOpMacroReverseBitsU32;
+      kIsInput64Bit ? kMachineOpReverseBitsU64 : kMachineOpReverseBitsU32;
   if (def_insn->opcode() != reverse_bits_insn_opcode) {
     return {false, nullptr};
   }

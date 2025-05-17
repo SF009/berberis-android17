@@ -643,7 +643,7 @@ class MacroReverseBitsU64 : public MachineInsnForArch {
     SetRegAt(3, r3);
   }
   static constexpr MachineInsnInfo kInfo =
-      MachineInsnInfo({kMachineOpMacroReverseBitsU64,
+      MachineInsnInfo({kMachineOpReverseBitsU64,
                        4,
                        {{&kGeneralReg64, MachineRegKind::kDef},
                         {&kGeneralReg64, MachineRegKind::kUseDef},
@@ -662,7 +662,7 @@ class MacroReverseBitsU32 : public MachineInsnForArch {
     SetRegAt(2, r2);
   }
   static constexpr MachineInsnInfo kInfo =
-      MachineInsnInfo({kMachineOpMacroReverseBitsU32,
+      MachineInsnInfo({kMachineOpReverseBitsU32,
                        3,
                        {{&kGeneralReg64, MachineRegKind::kDef},
                         {&kGeneralReg64, MachineRegKind::kUseDef},
