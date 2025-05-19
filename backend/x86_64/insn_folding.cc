@@ -56,22 +56,20 @@ void DefMap::Initialize() {
   index_ = 0;
 }
 
-bool InsnFolding::IsRegImm(MachineReg reg, uint64_t* imm) const {
+std::optional<uint64_t> InsnFolding::GetImmValueIfPossible(MachineReg reg) const {
   auto [general_insn_it, _] = FindNonPseudoCopyDef(reg);
   if (!general_insn_it.has_value()) {
-    return false;
+    return std::nullopt;
   }
   const MachineInsn* general_insn = *general_insn_it.value();
   const auto* insn = AsMachineInsnX86_64(general_insn);
   if (insn->opcode() == kMachineOpMovqRegImm) {
-    *imm = insn->imm();
-    return true;
+    return insn->imm();
   } else if (insn->opcode() == kMachineOpMovlRegImm) {
     // Take into account zero-extension by MOVL.
-    *imm = static_cast<uint64_t>(static_cast<uint32_t>(insn->imm()));
-    return true;
+    return static_cast<uint64_t>(static_cast<uint32_t>(insn->imm()));
   }
-  return false;
+  return std::nullopt;
 }
 
 MachineInsn* InsnFolding::NewImmInsnFromRegInsn(const MachineInsn* insn, int32_t imm32) {
@@ -173,43 +171,50 @@ bool InsnFolding::IsWritingSameFlagsValue(MachineInsnList::iterator write_flags_
 }
 
 template <bool kIsInput64Bit>
-std::tuple<bool, MachineInsn*> InsnFolding::TryFoldImmediateInput(
+std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldImmediateInput(
     MachineInsnList::iterator insn_it) {
   const MachineInsn* insn = *insn_it;
   auto src1 = insn->RegAt(1);
-  uint64_t imm64_1;
-  if (!IsRegImm(src1, &imm64_1)) {
-    return {false, nullptr};
+  std::optional<uint64_t> imm64_1 = GetImmValueIfPossible(src1);
+  if (!imm64_1.has_value()) {
+    return {FoldingType::kImpossible, nullptr};
   }
 
   auto src0 = insn->RegAt(0);
-  uint64_t imm64_0;
-  if (IsRegImm(src0, &imm64_0)) {
+  std::optional<uint64_t> imm64_0 = GetImmValueIfPossible(src0);
+  if (imm64_0.has_value()) {
     // Both operands are immediates. This insn can be folded into one Movq.
-    if (insn->opcode() == kMachineOpAndqRegReg || insn->opcode() == kMachineOpOrqRegReg)
-      return {true, NewInsnFromTwoImmediatesOperation(insn, imm64_0, imm64_1)};
+    if (insn->opcode() == kMachineOpAndqRegReg || insn->opcode() == kMachineOpAndlRegReg ||
+        insn->opcode() == kMachineOpOrqRegReg || insn->opcode() == kMachineOpOrlRegReg) {
+      // Rest of IR may use the value of flags set by current insn. Therefore, we don't remove
+      // current insn, rather simply insert the folded insn. The dead code eliminator will
+      // remove the current insn if possible.
+      return {FoldingType::kInsertInsn,
+              NewInsnFromTwoImmediatesOperation(insn, imm64_0.value(), imm64_1.value())};
+    }
   }
 
   // MovqRegReg is the only instruction that can encode full 64-bit immediate.
   if (insn->opcode() == kMachineOpMovqRegReg) {
-    return {true, machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm64_1)};
+    return {FoldingType::kReplaceInsn,
+            machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm64_1.value())};
   }
 
-  int64_t signed_imm = bit_cast<int64_t>(imm64_1);
+  int64_t signed_imm = bit_cast<int64_t>(imm64_1.value());
   int32_t signed_imm32 = static_cast<int32_t>(signed_imm);
   if (!kIsInput64Bit) {
     // Use the lower half of the register as the immediate operand.
-    return {true, NewImmInsnFromRegInsn(insn, signed_imm32)};
+    return {FoldingType::kReplaceInsn, NewImmInsnFromRegInsn(insn, signed_imm32)};
   }
 
   // Except for MOVQ x86 doesn't allow to encode 64-bit immediates. That said,
   // we can encode 32-bit immediates that are sign-extended by hardware to
   // 64-bit during instruction execution.
   if (signed_imm == static_cast<int64_t>(signed_imm32)) {
-    return {true, NewImmInsnFromRegInsn(insn, signed_imm32)};
+    return {FoldingType::kReplaceInsn, NewImmInsnFromRegInsn(insn, signed_imm32)};
   }
 
-  return {false, nullptr};
+  return {FoldingType::kImpossible, nullptr};
 }
 
 MachineInsn* InsnFolding::NewInsnFromTwoImmediatesOperation(const MachineInsn* insn,
@@ -220,9 +225,15 @@ MachineInsn* InsnFolding::NewInsnFromTwoImmediatesOperation(const MachineInsn* i
       return machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm1 << imm2);
     case kMachineOpShrqRegImm:
       return machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm1 >> imm2);
+    case kMachineOpAndlRegImm:
+    case kMachineOpAndlRegReg:
+      return machine_ir_->NewInsn<MovlRegImm>(insn->RegAt(0), static_cast<uint32_t>(imm1 & imm2));
     case kMachineOpAndqRegImm:
     case kMachineOpAndqRegReg:
       return machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm1 & imm2);
+    case kMachineOpOrlRegImm:
+    case kMachineOpOrlRegReg:
+      return machine_ir_->NewInsn<MovlRegImm>(insn->RegAt(0), static_cast<uint32_t>(imm1 | imm2));
     case kMachineOpOrqRegImm:
     case kMachineOpOrqRegReg:
       return machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm1 | imm2);
@@ -232,27 +243,25 @@ MachineInsn* InsnFolding::NewInsnFromTwoImmediatesOperation(const MachineInsn* i
   }
 }
 
-std::tuple<bool, MachineInsn*> InsnFolding::TryFoldTwoImmediates(
+std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldTwoImmediates(
     MachineInsnList::iterator insn_it) {
   const MachineInsn* insn = *insn_it;
   CHECK_GE(insn->NumRegOperands(), 2);
-  MachineReg src_reg = insn->RegAt(0);
-  auto [def_insn_it, def_insn_pos] = FindNonPseudoCopyDef(src_reg);
-  if (!def_insn_it.has_value()) {
-    return {false, nullptr};
+  MachineReg imm1_reg = insn->RegAt(0);
+  std::optional<uint64_t> imm1 = GetImmValueIfPossible(imm1_reg);
+  if (!imm1.has_value()) {
+    return {FoldingType::kImpossible, nullptr};
   }
-  const MachineInsn* def_insn = *def_insn_it.value();
-  if (def_insn->opcode() != kMachineOpMovqRegImm) {
-    return {false, nullptr};
-  }
-  uint64_t imm1 = AsMachineInsnX86_64(def_insn)->imm();
   uint64_t imm2 = AsMachineInsnX86_64(insn)->imm();
   // Check no value loss when imm2 is represented using 32 bits.
   CHECK(imm2 == static_cast<uint64_t>(static_cast<int32_t>(imm2)));
-  return {true, NewInsnFromTwoImmediatesOperation(insn, imm1, imm2)};
+  // Rest of IR may use the value of flags set by current insn. Therefore, we don't remove
+  // current insn, rather simply insert the folded insn. The dead code eliminator will
+  // remove the current insn if possible.
+  return {FoldingType::kInsertInsn, NewInsnFromTwoImmediatesOperation(insn, imm1.value(), imm2)};
 }
 
-std::tuple<bool, MachineInsn*> InsnFolding::TryFoldRedundantMovl(
+std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldRedundantMovl(
     MachineInsnList::iterator insn_it) {
   const MachineInsn* insn = *insn_it;
   CHECK_EQ(insn->opcode(), kMachineOpMovlRegReg);
@@ -260,7 +269,7 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldRedundantMovl(
   auto [def_insn_it, _] = def_map_.Get(src);
 
   if (!def_insn_it.has_value()) {
-    return {false, nullptr};
+    return {FoldingType::kImpossible, nullptr};
   }
   const MachineInsn* def_insn = *def_insn_it.value();
 
@@ -272,14 +281,14 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldRedundantMovl(
     case kMachineOpOrlRegReg:
     case kMachineOpSublRegReg:
     case kMachineOpAddlRegReg:
-      return {true, machine_ir_->NewInsn<PseudoCopy>(insn->RegAt(0), src, 4)};
+      return {FoldingType::kReplaceInsn, machine_ir_->NewInsn<PseudoCopy>(insn->RegAt(0), src, 4)};
     default:
-      return {false, nullptr};
+      return {FoldingType::kImpossible, nullptr};
   }
 }
 
 template <bool kIsInput64Bit>
-std::tuple<bool, MachineInsn*> InsnFolding::TryFoldCountLeadingZeroes(
+std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldCountLeadingZeroes(
     MachineInsnList::iterator insn_it,
     const MachineBasicBlock* bb) {
   const MachineInsn* insn = *insn_it;
@@ -289,32 +298,32 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldCountLeadingZeroes(
   MachineReg clz_src_reg = insn->RegAt(1);
   auto [def_insn_it, def_insn_pos] = FindNonPseudoCopyDef(clz_src_reg);
   if (!def_insn_it.has_value()) {
-    return {false, nullptr};
+    return {FoldingType::kImpossible, nullptr};
   }
   if (def_insn_it == bb->insn_list().begin()) {
-    return {false, nullptr};
+    return {FoldingType::kImpossible, nullptr};
   }
   const MachineInsn* def_insn = *def_insn_it.value();
   const MachineOpcode reverse_bits_insn_opcode =
       kIsInput64Bit ? kMachineOpReverseBitsU64 : kMachineOpReverseBitsU32;
   if (def_insn->opcode() != reverse_bits_insn_opcode) {
-    return {false, nullptr};
+    return {FoldingType::kImpossible, nullptr};
   }
   const MachineInsn* reverse_bits_insn = def_insn;
   MachineInsnList::iterator insn_before_reverse_bits_it = std::prev(def_insn_it.value());
   const MachineInsn* insn_before_reverse_bits = *insn_before_reverse_bits_it;
   if (insn_before_reverse_bits->opcode() != kMachineOpPseudoCopy) {
-    return {false, nullptr};
+    return {FoldingType::kImpossible, nullptr};
   }
   const MachineInsn* pseudo_copy = insn_before_reverse_bits;
   if (pseudo_copy->RegAt(0) != reverse_bits_insn->RegAt(1) ||
       pseudo_copy->RegAt(0) == pseudo_copy->RegAt(1)) {
-    return {false, nullptr};
+    return {FoldingType::kImpossible, nullptr};
   }
   // If ReverseBits insn or any insn after overwrites pseudo_copy->RegAt(1), this will return
   // std::nullopt.
   if (std::get<0>(def_map_.Get(pseudo_copy->RegAt(1), def_insn_pos)) == std::nullopt) {
-    return {false, nullptr};
+    return {FoldingType::kImpossible, nullptr};
   }
   MachineInsn* new_insn;
   if (kIsInput64Bit) {
@@ -324,11 +333,12 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldCountLeadingZeroes(
     new_insn =
         machine_ir_->NewInsn<TzcntlRegReg>(insn->RegAt(0), pseudo_copy->RegAt(1), insn->RegAt(2));
   }
-  return {true, new_insn};
+  return {FoldingType::kReplaceInsn, new_insn};
 }
 
-std::tuple<bool, MachineInsn*> InsnFolding::TryFoldInsn(const MachineInsnList::iterator insn_it,
-                                                        const MachineBasicBlock* bb) {
+std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldInsn(
+    const MachineInsnList::iterator insn_it,
+    const MachineBasicBlock* bb) {
   const MachineInsn* insn = *insn_it;
   switch (insn->opcode()) {
     case kMachineOpMovqMemBaseDispReg:
@@ -342,9 +352,9 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldInsn(const MachineInsnList::i
     case kMachineOpAddqRegReg:
       return TryFoldImmediateInput<true>(insn_it);
     case kMachineOpMovlRegReg: {
-      auto [is_folded, folded_insn] = TryFoldImmediateInput<false>(insn_it);
-      if (is_folded) {
-        return {is_folded, folded_insn};
+      auto [folding_type, folded_insn] = TryFoldImmediateInput<false>(insn_it);
+      if (folding_type != FoldingType::kImpossible) {
+        return {folding_type, folded_insn};
       }
       return TryFoldRedundantMovl(insn_it);
     }
@@ -359,10 +369,12 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldInsn(const MachineInsnList::i
       return TryFoldImmediateInput<false>(insn_it);
     case kMachineOpPseudoWriteFlags: {
       if (IsWritingSameFlagsValue(insn_it)) {
-        return {true, nullptr};
+        return {FoldingType::kRemoveInsn, nullptr};
       }
       break;
     }
+    case kMachineOpAndlRegImm:
+    case kMachineOpOrlRegImm:
     case kMachineOpShlqRegImm:
     case kMachineOpShrqRegImm:
     case kMachineOpAndqRegImm:
@@ -373,9 +385,9 @@ std::tuple<bool, MachineInsn*> InsnFolding::TryFoldInsn(const MachineInsnList::i
     case kMachineOpLzcntqRegReg:
       return TryFoldCountLeadingZeroes<true>(insn_it, bb);
     default:
-      return {false, nullptr};
+      return {FoldingType::kImpossible, nullptr};
   }
-  return {false, nullptr};
+  return {FoldingType::kImpossible, nullptr};
 }
 
 void FoldInsns(MachineIR* machine_ir) {
@@ -385,18 +397,23 @@ void FoldInsns(MachineIR* machine_ir) {
     InsnFolding insn_folding(def_map, machine_ir);
     MachineInsnList& insn_list = bb->insn_list();
     for (auto insn_it = insn_list.begin(); insn_it != insn_list.end();) {
-      auto [is_folded, new_insn] = insn_folding.TryFoldInsn(insn_it, bb);
-
-      if (is_folded) {
+      auto [folding_type, new_insn] = insn_folding.TryFoldInsn(insn_it, bb);
+      if (folding_type == FoldingType::kRemoveInsn) {
         insn_it = insn_list.erase(insn_it);
-        if (new_insn) {
-          insn_list.insert(insn_it, new_insn);
-          def_map.ProcessInsn(std::prev(insn_it));
-        }
-      } else {
-        def_map.ProcessInsn(insn_it);
-        ++insn_it;
+        continue;
       }
+
+      if (folding_type == FoldingType::kReplaceInsn) {
+        CHECK(new_insn);
+        *insn_it = new_insn;
+      } else if (folding_type == FoldingType::kInsertInsn) {
+        CHECK(new_insn);
+        insn_list.insert(std::next(insn_it), new_insn);
+      } else {
+        CHECK(folding_type == FoldingType::kImpossible);
+      }
+      def_map.ProcessInsn(insn_it);
+      ++insn_it;
     }
   }
 }
