@@ -275,11 +275,16 @@ std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldRedundantMovl(
   // If the definition of src clears its upper half, then we can replace MOVL with PseudoCopy.
   switch (def_insn->opcode()) {
     case kMachineOpMovlRegReg:
+    case kMachineOpMovlRegMemAbsolute:
+    case kMachineOpMovlRegMemBaseDisp:
+    case kMachineOpMovlRegMemIndexDisp:
+    case kMachineOpMovlRegMemBaseIndexDisp:
     case kMachineOpAndlRegReg:
     case kMachineOpXorlRegReg:
     case kMachineOpOrlRegReg:
     case kMachineOpSublRegReg:
     case kMachineOpAddlRegReg:
+    case kMachineOpShrdlRegRegImm:
       return {FoldingType::kReplaceInsn, machine_ir_->NewInsn<PseudoCopy>(insn->RegAt(0), src, 4)};
     default:
       return {FoldingType::kImpossible, nullptr};
