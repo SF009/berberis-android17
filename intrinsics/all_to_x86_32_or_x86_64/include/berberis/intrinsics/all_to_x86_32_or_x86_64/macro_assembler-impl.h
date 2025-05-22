@@ -17,6 +17,9 @@
 #ifndef BERBERIS_INTRINSICS_ALL_TO_X86_32_OR_X86_64_MACRO_ASSEMBLER_IMPL_H_
 #define BERBERIS_INTRINSICS_ALL_TO_X86_32_OR_X86_64_MACRO_ASSEMBLER_IMPL_H_
 
+#include "berberis/intrinsics/all_to_x86_32_or_x86_64/constants_pool.h"
+#include "berberis/intrinsics/all_to_x86_32_or_x86_64/macro_assembler.h"
+
 namespace berberis {
 
 template <typename Assembler, typename AssemblerBase, typename SpecificMacroAssembler>
@@ -50,6 +53,25 @@ MacroAssemblerX86GuestAgnostic<Assembler, AssemblerBase, SpecificMacroAssembler>
   } else if constexpr (sizeof(Ti) == sizeof(uint32_t)) {
     Bswap<Ti>(dst);
   }
+}
+
+template <typename Assembler, typename AssemblerBase, typename SpecificMacroAssembler>
+template <typename IntType>
+constexpr void
+MacroAssemblerX86GuestAgnostic<Assembler, AssemblerBase, SpecificMacroAssembler>::CountLeadingZeros(
+    Register result,
+    Register src) {
+  Bsr<IntType>(result, src);
+  Cmov<IntType>(Condition::kZero, result, {.disp = constants_offsets::kBsrToClz<IntType>});
+  Xor<IntType>(result, sizeof(IntType) * CHAR_BIT - 1);
+}
+
+template <typename Assembler, typename AssemblerBase, typename SpecificMacroAssembler>
+template <typename IntType>
+constexpr void MacroAssemblerX86GuestAgnostic<Assembler, AssemblerBase, SpecificMacroAssembler>::
+    CountTrailingZeros(Register result, Register src) {
+  Bsf<IntType>(result, src);
+  Cmov<IntType>(Condition::kZero, result, {.disp = constants_offsets::kWidthInBits<IntType>});
 }
 
 }  // namespace berberis

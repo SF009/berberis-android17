@@ -86,9 +86,9 @@ class InsnFolding {
   std::tuple<FoldingType, MachineInsn*> TryFoldImmediateInput(MachineInsnList::iterator insn_it);
   std::tuple<FoldingType, MachineInsn*> TryFoldTwoImmediates(MachineInsnList::iterator insn_it);
   std::tuple<FoldingType, MachineInsn*> TryFoldRedundantMovl(MachineInsnList::iterator insn_it);
-  template <bool kIsInput64Bit>
-  std::tuple<FoldingType, MachineInsn*> TryFoldCountLeadingZeroes(MachineInsnList::iterator insn_it,
-                                                                  const MachineBasicBlock* bb);
+  template <bool kBMI, bool kIsInput64Bit>
+  std::tuple<FoldingType, MachineInsn*> TryFoldCountLeadingZeros(MachineInsnList::iterator insn_it,
+                                                                 const MachineBasicBlock* bb);
   MachineInsn* NewImmInsnFromRegInsn(const MachineInsn* insn, int32_t imm);
   MachineInsn* NewInsnFromTwoImmediatesOperation(const MachineInsn* insn,
                                                  uint64_t imm1,
