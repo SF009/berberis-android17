@@ -34,7 +34,7 @@
 
 namespace berberis {
 
-// Nolte: MacroAssembler specifies the full inheritance plan for all mixed-in assemblers.
+// Note: MacroAssembler specifies the full inheritance plan for all mixed-in assemblers.
 // Details at go/berberis-macroassembler-mixins
 template <typename Assembler>
 class MacroAssembler

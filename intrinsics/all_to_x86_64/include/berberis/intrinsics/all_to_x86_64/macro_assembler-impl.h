@@ -17,6 +17,38 @@
 #ifndef BERBERIS_INTRINSICS_ALL_TO_X86_64_MACRO_ASSEMBLER_IMPL_H_
 #define BERBERIS_INTRINSICS_ALL_TO_X86_64_MACRO_ASSEMBLER_IMPL_H_
 
-namespace berberis {}  // namespace berberis
+namespace berberis {
+
+template <typename Assembler, typename AssemblerBase, typename SpecificMacroAssembler>
+constexpr void
+MacroAssemblerX86_64GuestAgnostic<Assembler, AssemblerBase, SpecificMacroAssembler>::ReverseBitsU64(
+    Register dst,
+    Register src,
+    Register tmp) {
+  Mov<uint64_t>(tmp, 0x5555'5555'5555'5555);
+  Mov<uint64_t>(dst, src);
+  Shr<uint64_t>(src, int8_t{1});
+  And<uint64_t>(dst, tmp);
+  And<uint64_t>(src, tmp);
+  Mov<uint64_t>(tmp, 0x3333'3333'3333'3333);
+  Shl<uint64_t>(dst, int8_t{1});
+  Or<uint64_t>(src, dst);
+  Mov<uint64_t>(dst, src);
+  Shr<uint64_t>(src, int8_t{2});
+  And<uint64_t>(dst, tmp);
+  And<uint64_t>(src, tmp);
+  Mov<uint64_t>(tmp, 0x0f0f'0f0f'0f0f'0f0f);
+  Shl<uint64_t>(dst, int8_t{2});
+  Or<uint64_t>(src, dst);
+  Mov<uint64_t>(dst, src);
+  Shr<uint64_t>(src, int8_t{4});
+  And<uint64_t>(dst, tmp);
+  And<uint64_t>(src, tmp);
+  Shl<uint64_t>(dst, int8_t{4});
+  Or<uint64_t>(dst, src);
+  Bswap<uint64_t>(dst);
+}
+
+}  // namespace berberis
 
 #endif  // BERBERIS_INTRINSICS_ALL_TO_X86_64_MACRO_ASSEMBLER_IMPL_H_

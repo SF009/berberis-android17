@@ -1,4 +1,14 @@
 {
   "insns": [
+    {
+      "name": "ReverseBitsU32",
+      "args": [
+        { "class": "GeneralReg64", "usage": "def" },
+        { "class": "GeneralReg64", "usage": "use_def" },
+        { "class": "FLAGS", "usage": "def" }
+      ],
+      "asm": "ReverseBits<uint32_t>",
+      "mnemo": "REVERSE_BITS_U32"
+    }
   ]
 }
