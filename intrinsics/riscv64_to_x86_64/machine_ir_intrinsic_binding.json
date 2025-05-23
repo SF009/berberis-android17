@@ -70,7 +70,7 @@
   },
   {
     "name": "Clz<int32_t>",
-    "insn": "ClzInt32",
+    "insn": "CountLeadingZerosU32",
     "in": [ 1 ],
     "out": [ 0 ]
   },
@@ -83,7 +83,7 @@
   },
   {
     "name": "Clz<int64_t>",
-    "insn": "ClzInt64",
+    "insn": "CountLeadingZerosU64",
     "in": [ 1 ],
     "out": [ 0 ]
   },
@@ -110,7 +110,7 @@
   },
   {
     "name": "Ctz<int32_t>",
-    "insn": "CtzInt32",
+    "insn": "CountTrailingZerosU32",
     "in": [ 1 ],
     "out": [ 0 ]
   },
@@ -123,7 +123,7 @@
   },
   {
     "name": "Ctz<int64_t>",
-    "insn": "CtzInt64",
+    "insn": "CountTrailingZerosU64",
     "in": [ 1 ],
     "out": [ 0 ]
   },

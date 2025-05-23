@@ -17,6 +17,9 @@
 #ifndef BERBERIS_INTRINSICS_ALL_TO_X86_64_MACRO_ASSEMBLER_IMPL_H_
 #define BERBERIS_INTRINSICS_ALL_TO_X86_64_MACRO_ASSEMBLER_IMPL_H_
 
+#include "berberis/intrinsics/all_to_x86_64/constants_pool.h"
+#include "berberis/intrinsics/all_to_x86_64/macro_assembler.h"
+
 namespace berberis {
 
 template <typename Assembler, typename AssemblerBase, typename SpecificMacroAssembler>

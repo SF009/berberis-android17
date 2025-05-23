@@ -337,13 +337,15 @@ std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldRedundantMovl(
   }
 }
 
-template <bool kIsInput64Bit>
-std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldCountLeadingZeroes(
+template <bool kBMI, bool kIsInput64Bit>
+std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldCountLeadingZeros(
     MachineInsnList::iterator insn_it,
     const MachineBasicBlock* bb) {
   const MachineInsn* insn = *insn_it;
   const MachineOpcode clz_insn_opcode =
-      kIsInput64Bit ? kMachineOpLzcntqRegReg : kMachineOpLzcntlRegReg;
+      kBMI            ? kIsInput64Bit ? kMachineOpLzcntqRegReg : kMachineOpLzcntlRegReg
+      : kIsInput64Bit ? kMachineOpCountLeadingZerosU64
+                      : kMachineOpCountLeadingZerosU32;
   CHECK_EQ(insn->opcode(), clz_insn_opcode);
   MachineReg clz_src_reg = insn->RegAt(1);
   auto [def_insn_it, def_insn_pos] = FindNonPseudoCopyDef(clz_src_reg);
@@ -376,12 +378,22 @@ std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldCountLeadingZeroes(
     return {FoldingType::kImpossible, nullptr};
   }
   MachineInsn* new_insn;
-  if (kIsInput64Bit) {
-    new_insn =
-        machine_ir_->NewInsn<TzcntqRegReg>(insn->RegAt(0), pseudo_copy->RegAt(1), insn->RegAt(2));
+  if (kBMI) {
+    if (kIsInput64Bit) {
+      new_insn =
+          machine_ir_->NewInsn<TzcntqRegReg>(insn->RegAt(0), pseudo_copy->RegAt(1), insn->RegAt(2));
+    } else {
+      new_insn =
+          machine_ir_->NewInsn<TzcntlRegReg>(insn->RegAt(0), pseudo_copy->RegAt(1), insn->RegAt(2));
+    }
   } else {
-    new_insn =
-        machine_ir_->NewInsn<TzcntlRegReg>(insn->RegAt(0), pseudo_copy->RegAt(1), insn->RegAt(2));
+    if (kIsInput64Bit) {
+      new_insn = machine_ir_->NewInsn<CountTrailingZerosU64>(
+          insn->RegAt(0), pseudo_copy->RegAt(1), insn->RegAt(2));
+    } else {
+      new_insn = machine_ir_->NewInsn<CountTrailingZerosU32>(
+          insn->RegAt(0), pseudo_copy->RegAt(1), insn->RegAt(2));
+    }
   }
   return {FoldingType::kReplaceInsn, new_insn};
 }
@@ -443,9 +455,13 @@ std::tuple<FoldingType, MachineInsn*> InsnFolding::TryFoldInsn(
     case kMachineOpSublRegImm:
       return TryFoldTwoImmediates(insn_it);
     case kMachineOpLzcntlRegReg:
-      return TryFoldCountLeadingZeroes<false>(insn_it, bb);
+      return TryFoldCountLeadingZeros<true, false>(insn_it, bb);
     case kMachineOpLzcntqRegReg:
-      return TryFoldCountLeadingZeroes<true>(insn_it, bb);
+      return TryFoldCountLeadingZeros<true, true>(insn_it, bb);
+    case kMachineOpCountLeadingZerosU32:
+      return TryFoldCountLeadingZeros<false, false>(insn_it, bb);
+    case kMachineOpCountLeadingZerosU64:
+      return TryFoldCountLeadingZeros<false, true>(insn_it, bb);
     default:
       return {FoldingType::kImpossible, nullptr};
   }
