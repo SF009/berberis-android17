@@ -232,7 +232,7 @@ class TryBindingBasedInlineIntrinsic {
         input_args_(std::tuple{args...}),
         success_(intrinsics::bindings::ProcessBindings<
                  kFunction,
-                 typename MacroAssembler<x86_64::Assembler>::MacroAssemblers,
+                 typename MacroAssembler<x86_64::Assembler>::Assemblers,
                  bool,
                  TryBindingBasedInlineIntrinsic&>(*this, false)) {}
   operator bool() { return success_; }

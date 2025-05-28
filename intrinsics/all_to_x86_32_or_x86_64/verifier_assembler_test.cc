@@ -48,9 +48,9 @@ constexpr auto kUseDef = machine_insn_info::kUseDef;
 template <typename Assembler>
 class MacroAssembler : public Assembler {
  public:
-  using MacroAssemblers = std::tuple<MacroAssembler<Assembler>,
-                                     typename Assembler::BaseAssembler,
-                                     typename Assembler::FinalAssembler>;
+  using Assemblers = std::tuple<MacroAssembler<Assembler>,
+                                typename Assembler::BaseAssembler,
+                                typename Assembler::FinalAssembler>;
   template <typename... Args>
   constexpr explicit MacroAssembler(Args&&... args) : Assembler(std::forward<Args>(args)...) {}
 
@@ -202,7 +202,7 @@ constexpr void VerifyIntrinsic() {
 static constexpr const char kBindingName[] = "TestInstruction";
 static constexpr const char kBindingMnemo[] = "TEST_0";
 
-using MacroAssemblers = MacroAssembler<VerifierAssembler>::MacroAssemblers;
+using Assemblers = MacroAssembler<VerifierAssembler>::Assemblers;
 
 TEST(VerifierAssembler, TestCorrectCPUID) {
   using IntrinsicBindingInfo =
@@ -212,7 +212,7 @@ TEST(VerifierAssembler, TestCorrectCPUID) {
                            std::tuple<SIMD128Register, SIMD128Register>,
                            std::tuple<SIMD128Register>,
                            std::tuple<InOutArg<0, 0>, InArg<1>>,
-                           AsmCallInfo<&std::tuple_element_t<0, MacroAssemblers>::SSE3Intrinsic,
+                           AsmCallInfo<&std::tuple_element_t<0, Assemblers>::SSE3Intrinsic,
                                        kBindingMnemo,
                                        nullptr,
                                        HasSSE3,
@@ -229,7 +229,7 @@ TEST(VerifierAssembler, TestIncorrectCPUID) {
                            std::tuple<SIMD128Register, SIMD128Register>,
                            std::tuple<SIMD128Register>,
                            std::tuple<InOutArg<0, 0>, InArg<1>>,
-                           AsmCallInfo<&std::tuple_element_t<0, MacroAssemblers>::SSE3Intrinsic,
+                           AsmCallInfo<&std::tuple_element_t<0, Assemblers>::SSE3Intrinsic,
                                        kBindingMnemo,
                                        nullptr,
                                        NoCPUIDRestriction,
@@ -246,7 +246,7 @@ TEST(VerifierAssembler, TestFlagsIntrinsicWithNoFlagsBinding) {
       std::tuple<uint32_t, uint32_t>,
       std::tuple<uint32_t>,
       std::tuple<OutArg<0>, InOutArg<1, 1>, InArg<2>>,
-      AsmCallInfo<&std::tuple_element_t<0, MacroAssemblers>::LinearRegisterIntrinsic,
+      AsmCallInfo<&std::tuple_element_t<0, Assemblers>::LinearRegisterIntrinsic,
                   kBindingMnemo,
                   nullptr,
                   NoCPUIDRestriction,
@@ -265,7 +265,7 @@ TEST(VerifierAssembler, TestNoFlagsIntrinsicWithFlagsBinding) {
       std::tuple<SIMD128Register, SIMD128Register>,
       std::tuple<SIMD128Register>,
       std::tuple<OutArg<0>, InArg<0>, InArg<1>, TmpArg>,
-      AsmCallInfo<&std::tuple_element_t<0, MacroAssemblers>::LinearXMMRegisterIntrinsic,
+      AsmCallInfo<&std::tuple_element_t<0, Assemblers>::LinearXMMRegisterIntrinsic,
                   kBindingMnemo,
                   nullptr,
                   NoCPUIDRestriction,
@@ -285,7 +285,7 @@ TEST(VerifierAssembler, TestValidRegisterUseDef) {
       std::tuple<uint32_t, uint32_t>,
       std::tuple<uint32_t>,
       std::tuple<OutArg<0>, InOutArg<1, 1>, InArg<2>, TmpArg>,
-      AsmCallInfo<&std::tuple_element_t<0, MacroAssemblers>::LinearRegisterIntrinsic,
+      AsmCallInfo<&std::tuple_element_t<0, Assemblers>::LinearRegisterIntrinsic,
                   kBindingMnemo,
                   nullptr,
                   NoCPUIDRestriction,
@@ -305,7 +305,7 @@ TEST(VerifierAssembler, TestInvalidRegisterUseDef) {
       std::tuple<uint32_t, uint32_t>,
       std::tuple<uint32_t>,
       std::tuple<OutArg<0>, InOutArg<1, 1>, InArg<2>, TmpArg>,
-      AsmCallInfo<&std::tuple_element_t<0, MacroAssemblers>::LinearRegisterIntrinsic,
+      AsmCallInfo<&std::tuple_element_t<0, Assemblers>::LinearRegisterIntrinsic,
                   kBindingMnemo,
                   nullptr,
                   NoCPUIDRestriction,
@@ -327,7 +327,7 @@ TEST(VerifierAssembler, TestValidXMMRegisterUseDef) {
       std::tuple<SIMD128Register, SIMD128Register>,
       std::tuple<SIMD128Register>,
       std::tuple<OutArg<0>, InArg<0>, InArg<1>>,
-      AsmCallInfo<&std::tuple_element_t<0, MacroAssemblers>::LinearXMMRegisterIntrinsic,
+      AsmCallInfo<&std::tuple_element_t<0, Assemblers>::LinearXMMRegisterIntrinsic,
                   kBindingMnemo,
                   nullptr,
                   NoCPUIDRestriction,
@@ -346,7 +346,7 @@ TEST(VerifierAssembler, TestInvalidXMMRegisterUseDef) {
       std::tuple<SIMD128Register, SIMD128Register>,
       std::tuple<SIMD128Register>,
       std::tuple<OutArg<0>, InArg<0>, InArg<1>>,
-      AsmCallInfo<&std::tuple_element_t<0, MacroAssemblers>::LinearXMMRegisterIntrinsic,
+      AsmCallInfo<&std::tuple_element_t<0, Assemblers>::LinearXMMRegisterIntrinsic,
                   kBindingMnemo,
                   nullptr,
                   NoCPUIDRestriction,
@@ -364,7 +364,7 @@ TEST(VerifierAssembler, TestValidInfinitelyLoopingValidIntrinsic) {
       std::tuple<uint32_t>,
       std::tuple<uint32_t>,
       std::tuple<OutArg<0>, InArg<0>>,
-      AsmCallInfo<&std::tuple_element_t<0, MacroAssemblers>::InfinitelyLoopingIntrinsicWithDef,
+      AsmCallInfo<&std::tuple_element_t<0, Assemblers>::InfinitelyLoopingIntrinsicWithDef,
                   kBindingMnemo,
                   nullptr,
                   NoCPUIDRestriction,
@@ -382,7 +382,7 @@ TEST(VerifierAssembler, TestInvalidInfinitelyLoopingIntrinsic) {
       std::tuple<uint32_t>,
       std::tuple<OutArg<0>, InArg<0>, TmpArg>,
       AsmCallInfo<
-          &std::tuple_element_t<0, MacroAssemblers>::InfinitelyLoopingIntrinsicWithDefEarlyClobber,
+          &std::tuple_element_t<0, Assemblers>::InfinitelyLoopingIntrinsicWithDefEarlyClobber,
           kBindingMnemo,
           nullptr,
           NoCPUIDRestriction,
@@ -403,7 +403,7 @@ TEST(VerifierAssembler, TestValidForwardJumpingIntrinsic) {
       std::tuple<uint32_t>,
       std::tuple<uint32_t>,
       std::tuple<OutArg<0>, InArg<0>, TmpArg>,
-      AsmCallInfo<&std::tuple_element_t<0, MacroAssemblers>::ForwardJumpingIntrinsicWithDef,
+      AsmCallInfo<&std::tuple_element_t<0, Assemblers>::ForwardJumpingIntrinsicWithDef,
                   kBindingMnemo,
                   nullptr,
                   NoCPUIDRestriction,
@@ -422,14 +422,13 @@ TEST(VerifierAssembler, TestInvalidForwardJumpingIntrinsic) {
       std::tuple<uint32_t>,
       std::tuple<uint32_t>,
       std::tuple<OutArg<0>, InArg<0>, TmpArg>,
-      AsmCallInfo<
-          &std::tuple_element_t<0, MacroAssemblers>::ForwardJumpingIntrinsicWithDefEarlyClobber,
-          kBindingMnemo,
-          nullptr,
-          NoCPUIDRestriction,
-          std::tuple<Operand<GeneralReg32, kDef>,
-                     Operand<GeneralReg32, kUse>,
-                     Operand<FLAGS, kDef>>>>;
+      AsmCallInfo<&std::tuple_element_t<0, Assemblers>::ForwardJumpingIntrinsicWithDefEarlyClobber,
+                  kBindingMnemo,
+                  nullptr,
+                  NoCPUIDRestriction,
+                  std::tuple<Operand<GeneralReg32, kDef>,
+                             Operand<GeneralReg32, kUse>,
+                             Operand<FLAGS, kDef>>>>;
 
   ASSERT_DEATH(
       VerifyIntrinsic<IntrinsicBindingInfo>(),
@@ -444,7 +443,7 @@ TEST(VerifierAssembler, TestInvalidLoopingIntrinsic) {
       std::tuple<SIMD128Register>,
       std::tuple<SIMD128Register>,
       std::tuple<OutArg<0>, InArg<0>>,
-      AsmCallInfo<&std::tuple_element_t<0, MacroAssemblers>::LoopingIntrinsicWithDefEarlyClobber,
+      AsmCallInfo<&std::tuple_element_t<0, Assemblers>::LoopingIntrinsicWithDefEarlyClobber,
                   kBindingMnemo,
                   nullptr,
                   NoCPUIDRestriction,
