@@ -309,17 +309,6 @@ class CallImmArg : public MachineInsnX86_64 {
   };
 };
 
-// This template is syntax sugar to group memory instructions with
-// different addressing modes.
-template <typename Absolute_, typename BaseDisp_, typename IndexDisp_, typename BaseIndexDisp_>
-class MemInsns {
- public:
-  using Absolute = Absolute_;
-  using BaseDisp = BaseDisp_;
-  using IndexDisp = IndexDisp_;
-  using BaseIndexDisp = BaseIndexDisp_;
-};
-
 using MachineInsnForArch = MachineInsnX86_64;
 
 #include "gen_machine_ir_x86_64-inl.h"  // NOLINT generated file!
