@@ -208,10 +208,7 @@ class TryBindingBasedInlineIntrinsic {
   friend constexpr Result x86_64::intrinsics::bindings::ProcessBindings(Callback callback,
                                                                         Result def_result,
                                                                         Args&&... args);
-  template <auto kIntrinsicTemplateName,
-            typename kPreciseNanOperationsHandlingTemplateValue,
-            bool kSideEffectsTemplateValue,
-            typename... Types>
+  template <auto kIntrinsicTemplateName, typename... Types>
   friend class intrinsics::bindings::IntrinsicBindingInfo;
 
   TryBindingBasedInlineIntrinsic() = delete;
