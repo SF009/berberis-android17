@@ -31,23 +31,22 @@ class MemOperand {
  public:
   enum AddrMode { kAddrModeInvalid, kAddrModeBaseDisp, kAddrModeIndexDisp, kAddrModeBaseIndexDisp };
 
-  MemOperand() : addr_mode_(kAddrModeInvalid), scale_(MachineMemOperandScale::kOne), disp_(0) {}
+  MemOperand() : addr_mode_(kAddrModeInvalid), scale_(Assembler::kTimesOne), disp_(0) {}
 
   static MemOperand MakeBaseDisp(MachineReg base, int32_t disp) {
-    return MemOperand(
-        kAddrModeBaseDisp, base, kInvalidMachineReg, MachineMemOperandScale::kOne, disp);
+    return MemOperand(kAddrModeBaseDisp, base, kInvalidMachineReg, Assembler::kTimesOne, disp);
   }
 
-  template <MachineMemOperandScale scale>
+  template <Assembler::ScaleFactor scale>
   static MemOperand MakeIndexDisp(MachineReg index, int32_t disp) {
-    // We do not accept kOne here.  BaseDisp has
-    // better encoding than IndexDisp with kOne.
+    // We do not accept kTimesOne here.  BaseDisp has
+    // better encoding than IndexDisp with kTimesOne.
     // Also, we do not want to have two ways to express reg + disp.
-    static_assert(scale != MachineMemOperandScale::kOne, "ScaleOne not allowed");
+    static_assert(scale != Assembler::kTimesOne, "ScaleOne not allowed");
     return MemOperand(kAddrModeIndexDisp, kInvalidMachineReg, index, scale, disp);
   }
 
-  template <MachineMemOperandScale scale>
+  template <Assembler::ScaleFactor scale>
   static MemOperand MakeBaseIndexDisp(MachineReg base, MachineReg index, int32_t disp) {
     return MemOperand(kAddrModeBaseIndexDisp, base, index, scale, disp);
   }
@@ -64,7 +63,7 @@ class MemOperand {
     return index_;
   }
 
-  MachineMemOperandScale scale() const {
+  Assembler::ScaleFactor scale() const {
     CHECK(addr_mode_ == kAddrModeIndexDisp || addr_mode_ == kAddrModeBaseIndexDisp);
     return scale_;
   }
@@ -84,14 +83,14 @@ class MemOperand {
   MemOperand(AddrMode addr_mode,
              MachineReg base,
              MachineReg index,
-             MachineMemOperandScale scale,
+             Assembler::ScaleFactor scale,
              int32_t disp)
       : addr_mode_(addr_mode), base_(base), index_(index), scale_(scale), disp_(disp) {}
 
   const AddrMode addr_mode_;
   const MachineReg base_;
   const MachineReg index_;
-  const MachineMemOperandScale scale_;
+  const Assembler::ScaleFactor scale_;
   // The hardware sign-extends disp to 64-bit.
   const int32_t disp_;
 };
