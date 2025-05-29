@@ -497,7 +497,7 @@ TEST(ExecMachineIR, MemOperand) {
   static_assert(alignof(struct Data) >= 2);
   builder.Gen<x86_64::MovqRegImm>(index_reg, reinterpret_cast<uintptr_t>(&data) / 2);
   x86_64::MemOperand mem_index_disp =
-      x86_64::MemOperand::MakeIndexDisp<x86_64::MachineMemOperandScale::kTwo>(
+      x86_64::MemOperand::MakeIndexDisp<x86_64::Assembler::kTimesTwo>(
           index_reg, offsetof(Data, in_index_disp));
   data_reg = machine_ir.AllocVReg();
   x86_64::GenArgsMem<x86_64::MovzxblRegMemInsns>(&builder, mem_index_disp, data_reg);
@@ -510,7 +510,7 @@ TEST(ExecMachineIR, MemOperand) {
   MachineReg tmp_index_reg = machine_ir.AllocVReg();
   builder.Gen<x86_64::MovqRegImm>(tmp_index_reg, 2);
   x86_64::MemOperand mem_base_index_disp =
-      x86_64::MemOperand::MakeBaseIndexDisp<x86_64::MachineMemOperandScale::kFour>(
+      x86_64::MemOperand::MakeBaseIndexDisp<x86_64::Assembler::kTimesFour>(
           tmp_base_reg, tmp_index_reg, 8);
   data_reg = machine_ir.AllocVReg();
   x86_64::GenArgsMem<x86_64::MovzxblRegMemInsns>(&builder, mem_base_index_disp, data_reg);

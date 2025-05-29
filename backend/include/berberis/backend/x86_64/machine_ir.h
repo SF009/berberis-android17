@@ -129,13 +129,6 @@ struct MachineInsnInfo {
   }
 };
 
-enum class MachineMemOperandScale {
-  kOne,
-  kTwo,
-  kFour,
-  kEight,
-};
-
 template <typename MachineInsnInfoClass>
 constexpr MachineRegClass MachineRegClassFromMachineInsnInfoClass() {
   return []<typename... RegisterClass>(const std::tuple<RegisterClass...>&) -> MachineRegClass {
@@ -179,7 +172,7 @@ class MachineInsnX86_64 : public MachineInsn {
     // No code here - will never be called!
   }
 
-  MachineMemOperandScale scale() const { return scale_; }
+  Assembler::ScaleFactor scale() const { return scale_; }
 
   uint32_t disp() const { return disp_; }
 
@@ -238,9 +231,9 @@ class MachineInsnX86_64 : public MachineInsn {
  protected:
   explicit MachineInsnX86_64(const MachineInsnInfo* info)
       : MachineInsn(info->opcode, info->num_reg_operands, info->reg_kinds, regs_, info->kind),
-        scale_(MachineMemOperandScale::kOne) {}
+        scale_(Assembler::kTimesOne) {}
 
-  void set_scale(MachineMemOperandScale scale) { scale_ = scale; }
+  void set_scale(Assembler::ScaleFactor scale) { scale_ = scale; }
 
   void set_disp(uint32_t disp) { disp_ = disp; }
 
@@ -253,7 +246,7 @@ class MachineInsnX86_64 : public MachineInsn {
  private:
   MachineReg regs_[kMaxMachineRegOperands];
   uint32_t disp_;
-  MachineMemOperandScale scale_;
+  Assembler::ScaleFactor scale_;
   Assembler::Condition cond_;
   uint32_t disp2_;
   uint64_t imm_;

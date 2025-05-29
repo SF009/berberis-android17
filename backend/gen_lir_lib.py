@@ -112,11 +112,11 @@ def _make_imm_operand(bits):
 
 def _make_scale_operand():
   op = Operand()
-  op.type = 'MachineMemOperandScale'
+  op.type = 'Assembler::ScaleFactor'
   op.name = 'scale'
   op.reg_operand_info = None
   op.initializer = 'set_scale(scale)'
-  op.asm_arg = 'ToScaleFactor(scale())'
+  op.asm_arg = 'scale()'
   return op
 
 
