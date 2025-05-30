@@ -128,6 +128,8 @@ class VerifierAssembler {
 
   constexpr void CheckAppropriateDefEarlyClobbers() {}
 
+  constexpr void Check32BitRegisterIsZeroExtended([[maybe_unused]] int reg_no) {}
+
   constexpr void CheckLabelsAreBound() {}
 
   constexpr void CheckNonLinearIntrinsicsUseDefRegisters() {}

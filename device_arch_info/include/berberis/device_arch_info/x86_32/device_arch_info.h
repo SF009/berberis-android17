@@ -39,6 +39,9 @@ using namespace berberis::x86_32_or_x86_64::device_arch_info;
 namespace device_arch_info {
 
 template <>
+inline constexpr bool kIsGeneralReg32<x86_32::device_arch_info::GeneralReg32> = true;
+
+template <>
 inline constexpr bool kIsFLAGS<x86_32::device_arch_info::FLAGS> = true;
 
 template <>

@@ -346,6 +346,14 @@ class VerifierAssembler {
       }
     }
 
+    constexpr void Update32BitRegisterExtension(int reg_arg_no, bool is_zero_extended) {
+      if (is_zero_extended) {
+        zero_extended_32_bit_register.at(reg_arg_no) = true;
+      } else {
+        zero_extended_32_bit_register.at(reg_arg_no) = false;
+      }
+    }
+
     enum {
       kFixedRegisterShift,
       kGeneralRegisterShift,
@@ -367,6 +375,12 @@ class VerifierAssembler {
       return state;
     }
 
+    constexpr void Check32BitRegisterIsZeroExtended(int reg_no) {
+      if (!zero_extended_32_bit_register.at(reg_no)) {
+        FATAL("error: intrinsic didn't zero extend 32 bit output register");
+      }
+    }
+
    private:
     bool intrinsic_defined_def_fixed_register = false;
     bool intrinsic_defined_def_general_register = false;
@@ -379,6 +393,8 @@ class VerifierAssembler {
     std::array<bool, kMaxRegisters> intrinsic_defined_def_early_clobber_xmm_register{};
 
     std::array<bool, kMaxRegisters> valid_def_early_clobber_register{};
+
+    std::array<bool, kMaxRegisters> zero_extended_32_bit_register{};
   };
 
   RegisterUsageFlags register_usage_flags;
@@ -462,6 +478,13 @@ class VerifierAssembler {
       return;
     }
     register_usage_flags.CheckAppropriateDefEarlyClobbers();
+  }
+
+  constexpr void Check32BitRegisterIsZeroExtended(int reg_no) {
+    if (intrinsic_is_non_linear) {
+      return;
+    }
+    register_usage_flags.Check32BitRegisterIsZeroExtended(reg_no);
   }
 
   constexpr void CheckLabelsAreBound() {
@@ -774,10 +797,14 @@ class VerifierAssembler {
     if (gpr_d.has_value()) {
       if (reg == gpr_d) return true;
     }
+    if (reg == gpr_s) return true;
     return false;
   }
 
-  constexpr void RegisterDef(Register reg) {
+  constexpr void RegisterDef(Register reg, bool is_zero_extended = false) {
+    if (reg.get_binding_kind() == device_arch_info::kUse) {
+      FATAL("error: intrinsic defined a 'use' register");
+    }
     if (reg.get_binding_kind() == device_arch_info::kDef ||
         reg.get_binding_kind() == device_arch_info::kDefEarlyClobber) {
       register_usage_flags.UpdateIntrinsicDefOrDefEarlyClobberRegister(reg.arg_no());
@@ -789,12 +816,15 @@ class VerifierAssembler {
       register_usage_flags.UpdateIntrinsicRegisterDefEarlyClobber(reg.arg_no(),
                                                                   RegisterIsFixed(reg));
     }
-    if (reg.get_binding_kind() == device_arch_info::kUse) {
-      FATAL("error: intrinsic defined a 'use' register");
+    if (!RegisterIsFixed(reg)) {
+      register_usage_flags.Update32BitRegisterExtension(reg.arg_no(), is_zero_extended);
     }
   }
 
-  constexpr void RegisterDef(XMMRegister reg) {
+  constexpr void RegisterDef(XMMRegister reg, [[maybe_unused]] bool is_zero_extended = false) {
+    if (reg.get_binding_kind() == device_arch_info::kUse) {
+      FATAL("error: intrinsic defined a 'use' XMM register");
+    }
     if (reg.get_binding_kind() == device_arch_info::kDef ||
         reg.get_binding_kind() == device_arch_info::kDefEarlyClobber) {
       register_usage_flags.UpdateIntrinsicDefOrDefEarlyClobberRegister(reg.arg_no());
@@ -804,9 +834,6 @@ class VerifierAssembler {
       register_usage_flags.UpdateIntrinsicXMMRegisterDef();
     } else if (reg.get_binding_kind() == device_arch_info::kDefEarlyClobber) {
       register_usage_flags.UpdateIntrinsicXMMRegisterDefEarlyClobber(reg.arg_no());
-    }
-    if (reg.get_binding_kind() == device_arch_info::kUse) {
-      FATAL("error: intrinsic defined a 'use' XMM register");
     }
   }
 

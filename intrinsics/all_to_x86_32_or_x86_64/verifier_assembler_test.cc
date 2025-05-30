@@ -159,6 +159,15 @@ class MacroAssembler : public Assembler {
     Bind(out);
     Pmov(dst, src1);
   }
+
+  // dst: DEF, src1: USE
+  constexpr void IntrinsicWith32BitOutputNotZeroExtended(Register dst, Register src1) {
+    // TODO(b/421334152): This intrinsic, is actually, technically valid since Addb maintains the
+    // zero extended bits from Addl. However, current implementation assumes that only 32 bit insns
+    // execute/maintain zero extension.
+    Movl(dst, src1);
+    Addb(dst, dst);
+  }
 };
 
 class VerifierAssembler : public x86_32_or_x86_64::VerifierAssembler<VerifierAssembler> {
@@ -195,6 +204,7 @@ constexpr void VerifyIntrinsic() {
   bool expect_flags = CheckIntrinsicHasFlagsBinding<IntrinsicBindingInfo>();
   as.CheckFlagsBinding(expect_flags);
   as.CheckAppropriateDefEarlyClobbers();
+  Check32BitRegistersAreZeroExtended<IntrinsicBindingInfo, MacroAssembler<VerifierAssembler>>(&as);
   as.CheckLabelsAreBound();
   as.CheckNonLinearIntrinsicsUseDefRegisters();
 }
@@ -453,6 +463,26 @@ TEST(VerifierAssembler, TestInvalidLoopingIntrinsic) {
 
   ASSERT_DEATH(VerifyIntrinsic<IntrinsicBindingInfo>(),
                "error: intrinsic used a 'use' xmm register after writing to a 'def' xmm register");
+}
+
+TEST(VerifierAssembler, Test32BitOutputWithNoZeroExtensionIntrinsic) {
+  using IntrinsicBindingInfo = IntrinsicBindingInfo<
+      kBindingName,
+      NoNansOperation,
+      std::tuple<uint32_t>,
+      std::tuple<uint32_t>,
+      std::tuple<OutArg<0>, InArg<0>, TmpArg>,
+      DeviceInsnInfo<&std::tuple_element_t<0, Assemblers>::IntrinsicWith32BitOutputNotZeroExtended,
+                     kBindingMnemo,
+                     false,
+                     nullptr,
+                     NoCPUIDRestriction,
+                     std::tuple<Operand<GeneralReg32, kDef>,
+                                Operand<GeneralReg32, kUse>,
+                                Operand<FLAGS, kDef>>>>;
+
+  ASSERT_DEATH(VerifyIntrinsic<IntrinsicBindingInfo>(),
+               "error: intrinsic didn't zero extend 32 bit output register");
 }
 
 }  // namespace

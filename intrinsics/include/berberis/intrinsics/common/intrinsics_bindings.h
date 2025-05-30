@@ -100,6 +100,22 @@ class IntrinsicBindingInfo<kIntrinsic_,
 
 }  // namespace intrinsics::bindings
 
+template <typename IntrinsicBindingInfo, typename AssemblerType>
+constexpr void Check32BitRegistersAreZeroExtended(AssemblerType* as) {
+  int id = 0;
+  IntrinsicBindingInfo::ProcessBindings([&as, &id]<typename Binding, typename Operand> {
+    if constexpr (!device_arch_info::kIsImmediate<Operand> &&
+                  !device_arch_info::kIsFLAGS<Operand>) {
+      if constexpr (Operand::kUsage != device_arch_info::kUse) {
+        if constexpr (device_arch_info::kIsGeneralReg32<Operand>) {
+          as->Check32BitRegisterIsZeroExtended(id);
+        }
+        id++;
+      }
+    }
+  });
+}
+
 template <typename IntrinsicBindingInfo>
 constexpr void AssignRegisterNumbers(int* register_numbers) {
   // Assign number for output (and temporary) arguments.
