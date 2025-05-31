@@ -96,15 +96,11 @@ class MachineInsn<machine_insn_info::AsmCallInfo<kMacroInstruction,
  public:
   // This static simplifies constructing this MachineInsn in intrinsic implementations.
   template <typename MachineIRBuilder>
-  static constexpr MachineInsn* (MachineIRBuilder::*kGenFunc)(std::tuple<ConstructorArgs...>) =
+  static constexpr MachineInsn* (MachineIRBuilder::*kGenFunc)(ConstructorArgs...) =
       &MachineIRBuilder::template Gen<MachineInsn>;
 
-  explicit MachineInsn(std::tuple<ConstructorArgs...> args) : MachineInsnX86_64(&kInfo) {
-    std::apply(
-        [this](auto... args) {
-          this->ProcessArgs<0 /* reg_idx */, 0 /* disp_idx */, Operands...>(args...);
-        },
-        args);
+  explicit MachineInsn(ConstructorArgs... args) : MachineInsnX86_64(&kInfo) {
+    this->ProcessArgs<0 /* reg_idx */, 0 /* disp_idx */, Operands...>(args...);
   }
 
   static constexpr MachineInsnInfo kInfo = GenMachineInsnInfo();
