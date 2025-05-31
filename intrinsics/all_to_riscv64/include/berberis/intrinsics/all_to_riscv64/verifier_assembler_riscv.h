@@ -26,8 +26,8 @@
 #include "berberis/base/checks.h"
 #include "berberis/base/config.h"
 #include "berberis/base/dependent_false.h"
+#include "berberis/device_arch_info/riscv64/device_arch_info.h"
 #include "berberis/intrinsics/common/intrinsics_bindings.h"
-#include "berberis/machine_insn_info/riscv64/machine_insn_info.h"
 
 namespace berberis {
 
@@ -52,7 +52,7 @@ class VerifierAssembler {
    public:
     constexpr Register() : arg_no_(kNoRegister) {}
     constexpr Register(int arg_no) : arg_no_(arg_no) {}
-    constexpr Register(int arg_no, [[maybe_unused]] machine_insn_info::RegBindingKind binding_kind)
+    constexpr Register(int arg_no, [[maybe_unused]] device_arch_info::RegBindingKind binding_kind)
         : arg_no_(arg_no) {}
 
     int arg_no() const {
@@ -200,7 +200,7 @@ class VerifierAssembler {
  protected:
   template <typename CPUIDRestriction>
   static constexpr const char* CPUIDRestrictionToString() {
-    if constexpr (std::is_same_v<CPUIDRestriction, machine_insn_info::NoCPUIDRestriction>) {
+    if constexpr (std::is_same_v<CPUIDRestriction, device_arch_info::NoCPUIDRestriction>) {
       return nullptr;
     } else {
       static_assert(kDependentTypeFalse<CPUIDRestriction>);

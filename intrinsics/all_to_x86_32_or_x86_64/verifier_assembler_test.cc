@@ -16,10 +16,10 @@
 
 #include "gtest/gtest.h"
 
+#include "berberis/device_arch_info/x86_64/device_arch_info.h"
 #include "berberis/intrinsics/all_to_x86_32_or_x86_64/intrinsics_float.h"
 #include "berberis/intrinsics/all_to_x86_32_or_x86_64/verifier_assembler_x86_32_or_x86_64.h"
 #include "berberis/intrinsics/intrinsics_bindings.h"
-#include "berberis/machine_insn_info/x86_64/machine_insn_info.h"
 
 namespace berberis {
 
@@ -28,22 +28,22 @@ namespace {
 using intrinsics::bindings::IntrinsicBindingInfo;
 using intrinsics::bindings::NoNansOperation;
 
-using x86_64::machine_insn_info::FLAGS;
-using x86_64::machine_insn_info::GeneralReg32;
-using x86_64::machine_insn_info::XmmReg;
+using x86_64::device_arch_info::FLAGS;
+using x86_64::device_arch_info::GeneralReg32;
+using x86_64::device_arch_info::XmmReg;
 
-using x86_32_or_x86_64::machine_insn_info::HasSSE3;
+using x86_32_or_x86_64::device_arch_info::HasSSE3;
 
-using machine_insn_info::NoCPUIDRestriction;
+using device_arch_info::NoCPUIDRestriction;
 
-template <typename RegisterClassTemplateName, machine_insn_info::RegBindingKind kUsageTemplateName>
-using Operand = machine_insn_info::OperandInfo<RegisterClassTemplateName, kUsageTemplateName>;
-using machine_insn_info::AsmCallInfo;
+template <typename RegisterClassTemplateName, device_arch_info::RegBindingKind kUsageTemplateName>
+using Operand = device_arch_info::OperandInfo<RegisterClassTemplateName, kUsageTemplateName>;
+using device_arch_info::AsmCallInfo;
 
-constexpr auto kDef = machine_insn_info::kDef;
-constexpr auto kDefEarlyClobber = machine_insn_info::kDefEarlyClobber;
-constexpr auto kUse = machine_insn_info::kUse;
-constexpr auto kUseDef = machine_insn_info::kUseDef;
+constexpr auto kDef = device_arch_info::kDef;
+constexpr auto kDefEarlyClobber = device_arch_info::kDefEarlyClobber;
+constexpr auto kUse = device_arch_info::kUse;
+constexpr auto kUseDef = device_arch_info::kUseDef;
 
 template <typename Assembler>
 class MacroAssembler : public Assembler {

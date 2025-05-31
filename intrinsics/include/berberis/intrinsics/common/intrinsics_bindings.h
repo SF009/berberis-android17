@@ -20,9 +20,9 @@
 #include <cstdint>
 
 #include "berberis/base/dependent_false.h"
+#include "berberis/device_arch_info/common/device_arch_info.h"
 #include "berberis/intrinsics/intrinsics_args.h"
 #include "berberis/intrinsics/type_traits.h"
-#include "berberis/machine_insn_info/common/machine_insn_info.h"
 
 namespace berberis {
 
@@ -53,12 +53,12 @@ class IntrinsicBindingInfo<kIntrinsic_,
                            std::tuple<InputArgumentsTypes...>,
                            std::tuple<OutputArgumentsTypes...>,
                            std::tuple<BindingsTypes...>,
-                           machine_insn_info::AsmCallInfo<kEmitInsnFunc_,
-                                                          kMnemo,
-                                                          kSideEffects_,
-                                                          GetOpcode,
-                                                          CPUIDRestriction_,
-                                                          std::tuple<OperandsTypes...>>>
+                           device_arch_info::AsmCallInfo<kEmitInsnFunc_,
+                                                         kMnemo,
+                                                         kSideEffects_,
+                                                         GetOpcode,
+                                                         CPUIDRestriction_,
+                                                         std::tuple<OperandsTypes...>>>
     final {
  public:
   static constexpr auto kIntrinsic = kIntrinsic_;
@@ -94,7 +94,7 @@ class IntrinsicBindingInfo<kIntrinsic_,
   using IntrinsicType = std::conditional_t<std::tuple_size_v<OutputArguments> == 0,
                                            void (*)(InputArgumentsTypes...),
                                            OutputArguments (*)(InputArgumentsTypes...)>;
-  using AsmCallInfo = machine_insn_info::
+  using AsmCallInfo = device_arch_info::
       AsmCallInfo<kEmitInsnFunc, kMnemo, kSideEffects_, GetOpcode, CPUIDRestriction, Operands>;
 };
 
@@ -107,9 +107,9 @@ constexpr void AssignRegisterNumbers(int* register_numbers) {
   int arg_counter = 0;
   IntrinsicBindingInfo::ProcessBindings(
       [&id, &arg_counter, &register_numbers]<typename Binding, typename Operand> {
-        if constexpr (!machine_insn_info::kIsImmediate<Operand> &&
-                      !machine_insn_info::kIsFLAGS<Operand>) {
-          if constexpr (Operand::kUsage != machine_insn_info::kUse) {
+        if constexpr (!device_arch_info::kIsImmediate<Operand> &&
+                      !device_arch_info::kIsFLAGS<Operand>) {
+          if constexpr (Operand::kUsage != device_arch_info::kUse) {
             register_numbers[arg_counter] = id++;
           }
           ++arg_counter;
@@ -119,9 +119,9 @@ constexpr void AssignRegisterNumbers(int* register_numbers) {
   arg_counter = 0;
   IntrinsicBindingInfo::ProcessBindings(
       [&id, &arg_counter, &register_numbers]<typename Binding, typename Operand> {
-        if constexpr (!machine_insn_info::kIsImmediate<Operand> &&
-                      !machine_insn_info::kIsFLAGS<Operand>) {
-          if constexpr (Operand::kUsage == machine_insn_info::kUse) {
+        if constexpr (!device_arch_info::kIsImmediate<Operand> &&
+                      !device_arch_info::kIsFLAGS<Operand>) {
+          if constexpr (Operand::kUsage == device_arch_info::kUse) {
             register_numbers[arg_counter] = id++;
           }
           ++arg_counter;
@@ -133,7 +133,7 @@ template <typename AsmCallInfo>
 constexpr bool CheckIntrinsicHasFlagsBinding() {
   bool expect_flags = false;
   AsmCallInfo::ProcessBindings([&expect_flags]<typename Binding, typename Operand> {
-    if constexpr (machine_insn_info::kIsFLAGS<Operand>) {
+    if constexpr (device_arch_info::kIsFLAGS<Operand>) {
       expect_flags = true;
     }
   });
@@ -145,8 +145,8 @@ constexpr void CallVerifierAssembler(AssemblerType* as, int* register_numbers) {
   int arg_counter = 0;
   IntrinsicBindingInfo::ProcessBindings(
       [&arg_counter, &as, register_numbers]<typename Binding, typename Operand> {
-        if constexpr (machine_insn_info::kIsImplicitReg<Operand> &&
-                      !machine_insn_info::kIsFLAGS<Operand>) {
+        if constexpr (device_arch_info::kIsImplicitReg<Operand> &&
+                      !device_arch_info::kIsFLAGS<Operand>) {
           as->*(Operand::Class::template kAssemblerRegisterPointer<AssemblerType>) =
               typename AssemblerType::Register{register_numbers[arg_counter], Operand::kUsage};
         }
@@ -155,7 +155,7 @@ constexpr void CallVerifierAssembler(AssemblerType* as, int* register_numbers) {
   // Macroassembler constants register points to the constant pool. Intrinsics can read from it
   // but shouldn't change it's address, that's why it's always kUse.
   as->gpr_macroassembler_constants =
-      typename AssemblerType::Register{arg_counter, machine_insn_info::kUse};
+      typename AssemblerType::Register{arg_counter, device_arch_info::kUse};
   arg_counter = 0;
   int scratch_counter = 0;
   std::apply(
@@ -167,7 +167,7 @@ constexpr void CallVerifierAssembler(AssemblerType* as, int* register_numbers) {
                &arg_counter,
                &scratch_counter,
                register_numbers]<typename Binding, typename Operand> {
-                if constexpr (machine_insn_info::kIsImmediate<Operand>) {
+                if constexpr (device_arch_info::kIsImmediate<Operand>) {
                   // TODO(b/394278175): We don't have access to the value of the immediate argument
                   // here. The value of the immediate argument often decides which instructions in
                   // an intrinsic are called, by being used in conditional statements. We need to
@@ -176,14 +176,14 @@ constexpr void CallVerifierAssembler(AssemblerType* as, int* register_numbers) {
                   // argument to 2, since it generally covers most instructions in inline-only
                   // intrinsics.
                   return std::tuple{2};
-                } else if constexpr (machine_insn_info::kIsMemoryOperand<Operand>) {
-                  static_assert(Operand::kUsage == machine_insn_info::kDefEarlyClobber);
+                } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
+                  static_assert(Operand::kUsage == device_arch_info::kDefEarlyClobber);
                   if (scratch_counter == 0) {
                     as->gpr_macroassembler_scratch = typename AssemblerType::Register(
-                        arg_counter++, machine_insn_info::kDefEarlyClobber);
+                        arg_counter++, device_arch_info::kDefEarlyClobber);
                   } else if (scratch_counter == 1) {
                     as->gpr_macroassembler_scratch2 = typename AssemblerType::Register(
-                        arg_counter++, machine_insn_info::kDefEarlyClobber);
+                        arg_counter++, device_arch_info::kDefEarlyClobber);
                   } else {
                     FATAL("Only two scratch registers are supported for now");
                   }
@@ -195,8 +195,8 @@ constexpr void CallVerifierAssembler(AssemblerType* as, int* register_numbers) {
                       .disp =
                           static_cast<int32_t>(config::kScratchAreaSlotSize * scratch_counter++)}};
                 } else {
-                  if constexpr (!machine_insn_info::kIsFLAGS<Operand>) {
-                    if constexpr (machine_insn_info::kIsImplicitReg<Operand>) {
+                  if constexpr (!device_arch_info::kIsFLAGS<Operand>) {
+                    if constexpr (device_arch_info::kIsImplicitReg<Operand>) {
                       ++arg_counter;
                       return std::tuple{};
                     } else {

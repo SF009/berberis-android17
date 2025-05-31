@@ -14,23 +14,23 @@
  * limitations under the License.
  */
 
-#ifndef BERBERIS_MACHINE_INSN_INFO_ALL_TO_X86_32_OR_x86_64_MACHINE_INSN_INFO_H_
-#define BERBERIS_MACHINE_INSN_INFO_ALL_TO_X86_32_OR_x86_64_MACHINE_INSN_INFO_H_
+#ifndef BERBERIS_DEVICE_ARCH_INFO_ALL_TO_X86_32_OR_x86_64_DEVICE_ARCH_INFO_H_
+#define BERBERIS_DEVICE_ARCH_INFO_ALL_TO_X86_32_OR_x86_64_DEVICE_ARCH_INFO_H_
 
 #include <x86intrin.h>
 
 #include <cstdint>
 
-#include "berberis/machine_insn_info/common/machine_insn_info.h"
+#include "berberis/device_arch_info/common/device_arch_info.h"
 
 // Note: normally using namespace is forbidden in headers, but these two namespaces literally
 // only exist to be imported here (and in other device CPU-specific headers).
 
 namespace berberis {
 
-namespace x86_32_or_x86_64::machine_insn_info {
+namespace x86_32_or_x86_64::device_arch_info {
 
-using namespace berberis::machine_insn_info;
+using namespace berberis::device_arch_info;
 
 class Imm2 {
  public:
@@ -130,30 +130,30 @@ class HasX87;
 class HasCustomCapability;
 class IsAuthenticAMD;
 
-}  // namespace x86_32_or_x86_64::machine_insn_info
+}  // namespace x86_32_or_x86_64::device_arch_info
 
-namespace machine_insn_info {
-
-template <>
-inline constexpr bool kIsImmediate<x86_32_or_x86_64::machine_insn_info::Imm2> = true;
+namespace device_arch_info {
 
 template <>
-inline constexpr bool kIsImmediate<x86_32_or_x86_64::machine_insn_info::Imm8> = true;
+inline constexpr bool kIsImmediate<x86_32_or_x86_64::device_arch_info::Imm2> = true;
 
 template <>
-inline constexpr bool kIsImmediate<x86_32_or_x86_64::machine_insn_info::Imm16> = true;
+inline constexpr bool kIsImmediate<x86_32_or_x86_64::device_arch_info::Imm8> = true;
 
 template <>
-inline constexpr bool kIsImmediate<x86_32_or_x86_64::machine_insn_info::Imm32> = true;
+inline constexpr bool kIsImmediate<x86_32_or_x86_64::device_arch_info::Imm16> = true;
 
 template <>
-inline constexpr bool kIsImmediate<x86_32_or_x86_64::machine_insn_info::Imm64> = true;
+inline constexpr bool kIsImmediate<x86_32_or_x86_64::device_arch_info::Imm32> = true;
 
 template <>
-inline constexpr bool kIsMemoryOperand<x86_32_or_x86_64::machine_insn_info::MemX87> = true;
+inline constexpr bool kIsImmediate<x86_32_or_x86_64::device_arch_info::Imm64> = true;
 
-}  // namespace machine_insn_info
+template <>
+inline constexpr bool kIsMemoryOperand<x86_32_or_x86_64::device_arch_info::MemX87> = true;
+
+}  // namespace device_arch_info
 
 }  // namespace berberis
 
-#endif  // BERBERIS_MACHINE_INSN_INFO_ALL_TO_X86_32_OR_x86_64_MACHINE_INSN_INFO_H_
+#endif  // BERBERIS_DEVICE_ARCH_INFO_ALL_TO_X86_32_OR_x86_64_DEVICE_ARCH_INFO_H_

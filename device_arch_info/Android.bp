@@ -30,46 +30,46 @@ python_library_host {
 }
 
 filegroup {
-    name: "libberberis_machine_insn_info_reg_class_gen_inputs_riscv64",
+    name: "libberberis_device_arch_info_reg_class_gen_inputs_riscv64",
     srcs: ["riscv64/reg_class_def.json"],
 }
 
 filegroup {
-    name: "libberberis_machine_insn_info_reg_class_gen_inputs_x86_32",
+    name: "libberberis_device_arch_info_reg_class_gen_inputs_x86_32",
     srcs: ["x86_32/reg_class_def.json"],
 }
 
 filegroup {
-    name: "libberberis_machine_insn_info_reg_class_gen_inputs_x86_64",
+    name: "libberberis_device_arch_info_reg_class_gen_inputs_x86_64",
     srcs: ["x86_64/reg_class_def.json"],
 }
 
 genrule {
-    name: "libberberis_machine_insn_info_reg_class_gen_headers_riscv64",
-    out: ["berberis/machine_insn_info/riscv64/machine_reg_class-inl.h"],
-    srcs: [":libberberis_machine_insn_info_reg_class_gen_inputs_riscv64"],
+    name: "libberberis_device_arch_info_reg_class_gen_headers_riscv64",
+    out: ["berberis/device_arch_info/riscv64/machine_reg_class-inl.h"],
+    srcs: [":libberberis_device_arch_info_reg_class_gen_inputs_riscv64"],
     tools: ["gen_reg_class"],
     cmd: "$(location gen_reg_class) $(out) $(in)",
 }
 
 genrule {
-    name: "libberberis_machine_insn_info_reg_class_gen_headers_x86_32",
-    out: ["berberis/machine_insn_info/x86_32/machine_reg_class-inl.h"],
-    srcs: [":libberberis_machine_insn_info_reg_class_gen_inputs_x86_32"],
+    name: "libberberis_device_arch_info_reg_class_gen_headers_x86_32",
+    out: ["berberis/device_arch_info/x86_32/machine_reg_class-inl.h"],
+    srcs: [":libberberis_device_arch_info_reg_class_gen_inputs_x86_32"],
     tools: ["gen_reg_class"],
     cmd: "$(location gen_reg_class) $(out) $(in)",
 }
 
 genrule {
-    name: "libberberis_machine_insn_info_reg_class_gen_headers_x86_64",
-    out: ["berberis/machine_insn_info/x86_64/machine_reg_class-inl.h"],
-    srcs: [":libberberis_machine_insn_info_reg_class_gen_inputs_x86_64"],
+    name: "libberberis_device_arch_info_reg_class_gen_headers_x86_64",
+    out: ["berberis/device_arch_info/x86_64/machine_reg_class-inl.h"],
+    srcs: [":libberberis_device_arch_info_reg_class_gen_inputs_x86_64"],
     tools: ["gen_reg_class"],
     cmd: "$(location gen_reg_class) $(out) $(in)",
 }
 
 cc_library_headers {
-    name: "libberberis_machine_insn_info_headers",
+    name: "libberberis_device_arch_info_headers",
     defaults: ["berberis_all_hosts_defaults"],
     host_supported: true,
     export_include_dirs: ["include"],
@@ -78,17 +78,17 @@ cc_library_headers {
         "libberberis_base_headers",
     ],
     generated_headers: [
-        "libberberis_machine_insn_info_reg_class_gen_headers_riscv64",
-        "libberberis_machine_insn_info_reg_class_gen_headers_x86_32",
-        "libberberis_machine_insn_info_reg_class_gen_headers_x86_64",
+        "libberberis_device_arch_info_reg_class_gen_headers_riscv64",
+        "libberberis_device_arch_info_reg_class_gen_headers_x86_32",
+        "libberberis_device_arch_info_reg_class_gen_headers_x86_64",
     ],
     export_header_lib_headers: [
         "libberberis_assembler_headers",
         "libberberis_base_headers",
     ],
     export_generated_headers: [
-        "libberberis_machine_insn_info_reg_class_gen_headers_riscv64",
-        "libberberis_machine_insn_info_reg_class_gen_headers_x86_32",
-        "libberberis_machine_insn_info_reg_class_gen_headers_x86_64",
+        "libberberis_device_arch_info_reg_class_gen_headers_riscv64",
+        "libberberis_device_arch_info_reg_class_gen_headers_x86_32",
+        "libberberis_device_arch_info_reg_class_gen_headers_x86_64",
     ],
 }

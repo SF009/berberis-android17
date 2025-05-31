@@ -906,16 +906,16 @@ def _get_binding_info(arg):
 
 
 def _get_reg_operand_info(arg):
-  class_info = 'machine_insn_info::%s' % arg['class']
+  class_info = 'device_arch_info::%s' % arg['class']
   if arg['class'] == 'Imm8':
-    return 'machine_insn_info::OperandInfo<%s, machine_insn_info::kUse>' % class_info
-  using_info = ', machine_insn_info::%s' % {
+    return 'device_arch_info::OperandInfo<%s, device_arch_info::kUse>' % class_info
+  using_info = ', device_arch_info::%s' % {
       'def': 'kDef',
       'def_early_clobber': 'kDefEarlyClobber',
       'use': 'kUse',
       'use_def': 'kUseDef'
   }[arg['usage']]
-  return 'machine_insn_info::OperandInfo<%s%s>' % (class_info, using_info)
+  return 'device_arch_info::OperandInfo<%s%s>' % (class_info, using_info)
 
 
 def _get_bindings_info(args):
@@ -979,7 +979,7 @@ def _gen_process_bindings(f, intrs, archs):
       intrs, _is_translator_compatible_assembler, True, static_names, static_mnemos):
     callback_lines.append(line)
   # Include definitions of registers for appropriate type of bindings
-  print('#include "berberis/machine_insn_info/%s/machine_insn_info.h"' % archs[-1], file = f)
+  print('#include "berberis/device_arch_info/%s/device_arch_info.h"' % archs[-1], file = f)
   # Put implementation into arch-specific namespace to access bindings.
   print('namespace berberis{\n\nnamespace %s::intrinsics::bindings {' % archs[-1], file = f)
   print(
@@ -1128,12 +1128,12 @@ def _gen_c_intrinsic(name,
   if not check_compatible_assembler(asm):
     return
 
-  cpuid_restriction = 'machine_insn_info::NoCPUIDRestriction'
+  cpuid_restriction = 'device_arch_info::NoCPUIDRestriction'
   if 'feature' in asm:
     if asm['feature'] == 'AuthenticAMD':
-      cpuid_restriction = 'machine_insn_info::IsAuthenticAMD'
+      cpuid_restriction = 'device_arch_info::IsAuthenticAMD'
     else:
-      cpuid_restriction = 'machine_insn_info::Has%s' % asm['feature']
+      cpuid_restriction = 'device_arch_info::Has%s' % asm['feature']
 
   nan_restriction = 'berberis::intrinsics::bindings::NoNansOperation'
   if 'nan' in asm:
@@ -1176,7 +1176,7 @@ def _gen_c_intrinsic(name,
          _get_c_type_tuple(intr['in']),
          _get_c_type_tuple(intr['out']),
          _get_bindings_info(asm['args'])]))
-  yield '              machine_insn_info::AsmCallInfo<%s>>(),' % (
+  yield '              device_arch_info::AsmCallInfo<%s>>(),' % (
     ',\n                  '.join(
         [_get_asm_reference(asm),
          mnemo_label,

@@ -26,8 +26,8 @@
 #include "berberis/backend/code_emitter.h"
 #include "berberis/backend/common/machine_ir.h"  // IWYU pragma: export.
 #include "berberis/base/arena_alloc.h"
+#include "berberis/device_arch_info/x86_64/device_arch_info.h"
 #include "berberis/guest_state/guest_state_arch.h"
-#include "berberis/machine_insn_info/x86_64/machine_insn_info.h"
 
 namespace berberis {
 
@@ -146,13 +146,13 @@ template <typename MachineInsnInfoClass>
 inline constexpr MachineRegClass kRegisterClass =
     MachineRegClassFromMachineInsnInfoClass<MachineInsnInfoClass>();
 
-inline constexpr auto& kRAX = kRegisterClass<machine_insn_info::RAX>;
-inline constexpr auto& kGeneralReg32 = kRegisterClass<machine_insn_info::GeneralReg32>;
-inline constexpr auto& kGeneralReg64 = kRegisterClass<machine_insn_info::GeneralReg64>;
-inline constexpr auto& kReg32 = kRegisterClass<machine_insn_info::Reg32>;
-inline constexpr auto& kReg64 = kRegisterClass<machine_insn_info::Reg64>;
-inline constexpr auto& kXmmReg = kRegisterClass<machine_insn_info::XmmReg>;
-inline constexpr auto& kFLAGS = kRegisterClass<machine_insn_info::FLAGS>;
+inline constexpr auto& kRAX = kRegisterClass<device_arch_info::RAX>;
+inline constexpr auto& kGeneralReg32 = kRegisterClass<device_arch_info::GeneralReg32>;
+inline constexpr auto& kGeneralReg64 = kRegisterClass<device_arch_info::GeneralReg64>;
+inline constexpr auto& kReg32 = kRegisterClass<device_arch_info::Reg32>;
+inline constexpr auto& kReg64 = kRegisterClass<device_arch_info::Reg64>;
+inline constexpr auto& kXmmReg = kRegisterClass<device_arch_info::XmmReg>;
+inline constexpr auto& kFLAGS = kRegisterClass<device_arch_info::FLAGS>;
 
 class MachineInsnX86_64 : public MachineInsn {
  public:

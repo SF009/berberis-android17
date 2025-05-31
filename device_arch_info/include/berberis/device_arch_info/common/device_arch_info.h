@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef BERBERIS_MACHINE_INSN_INFO_COMMON_MACHINE_INSN_INFO_H_
-#define BERBERIS_MACHINE_INSN_INFO_COMMON_MACHINE_INSN_INFO_H_
+#ifndef BERBERIS_DEVICE_ARCH_INFO_COMMON_DEVICE_ARCH_INFO_H_
+#define BERBERIS_DEVICE_ARCH_INFO_COMMON_DEVICE_ARCH_INFO_H_
 
 #include <cstdint>
 
-namespace berberis::machine_insn_info {
+namespace berberis::device_arch_info {
 
 class Mem8 {
  public:
@@ -155,6 +155,6 @@ class AsmCallInfo<kEmitInsnFunc_,
   using Operands = std::tuple<Operands_...>;
 };
 
-}  // namespace berberis::machine_insn_info
+}  // namespace berberis::device_arch_info
 
-#endif  // BERBERIS_MACHINE_INSN_INFO_COMMON_MACHINE_INSN_INFO_H_
+#endif  // BERBERIS_DEVICE_ARCH_INFO_COMMON_DEVICE_ARCH_INFO_H_

@@ -18,6 +18,6 @@
 #define BERBERIS_INTRINSICS_INTRINSICS_BINDINGS_H_
 
 #include "berberis/intrinsics/common/intrinsics_bindings.h"
-#include "berberis/intrinsics/machine_insn_info.h"
+#include "berberis/intrinsics/device_arch_info.h"
 
 #endif  // BERBERIS_INTRINSICS_INTRINSICS_BINDINGS_H_
