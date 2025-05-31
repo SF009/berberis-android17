@@ -43,12 +43,12 @@ template <auto kEmitInsnFunc,
           typename CPUIDRestriction,
           typename... Operands,
           bool kSideEffects>
-class MachineInsnOperandsHelper<device_arch_info::AsmCallInfo<kEmitInsnFunc,
-                                                              kMnemo,
-                                                              kSideEffects,
-                                                              GetOpcode,
-                                                              CPUIDRestriction,
-                                                              std::tuple<Operands...>>>
+class MachineInsnOperandsHelper<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
+                                                                 kMnemo,
+                                                                 kSideEffects,
+                                                                 GetOpcode,
+                                                                 CPUIDRestriction,
+                                                                 std::tuple<Operands...>>>
     final {
  public:
   // We want to filter out any operands that are not used for Register args.
@@ -81,12 +81,12 @@ template <auto kEmitInsnFunc,
           typename... RegOperands,
           typename... ConstructorArgs,
           bool kSideEffects>
-class MachineInsn<device_arch_info::AsmCallInfo<kEmitInsnFunc,
-                                                kMnemo,
-                                                kSideEffects,
-                                                GetOpcode,
-                                                CPUIDRestriction,
-                                                std::tuple<Operands...>>,
+class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
+                                                   kMnemo,
+                                                   kSideEffects,
+                                                   GetOpcode,
+                                                   CPUIDRestriction,
+                                                   std::tuple<Operands...>>,
                   std::tuple<RegOperands...>,
                   std::tuple<ConstructorArgs...>>
     final : public MachineInsnX86_64 {
@@ -98,6 +98,13 @@ class MachineInsn<device_arch_info::AsmCallInfo<kEmitInsnFunc,
   template <typename MachineIRBuilder>
   static constexpr MachineInsn* (MachineIRBuilder::*kGenFunc)(ConstructorArgs...) =
       &MachineIRBuilder::template Gen<MachineInsn>;
+
+  using DeviceInsnInfo = device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
+                                                          kMnemo,
+                                                          kSideEffects,
+                                                          GetOpcode,
+                                                          CPUIDRestriction,
+                                                          std::tuple<Operands...>>;
 
   explicit MachineInsn(ConstructorArgs... args) : MachineInsnX86_64(&kInfo) {
     this->ProcessArgs<0 /* reg_idx */, 0 /* disp_idx */, Operands...>(args...);
@@ -252,12 +259,12 @@ template <auto kEmitInsnFunc,
           typename... RegOperands,
           typename... ConstructorArgs,
           bool kSideEffects>
-constexpr MachineInsnInfo MachineInsn<device_arch_info::AsmCallInfo<kEmitInsnFunc,
-                                                                    kMnemo,
-                                                                    kSideEffects,
-                                                                    GetOpcode,
-                                                                    CPUIDRestriction,
-                                                                    std::tuple<Operands...>>,
+constexpr MachineInsnInfo MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
+                                                                       kMnemo,
+                                                                       kSideEffects,
+                                                                       GetOpcode,
+                                                                       CPUIDRestriction,
+                                                                       std::tuple<Operands...>>,
                                       std::tuple<RegOperands...>,
                                       std::tuple<ConstructorArgs...>>::GenMachineInsnInfo() {
   MachineInsnInfo result = {

@@ -351,7 +351,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
       static_assert(berberis::kDependentValueFalse<IntrinsicBindingInfo::kCPUIDRestriction>);
     }
 
-    std::apply(berberis::x86_64::MachineInsn<typename IntrinsicBindingInfo::AsmCallInfo>::
+    std::apply(berberis::x86_64::MachineInsn<typename IntrinsicBindingInfo::DeviceInsnInfo>::
                    template kGenFunc<x86_64::MachineIRBuilder>,
                std::tuple_cat(std::tuple<x86_64::MachineIRBuilder&>{*builder_},
                               UnwrapSimdReg(IntrinsicBindingInfo::template MakeTuplefromBindings<

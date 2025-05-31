@@ -121,7 +121,7 @@ class OperandInfo {
 class NoCPUIDRestriction;  // All CPUs have at least “no CPUID restriction” mode.
 
 template <auto kEmitInsnFunc, auto kMnemo, bool kSideEffects, auto GetOpcode, typename... Types>
-class AsmCallInfo;
+class DeviceInsnInfo;
 
 template <auto kEmitInsnFunc_,
           auto kMnemo,
@@ -129,12 +129,12 @@ template <auto kEmitInsnFunc_,
           auto GetOpcode,
           typename CPUIDRestriction_,
           typename... Operands_>
-class AsmCallInfo<kEmitInsnFunc_,
-                  kMnemo,
-                  kSideEffects_,
-                  GetOpcode,
-                  CPUIDRestriction_,
-                  std::tuple<Operands_...>>
+class DeviceInsnInfo<kEmitInsnFunc_,
+                     kMnemo,
+                     kSideEffects_,
+                     GetOpcode,
+                     CPUIDRestriction_,
+                     std::tuple<Operands_...>>
     final {
  public:
   static constexpr auto kEmitInsnFunc = kEmitInsnFunc_;

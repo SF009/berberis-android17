@@ -1176,7 +1176,7 @@ def _gen_c_intrinsic(name,
          _get_c_type_tuple(intr['in']),
          _get_c_type_tuple(intr['out']),
          _get_bindings_info(asm['args'])]))
-  yield '              device_arch_info::AsmCallInfo<%s>>(),' % (
+  yield '              device_arch_info::DeviceInsnInfo<%s>>(),' % (
     ',\n                  '.join(
         [_get_asm_reference(asm),
          mnemo_label,

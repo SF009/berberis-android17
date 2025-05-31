@@ -53,12 +53,12 @@ class IntrinsicBindingInfo<kIntrinsic_,
                            std::tuple<InputArgumentsTypes...>,
                            std::tuple<OutputArgumentsTypes...>,
                            std::tuple<BindingsTypes...>,
-                           device_arch_info::AsmCallInfo<kEmitInsnFunc_,
-                                                         kMnemo,
-                                                         kSideEffects_,
-                                                         GetOpcode,
-                                                         CPUIDRestriction_,
-                                                         std::tuple<OperandsTypes...>>>
+                           device_arch_info::DeviceInsnInfo<kEmitInsnFunc_,
+                                                            kMnemo,
+                                                            kSideEffects_,
+                                                            GetOpcode,
+                                                            CPUIDRestriction_,
+                                                            std::tuple<OperandsTypes...>>>
     final {
  public:
   static constexpr auto kIntrinsic = kIntrinsic_;
@@ -94,8 +94,8 @@ class IntrinsicBindingInfo<kIntrinsic_,
   using IntrinsicType = std::conditional_t<std::tuple_size_v<OutputArguments> == 0,
                                            void (*)(InputArgumentsTypes...),
                                            OutputArguments (*)(InputArgumentsTypes...)>;
-  using AsmCallInfo = device_arch_info::
-      AsmCallInfo<kEmitInsnFunc, kMnemo, kSideEffects_, GetOpcode, CPUIDRestriction, Operands>;
+  using DeviceInsnInfo = device_arch_info::
+      DeviceInsnInfo<kEmitInsnFunc, kMnemo, kSideEffects_, GetOpcode, CPUIDRestriction, Operands>;
 };
 
 }  // namespace intrinsics::bindings
@@ -129,10 +129,10 @@ constexpr void AssignRegisterNumbers(int* register_numbers) {
       });
 }
 
-template <typename AsmCallInfo>
+template <typename DeviceInsnInfo>
 constexpr bool CheckIntrinsicHasFlagsBinding() {
   bool expect_flags = false;
-  AsmCallInfo::ProcessBindings([&expect_flags]<typename Binding, typename Operand> {
+  DeviceInsnInfo::ProcessBindings([&expect_flags]<typename Binding, typename Operand> {
     if constexpr (device_arch_info::kIsFLAGS<Operand>) {
       expect_flags = true;
     }
