@@ -127,36 +127,36 @@ template <auto kMacroInstructionTemplateName,
           typename... Types>
 class AsmCallInfo;
 
-template <auto kMacroInstructionTemplateName,
+template <auto kMacroInstruction_,
           auto kMnemo,
-          bool kSideEffectsTemplateValue,
+          bool kSideEffects_,
           auto GetOpcode,
-          typename CPUIDRestrictionTemplateValue,
-          typename... OperandsTypes>
-class AsmCallInfo<kMacroInstructionTemplateName,
+          typename CPUIDRestriction_,
+          typename... Operands_>
+class AsmCallInfo<kMacroInstruction_,
                   kMnemo,
-                  kSideEffectsTemplateValue,
+                  kSideEffects_,
                   GetOpcode,
-                  CPUIDRestrictionTemplateValue,
-                  std::tuple<OperandsTypes...>>
+                  CPUIDRestriction_,
+                  std::tuple<Operands_...>>
     final {
  public:
-  static constexpr auto kMacroInstruction = kMacroInstructionTemplateName;
-  static constexpr bool kSideEffects = kSideEffectsTemplateValue;
-  using CPUIDRestriction = CPUIDRestrictionTemplateValue;
+  static constexpr auto kMacroInstruction = kMacroInstruction_;
+  static constexpr bool kSideEffects = kSideEffects_;
+  using CPUIDRestriction = CPUIDRestriction_;
   template <typename Callback, typename... Args>
   constexpr static void ProcessOperands(Callback&& callback, Args&&... args) {
-    (callback(OperandsTypes{}, std::forward<Args>(args)...), ...);
+    (callback(Operands_{}, std::forward<Args>(args)...), ...);
   }
   template <typename Callback, typename... Args>
   constexpr static bool VerifyOperands(Callback&& callback, Args&&... args) {
-    return (callback(OperandsTypes{}, std::forward<Args>(args)...) && ...);
+    return (callback(Operands_{}, std::forward<Args>(args)...) && ...);
   }
   template <typename Callback, typename... Args>
   constexpr static auto MakeTuplefromOperands(Callback&& callback, Args&&... args) {
-    return std::tuple_cat(callback(OperandsTypes{}, std::forward<Args>(args)...)...);
+    return std::tuple_cat(callback(Operands_{}, std::forward<Args>(args)...)...);
   }
-  using Operands = std::tuple<OperandsTypes...>;
+  using Operands = std::tuple<Operands_...>;
 };
 
 }  // namespace berberis::machine_insn_info

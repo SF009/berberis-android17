@@ -269,7 +269,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
                                                                         Result def_result,
                                                                         Args&&... args);
 
-  template <auto kIntrinsicTemplateName, typename... Types>
+  template <auto kIntrinsic, typename... Types>
   friend class intrinsics::bindings::IntrinsicBindingInfo;
 
   TryBindingBasedInlineIntrinsicForHeavyOptimizer() = delete;

@@ -34,40 +34,40 @@ class NoNansOperation;
 class PreciseNanOperationsHandling;
 class ImpreciseNanOperationsHandling;
 
-template <auto kIntrinsicTemplateName, typename... Types>
+template <auto kIntrinsic, typename... Types>
 class IntrinsicBindingInfo;
 
-template <auto kIntrinsicTemplateName,
-          auto kMacroInstructionTemplateName,
+template <auto kIntrinsic_,
+          auto kMacroInstruction_,
           auto kMnemo,
           auto GetOpcode,
-          typename CPUIDRestrictionTemplateValue,
-          typename PreciseNanOperationsHandlingTemplateValue,
-          bool kSideEffectsTemplateValue,
+          typename CPUIDRestriction_,
+          typename PreciseNanOperationsHandling_,
+          bool kSideEffects_,
           typename... InputArgumentsTypes,
           typename... OutputArgumentsTypes,
           typename... BindingsTypes,
           typename... OperandsTypes>
-class IntrinsicBindingInfo<kIntrinsicTemplateName,
-                           PreciseNanOperationsHandlingTemplateValue,
+class IntrinsicBindingInfo<kIntrinsic_,
+                           PreciseNanOperationsHandling_,
                            std::tuple<InputArgumentsTypes...>,
                            std::tuple<OutputArgumentsTypes...>,
                            std::tuple<BindingsTypes...>,
-                           machine_insn_info::AsmCallInfo<kMacroInstructionTemplateName,
+                           machine_insn_info::AsmCallInfo<kMacroInstruction_,
                                                           kMnemo,
-                                                          kSideEffectsTemplateValue,
+                                                          kSideEffects_,
                                                           GetOpcode,
-                                                          CPUIDRestrictionTemplateValue,
+                                                          CPUIDRestriction_,
                                                           std::tuple<OperandsTypes...>>>
     final {
  public:
-  static constexpr auto kIntrinsic = kIntrinsicTemplateName;
-  static constexpr auto kMacroInstruction = kMacroInstructionTemplateName;
+  static constexpr auto kIntrinsic = kIntrinsic_;
+  static constexpr auto kMacroInstruction = kMacroInstruction_;
   template <typename Opcode>
   static constexpr auto kOpcode = GetOpcode.template operator()<Opcode>();
-  using CPUIDRestriction = CPUIDRestrictionTemplateValue;
-  using PreciseNanOperationsHandling = PreciseNanOperationsHandlingTemplateValue;
-  static constexpr bool kSideEffects = kSideEffectsTemplateValue;
+  using CPUIDRestriction = CPUIDRestriction_;
+  using PreciseNanOperationsHandling = PreciseNanOperationsHandling_;
+  static constexpr bool kSideEffects = kSideEffects_;
   static constexpr const char* InputArgumentsTypeNames[] = {
       TypeTraits<InputArgumentsTypes>::kName...};
   static constexpr const char* OutputArgumentsTypeNames[] = {
@@ -94,12 +94,8 @@ class IntrinsicBindingInfo<kIntrinsicTemplateName,
   using IntrinsicType = std::conditional_t<std::tuple_size_v<OutputArguments> == 0,
                                            void (*)(InputArgumentsTypes...),
                                            OutputArguments (*)(InputArgumentsTypes...)>;
-  using AsmCallInfo = machine_insn_info::AsmCallInfo<kMacroInstruction,
-                                                     kMnemo,
-                                                     kSideEffectsTemplateValue,
-                                                     GetOpcode,
-                                                     CPUIDRestriction,
-                                                     Operands>;
+  using AsmCallInfo = machine_insn_info::
+      AsmCallInfo<kMacroInstruction, kMnemo, kSideEffects_, GetOpcode, CPUIDRestriction, Operands>;
 };
 
 }  // namespace intrinsics::bindings
