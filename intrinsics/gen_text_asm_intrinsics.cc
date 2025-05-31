@@ -115,7 +115,7 @@ constexpr void CallAssembler(MacroAssembler<TextAssembler>* as, int* register_nu
   arg_counter = 0;
   int scratch_counter = 0;
   std::apply(
-      IntrinsicBindingInfo::kMacroInstruction,
+      IntrinsicBindingInfo::kEmitInsnFunc,
       std::tuple_cat(std::tuple<MacroAssembler<TextAssembler>&>{*as},
                      IntrinsicBindingInfo::MakeTuplefromBindings(
                          [&as,

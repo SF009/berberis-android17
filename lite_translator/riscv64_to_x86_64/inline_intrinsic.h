@@ -272,7 +272,7 @@ class TryBindingBasedInlineIntrinsic {
       static_assert(kDependentValueFalse<IntrinsicBindingInfo::kCPUIDRestriction>);
     }
     std::apply(
-        IntrinsicBindingInfo::kMacroInstruction,
+        IntrinsicBindingInfo::kEmitInsnFunc,
         std::tuple_cat(
             std::tuple<MacroAssembler<x86_64::Assembler>&>{as_},
             IntrinsicBindingInfo::template MakeTuplefromBindings<TryBindingBasedInlineIntrinsic&>(

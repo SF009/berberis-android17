@@ -38,7 +38,7 @@ template <auto kIntrinsic, typename... Types>
 class IntrinsicBindingInfo;
 
 template <auto kIntrinsic_,
-          auto kMacroInstruction_,
+          auto kEmitInsnFunc_,
           auto kMnemo,
           auto GetOpcode,
           typename CPUIDRestriction_,
@@ -53,7 +53,7 @@ class IntrinsicBindingInfo<kIntrinsic_,
                            std::tuple<InputArgumentsTypes...>,
                            std::tuple<OutputArgumentsTypes...>,
                            std::tuple<BindingsTypes...>,
-                           machine_insn_info::AsmCallInfo<kMacroInstruction_,
+                           machine_insn_info::AsmCallInfo<kEmitInsnFunc_,
                                                           kMnemo,
                                                           kSideEffects_,
                                                           GetOpcode,
@@ -62,7 +62,7 @@ class IntrinsicBindingInfo<kIntrinsic_,
     final {
  public:
   static constexpr auto kIntrinsic = kIntrinsic_;
-  static constexpr auto kMacroInstruction = kMacroInstruction_;
+  static constexpr auto kEmitInsnFunc = kEmitInsnFunc_;
   template <typename Opcode>
   static constexpr auto kOpcode = GetOpcode.template operator()<Opcode>();
   using CPUIDRestriction = CPUIDRestriction_;
@@ -95,7 +95,7 @@ class IntrinsicBindingInfo<kIntrinsic_,
                                            void (*)(InputArgumentsTypes...),
                                            OutputArguments (*)(InputArgumentsTypes...)>;
   using AsmCallInfo = machine_insn_info::
-      AsmCallInfo<kMacroInstruction, kMnemo, kSideEffects_, GetOpcode, CPUIDRestriction, Operands>;
+      AsmCallInfo<kEmitInsnFunc, kMnemo, kSideEffects_, GetOpcode, CPUIDRestriction, Operands>;
 };
 
 }  // namespace intrinsics::bindings
@@ -159,7 +159,7 @@ constexpr void CallVerifierAssembler(AssemblerType* as, int* register_numbers) {
   arg_counter = 0;
   int scratch_counter = 0;
   std::apply(
-      IntrinsicBindingInfo::kMacroInstruction,
+      IntrinsicBindingInfo::kEmitInsnFunc,
       std::tuple_cat(
           std::tuple<AssemblerType&>{*as},
           IntrinsicBindingInfo::MakeTuplefromBindings(

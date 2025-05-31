@@ -37,13 +37,13 @@ namespace berberis::x86_64 {
 template <typename IntrinsicBindingInfo>
 class MachineInsnOperandsHelper;
 
-template <auto kMacroInstruction,
+template <auto kEmitInsnFunc,
           auto kMnemo,
           auto GetOpcode,
           typename CPUIDRestriction,
           typename... Operands,
           bool kSideEffects>
-class MachineInsnOperandsHelper<machine_insn_info::AsmCallInfo<kMacroInstruction,
+class MachineInsnOperandsHelper<machine_insn_info::AsmCallInfo<kEmitInsnFunc,
                                                                kMnemo,
                                                                kSideEffects,
                                                                GetOpcode,
@@ -73,7 +73,7 @@ template <typename IntrinsicBindingInfo,
           typename = typename MachineInsnOperandsHelper<IntrinsicBindingInfo>::ConstructorArgsTuple>
 class MachineInsn;
 
-template <auto kMacroInstruction,
+template <auto kEmitInsnFunc,
           auto kMnemo,
           auto GetOpcode,
           typename CPUIDRestriction,
@@ -81,7 +81,7 @@ template <auto kMacroInstruction,
           typename... RegOperands,
           typename... ConstructorArgs,
           bool kSideEffects>
-class MachineInsn<machine_insn_info::AsmCallInfo<kMacroInstruction,
+class MachineInsn<machine_insn_info::AsmCallInfo<kEmitInsnFunc,
                                                  kMnemo,
                                                  kSideEffects,
                                                  GetOpcode,
@@ -151,7 +151,7 @@ class MachineInsn<machine_insn_info::AsmCallInfo<kMacroInstruction,
     static_assert((machine_insn_info::kIsMemoryOperand<Operands> + ... + 0) <= 2);
     size_t reg_idx{}, disp_idx{};
     std::apply(
-        kMacroInstruction,
+        kEmitInsnFunc,
         std::tuple_cat(
             std::tuple<CodeEmitter&>{*as}, [&reg_idx, &disp_idx, this]<typename Operand> {
               // Suppress spurious warnings.
@@ -244,7 +244,7 @@ class MachineInsn<machine_insn_info::AsmCallInfo<kMacroInstruction,
   }
 };
 
-template <auto kMacroInstruction,
+template <auto kEmitInsnFunc,
           auto kMnemo,
           auto GetOpcode,
           typename CPUIDRestriction,
@@ -252,7 +252,7 @@ template <auto kMacroInstruction,
           typename... RegOperands,
           typename... ConstructorArgs,
           bool kSideEffects>
-constexpr MachineInsnInfo MachineInsn<machine_insn_info::AsmCallInfo<kMacroInstruction,
+constexpr MachineInsnInfo MachineInsn<machine_insn_info::AsmCallInfo<kEmitInsnFunc,
                                                                      kMnemo,
                                                                      kSideEffects,
                                                                      GetOpcode,
