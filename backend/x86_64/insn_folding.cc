@@ -316,29 +316,27 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldRedundantMov
   const berberis::MachineInsn* insn = *insn_it;
   CHECK_EQ(insn->opcode(), kMachineOpMovlRegReg);
   auto src = insn->RegAt(1);
-  auto def_insn_it = std::get<0>(FindNonPseudoCopyDef(src));
+  auto [def_insn_it, def_insn_pos, def_reg_pos] = FindNonPseudoCopyDef(src);
   if (!def_insn_it.has_value()) {
     return {FoldingType::kImpossible, nullptr};
   }
   const berberis::MachineInsn* def_insn = *def_insn_it.value();
-
-  // If the definition of src clears its upper half, then we can replace MOVL with PseudoCopy.
-  switch (def_insn->opcode()) {
-    case kMachineOpMovlRegReg:
-    case kMachineOpMovlRegMemAbsolute:
-    case kMachineOpMovlRegMemBaseDisp:
-    case kMachineOpMovlRegMemIndexDisp:
-    case kMachineOpMovlRegMemBaseIndexDisp:
-    case kMachineOpAndlRegReg:
-    case kMachineOpXorlRegReg:
-    case kMachineOpOrlRegReg:
-    case kMachineOpSublRegReg:
-    case kMachineOpAddlRegReg:
-    case kMachineOpShrdlRegRegImm:
-      return {FoldingType::kReplaceInsn, machine_ir_->NewInsn<PseudoCopy>(insn->RegAt(0), src, 4)};
-    default:
-      return {FoldingType::kImpossible, nullptr};
+  int def_reg_size = def_insn->RegKindAt(def_reg_pos).RegClass()->RegSize();
+  if (def_reg_size == 4) {
+    // Size of output is 32 bits, meaning upper 32 bits are cleared (zero extension).
+    // If the definition of src is zero extended, then we can replace MOVL with PseudoCopy.
+    switch (def_insn->opcode()) {
+      // Instructions below are special cases which do not guarantee zero extension. We do not
+      // optimize in this case.
+      case kMachineOpPseudoCopy:
+      case kMachineOpPseudoDefReg:
+        return {FoldingType::kImpossible, nullptr};
+      default:
+        return {FoldingType::kReplaceInsn,
+                machine_ir_->NewInsn<PseudoCopy>(insn->RegAt(0), src, 8)};
+    }
   }
+  return {FoldingType::kImpossible, nullptr};
 }
 
 template <bool kBMI, bool kIsInput64Bit>
