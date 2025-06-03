@@ -19,6 +19,8 @@
 
 #include <cstdint>
 
+#include "berberis/base/string_literal.h"
+
 namespace berberis::device_arch_info {
 
 class Mem8 {
@@ -128,11 +130,15 @@ class OperandInfo {
 // bindings.
 class NoCPUIDRestriction;  // All CPUs have at least “no CPUID restriction” mode.
 
-template <auto kEmitInsnFunc, auto kMnemo, bool kSideEffects, auto GetOpcode, typename... Types>
+template <auto kEmitInsnFunc,
+          StringLiteral kMnemo,
+          bool kSideEffects,
+          auto GetOpcode,
+          typename... Types>
 class DeviceInsnInfo;
 
 template <auto kEmitInsnFunc_,
-          auto kMnemo,
+          StringLiteral kMnemo,
           bool kSideEffects_,
           auto GetOpcode,
           typename CPUIDRestriction_,

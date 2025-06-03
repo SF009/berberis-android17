@@ -458,12 +458,11 @@ TEST(ExecMachineIR, RegAllocWithCallImm) {
 }
 
 TEST(ExecMachineIR, MemoryOperand) {
-  static constexpr const char MOVZXBL_MNEMO[] = "MOVZXBL";
   using MovzxblRegMemInsns = device_arch_info::DeviceInsnInfo<
       static_cast<void (x86_32_or_x86_64::Assembler<x86_64::Assembler>::*)(
           CodeEmitter::Register, const CodeEmitter::Operand&)>(
           &x86_32_or_x86_64::Assembler<x86_64::Assembler>::Movzxbl),
-      MOVZXBL_MNEMO,
+      "MOVZXBL",
       false,
       []<typename Opcode> { return Opcode::kMachineOpMovzxblRegOp; },
       device_arch_info::NoCPUIDRestriction,
