@@ -62,6 +62,18 @@ template <>
 inline constexpr bool kIsGeneralReg32<x86_32::device_arch_info::GeneralReg32> = true;
 
 template <>
+inline constexpr bool kIsEAX<x86_32::device_arch_info::EAX> = true;
+
+template <>
+inline constexpr bool kIsEBX<x86_32::device_arch_info::EBX> = true;
+
+template <>
+inline constexpr bool kIsECX<x86_32::device_arch_info::ECX> = true;
+
+template <>
+inline constexpr bool kIsEDX<x86_32::device_arch_info::EDX> = true;
+
+template <>
 inline constexpr bool kIsFLAGS<x86_32::device_arch_info::FLAGS> = true;
 
 template <>
