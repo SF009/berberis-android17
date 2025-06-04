@@ -168,6 +168,8 @@ class MacroAssembler : public Assembler {
     Movl(dst, src1);
     Addb(dst, dst);
   }
+
+  using AddressType = int64_t;
 };
 
 class VerifierAssembler : public x86_32_or_x86_64::VerifierAssembler<VerifierAssembler> {
@@ -204,7 +206,10 @@ constexpr void VerifyIntrinsic() {
   bool expect_flags = CheckIntrinsicHasFlagsBinding<IntrinsicBindingInfo>();
   as.CheckFlagsBinding(expect_flags);
   as.CheckAppropriateDefEarlyClobbers();
-  Check32BitRegistersAreZeroExtended<IntrinsicBindingInfo, MacroAssembler<VerifierAssembler>>(&as);
+  if (sizeof(MacroAssembler<VerifierAssembler>::AddressType) == sizeof(int64_t)) {
+    Check32BitRegistersAreZeroExtended<IntrinsicBindingInfo, MacroAssembler<VerifierAssembler>>(
+        &as);
+  }
   as.CheckLabelsAreBound();
   as.CheckNonLinearIntrinsicsUseDefRegisters();
 }

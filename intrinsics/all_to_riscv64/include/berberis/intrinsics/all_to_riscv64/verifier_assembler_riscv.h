@@ -199,6 +199,8 @@ class VerifierAssembler {
 // Instructions.
 #include "gen_verifier_assembler_common_riscv-inl.h"  // NOLINT generated file
 
+  using AddressType = int64_t;
+
  protected:
   template <typename CPUIDRestriction>
   static constexpr const char* CPUIDRestrictionToString() {
