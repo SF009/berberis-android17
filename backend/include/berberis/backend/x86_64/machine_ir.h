@@ -47,6 +47,12 @@ enum MachineOpcode : int {
 #include "machine_opcode_x86_64-inl.h"  // NOLINT generated file!
 };
 
+// Some instructions form groups. E.g. memory-accesses typically have 4 versions: Absolute, Base,
+// Index Base+Index.
+//
+// To ensure that there enough bits to separate these versions we reserve top 8 bits.
+inline constexpr int kLowMachineOpcodeBits = 24;
+
 namespace x86_64 {
 
 class MachineRegs {
@@ -161,7 +167,9 @@ class MachineInsnX86_64 : public MachineInsn {
       regs_[i] = other.regs_[i];
     }
     scale_ = other.scale_;
+    scale2_ = other.scale2_;
     disp_ = other.disp_;
+    disp2_ = other.disp2_;
     imm_ = other.imm_;
     cond_ = other.cond_;
 
@@ -173,6 +181,8 @@ class MachineInsnX86_64 : public MachineInsn {
   }
 
   Assembler::ScaleFactor scale() const { return scale_; }
+
+  Assembler::ScaleFactor scale2() const { return scale2_; }
 
   uint32_t disp() const { return disp_; }
 
@@ -235,6 +245,8 @@ class MachineInsnX86_64 : public MachineInsn {
 
   void set_scale(Assembler::ScaleFactor scale) { scale_ = scale; }
 
+  void set_scale2(Assembler::ScaleFactor scale2) { scale2_ = scale2; }
+
   void set_disp(uint32_t disp) { disp_ = disp; }
 
   void set_disp2(uint32_t disp2) { disp2_ = disp2; }
@@ -247,6 +259,7 @@ class MachineInsnX86_64 : public MachineInsn {
   MachineReg regs_[kMaxMachineRegOperands];
   uint32_t disp_;
   Assembler::ScaleFactor scale_;
+  Assembler::ScaleFactor scale2_;
   Assembler::Condition cond_;
   uint32_t disp2_;
   uint64_t imm_;

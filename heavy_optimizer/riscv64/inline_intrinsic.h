@@ -478,9 +478,10 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
         if (scratch_arg_ >= 2) {
           FATAL("Only two scratch registers are supported for now");
         }
-        return std::tuple{x86_64::kMachineRegRBP,
-                          static_cast<int32_t>(offsetof(ThreadState, intrinsics_scratch_area) +
-                                               config::kScratchAreaSlotSize * scratch_arg_++)};
+        return std::tuple{x86_64::MemoryOperand{
+            .base = x86_64::kMachineRegRBP,
+            .disp = static_cast<int32_t>(offsetof(ThreadState, intrinsics_scratch_area) +
+                                         config::kScratchAreaSlotSize * scratch_arg_++)}};
       } else {
         auto reg = AllocVReg();
         return std::tuple{reg};
