@@ -21,7 +21,10 @@ python_binary_host {
     name: "gen_intrinsics",
     main: "gen_intrinsics.py",
     srcs: ["gen_intrinsics.py"],
-    libs: ["asm_defs_lib"],
+    libs: [
+        "asm_defs_lib",
+        "gen_device_insn_info_lib",
+    ],
 }
 
 python_library_host {
@@ -36,7 +39,10 @@ python_test_host {
         "gen_intrinsics_test.py",
         "gen_intrinsics.py",
     ],
-    libs: ["asm_defs_lib"],
+    libs: [
+        "asm_defs_lib",
+        "gen_device_insn_info_lib",
+    ],
     test_suites: ["device-tests"],
     test_options: {
         unit_test: true,

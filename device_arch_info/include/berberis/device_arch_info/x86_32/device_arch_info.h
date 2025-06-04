@@ -21,22 +21,45 @@
 
 #include <cstdint>
 
+#include "berberis/assembler/x86_32.h"
 #include "berberis/device_arch_info/x86_32_or_x86_64/device_arch_info.h"
 
 namespace berberis {
 
-namespace x86_32::device_arch_info {
+namespace x86_32 {
+
+namespace device_arch_info {
 
 // Note: normally using namespace is forbidden in headers, but these two namespaces literally
 // only exist to be imported here (and in other device CPU-specific headers).
 
 using namespace berberis::x86_32_or_x86_64::device_arch_info;
 
+class Cond {
+ public:
+  using Type = x86_32_or_x86_64::Assembler<x86_64::Assembler>::Condition;
+};
+
+// We don't currently have use-cases where call may be embedded into MachineIR and we don't know how
+// to properly handle it.
+// We would need to make this class “real” to be able to do that, but also would probably need
+// other changes.
+class ESP;
+
 #include "berberis/device_arch_info/x86_32/machine_reg_class-inl.h"
 
-}  // namespace x86_32::device_arch_info
+}  // namespace device_arch_info
+
+#include "berberis/device_arch_info/all_to_x86_32_or_x86_64/device_insn_info-inl.h"
+#include "berberis/device_arch_info/x86_32/device_insn_info-inl.h"
+#include "berberis/device_arch_info/x86_32_or_x86_64/device_insn_info-inl.h"
+
+}  // namespace x86_32
 
 namespace device_arch_info {
+
+template <>
+inline constexpr bool kIsImmediate<x86_32::device_arch_info::Cond> = true;
 
 template <>
 inline constexpr bool kIsGeneralReg32<x86_32::device_arch_info::GeneralReg32> = true;
@@ -51,4 +74,4 @@ inline constexpr bool kIsRegister<x86_32::device_arch_info::FLAGS> = true;
 
 }  // namespace berberis
 
-#endif  // BERBERIS_INTRINSICS_X86_32_DEVICE_ARCH_INFO_H_
+#endif  // BERBERIS_DEVICE_ARCH_INFO_X86_32_DEVICE_ARCH_INFO_H_

@@ -67,6 +67,50 @@ class MemX87 {
   static constexpr char kAsRegister = 'm';
 };
 
+class VecMem32 {
+ public:
+  using Type = uint32_t;
+  static constexpr char kAsRegister = 'm';
+};
+
+class VecMem64 {
+ public:
+  using Type = uint64_t;
+  static constexpr char kAsRegister = 'm';
+};
+
+class VecMem128 {
+ public:
+  using Type = __m128;
+  static constexpr char kAsRegister = 'm';
+};
+
+class VecMem256 {
+ public:
+#ifdef __AVX__
+  using Type = __m256;
+#endif
+  static constexpr char kAsRegister = 'm';
+};
+
+// We don't currently have use-cases where instructions that use these register classes can be used
+// with MachineIR.
+// We would need to make this classes “real” to be able to do that, but also would probably need
+// other changes.
+class CC;
+class GeneralReg;
+class Label;
+class Mem;
+class MemX8716;
+class MemX8732;
+class MemX8764;
+class MemX8780;
+class RSP;
+class RegX87;
+class SW;
+class ST;
+class ST1;
+
 // Tag classes. They are never instantioned, only used as tags to pass information about
 // bindings.
 class Has3DNOW;
@@ -151,6 +195,18 @@ inline constexpr bool kIsImmediate<x86_32_or_x86_64::device_arch_info::Imm64> = 
 
 template <>
 inline constexpr bool kIsMemoryOperand<x86_32_or_x86_64::device_arch_info::MemX87> = true;
+
+template <>
+inline constexpr bool kIsMemoryOperand<x86_32_or_x86_64::device_arch_info::VecMem32> = true;
+
+template <>
+inline constexpr bool kIsMemoryOperand<x86_32_or_x86_64::device_arch_info::VecMem64> = true;
+
+template <>
+inline constexpr bool kIsMemoryOperand<x86_32_or_x86_64::device_arch_info::VecMem128> = true;
+
+template <>
+inline constexpr bool kIsMemoryOperand<x86_32_or_x86_64::device_arch_info::VecMem256> = true;
 
 }  // namespace device_arch_info
 

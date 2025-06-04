@@ -131,7 +131,8 @@ TEST(ExecMachineIR, Smoke) {
   builder.StartBasicBlock(machine_ir.NewBasicBlock());
 
   // Let RBP point to 'data'.
-  builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&data));
+  builder.Gen<x86_64::device_arch_info::MovqRegImm>(kMachineRegRBP,
+                                                    reinterpret_cast<uintptr_t>(&data));
 
   // data.y = data.x;
   builder.Gen<x86_64::MovqRegMemBaseDisp>(kMachineRegRAX, kMachineRegRBP, offsetof(Data, x));

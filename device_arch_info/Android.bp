@@ -18,6 +18,19 @@ package {
 }
 
 python_binary_host {
+    name: "gen_device_insn_info",
+    main: "gen_device_insn_info.py",
+    srcs: ["gen_device_insn_info.py"],
+    libs: ["gen_device_insn_info_lib"],
+}
+
+python_library_host {
+    name: "gen_device_insn_info_lib",
+    srcs: ["gen_device_insn_info_lib.py"],
+    libs: ["asm_defs_lib"],
+}
+
+python_binary_host {
     name: "gen_reg_class",
     main: "gen_reg_class.py",
     srcs: ["gen_reg_class.py"],
@@ -42,6 +55,37 @@ filegroup {
 filegroup {
     name: "libberberis_device_arch_info_reg_class_gen_inputs_x86_64",
     srcs: ["x86_64/reg_class_def.json"],
+}
+
+genrule {
+    name: "libberberis_device_arch_info_device_insn_info_gen_headers_x86_32",
+    out: [
+        "berberis/device_arch_info/x86_32_or_x86_64/device_insn_info-inl.h",
+        "berberis/device_arch_info/x86_32/device_insn_info-inl.h",
+        "berberis/device_arch_info/all_to_x86_32_or_x86_64/device_insn_info-inl.h",
+    ],
+    srcs: [
+        ":libberberis_assembler_gen_inputs_x86_32",
+        ":libberberis_macro_assembler_gen_inputs_all_to_x86_32_or_x86_64",
+    ],
+    tools: ["gen_device_insn_info"],
+    cmd: "$(location gen_device_insn_info) $(out) $(in)",
+}
+
+genrule {
+    name: "libberberis_device_arch_info_device_insn_info_gen_headers_x86_64",
+    out: [
+        "berberis/device_arch_info/x86_32_or_x86_64/device_insn_info-inl.h",
+        "berberis/device_arch_info/x86_64/device_insn_info-inl.h",
+        "berberis/device_arch_info/all_to_x86_32_or_x86_64/device_insn_info-inl.h",
+        "berberis/device_arch_info/all_to_x86_64/device_insn_info-inl.h",
+    ],
+    srcs: [
+        ":libberberis_assembler_gen_inputs_x86_64",
+        ":libberberis_macro_assembler_gen_inputs_all_to_x86_64",
+    ],
+    tools: ["gen_device_insn_info"],
+    cmd: "$(location gen_device_insn_info) $(out) $(in)",
 }
 
 genrule {
@@ -78,6 +122,8 @@ cc_library_headers {
         "libberberis_base_headers",
     ],
     generated_headers: [
+        "libberberis_device_arch_info_device_insn_info_gen_headers_x86_32",
+        "libberberis_device_arch_info_device_insn_info_gen_headers_x86_64",
         "libberberis_device_arch_info_reg_class_gen_headers_riscv64",
         "libberberis_device_arch_info_reg_class_gen_headers_x86_32",
         "libberberis_device_arch_info_reg_class_gen_headers_x86_64",
@@ -87,6 +133,8 @@ cc_library_headers {
         "libberberis_base_headers",
     ],
     export_generated_headers: [
+        "libberberis_device_arch_info_device_insn_info_gen_headers_x86_32",
+        "libberberis_device_arch_info_device_insn_info_gen_headers_x86_64",
         "libberberis_device_arch_info_reg_class_gen_headers_riscv64",
         "libberberis_device_arch_info_reg_class_gen_headers_x86_32",
         "libberberis_device_arch_info_reg_class_gen_headers_x86_64",

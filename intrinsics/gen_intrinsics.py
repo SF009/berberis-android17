@@ -20,6 +20,7 @@
 from collections import OrderedDict
 
 import asm_defs
+import gen_device_insn_info_lib
 import json
 import os
 import re
@@ -905,25 +906,8 @@ def _get_binding_info(arg):
   assert False, 'unknown operand usage %s' % (arg['usage'])
 
 
-def _get_reg_operand_info(arg):
-  class_info = 'device_arch_info::%s' % arg['class']
-  if arg['class'] == 'Imm8':
-    return 'device_arch_info::OperandInfo<%s, device_arch_info::kUse>' % class_info
-  using_info = ', device_arch_info::%s' % {
-      'def': 'kDef',
-      'def_early_clobber': 'kDefEarlyClobber',
-      'use': 'kUse',
-      'use_def': 'kUseDef'
-  }[arg['usage']]
-  return 'device_arch_info::OperandInfo<%s%s>' % (class_info, using_info)
-
-
 def _get_bindings_info(args):
   return 'std::tuple<%s>' % ', '.join(_get_binding_info(arg) for arg in args)
-
-
-def _get_reg_operands_info(args):
-  return 'std::tuple<%s>' % ', '.join(_get_reg_operand_info(arg) for arg in args)
 
 
 def _gen_process_all_bindings(f, intrs, archs):
@@ -935,7 +919,7 @@ def _gen_process_all_bindings(f, intrs, archs):
   # Put implementation into arch-specific namespace to access bindings.
   print("namespace %s {\n" % archs[-1], file = f)
   print("""
-template <typename MacroAssembler,
+template <typename MacroAssemblers,
           typename Callback,
           typename... Args>
 constexpr void ProcessAllBindings([[maybe_unused]] Callback callback,
@@ -970,7 +954,7 @@ template <auto kFunction>
 using FunctionCompareTag = berberis::intrinsics::bindings::FunctionCompareTag<kFunction>;
 
 template <auto kFunc,
-          typename MacroAssembler,
+          typename MacroAssemblers,
           typename Result,
           typename Callback,
           typename... Args>
@@ -1082,12 +1066,7 @@ def _gen_c_intrinsic(
   if not check_compatible_assembler(asm):
     return
 
-  cpuid_restriction = 'device_arch_info::NoCPUIDRestriction'
-  if 'feature' in asm:
-    if asm['feature'] == 'AuthenticAMD':
-      cpuid_restriction = 'device_arch_info::IsAuthenticAMD'
-    else:
-      cpuid_restriction = 'device_arch_info::Has%s' % asm['feature']
+  cpuid_restriction = gen_device_insn_info_lib._get_cpuid_restriction(asm)
 
   nan_restriction = 'berberis::intrinsics::bindings::NoNansOperation'
   if 'nan' in asm:
@@ -1123,12 +1102,12 @@ def _gen_c_intrinsic(
          _get_bindings_info(asm['args'])]))
   yield '              device_arch_info::DeviceInsnInfo<%s>>(),' % (
     ',\n                  '.join(
-        [_get_asm_reference(asm),
+        [gen_device_insn_info_lib._get_asm_reference(asm),
          '"%s"' % asm['mnemo'],
          'true' if _intr_has_side_effects(intr) else 'false',
-         _get_builder_reference(intr, asm),
+         gen_device_insn_info_lib._get_opcode_reference(asm),
          cpuid_restriction,
-         _get_reg_operands_info(asm['args'])]))
+         gen_device_insn_info_lib._get_reg_operands_info(asm['args'])]))
   if gen_builder:
     yield '          std::forward<Args>(args)...); result.has_value()) {'
     yield '      return *std::move(result);'
@@ -1141,69 +1120,6 @@ def _get_c_type_tuple(arguments):
     return 'std::tuple<%s>' % ', '.join(
         _get_c_type(argument) for argument in arguments)
 
-
-def _get_asm_type(asm, prefix=''):
-  args = filter(
-    lambda arg: not asm_defs.is_implicit_reg(arg['class']), asm['args'])
-  return ', '.join(_get_asm_operand_type(arg, prefix) for arg in args)
-
-
-def _get_asm_operand_type(arg, prefix=''):
-  cls = arg.get('class')
-  if asm_defs.is_x87reg(cls):
-    return prefix + 'X87Register'
-  if asm_defs.is_greg(cls):
-    return prefix + 'Register'
-  if asm_defs.is_xreg(cls):
-    return prefix + 'XMMRegister'
-  if asm_defs.is_mem_op(cls):
-    return 'const ' + prefix + 'Operand&'
-  if asm_defs.is_imm(cls):
-    if cls == 'Imm2':
-      return 'int8_t'
-    return 'int' + cls[3:] + '_t'
-  assert False
-
-
-def _get_asm_reference(asm):
-  # Because of misfeature of Itanium C++ ABI we couldn't just use MacroAssembler
-  # to static cast these references if we want to use them as template argument:
-  # https://ibob.bg/blog/2018/08/18/a-bug-in-the-cpp-standard/
-
-  # Thankfully there are usually no need to use the same trick for MacroInstructions
-  # since we may always rename these, except when immediates are involved.
-
-  # But for assembler we need to use actual type from where these
-  # instructions come from!
-  #
-  # E.g. LZCNT have to be processed like this:
-  #   static_cast<void (Assembler_common_x86::*)(
-  #     typename Assembler_common_x86::Register,
-  #     typename Assembler_common_x86::Register)>(
-  #       &Assembler_common_x86::Lzcntl)
-  assembler = 'std::tuple_element_t<%s, MacroAssembler>' % asm['macroassembler']
-  return 'static_cast<void (%s::*)(%s)>(%s&%s::%s%s)' % (
-      assembler,
-      _get_asm_type(asm, 'typename %s::' % assembler),
-      '\n                  ',
-      assembler,
-      'template ' if '<' in asm['asm'] else '',
-      asm['asm'])
-
-def _get_builder_reference(intr, asm):
-  name = asm['name']
-  num_mem_args = sum(
-    1
-    for arg in asm['args']
-      if arg.get('class').startswith("Mem") and
-         arg.get('usage') == 'def_early_clobber')
-  if num_mem_args > 2:
-    opcode = 'Undefined'
-  elif num_mem_args > 0:
-    opcode = asm_defs.get_mem_macro_name(asm, '').replace("Mem", "MemBaseDisp")
-  else:
-    opcode = name
-  return f'[]<typename Opcode>{{ return Opcode::kMachineOp{opcode}; }}'
 
 def _load_intrs_def_files(intrs_def_files):
   result = {}
