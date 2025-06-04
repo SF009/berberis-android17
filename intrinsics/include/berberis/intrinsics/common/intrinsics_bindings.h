@@ -20,6 +20,7 @@
 #include <cstdint>
 
 #include "berberis/base/dependent_false.h"
+#include "berberis/base/string_literal.h"
 #include "berberis/device_arch_info/common/device_arch_info.h"
 #include "berberis/intrinsics/intrinsics_args.h"
 #include "berberis/intrinsics/type_traits.h"
@@ -34,12 +35,12 @@ class NoNansOperation;
 class PreciseNanOperationsHandling;
 class ImpreciseNanOperationsHandling;
 
-template <auto kIntrinsic, typename... Types>
+template <StringLiteral kIntrinsic, typename... Types>
 class IntrinsicBindingInfo;
 
-template <auto kIntrinsic_,
+template <StringLiteral kIntrinsic_,
           auto kEmitInsnFunc_,
-          auto kMnemo,
+          StringLiteral kMnemo,
           auto GetOpcode,
           typename CPUIDRestriction_,
           typename PreciseNanOperationsHandling_,

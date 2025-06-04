@@ -208,7 +208,7 @@ class TryBindingBasedInlineIntrinsic {
   friend constexpr Result x86_64::intrinsics::bindings::ProcessBindings(Callback callback,
                                                                         Result def_result,
                                                                         Args&&... args);
-  template <auto kIntrinsic, typename... Types>
+  template <StringLiteral kIntrinsic, typename... Types>
   friend class intrinsics::bindings::IntrinsicBindingInfo;
 
   TryBindingBasedInlineIntrinsic() = delete;
