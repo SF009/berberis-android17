@@ -23,7 +23,6 @@
 #include "berberis/assembler/machine_code.h"
 #include "berberis/backend/code_emitter.h"
 #include "berberis/backend/common/reg_alloc.h"
-#include "berberis/backend/x86_64/machine_insn_intrinsics.h"
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/backend/x86_64/machine_ir_builder.h"
 #include "berberis/backend/x86_64/machine_ir_check.h"
