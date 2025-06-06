@@ -348,6 +348,60 @@ class MachineIR : public berberis::MachineIR {
     bb_order_ = BasicBlockOrder::kUnordered;
   }
 
+  [[nodiscard]] bool IsCPUStateGet(MachineInsn* insn) const {
+    if (insn->opcode() != kMachineOpMovqRegMemBaseDisp &&
+        insn->opcode() != kMachineOpMovdqaXRegMemBaseDisp &&
+        insn->opcode() != kMachineOpMovwRegMemBaseDisp &&
+        insn->opcode() != kMachineOpMovsdXRegMemBaseDisp) {
+      return false;
+    }
+
+    auto x86_insn = AsMachineInsnX86_64(insn);
+
+    // Check that it is not for ThreadState fields outside of CPUState.
+    if (x86_insn->disp() >= sizeof(CPUState)) {
+      return false;
+    }
+
+    // reservation_value is loaded in HeavyOptimizerFrontend::AtomicLoad and written
+    // in HeavyOptimizerFrontend::AtomicStore partially (for performance
+    // reasons), which is not supported by our context optimizer.
+    auto reservation_value_offset = offsetof(ThreadState, cpu.reservation_value);
+    if (x86_insn->disp() >= reservation_value_offset &&
+        x86_insn->disp() < reservation_value_offset + sizeof(Reservation)) {
+      return false;
+    }
+
+    return x86_insn->RegAt(1) == kCPUStatePointer;
+  }
+
+  [[nodiscard]] bool IsCPUStatePut(MachineInsn* insn) const {
+    if (insn->opcode() != kMachineOpMovqMemBaseDispReg &&
+        insn->opcode() != kMachineOpMovdqaMemBaseDispXReg &&
+        insn->opcode() != kMachineOpMovwMemBaseDispReg &&
+        insn->opcode() != kMachineOpMovsdMemBaseDispXReg) {
+      return false;
+    }
+
+    auto x86_insn = AsMachineInsnX86_64(insn);
+
+    // Check that it is not for ThreadState fields outside of CPUState.
+    if (x86_insn->disp() >= sizeof(CPUState)) {
+      return false;
+    }
+
+    // reservation_value is loaded in HeavyOptimizerFrontend::AtomicLoad and written
+    // in HeavyOptimizerFrontend::AtomicStore partially (for performance
+    // reasons), which is not supported by our context optimizer.
+    auto reservation_value_offset = offsetof(ThreadState, cpu.reservation_value);
+    if (x86_insn->disp() >= reservation_value_offset &&
+        x86_insn->disp() < reservation_value_offset + sizeof(Reservation)) {
+      return false;
+    }
+
+    return x86_insn->RegAt(0) == kCPUStatePointer;
+  }
+
   [[nodiscard]] MachineBasicBlock* NewBasicBlock() {
     return NewInArena<MachineBasicBlock>(arena(), arena(), ReserveBasicBlockId());
   }
