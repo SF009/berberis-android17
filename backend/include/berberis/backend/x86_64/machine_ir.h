@@ -31,6 +31,12 @@
 
 namespace berberis {
 
+// Some instructions form groups. E.g. memory-accesses typically have 4 versions: Absolute, Base,
+// Index Base+Index.
+//
+// To ensure that there enough bits to separate these versions we reserve top 8 bits.
+inline constexpr int kLowMachineOpcodeBits = 24;
+
 enum MachineOpcode : int {
   kMachineOpUndefined = 0,
   kMachineOpCallImm,
@@ -46,12 +52,6 @@ enum MachineOpcode : int {
   kMachineOpPseudoWriteFlags,
 #include "machine_opcode_x86_64-inl.h"  // NOLINT generated file!
 };
-
-// Some instructions form groups. E.g. memory-accesses typically have 4 versions: Absolute, Base,
-// Index Base+Index.
-//
-// To ensure that there enough bits to separate these versions we reserve top 8 bits.
-inline constexpr int kLowMachineOpcodeBits = 24;
 
 namespace x86_64 {
 
