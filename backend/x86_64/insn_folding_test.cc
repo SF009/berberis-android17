@@ -314,7 +314,7 @@ TEST(InsnFoldingTest, SingleMovqMemBaseDispImm32Folding) {
 
   builder.StartBasicBlock(bb);
   builder.Gen<MovlRegImm>(vreg1, 2);
-  builder.Gen<MovqMemBaseDispReg>(kMachineRegRAX, 4, vreg1);
+  builder.Gen<device_arch_info::MovqOpReg>({.base = kMachineRegRAX, .disp = 4}, vreg1);
   builder.SetRecoveryPointAtLastInsn(recovery_bb);
   builder.SetRecoveryWithGuestPCAtLastInsn(42);
 
@@ -340,7 +340,7 @@ TEST(InsnFoldingTest, SingleMovlMemBaseDispImm32Folding) {
 
   builder.StartBasicBlock(bb);
   builder.Gen<MovqRegImm>(vreg1, 0x3'0000'0003);
-  builder.Gen<MovlMemBaseDispReg>(kMachineRegRAX, 4, vreg1);
+  builder.Gen<device_arch_info::MovlOpReg>({.base = kMachineRegRAX, .disp = 4}, vreg1);
   builder.SetRecoveryPointAtLastInsn(recovery_bb);
   builder.SetRecoveryWithGuestPCAtLastInsn(42);
 
