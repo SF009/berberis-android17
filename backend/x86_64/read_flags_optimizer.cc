@@ -145,7 +145,7 @@ bool RegsLiveInBasicBlock(MachineBasicBlock* bb, const MachineRegVector& regs) {
 }
 
 template <typename T>
-MachineInsn* CopyInstruction(MachineIR* machine_ir, MachineInsn* insn) {
+berberis::MachineInsn* CopyInstruction(MachineIR* machine_ir, berberis::MachineInsn* insn) {
   return machine_ir->NewInsn<T>(*static_cast<T*>(insn));
 }
 
@@ -412,7 +412,7 @@ void RemoveReadFlags(MachineIR* machine_ir, ReadFlagsOptContext context) {
 
   insn_it = context.flag_set_insn.insn;
 
-  MachineInsn* insn = *insn_it;
+  berberis::MachineInsn* insn = *insn_it;
 
   // Create copies of input registers.
   ArenaMap<MachineReg, MachineReg> reg_map(machine_ir->arena());
@@ -448,7 +448,7 @@ void ReplaceFlagRegisters(MachineIR* machine_ir,
                           MachineInsnList::iterator insn_it,
                           MachineRegVector flags_regs,
                           const ArenaMap<MachineReg, MachineReg>& reg_map,
-                          MachineInsn* insn) {
+                          berberis::MachineInsn* insn) {
   ArenaSet<MachineReg> used_flags{machine_ir->arena()};
   while (insn_it != context.bb->insn_list().end()) {
     if (AsMachineInsnX86_64(*insn_it)->opcode() == kMachineOpPseudoCopy &&

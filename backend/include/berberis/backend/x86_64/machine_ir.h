@@ -348,7 +348,7 @@ class MachineIR : public berberis::MachineIR {
     bb_order_ = BasicBlockOrder::kUnordered;
   }
 
-  [[nodiscard]] bool IsCPUStateGet(MachineInsn* insn) const {
+  [[nodiscard]] bool IsCPUStateGet(berberis::MachineInsn* insn) const {
     if (insn->opcode() != kMachineOpMovqRegMemBaseDisp &&
         insn->opcode() != kMachineOpMovdqaXRegMemBaseDisp &&
         insn->opcode() != kMachineOpMovwRegMemBaseDisp &&
@@ -375,7 +375,7 @@ class MachineIR : public berberis::MachineIR {
     return x86_insn->RegAt(1) == kCPUStatePointer;
   }
 
-  [[nodiscard]] bool IsCPUStatePut(MachineInsn* insn) const {
+  [[nodiscard]] bool IsCPUStatePut(berberis::MachineInsn* insn) const {
     if (insn->opcode() != kMachineOpMovqMemBaseDispReg &&
         insn->opcode() != kMachineOpMovdqaMemBaseDispXReg &&
         insn->opcode() != kMachineOpMovwMemBaseDispReg &&
@@ -427,7 +427,7 @@ class MachineIR : public berberis::MachineIR {
     return new_bb;
   }
 
-  [[nodiscard]] static bool IsControlTransfer(MachineInsn* insn) {
+  [[nodiscard]] static bool IsControlTransfer(berberis::MachineInsn* insn) {
     return insn->opcode() == kMachineOpPseudoBranch ||
            insn->opcode() == kMachineOpPseudoCondBranch ||
            insn->opcode() == kMachineOpPseudoIndirectJump || insn->opcode() == kMachineOpPseudoJump;
