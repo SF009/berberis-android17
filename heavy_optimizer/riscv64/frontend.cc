@@ -232,8 +232,10 @@ void HeavyOptimizerFrontend::ReplaceJumpWithBranch(MachineBasicBlock* bb,
     // fall-through jump for the current bb. At the same time exit_bb can be a fall-through jump
     // and benchmarks benefit from it.
     const size_t offset = offsetof(ThreadState, pending_signals_status);
-    auto* cmpb = ir->NewInsn<x86_64::CmpbMemBaseDispImm>(
-        x86_64::kMachineRegRBP, offset, kPendingSignalsPresent, GetFlagsRegister());
+    auto* cmpb = ir->NewInsn<x86_64::device_arch_info::CmpbOpImm>(
+        {.base = x86_64::kMachineRegRBP, .disp = offset},
+        kPendingSignalsPresent,
+        GetFlagsRegister());
     *jump_it = cmpb;
     auto* cond_branch = ir->NewInsn<PseudoCondBranch>(
         x86_64::Assembler::Condition::kEqual, exit_bb, target_bb, GetFlagsRegister());

@@ -134,12 +134,14 @@ berberis::MachineInsn* InsnFolding::NewImmInsnFromRegInsn(const berberis::Machin
       folded_insn = machine_ir_->NewInsn<ShrlRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpMovlMemBaseDispReg:
-      folded_insn = machine_ir_->NewInsn<MovlMemBaseDispImm>(
-          insn->RegAt(0), AsMachineInsnX86_64(insn)->disp(), imm32);
+      folded_insn = machine_ir_->NewInsn<device_arch_info::MovlOpImm>(
+          {.base = insn->RegAt(0), .disp = static_cast<int32_t>(AsMachineInsnX86_64(insn)->disp())},
+          imm32);
       break;
     case kMachineOpMovqMemBaseDispReg:
-      folded_insn = machine_ir_->NewInsn<MovqMemBaseDispImm>(
-          insn->RegAt(0), AsMachineInsnX86_64(insn)->disp(), imm32);
+      folded_insn = machine_ir_->NewInsn<device_arch_info::MovqOpImm>(
+          {.base = insn->RegAt(0), .disp = static_cast<int32_t>(AsMachineInsnX86_64(insn)->disp())},
+          imm32);
       break;
     default:
       LOG_ALWAYS_FATAL("unexpected opcode");

@@ -854,6 +854,123 @@ class MachineIR : public berberis::MachineIR {
 
   void set_bb_order(BasicBlockOrder order) { bb_order_ = order; }
 
+  using berberis::MachineIR::NewInsn;
+
+  template <typename T, typename... Args>
+  [[nodiscard]] T* NewInsn(Args... args) {
+    return berberis::MachineIR::template NewInsn<T, Args...>(args...);
+  }
+
+  template <template <typename> typename InsnType>
+  using MachineInsnType =
+      MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>;
+
+  template <template <typename> typename InsnType, size_t N>
+  using GenArg = std::tuple_element_t<
+      N,
+      typename MachineInsnOperandsHelper<typename InsnType<
+          typename CodeEmitter::Assemblers>::DeviceInsnInfo>::ConstructorArgsTuple>;
+
+  template <template <typename> typename InsnType>
+  [[nodiscard]] auto NewInsn()
+      -> std::enable_if_t<
+          std::tuple_size_v<typename MachineInsnOperandsHelper<typename InsnType<
+              typename CodeEmitter::Assemblers>::DeviceInsnInfo>::ConstructorArgsTuple> == 0,
+          MachineInsnType<InsnType>*> {
+    return NewInsn<MachineInsnType<InsnType>>();
+  }
+
+  template <template <typename> typename InsnType>
+  [[nodiscard]] auto NewInsn(GenArg<InsnType, 0> arg0)
+      -> std::enable_if_t<
+          std::tuple_size_v<typename MachineInsnOperandsHelper<typename InsnType<
+              typename CodeEmitter::Assemblers>::DeviceInsnInfo>::ConstructorArgsTuple> == 1,
+          MachineInsnType<InsnType>*> {
+    return NewInsn<MachineInsnType<InsnType>, GenArg<InsnType, 0>>(arg0);
+  }
+
+  template <template <typename> typename InsnType>
+  [[nodiscard]] auto NewInsn(GenArg<InsnType, 0> arg0, GenArg<InsnType, 1> arg1)
+      -> std::enable_if_t<
+          std::tuple_size_v<typename MachineInsnOperandsHelper<typename InsnType<
+              typename CodeEmitter::Assemblers>::DeviceInsnInfo>::ConstructorArgsTuple> == 2,
+          MachineInsnType<InsnType>*> {
+    return NewInsn<MachineInsnType<InsnType>, GenArg<InsnType, 0>, GenArg<InsnType, 1>>(arg0, arg1);
+  }
+
+  template <template <typename> typename InsnType>
+  [[nodiscard]] auto NewInsn(GenArg<InsnType, 0> arg0,
+                             GenArg<InsnType, 1> arg1,
+                             GenArg<InsnType, 2> arg2)
+      -> std::enable_if_t<
+          std::tuple_size_v<typename MachineInsnOperandsHelper<typename InsnType<
+              typename CodeEmitter::Assemblers>::DeviceInsnInfo>::ConstructorArgsTuple> == 3,
+          MachineInsnType<InsnType>*> {
+    return NewInsn<MachineInsnType<InsnType>,
+                   GenArg<InsnType, 0>,
+                   GenArg<InsnType, 1>,
+                   GenArg<InsnType, 2>>(arg0, arg1, arg2);
+  }
+
+  template <template <typename> typename InsnType>
+  [[nodiscard]] auto NewInsn(GenArg<InsnType, 0> arg0,
+                             GenArg<InsnType, 1> arg1,
+                             GenArg<InsnType, 2> arg2,
+                             GenArg<InsnType, 3> arg3)
+      -> std::enable_if_t<
+          std::tuple_size_v<typename MachineInsnOperandsHelper<typename InsnType<
+              typename CodeEmitter::Assemblers>::DeviceInsnInfo>::ConstructorArgsTuple> == 4,
+          MachineInsnType<InsnType>*> {
+    return NewInsn<MachineInsnType<InsnType>,
+                   GenArg<InsnType, 0>,
+                   GenArg<InsnType, 1>,
+                   GenArg<InsnType, 2>,
+                   GenArg<InsnType, 3>>(arg0, arg1, arg2, arg3);
+  }
+
+  template <template <typename> typename InsnType>
+  [[nodiscard]] auto NewInsn(GenArg<InsnType, 0> arg0,
+                             GenArg<InsnType, 1> arg1,
+                             GenArg<InsnType, 2> arg2,
+                             GenArg<InsnType, 3> arg3,
+                             GenArg<InsnType, 4> arg4)
+      -> std::enable_if_t<
+          std::tuple_size_v<typename MachineInsnOperandsHelper<typename InsnType<
+              typename CodeEmitter::Assemblers>::DeviceInsnInfo>::ConstructorArgsTuple> == 5,
+          MachineInsnType<InsnType>*> {
+    return NewInsn<MachineInsnType<InsnType>,
+                   GenArg<InsnType, 0>,
+                   GenArg<InsnType, 1>,
+                   GenArg<InsnType, 2>,
+                   GenArg<InsnType, 3>,
+                   GenArg<InsnType, 4>>(arg0, arg1, arg2, arg3, arg4);
+  }
+
+  template <template <typename> typename InsnType>
+  [[nodiscard]] auto NewInsn(GenArg<InsnType, 0> arg0,
+                             GenArg<InsnType, 1> arg1,
+                             GenArg<InsnType, 2> arg2,
+                             GenArg<InsnType, 3> arg3,
+                             GenArg<InsnType, 4> arg4,
+                             GenArg<InsnType, 5> arg5)
+      -> std::enable_if_t<
+          std::tuple_size_v<typename MachineInsnOperandsHelper<typename InsnType<
+              typename CodeEmitter::Assemblers>::DeviceInsnInfo>::ConstructorArgsTuple> == 6,
+          MachineInsnType<InsnType>*> {
+    return NewInsn<MachineInsnType<InsnType>,
+                   GenArg<InsnType, 0>,
+                   GenArg<InsnType, 1>,
+                   GenArg<InsnType, 2>,
+                   GenArg<InsnType, 3>,
+                   GenArg<InsnType, 4>,
+                   GenArg<InsnType, 5>>(arg0, arg1, arg2, arg3, arg4, arg5);
+  }
+
+  template <template <typename> typename InsnType, typename... Args>
+  [[nodiscard]] MachineInsnType<InsnType>* NewInsn(Args... args) {
+    return NewInsn<MachineInsnType<InsnType>, Args...>(args...);
+  }
+
  private:
   BasicBlockOrder bb_order_;
 };
