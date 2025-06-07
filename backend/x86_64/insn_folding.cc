@@ -134,12 +134,12 @@ berberis::MachineInsn* InsnFolding::NewImmInsnFromRegInsn(const berberis::Machin
       folded_insn = machine_ir_->NewInsn<ShrlRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpMovlMemBaseDispReg:
-      folded_insn = machine_ir_->NewInsn<device_arch_info::MovlOpImm>(
+      folded_insn = machine_ir_->NewInsn<MovlOpImm>(
           {.base = insn->RegAt(0), .disp = static_cast<int32_t>(AsMachineInsnX86_64(insn)->disp())},
           imm32);
       break;
     case kMachineOpMovqMemBaseDispReg:
-      folded_insn = machine_ir_->NewInsn<device_arch_info::MovqOpImm>(
+      folded_insn = machine_ir_->NewInsn<MovqOpImm>(
           {.base = insn->RegAt(0), .disp = static_cast<int32_t>(AsMachineInsnX86_64(insn)->disp())},
           imm32);
       break;

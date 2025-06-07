@@ -227,23 +227,19 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
   }
 
   void GenGet(MachineReg dst_reg, int32_t offset) {
-    Gen<x86_64::device_arch_info::MovqRegOp>(dst_reg,
-                                             {.base = x86_64::kMachineRegRBP, .disp = offset});
+    Gen<x86_64::MovqRegOp>(dst_reg, {.base = x86_64::kMachineRegRBP, .disp = offset});
   }
 
   void GenPut(int32_t offset, MachineReg src_reg) {
-    Gen<x86_64::device_arch_info::MovqOpReg>({.base = x86_64::kMachineRegRBP, .disp = offset},
-                                             src_reg);
+    Gen<x86_64::MovqOpReg>({.base = x86_64::kMachineRegRBP, .disp = offset}, src_reg);
   }
 
   template <size_t kSize>
   void GenGetSimd(MachineReg dst_reg, int32_t offset) {
     if constexpr (kSize == 8) {
-      Gen<x86_64::device_arch_info::MovsdXRegOp>(dst_reg,
-                                                 {.base = x86_64::kMachineRegRBP, .disp = offset});
+      Gen<x86_64::MovsdXRegOp>(dst_reg, {.base = x86_64::kMachineRegRBP, .disp = offset});
     } else if constexpr (kSize == 16) {
-      Gen<x86_64::device_arch_info::MovdqaXRegOp>(dst_reg,
-                                                  {.base = x86_64::kMachineRegRBP, .disp = offset});
+      Gen<x86_64::MovdqaXRegOp>(dst_reg, {.base = x86_64::kMachineRegRBP, .disp = offset});
     } else {
       static_assert(kDependentValueFalse<kSize>);
     }
@@ -252,11 +248,9 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
   template <size_t kSize>
   void GenSetSimd(int32_t offset, MachineReg src_reg) {
     if constexpr (kSize == 8) {
-      Gen<x86_64::device_arch_info::MovsdOpXReg>({.base = x86_64::kMachineRegRBP, .disp = offset},
-                                                 src_reg);
+      Gen<x86_64::MovsdOpXReg>({.base = x86_64::kMachineRegRBP, .disp = offset}, src_reg);
     } else if constexpr (kSize == 16) {
-      Gen<x86_64::device_arch_info::MovdqaOpXReg>({.base = x86_64::kMachineRegRBP, .disp = offset},
-                                                  src_reg);
+      Gen<x86_64::MovdqaOpXReg>({.base = x86_64::kMachineRegRBP, .disp = offset}, src_reg);
     } else {
       static_assert(kDependentValueFalse<kSize>);
     }

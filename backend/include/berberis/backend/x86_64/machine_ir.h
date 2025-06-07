@@ -328,13 +328,6 @@ class CallImmArg : public MachineInsnX86_64 {
 
 using MachineInsnForArch = MachineInsnX86_64;
 
-#include "gen_machine_ir_x86_64-inl.h"  // NOLINT generated file!
-
-class MachineInfo {
- public:
-#include "machine_info_x86_64-inl.h"  // NOLINT generated file!
-};
-
 struct MemoryOperand {
   MachineReg base = kInvalidMachineReg;
   MachineReg index = kInvalidMachineReg;

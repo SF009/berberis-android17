@@ -114,8 +114,7 @@ void CallOneArgumentIntrinsicUseIntegral(IntrinsicFunc func, T argument, uint64_
   CallIntrinsicImpl(&builder, func, result_register, flag_register, argument);
 
   builder.Gen<x86_64::MovqRegImm>(result_value_addr_reg, bit_cast<uintptr_t>(result));
-  builder.Gen<x86_64::device_arch_info::MovqOpReg>({.base = result_value_addr_reg},
-                                                   result_register);
+  builder.Gen<x86_64::MovqOpReg>({.base = result_value_addr_reg}, result_register);
 
   ExecTest test;
   test.Init(&machine_ir);
@@ -139,8 +138,7 @@ void CallOneArgumentIntrinsicUseRegister(IntrinsicFunc func, uint64_t argument, 
   CallIntrinsicImpl(&builder, func, result_register, flag_register, argument_register);
 
   builder.Gen<x86_64::MovqRegImm>(result_value_addr_reg, bit_cast<uintptr_t>(result));
-  builder.Gen<x86_64::device_arch_info::MovqOpReg>({.base = result_value_addr_reg},
-                                                   result_register);
+  builder.Gen<x86_64::MovqOpReg>({.base = result_value_addr_reg}, result_register);
 
   ExecTest test;
   test.Init(&machine_ir);

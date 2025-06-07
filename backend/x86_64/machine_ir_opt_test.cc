@@ -77,7 +77,7 @@ TEST(MachineIRRemoveDeadCodeTest, RegUsedInSameBasicBlockNotErased) {
 
   builder.StartBasicBlock(bb);
   builder.Gen<x86_64::MovqRegImm>(vreg1, 4);
-  builder.Gen<x86_64::device_arch_info::MovqOpReg>({.base = vreg2}, vreg1);
+  builder.Gen<x86_64::MovqOpReg>({.base = vreg2}, vreg1);
   builder.Gen<PseudoBranch>(bb);
 
   bb->live_out().push_back(vreg1);

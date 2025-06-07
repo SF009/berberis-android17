@@ -127,10 +127,8 @@ TEST(MachineIRLocalGuestContextOptimizer, DoNotRemoveAccessToMonitorValue) {
   auto reg1 = machine_ir.AllocVReg();
   auto reg2 = machine_ir.AllocVReg();
   constexpr auto offset = offsetof(ProcessState, cpu.reservation_value);
-  builder.Gen<x86_64::device_arch_info::MovqOpReg>({.base = x86_64::kMachineRegRBP, .disp = offset},
-                                                   reg1);
-  builder.Gen<x86_64::device_arch_info::MovqOpReg>({.base = x86_64::kMachineRegRBP, .disp = offset},
-                                                   reg2);
+  builder.Gen<x86_64::MovqOpReg>({.base = x86_64::kMachineRegRBP, .disp = offset}, reg1);
+  builder.Gen<x86_64::MovqOpReg>({.base = x86_64::kMachineRegRBP, .disp = offset}, reg2);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
   x86_64::RemoveLocalGuestContextAccesses(&machine_ir);

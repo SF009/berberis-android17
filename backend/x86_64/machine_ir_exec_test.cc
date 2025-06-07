@@ -130,14 +130,13 @@ TEST(ExecMachineIR, Smoke) {
   builder.StartBasicBlock(machine_ir.NewBasicBlock());
 
   // Let RBP point to 'data'.
-  builder.Gen<x86_64::device_arch_info::MovqRegImm>(kMachineRegRBP,
-                                                    reinterpret_cast<uintptr_t>(&data));
+  builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&data));
 
   // data.y = data.x;
-  builder.Gen<x86_64::device_arch_info::MovqRegOp>(
-      kMachineRegRAX, {.base = kMachineRegRBP, .disp = offsetof(Data, x)});
-  builder.Gen<x86_64::device_arch_info::MovqOpReg>(
-      {.base = kMachineRegRBP, .disp = offsetof(Data, y)}, kMachineRegRAX);
+  builder.Gen<x86_64::MovqRegOp>(kMachineRegRAX,
+                                 {.base = kMachineRegRBP, .disp = offsetof(Data, x)});
+  builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP, .disp = offsetof(Data, y)},
+                                 kMachineRegRAX);
 
   ExecTest test;
   test.Init(machine_ir);
@@ -165,7 +164,7 @@ TEST(ExecMachineIR, CallImm) {
 
   uint64_t result = 0;
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&result));
-  builder.Gen<x86_64::device_arch_info::MovqOpReg>({.base = kMachineRegRBP}, kMachineRegRAX);
+  builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP}, kMachineRegRAX);
 
   ExecTest test;
   test.Init(machine_ir);
@@ -208,9 +207,8 @@ TEST(ExecMachineIR, CallImmAllocIntOperands) {
   }};
   auto* call = builder.GenCallImm(bit_cast<uintptr_t>(func_ptr), flag_register, args);
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, bit_cast<uintptr_t>(&result));
-  builder.Gen<x86_64::device_arch_info::MovqOpReg>({.base = kMachineRegRBP}, call->IntResultAt(0));
-  builder.Gen<x86_64::device_arch_info::MovqOpReg>({.base = kMachineRegRBP, .disp = 8},
-                                                   call->IntResultAt(1));
+  builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP}, call->IntResultAt(0));
+  builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP, .disp = 8}, call->IntResultAt(1));
 
   AllocRegs(&machine_ir);
 
@@ -306,9 +304,9 @@ TEST(ExecMachineIR, CallImmAllocXmmOperands) {
   auto* call = builder.GenCallImm(bit_cast<uintptr_t>(func_ptr), flag_register, args);
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, bit_cast<uintptr_t>(&result));
   builder.Gen<x86_64::MovqRegXReg>(data_reg, call->XmmResultAt(0));
-  builder.Gen<x86_64::device_arch_info::MovqOpReg>({.base = kMachineRegRBP}, data_reg);
+  builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP}, data_reg);
   builder.Gen<x86_64::MovqRegXReg>(data_reg, call->XmmResultAt(1));
-  builder.Gen<x86_64::device_arch_info::MovqOpReg>({.base = kMachineRegRBP, .disp = 8}, data_reg);
+  builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP, .disp = 8}, data_reg);
 
   AllocRegs(&machine_ir);
 
@@ -402,7 +400,7 @@ void TestRegAlloc() {
   for (int i = 0; i < N; ++i) {
     MachineReg v = machine_ir.AllocVReg();
     vregs[i] = v;
-    builder.Gen<x86_64::device_arch_info::MovqRegOp>(
+    builder.Gen<x86_64::MovqRegOp>(
         v,
         {.base = kMachineRegRBP,
          .disp = static_cast<int32_t>(offsetof(Data, in_array) + i * sizeof(data.in_array[0]))});
@@ -435,8 +433,7 @@ void TestRegAlloc() {
   builder.Gen<x86_64::MovqRegXReg>(v1, vx0);
   MachineReg vflags = machine_ir.AllocVReg();
   builder.Gen<x86_64::AddqRegReg>(v1, v0, vflags);
-  builder.Gen<x86_64::device_arch_info::MovqOpReg>(
-      {.base = kMachineRegRBP, .disp = offsetof(Data, out)}, v1);
+  builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP, .disp = offsetof(Data, out)}, v1);
 
   AllocRegs(&machine_ir);
 
@@ -493,9 +490,9 @@ TEST(ExecMachineIR, MemoryOperand) {
   // BaseDisp
   x86_64::MemoryOperand mem_base_disp{.base = base_reg, .disp = offsetof(Data, in_base_disp)};
   data_reg = machine_ir.AllocVReg();
-  builder.Gen<x86_64::device_arch_info::MovzxblRegOp>(data_reg, mem_base_disp);
-  builder.Gen<x86_64::device_arch_info::MovqOpReg>(
-      {.base = base_reg, .disp = offsetof(Data, out_base_disp)}, data_reg);
+  builder.Gen<x86_64::MovzxblRegOp>(data_reg, mem_base_disp);
+  builder.Gen<x86_64::MovqOpReg>({.base = base_reg, .disp = offsetof(Data, out_base_disp)},
+                                 data_reg);
 
   // IndexDisp
   MachineReg index_reg = machine_ir.AllocVReg();
@@ -504,9 +501,9 @@ TEST(ExecMachineIR, MemoryOperand) {
   x86_64::MemoryOperand mem_index_disp = {
       .index = index_reg, .scale = CodeEmitter::kTimesTwo, offsetof(Data, in_index_disp)};
   data_reg = machine_ir.AllocVReg();
-  builder.Gen<x86_64::device_arch_info::MovzxblRegOp>(data_reg, mem_index_disp);
-  builder.Gen<x86_64::device_arch_info::MovqOpReg>(
-      {.base = base_reg, .disp = offsetof(Data, out_index_disp)}, data_reg);
+  builder.Gen<x86_64::MovzxblRegOp>(data_reg, mem_index_disp);
+  builder.Gen<x86_64::MovqOpReg>({.base = base_reg, .disp = offsetof(Data, out_index_disp)},
+                                 data_reg);
 
   // BaseIndexDisp
   MachineReg tmp_base_reg = machine_ir.AllocVReg();
@@ -517,9 +514,9 @@ TEST(ExecMachineIR, MemoryOperand) {
   x86_64::MemoryOperand mem_base_index_disp = {
       .base = tmp_base_reg, .index = tmp_index_reg, .scale = CodeEmitter::kTimesFour, .disp = 8};
   data_reg = machine_ir.AllocVReg();
-  builder.Gen<x86_64::device_arch_info::MovzxblRegOp>(data_reg, mem_base_index_disp);
-  builder.Gen<x86_64::device_arch_info::MovqOpReg>(
-      {.base = base_reg, .disp = offsetof(Data, out_base_index_disp)}, data_reg);
+  builder.Gen<x86_64::MovzxblRegOp>(data_reg, mem_base_index_disp);
+  builder.Gen<x86_64::MovqOpReg>({.base = base_reg, .disp = offsetof(Data, out_base_index_disp)},
+                                 data_reg);
 
   AllocRegs(&machine_ir);
 
@@ -620,7 +617,7 @@ class ExecMachineIRTest : public ::testing::Test {
       slots_[i] = MachineReg::CreateSpilledRegFromIndex(
           machine_ir_.SpillSlotOffset(machine_ir_.AllocSpill()));
 
-      builder_.Gen<x86_64::device_arch_info::MovdquXRegOp>(
+      builder_.Gen<x86_64::MovdquXRegOp>(
           kMachineRegXMM0,
           {.base = kMachineRegRBP,
            .disp = static_cast<int32_t>(offsetof(Data, slots) + i * sizeof(data_.slots[0]))});
@@ -628,14 +625,14 @@ class ExecMachineIRTest : public ::testing::Test {
     }
 
     for (size_t i = 0; i < std::size(kXmms); ++i) {
-      builder_.Gen<x86_64::device_arch_info::MovdquXRegOp>(
+      builder_.Gen<x86_64::MovdquXRegOp>(
           kXmms[i],
           {.base = kMachineRegRBP,
            .disp = static_cast<int32_t>(offsetof(Data, xmms) + i * sizeof(data_.xmms[0]))});
     }
 
     for (size_t i = 0; i < std::size(kGRegs); ++i) {
-      builder_.Gen<x86_64::device_arch_info::MovqRegOp>(
+      builder_.Gen<x86_64::MovqRegOp>(
           kGRegs[i],
           {.base = kMachineRegRBP,
            .disp = static_cast<int32_t>(offsetof(Data, gregs) + i * sizeof(data_.gregs[0]))});
@@ -644,14 +641,14 @@ class ExecMachineIRTest : public ::testing::Test {
 
   void Finalize() {
     for (size_t i = 0; i < std::size(kGRegs); ++i) {
-      builder_.Gen<x86_64::device_arch_info::MovqOpReg>(
+      builder_.Gen<x86_64::MovqOpReg>(
           {.base = kMachineRegRBP,
            .disp = static_cast<int32_t>(offsetof(Data, gregs) + i * sizeof(data_.gregs[0]))},
           kGRegs[i]);
     }
 
     for (size_t i = 0; i < std::size(kXmms); ++i) {
-      builder_.Gen<x86_64::device_arch_info::MovdquOpXReg>(
+      builder_.Gen<x86_64::MovdquOpXReg>(
           {.base = kMachineRegRBP,
            .disp = static_cast<int32_t>(offsetof(Data, xmms) + i * sizeof(data_.xmms[0]))},
           kXmms[i]);
@@ -659,7 +656,7 @@ class ExecMachineIRTest : public ::testing::Test {
 
     for (size_t i = 0; i < std::size(data_.slots); ++i) {
       builder_.Gen<PseudoCopy>(kMachineRegXMM0, slots_[i], 16);
-      builder_.Gen<x86_64::device_arch_info::MovdquOpXReg>(
+      builder_.Gen<x86_64::MovdquOpXReg>(
           {.base = kMachineRegRBP,
            .disp = static_cast<int32_t>(offsetof(Data, slots) + i * sizeof(data_.slots[0]))},
           kMachineRegXMM0);
@@ -749,7 +746,7 @@ TEST(ExecMachineIR, RecoveryBlock) {
   builder.StartBasicBlock(main_bb);
   // Cause a SIGSEGV.
   builder.Gen<x86_64::XorqRegReg>(kScratchReg, kScratchReg, x86_64::kMachineRegFLAGS);
-  builder.Gen<x86_64::device_arch_info::MovqOpReg>({.base = kScratchReg}, kScratchReg);
+  builder.Gen<x86_64::MovqOpReg>({.base = kScratchReg}, kScratchReg);
   builder.SetRecoveryPointAtLastInsn(recovery_bb);
   builder.Gen<PseudoJump>(21ULL);
 
@@ -779,7 +776,7 @@ TEST(ExecMachineIR, RecoveryWithGuestPC) {
   builder.StartBasicBlock(machine_ir.NewBasicBlock());
   // Cause a SIGSEGV.
   builder.Gen<x86_64::XorqRegReg>(kScratchReg, kScratchReg, x86_64::kMachineRegFLAGS);
-  builder.Gen<x86_64::device_arch_info::MovqOpReg>({.base = kScratchReg}, kScratchReg);
+  builder.Gen<x86_64::MovqOpReg>({.base = kScratchReg}, kScratchReg);
   builder.SetRecoveryWithGuestPCAtLastInsn(42ULL);
 
   ExecTest test;
@@ -807,16 +804,15 @@ TEST(ExecMachineIR, PseudoReadFlags) {
 
   // Let RBP point to 'data'.
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&data));
-  builder.Gen<x86_64::device_arch_info::MovqRegOp>(
-      kMachineRegRAX, {.base = kMachineRegRBP, .disp = offsetof(Data, x)});
-  builder.Gen<x86_64::device_arch_info::AddqRegOp>(
-      kMachineRegRAX,
-      {.base = kMachineRegRBP, .disp = offsetof(Data, y)},
-      x86_64::kMachineRegFLAGS);
+  builder.Gen<x86_64::MovqRegOp>(kMachineRegRAX,
+                                 {.base = kMachineRegRBP, .disp = offsetof(Data, x)});
+  builder.Gen<x86_64::AddqRegOp>(kMachineRegRAX,
+                                 {.base = kMachineRegRBP, .disp = offsetof(Data, y)},
+                                 x86_64::kMachineRegFLAGS);
   builder.Gen<PseudoReadFlags>(
       PseudoReadFlags::kWithOverflow, kMachineRegRAX, x86_64::kMachineRegFLAGS);
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&res_flags));
-  builder.Gen<x86_64::device_arch_info::MovqOpReg>({.base = kMachineRegRBP}, kMachineRegRAX);
+  builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP}, kMachineRegRAX);
 
   ExecTest test;
   test.Init(machine_ir);
@@ -852,18 +848,17 @@ TEST(ExecMachineIR, PseudoReadFlagsWithoutOverflow) {
 
   // Let RBP point to 'data'.
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&data));
-  builder.Gen<x86_64::device_arch_info::MovqRegOp>(
-      kMachineRegRAX, {.base = kMachineRegRBP, .disp = offsetof(Data, x)});
-  builder.Gen<x86_64::device_arch_info::AddqRegOp>(
-      kMachineRegRAX,
-      {.base = kMachineRegRBP, .disp = offsetof(Data, y)},
-      x86_64::kMachineRegFLAGS);
+  builder.Gen<x86_64::MovqRegOp>(kMachineRegRAX,
+                                 {.base = kMachineRegRBP, .disp = offsetof(Data, x)});
+  builder.Gen<x86_64::AddqRegOp>(kMachineRegRAX,
+                                 {.base = kMachineRegRBP, .disp = offsetof(Data, y)},
+                                 x86_64::kMachineRegFLAGS);
   // ReadFlags must reset overflow to zero, even if it's set in RAX.
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRAX, MakeFlags(0b0001));
   builder.Gen<PseudoReadFlags>(
       PseudoReadFlags::kWithoutOverflow, kMachineRegRAX, x86_64::kMachineRegFLAGS);
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&res_flags));
-  builder.Gen<x86_64::device_arch_info::MovqOpReg>({.base = kMachineRegRBP}, kMachineRegRAX);
+  builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP}, kMachineRegRAX);
 
   ExecTest test;
   test.Init(machine_ir);
@@ -886,13 +881,13 @@ TEST(ExecMachineIR, PseudoWriteFlags) {
   builder.StartBasicBlock(machine_ir.NewBasicBlock());
 
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&arg_flags));
-  builder.Gen<x86_64::device_arch_info::MovqRegOp>(kMachineRegRAX, {.base = kMachineRegRBP});
+  builder.Gen<x86_64::MovqRegOp>(kMachineRegRAX, {.base = kMachineRegRBP});
   builder.Gen<PseudoWriteFlags>(kMachineRegRAX, x86_64::kMachineRegFLAGS);
   // Assume PseudoReadFlags is verified by another test.
   builder.Gen<PseudoReadFlags>(
       PseudoReadFlags::kWithOverflow, kMachineRegRAX, x86_64::kMachineRegFLAGS);
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&res_flags));
-  builder.Gen<x86_64::device_arch_info::MovqOpReg>({.base = kMachineRegRBP}, kMachineRegRAX);
+  builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP}, kMachineRegRAX);
 
   ExecTest test;
   test.Init(machine_ir);

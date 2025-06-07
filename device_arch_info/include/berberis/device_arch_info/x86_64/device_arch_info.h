@@ -50,12 +50,12 @@ class Mem128 {
 
 #include "berberis/device_arch_info/x86_64/machine_reg_class-inl.h"
 
+}  // namespace device_arch_info
+
 #include "berberis/device_arch_info/all_to_x86_32_or_x86_64/device_insn_info-inl.h"
 #include "berberis/device_arch_info/all_to_x86_64/device_insn_info-inl.h"
 #include "berberis/device_arch_info/x86_32_or_x86_64/device_insn_info-inl.h"
 #include "berberis/device_arch_info/x86_64/device_insn_info-inl.h"
-
-}  // namespace device_arch_info
 
 }  // namespace x86_64
 

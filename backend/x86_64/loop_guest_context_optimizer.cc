@@ -122,20 +122,16 @@ void GenerateGetInsns(MachineIR* ir, MachineBasicBlock* bb, const MemRegMap& mem
     berberis::MachineInsn* get_insn;
     switch (reg_info.mov_type) {
       case MovType::kMovq:
-        get_insn = ir->NewInsn<device_arch_info::MovqRegOp>(reg_info.reg,
-                                                            {.base = kMachineRegRBP, .disp = disp});
+        get_insn = ir->NewInsn<MovqRegOp>(reg_info.reg, {.base = kMachineRegRBP, .disp = disp});
         break;
       case MovType::kMovdqa:
-        get_insn = ir->NewInsn<device_arch_info::MovdqaXRegOp>(
-            reg_info.reg, {.base = kMachineRegRBP, .disp = disp});
+        get_insn = ir->NewInsn<MovdqaXRegOp>(reg_info.reg, {.base = kMachineRegRBP, .disp = disp});
         break;
       case MovType::kMovw:
-        get_insn = ir->NewInsn<device_arch_info::MovwRegOp>(reg_info.reg,
-                                                            {.base = kMachineRegRBP, .disp = disp});
+        get_insn = ir->NewInsn<MovwRegOp>(reg_info.reg, {.base = kMachineRegRBP, .disp = disp});
         break;
       case MovType::kMovsd:
-        get_insn = ir->NewInsn<device_arch_info::MovsdXRegOp>(
-            reg_info.reg, {.base = kMachineRegRBP, .disp = disp});
+        get_insn = ir->NewInsn<MovsdXRegOp>(reg_info.reg, {.base = kMachineRegRBP, .disp = disp});
         break;
     }
 
@@ -162,20 +158,16 @@ void GeneratePutInsns(MachineIR* ir, MachineBasicBlock* bb, const MemRegMap& mem
     berberis::MachineInsn* put_insn;
     switch (reg_info.mov_type) {
       case MovType::kMovq:
-        put_insn = ir->NewInsn<device_arch_info::MovqOpReg>({.base = kMachineRegRBP, .disp = disp},
-                                                            reg_info.reg);
+        put_insn = ir->NewInsn<MovqOpReg>({.base = kMachineRegRBP, .disp = disp}, reg_info.reg);
         break;
       case MovType::kMovdqa:
-        put_insn = ir->NewInsn<device_arch_info::MovdqaOpXReg>(
-            {.base = kMachineRegRBP, .disp = disp}, reg_info.reg);
+        put_insn = ir->NewInsn<MovdqaOpXReg>({.base = kMachineRegRBP, .disp = disp}, reg_info.reg);
         break;
       case MovType::kMovw:
-        put_insn = ir->NewInsn<device_arch_info::MovwOpReg>({.base = kMachineRegRBP, .disp = disp},
-                                                            reg_info.reg);
+        put_insn = ir->NewInsn<MovwOpReg>({.base = kMachineRegRBP, .disp = disp}, reg_info.reg);
         break;
       case MovType::kMovsd:
-        put_insn = ir->NewInsn<device_arch_info::MovsdOpXReg>(
-            {.base = kMachineRegRBP, .disp = disp}, reg_info.reg);
+        put_insn = ir->NewInsn<MovsdOpXReg>({.base = kMachineRegRBP, .disp = disp}, reg_info.reg);
         break;
     }
 

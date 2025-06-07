@@ -149,6 +149,11 @@ berberis::MachineInsn* CopyInstruction(MachineIR* machine_ir, berberis::MachineI
   return machine_ir->NewInsn<T>(*static_cast<T*>(insn));
 }
 
+template <template <typename> typename T>
+berberis::MachineInsn* CopyInstruction(MachineIR* machine_ir, berberis::MachineInsn* insn) {
+  return machine_ir->NewInsn<T>(*static_cast<MachineIR::MachineInsnType<T>*>(insn));
+}
+
 std::optional<InsnGenerator> GetInsnGen(MachineOpcode opcode) {
   switch (opcode) {
     case kMachineOpAddqRegReg:
