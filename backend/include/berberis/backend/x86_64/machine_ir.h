@@ -451,8 +451,11 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
   static constexpr std::array<MachineInsnInfo,
                               1 << (2 * (device_arch_info::kIsMemoryOperand<Operands> + ... + 0))>
       kInfos = GenMachineInsnInfos();
-  // TODO(399130034): This field should be removed when all clients would switch to kInfos and/or
-  // DeviceInsnInfo.
+  // Note: kInfo has well-defined meaning – it's information about intrinsic with all MemoryOperand
+  // types ignored.
+  // This is useful not only for instructions without operands, but also for SSA form: since these
+  // registers that are passed into MemoryOperand are always kUse and never kDef or kUseDef we may
+  // ignore them in our analysis.
   static constexpr const MachineInsnInfo& kInfo = kInfos[0];
 
   int NumRegOperands() {
