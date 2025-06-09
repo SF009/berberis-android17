@@ -27,7 +27,6 @@
 #include "berberis/assembler/x86_64.h"
 #include "berberis/backend/code_emitter.h"
 #include "berberis/backend/common/machine_ir.h"  // IWYU pragma: export.
-#include "berberis/backend/x86_64/code_debug.h"
 #include "berberis/backend/x86_64/code_emit.h"
 #include "berberis/base/arena_alloc.h"
 #include "berberis/base/stringprintf.h"
@@ -444,48 +443,39 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
             s += ", ";
           }
           if constexpr (device_arch_info::kIsCondition<Operand>) {
-            s += GetCondOperandDebugString(this);
+            s += GetCondName(cond());
           } else if constexpr (device_arch_info::kIsImmediate<Operand>) {
-            s += GetImmOperandDebugString(this);
+            s += StringPrintf("0x%" PRIx64, imm());
           } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
             auto [has_base, has_index] = OpcodeHasMemoryBaseIndex(mem_idx++);
-            if (mem_idx == 1) {
-              if (has_base) {
-                if (has_index) {
-                  s += GetBaseIndexDispMemOperandDebugString(this, reg_idx);
-                  reg_idx += 2;
-                } else {
-                  s += GetBaseDispMemOperandDebugString(this, reg_idx++);
-                }
-              } else if (has_index) {
-                s += GetIndexDispMemOperandDebugString(this, reg_idx++);
+            int32_t scale;
+            if (has_index) {
+              scale =
+                  1 << (mem_idx == 1 ? MachineInsnX86_64::scale() : MachineInsnX86_64::scale2());
+            }
+            int32_t disp = mem_idx == 1 ? MachineInsnX86_64::disp() : MachineInsnX86_64::disp2();
+            if (has_base) {
+              if (has_index) {
+                s += StringPrintf("[%s + %s * %d + 0x%x]",
+                                  GetRegOperandDebugString(this, reg_idx).c_str(),
+                                  GetRegOperandDebugString(this, reg_idx + 1).c_str(),
+                                  scale,
+                                  disp);
+                reg_idx += 2;
               } else {
-                s += GetAbsoluteMemOperandDebugString(this);
+                s += StringPrintf(
+                    "[%s + 0x%x]", GetRegOperandDebugString(this, reg_idx++).c_str(), disp);
               }
-            } else /* mem_idx == 2 */ {
-              if (has_base) {
-                if (has_index) {
-                  s += StringPrintf("[%s + %s * %d + 0x%x]",
-                                    GetRegOperandDebugString(this, reg_idx).c_str(),
-                                    GetRegOperandDebugString(this, reg_idx + 1).c_str(),
-                                    1 << MachineInsnX86_64::scale2(),
-                                    MachineInsnX86_64::disp2());
-                  reg_idx += 2;
-                } else {
-                  s += StringPrintf(
-                      "[%s + 0x%x]", GetRegOperandDebugString(this, reg_idx++).c_str(), disp2());
-                }
-              } else if (has_index) {
-                s += StringPrintf("[%s * %d + 0x%x]",
-                                  GetRegOperandDebugString(this, reg_idx++).c_str(),
-                                  1 << MachineInsnX86_64::scale2(),
-                                  MachineInsnX86_64::disp2());
-              } else {
-                s += StringPrintf("[0x%x]", MachineInsnX86_64::disp2());
-              }
+            } else if (has_index) {
+              s += StringPrintf("[%s * %d + 0x%x]",
+                                GetRegOperandDebugString(this, reg_idx++).c_str(),
+                                scale,
+                                disp);
+            } else {
+              s += StringPrintf("[0x%x]", disp);
             }
           } else if constexpr (device_arch_info::kIsImplicitReg<Operand>) {
-            s += GetImplicitRegOperandDebugString(this, reg_idx++);
+            s += StringPrintf("(%s)", GetRegOperandDebugString(this, reg_idx++).c_str());
           } else {
             s += GetRegOperandDebugString(this, reg_idx++);
           }
