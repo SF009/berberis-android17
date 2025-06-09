@@ -366,7 +366,8 @@ class MachineInsnOperandsHelper<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
   // Note: immediates accept appropriate type, register operands includes only register while memory
   // operand needs both base register and offset.
   using ConstructorArgsTuple = decltype(std::tuple_cat(
-      std::declval<std::conditional_t<device_arch_info::kIsImmediate<Operands>,
+      std::declval<std::conditional_t<device_arch_info::kIsCondition<Operands> ||
+                                          device_arch_info::kIsImmediate<Operands>,
                                       std::tuple<typename Operands::Class::Type>,
                                       std::conditional_t<device_arch_info::kIsRegister<Operands>,
                                                          std::tuple<MachineReg>,
@@ -416,6 +417,8 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                                                           std::tuple<Operands...>>;
 
   explicit MachineInsn(ConstructorArgs... args) : MachineInsnX86_64(&GenMachineInsnInfo(args...)) {
+    constexpr int kConditionalsOperandsCount = (device_arch_info::kIsCondition<Operands> + ... + 0);
+    static_assert(kConditionalsOperandsCount <= 1);
     constexpr int kImmediateOperandsCount = (device_arch_info::kIsImmediate<Operands> + ... + 0);
     static_assert(kImmediateOperandsCount <= 1);
     constexpr int kMemoryOperandsCount = (device_arch_info::kIsMemoryOperand<Operands> + ... + 0);
@@ -423,8 +426,10 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
     size_t reg_idx{}, mem_idx{};
     (
         [&reg_idx, &mem_idx, this]<typename Operand, typename ConstructorArg>(ConstructorArg arg) {
-          if constexpr (device_arch_info::kIsImmediate<Operand>) {
-            MachineInsnX86_64::set_imm(static_cast<uint64_t>(arg));
+          if constexpr (device_arch_info::kIsCondition<Operand>) {
+            MachineInsnX86_64::set_cond(arg);
+          } else if constexpr (device_arch_info::kIsImmediate<Operand>) {
+            MachineInsnX86_64::set_imm(arg);
           } else if constexpr (device_arch_info::kIsRegister<Operand>) {
             static_assert(std::is_same_v<MachineReg, ConstructorArg>);
             MachineInsnX86_64::SetRegAt(reg_idx++, arg);
@@ -478,7 +483,9 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
           if (arg_idx > 0) {
             s += ", ";
           }
-          if constexpr (device_arch_info::kIsImmediate<Operand>) {
+          if constexpr (device_arch_info::kIsCondition<Operand>) {
+            s += GetCondOperandDebugString(this);
+          } else if constexpr (device_arch_info::kIsImmediate<Operand>) {
             s += GetImmOperandDebugString(this);
           } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
             auto [has_base, has_index] = OpcodeHasMemoryBaseIndex(mem_idx++);
@@ -543,9 +550,10 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
           // See https://github.com/llvm/llvm-project/issues/34798#issuecomment-980989495
           (void)reg_idx;
           (void)mem_idx;
-          if constexpr (device_arch_info::kIsImmediate<Operands>) {
-            return std::tuple{
-                static_cast<typename Operands::Class::Type>(MachineInsnX86_64::imm())};
+          if constexpr (device_arch_info::kIsCondition<Operands>) {
+            return std::tuple{MachineInsnX86_64::cond()};
+          } else if constexpr (device_arch_info::kIsImmediate<Operands>) {
+            return std::tuple{MachineInsnX86_64::imm()};
           } else if constexpr (device_arch_info::kIsMemoryOperand<Operands>) {
             auto [has_base, has_index] = OpcodeHasMemoryBaseIndex(mem_idx++);
             Assembler::Operand operand;
