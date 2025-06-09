@@ -131,8 +131,7 @@ class Assembler : public AssemblerBase {
 
   class Register {
    public:
-    constexpr bool operator==(const Register& reg) const { return num_ == reg.num_; }
-    constexpr bool operator!=(const Register& reg) const { return num_ != reg.num_; }
+    constexpr bool operator==(const Register&) const = default;
     constexpr uint8_t GetPhysicalIndex() { return num_; }
     friend constexpr uint8_t ValueForFmtSpec(Register value) { return value.num_; }
     friend class Assembler<DerivedAssemblerType>;
@@ -146,8 +145,7 @@ class Assembler : public AssemblerBase {
 
   class X87Register {
    public:
-    constexpr bool operator==(const Register& reg) const { return num_ == reg.num_; }
-    constexpr bool operator!=(const Register& reg) const { return num_ != reg.num_; }
+    constexpr bool operator==(const X87Register&) const = default;
     constexpr uint8_t GetPhysicalIndex() { return num_; }
     friend constexpr uint8_t ValueForFmtSpec(X87Register value) { return value.num_; }
     friend class Assembler<DerivedAssemblerType>;
@@ -172,8 +170,7 @@ class Assembler : public AssemblerBase {
   template <int kBits>
   class SIMDRegister {
    public:
-    constexpr bool operator==(const SIMDRegister& reg) const { return num_ == reg.num_; }
-    constexpr bool operator!=(const SIMDRegister& reg) const { return num_ != reg.num_; }
+    constexpr bool operator==(const SIMDRegister&) const = default;
     constexpr uint8_t GetPhysicalIndex() { return num_; }
     friend constexpr uint8_t ValueForFmtSpec(SIMDRegister value) { return value.num_; }
     friend class Assembler<DerivedAssemblerType>;
@@ -199,6 +196,7 @@ class Assembler : public AssemblerBase {
   enum ScaleFactor { kTimesOne = 0, kTimesTwo = 1, kTimesFour = 2, kTimesEight = 3 };
 
   struct Operand {
+    constexpr bool operator==(const Operand&) const = default;
     constexpr uint8_t rex() const {
       return DerivedAssemblerType::kIsX86_64
                  ? ((index.num_ & 0x08) >> 2) | ((base.num_ & 0x08) >> 3)
