@@ -23,6 +23,7 @@
 #include <optional>
 #include <string>
 
+#include "berberis/assembler/x86_32_or_x86_64.h"
 #include "berberis/base/checks.h"
 #include "berberis/base/config.h"
 #include "berberis/base/dependent_false.h"
@@ -36,42 +37,13 @@ namespace x86_32_or_x86_64 {
 template <typename DerivedAssemblerType>
 class VerifierAssembler {
  public:
-  // Condition class - 16 x86 conditions.
-  enum class Condition {
-    kOverflow = 0,
-    kNoOverflow = 1,
-    kBelow = 2,
-    kAboveEqual = 3,
-    kEqual = 4,
-    kNotEqual = 5,
-    kBelowEqual = 6,
-    kAbove = 7,
-    kNegative = 8,
-    kPositiveOrZero = 9,
-    kParityEven = 10,
-    kParityOdd = 11,
-    kLess = 12,
-    kGreaterEqual = 13,
-    kLessEqual = 14,
-    kGreater = 15,
+  using Condition = x86_32_or_x86_64::Condition;
 
-    // aka...
-    kCarry = kBelow,
-    kNotCarry = kAboveEqual,
-    kZero = kEqual,
-    kNotZero = kNotEqual,
-    kSign = kNegative,
-    kNotSign = kPositiveOrZero
-  };
-
-  enum ScaleFactor {
-    kTimesOne = 0,
-    kTimesTwo = 1,
-    kTimesFour = 2,
-    kTimesEight = 3,
-    // All our target systems use 32-bit pointers.
-    kTimesPointerSize = kTimesFour
-  };
+  using ScaleFactor = x86_32_or_x86_64::ScaleFactor;
+  static constexpr ScaleFactor kTimesOne = ScaleFactor::kTimesOne;
+  static constexpr ScaleFactor kTimesTwo = ScaleFactor::kTimesTwo;
+  static constexpr ScaleFactor kTimesFour = ScaleFactor::kTimesFour;
+  static constexpr ScaleFactor kTimesEight = ScaleFactor::kTimesEight;
 
   struct Label {
     size_t id;
