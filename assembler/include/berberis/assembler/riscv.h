@@ -811,6 +811,7 @@ class Assembler : public AssemblerBase {
 
   template <typename RegisterType, typename ImmediateType>
   struct Operand {
+    constexpr bool operator==(const Operand&) const = default;
     RegisterType base{0};
     ImmediateType disp = 0;
   };

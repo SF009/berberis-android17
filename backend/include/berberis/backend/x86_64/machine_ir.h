@@ -438,8 +438,9 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
     size_t arg_idx{}, reg_idx{}, mem_idx{};
     (
         [&s, &arg_idx, &reg_idx, &mem_idx, this]<typename Operand> {
-          s += " ";
-          if (arg_idx > 0) {
+          if (arg_idx == 0) {
+            s += " ";
+          } else {
             s += ", ";
           }
           if constexpr (device_arch_info::kIsCondition<Operand>) {
