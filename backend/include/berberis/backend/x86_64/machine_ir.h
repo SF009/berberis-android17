@@ -20,6 +20,7 @@
 #define BERBERIS_BACKEND_X86_64_MACHINE_IR_H_
 
 #include <array>
+#include <bit>
 #include <cstdint>
 #include <string>
 
@@ -196,52 +197,6 @@ class MachineInsnX86_64 : public MachineInsn {
 
   uint64_t imm() const { return imm_; }
 
-  bool IsCPUStateGet() {
-    if (opcode() != kMachineOpMovqRegMemBaseDisp && opcode() != kMachineOpMovdqaXRegMemBaseDisp &&
-        opcode() != kMachineOpMovwRegMemBaseDisp && opcode() != kMachineOpMovsdXRegMemBaseDisp) {
-      return false;
-    }
-
-    // Check that it is not for ThreadState fields outside of CPUState.
-    if (disp() >= sizeof(CPUState)) {
-      return false;
-    }
-
-    // reservation_value is loaded in HeavyOptimizerFrontend::AtomicLoad and written
-    // in HeavyOptimizerFrontend::AtomicStore partially (for performance
-    // reasons), which is not supported by our context optimizer.
-    auto reservation_value_offset = offsetof(ThreadState, cpu.reservation_value);
-    if (disp() >= reservation_value_offset &&
-        disp() < reservation_value_offset + sizeof(Reservation)) {
-      return false;
-    }
-
-    return RegAt(1) == kCPUStatePointer;
-  }
-
-  bool IsCPUStatePut() {
-    if (opcode() != kMachineOpMovqMemBaseDispReg && opcode() != kMachineOpMovdqaMemBaseDispXReg &&
-        opcode() != kMachineOpMovwMemBaseDispReg && opcode() != kMachineOpMovsdMemBaseDispXReg) {
-      return false;
-    }
-
-    // Check that it is not for ThreadState fields outside of CPUState.
-    if (disp() >= sizeof(CPUState)) {
-      return false;
-    }
-
-    // reservation_value is loaded in HeavyOptimizerFrontend::AtomicLoad and written
-    // in HeavyOptimizerFrontend::AtomicStore partially (for performance
-    // reasons), which is not supported by our context optimizer.
-    auto reservation_value_offset = offsetof(ThreadState, cpu.reservation_value);
-    if (disp() >= reservation_value_offset &&
-        disp() < reservation_value_offset + sizeof(Reservation)) {
-      return false;
-    }
-
-    return RegAt(0) == kCPUStatePointer;
-  }
-
  protected:
   explicit MachineInsnX86_64(const MachineInsnInfo* info)
       : MachineInsn(info->opcode, info->num_reg_operands, info->reg_kinds, regs_, info->kind),
@@ -325,8 +280,6 @@ class CallImmArg : public MachineInsnX86_64 {
       // It's an auxiliary instruction. Do not emit.
   };
 };
-
-using MachineInsnForArch = MachineInsnX86_64;
 
 struct MemoryOperand {
   MachineReg base = kInvalidMachineReg;
@@ -465,8 +418,11 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
 
   int NumRegOperands() {
     constexpr int kMemoryOperandsCount = (device_arch_info::kIsMemoryOperand<Operands> + ... + 0);
-    constexpr int kMemoryOperandsCountMask = (1 << (2 * kMemoryOperandsCount)) - 1;
-    return kInfos[(opcode() >> kLowMachineOpcodeBits) & kMemoryOperandsCountMask].num_reg_operands;
+    if constexpr (kMemoryOperandsCount == 0) {
+      return kInfo.num_reg_operands;
+    } else {
+      return kInfo.num_reg_operands + std::popcount(opcode() >> kLowMachineOpcodeBits);
+    }
   }
 
   const MachineRegKind& RegKindAt(int i) {
@@ -769,7 +725,7 @@ class MachineIR : public berberis::MachineIR {
     bb_order_ = BasicBlockOrder::kUnordered;
   }
 
-  [[nodiscard]] bool IsCPUStateGet(berberis::MachineInsn* insn) const {
+  [[nodiscard]] static bool IsCPUStateGet(berberis::MachineInsn* insn) {
     if (insn->opcode() != kMachineOpMovqRegMemBaseDisp &&
         insn->opcode() != kMachineOpMovdqaXRegMemBaseDisp &&
         insn->opcode() != kMachineOpMovwRegMemBaseDisp &&
@@ -796,7 +752,7 @@ class MachineIR : public berberis::MachineIR {
     return x86_insn->RegAt(1) == kCPUStatePointer;
   }
 
-  [[nodiscard]] bool IsCPUStatePut(berberis::MachineInsn* insn) const {
+  [[nodiscard]] static bool IsCPUStatePut(berberis::MachineInsn* insn) {
     if (insn->opcode() != kMachineOpMovqMemBaseDispReg &&
         insn->opcode() != kMachineOpMovdqaMemBaseDispXReg &&
         insn->opcode() != kMachineOpMovwMemBaseDispReg &&
