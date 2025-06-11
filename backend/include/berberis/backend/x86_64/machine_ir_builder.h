@@ -44,120 +44,12 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
     return MachineIRBuilderBase::Gen<InsnType, Args...>(args...);
   }
 
-  template <template <typename> typename InsnType>
-  using MachineInsnType =
-      MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>;
-
-  template <template <typename> typename InsnType, size_t N>
-  using GenArg = std::tuple_element_t<
-      N,
-      typename MachineInsnOperandsHelper<typename InsnType<
-          typename CodeEmitter::Assemblers>::DeviceInsnInfo>::ConstructorArgsTuple>;
-
-  template <template <typename> typename InsnType>
-  /*may_discard*/ auto Gen()
-      -> std::enable_if_t<
-          std::tuple_size_v<typename MachineInsnOperandsHelper<typename InsnType<
-              typename CodeEmitter::Assemblers>::DeviceInsnInfo>::ConstructorArgsTuple> == 0,
-          MachineInsnType<InsnType>*> {
-    return MachineIRBuilderBase::Gen<MachineInsnType<InsnType>>();
-  }
-
-  template <template <typename> typename InsnType>
-  /*may_discard*/ auto Gen(GenArg<InsnType, 0> arg0)
-      -> std::enable_if_t<
-          std::tuple_size_v<typename MachineInsnOperandsHelper<typename InsnType<
-              typename CodeEmitter::Assemblers>::DeviceInsnInfo>::ConstructorArgsTuple> == 1,
-          MachineInsnType<InsnType>*> {
-    return MachineIRBuilderBase::Gen<MachineInsnType<InsnType>, GenArg<InsnType, 0>>(arg0);
-  }
-
-  template <template <typename> typename InsnType>
-  /*may_discard*/ auto Gen(GenArg<InsnType, 0> arg0, GenArg<InsnType, 1> arg1)
-      -> std::enable_if_t<
-          std::tuple_size_v<typename MachineInsnOperandsHelper<typename InsnType<
-              typename CodeEmitter::Assemblers>::DeviceInsnInfo>::ConstructorArgsTuple> == 2,
-          MachineInsnType<InsnType>*> {
-    return MachineIRBuilderBase::
-        Gen<MachineInsnType<InsnType>, GenArg<InsnType, 0>, GenArg<InsnType, 1>>(arg0, arg1);
-  }
-
-  template <template <typename> typename InsnType>
-  /*may_discard*/ auto Gen(GenArg<InsnType, 0> arg0,
-                           GenArg<InsnType, 1> arg1,
-                           GenArg<InsnType, 2> arg2)
-      -> std::enable_if_t<
-          std::tuple_size_v<typename MachineInsnOperandsHelper<typename InsnType<
-              typename CodeEmitter::Assemblers>::DeviceInsnInfo>::ConstructorArgsTuple> == 3,
-          MachineInsnType<InsnType>*> {
-    return MachineIRBuilderBase::Gen<MachineInsnType<InsnType>,
-                                     GenArg<InsnType, 0>,
-                                     GenArg<InsnType, 1>,
-                                     GenArg<InsnType, 2>>(arg0, arg1, arg2);
-  }
-
-  template <template <typename> typename InsnType>
-  /*may_discard*/ auto Gen(GenArg<InsnType, 0> arg0,
-                           GenArg<InsnType, 1> arg1,
-                           GenArg<InsnType, 2> arg2,
-                           GenArg<InsnType, 3> arg3)
-      -> std::enable_if_t<
-          std::tuple_size_v<typename MachineInsnOperandsHelper<typename InsnType<
-              typename CodeEmitter::Assemblers>::DeviceInsnInfo>::ConstructorArgsTuple> == 4,
-          MachineInsnType<InsnType>*> {
-    return MachineIRBuilderBase::Gen<MachineInsnType<InsnType>,
-                                     GenArg<InsnType, 0>,
-                                     GenArg<InsnType, 1>,
-                                     GenArg<InsnType, 2>,
-                                     GenArg<InsnType, 3>>(arg0, arg1, arg2, arg3);
-  }
-
-  template <template <typename> typename InsnType>
-  /*may_discard*/ auto Gen(GenArg<InsnType, 0> arg0,
-                           GenArg<InsnType, 1> arg1,
-                           GenArg<InsnType, 2> arg2,
-                           GenArg<InsnType, 3> arg3,
-                           GenArg<InsnType, 4> arg4)
-      -> std::enable_if_t<
-          std::tuple_size_v<typename MachineInsnOperandsHelper<typename InsnType<
-              typename CodeEmitter::Assemblers>::DeviceInsnInfo>::ConstructorArgsTuple> == 5,
-          MachineInsnType<InsnType>*> {
-    return MachineIRBuilderBase::Gen<MachineInsnType<InsnType>,
-                                     GenArg<InsnType, 0>,
-                                     GenArg<InsnType, 1>,
-                                     GenArg<InsnType, 2>,
-                                     GenArg<InsnType, 3>,
-                                     GenArg<InsnType, 4>>(arg0, arg1, arg2, arg3, arg4);
-  }
-
-  template <template <typename> typename InsnType>
-  /*may_discard*/ auto Gen(GenArg<InsnType, 0> arg0,
-                           GenArg<InsnType, 1> arg1,
-                           GenArg<InsnType, 2> arg2,
-                           GenArg<InsnType, 3> arg3,
-                           GenArg<InsnType, 4> arg4,
-                           GenArg<InsnType, 5> arg5)
-      -> std::enable_if_t<
-          std::tuple_size_v<typename MachineInsnOperandsHelper<typename InsnType<
-              typename CodeEmitter::Assemblers>::DeviceInsnInfo>::ConstructorArgsTuple> == 6,
-          MachineInsnType<InsnType>*> {
-    return MachineIRBuilderBase::Gen<MachineInsnType<InsnType>,
-                                     GenArg<InsnType, 0>,
-                                     GenArg<InsnType, 1>,
-                                     GenArg<InsnType, 2>,
-                                     GenArg<InsnType, 3>,
-                                     GenArg<InsnType, 4>,
-                                     GenArg<InsnType, 5>>(arg0, arg1, arg2, arg3, arg4, arg5);
-  }
-
-  template <template <typename> typename InsnType, typename... Args>
-  /*may_discard*/ auto Gen(Args... args)
-      -> std::enable_if_t<
-          std::tuple_size_v<typename MachineInsnOperandsHelper<typename InsnType<
-              typename CodeEmitter::Assemblers>::DeviceInsnInfo>::ConstructorArgsTuple> >= 7,
-          MachineInsnType<InsnType>*> {
-    return MachineIRBuilderBase::Gen<MachineInsnType<InsnType>, Args...>(args...);
-  }
+  BERBERIS_DECLARE_MACHINE_INSN_ADAPTER(
+      /*may_discard*/ auto Gen,
+      MachineInsnOperandsHelper,
+      ConstructorArgsTuple,
+      MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>*,
+      MachineIRBuilderBase::Gen)
 
   void GenGet(MachineReg dst_reg, int32_t offset) {
     Gen<x86_64::MovqRegOp>(dst_reg, {.base = x86_64::kMachineRegRBP, .disp = offset});
