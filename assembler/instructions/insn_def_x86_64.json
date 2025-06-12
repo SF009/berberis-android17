@@ -762,8 +762,8 @@
     },
     {
       "encodings": {
-        "Vzeroupper": { "feature": "AVX", "opcodes": [ "C4", "01", "00", "77" ]},
-        "Vzeroall": { "feature": "AVX", "opcodes": [ "C4", "01", "04", "77" ]}
+        "Vzeroall": { "feature": "AVX", "opcodes": [ "C4", "01", "04", "77" ] },
+        "Vzeroupper": { "feature": "AVX", "opcodes": [ "C4", "01", "00", "77" ] }
       },
       "args": []
     },
