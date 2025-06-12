@@ -301,7 +301,6 @@
         "AddlImm8": { "opcodes": [ "83", "0" ] },
         "AndlImm8": { "opcodes": [ "83", "4" ] },
         "Btcl": { "opcodes": [ "0F", "BA", "7" ] },
-        "Btl": { "opcodes": [ "0F", "BA", "4" ] },
         "Btrl": { "opcodes": [ "0F", "BA", "6" ] },
         "Btsl": { "opcodes": [ "0F", "BA", "5" ] },
         "OrlImm8": { "opcodes": [ "83", "1" ] },
@@ -682,6 +681,17 @@
     },
     {
       "encodings": {
+        "Btl": { "opcodes": [ "0F", "BA", "4" ] },
+        "CmplImm8": { "opcodes": [ "83", "7" ] }
+      },
+      "args": [
+        { "class": "GeneralReg32/Mem32", "usage": "use" },
+        { "class": "Imm8" },
+        { "class": "FLAGS", "usage": "def" }
+      ]
+    },
+    {
+      "encodings": {
         "Btw": { "opcodes": [ "66", "0F", "A3" ], "type": "reg_to_rm" },
         "Cmpw": { "opcodes": [ "66", "39" ], "type": "reg_to_rm" },
         "Testw": { "opcodes": [ "66", "85" ], "type": "reg_to_rm" }
@@ -689,6 +699,17 @@
       "args": [
         { "class": "GeneralReg16/Mem16", "usage": "use" },
         { "class": "GeneralReg16", "usage": "use" },
+        { "class": "FLAGS", "usage": "def" }
+      ]
+    },
+    {
+      "encodings": {
+        "Btw": { "opcodes": [ "66", "0F", "BA", "4" ] },
+        "CmpwImm8": { "opcodes": [ "66", "83", "7" ] }
+      },
+      "args": [
+        { "class": "GeneralReg16/Mem16", "usage": "use" },
+        { "class": "Imm8" },
         { "class": "FLAGS", "usage": "def" }
       ]
     },
@@ -863,16 +884,6 @@
     },
     {
       "encodings": {
-        "CmplImm8": { "opcodes": [ "83", "7" ] }
-      },
-      "args": [
-        { "class": "GeneralReg32/Mem32", "usage": "use" },
-        { "class": "Imm8" },
-        { "class": "FLAGS", "usage": "def" }
-      ]
-    },
-    {
-      "encodings": {
         "Cmpw": { "opcodes": [ "66", "81", "7" ] },
         "Testw": { "opcodes": [ "66", "F7", "0" ] }
       },
@@ -900,16 +911,6 @@
       "args": [
         { "class": "AX", "usage": "use" },
         { "class": "Imm16" },
-        { "class": "FLAGS", "usage": "def" }
-      ]
-    },
-    {
-      "encodings": {
-        "CmpwImm8": { "opcodes": [ "66", "83", "7" ] }
-      },
-      "args": [
-        { "class": "GeneralReg16/Mem16", "usage": "use" },
-        { "class": "Imm8" },
         { "class": "FLAGS", "usage": "def" }
       ]
     },
