@@ -386,6 +386,20 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                                                           GetOpcode,
                                                           CPUIDRestriction,
                                                           std::tuple<Operands...>>;
+  using InputArgsTuple = decltype(std::tuple_cat(
+      std::declval<std::conditional_t<
+          device_arch_info::kIsCondition<Operands> || device_arch_info::kIsImmediate<Operands>,
+          std::tuple<typename Operands::Class::Type>,
+          std::conditional_t<device_arch_info::kIsRegister<Operands>,
+                             std::conditional_t<Operands::kUsage == device_arch_info::kUse ||
+                                                    Operands::kUsage == device_arch_info::kUseDef,
+                                                std::tuple<MachineReg>,
+                                                std::tuple<>>,
+                             std::tuple<const MemoryOperand&>>>>()...));
+  using OutputArgsTuple = std::array<MachineReg,
+                                     ((device_arch_info::kIsRegister<Operands> &&
+                                       Operands::kUsage != device_arch_info::kUse) +
+                                      ... + 0)>;
 
   explicit MachineInsn(ConstructorArgs... args)
       : MachineInsnX86_64(&GenMachineInsnInfo<ConstructorArgs...>(args...)) {
