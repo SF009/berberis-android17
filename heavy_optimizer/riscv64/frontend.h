@@ -512,10 +512,12 @@ class HeavyOptimizerFrontend {
 
   BERBERIS_DECLARE_MACHINE_INSN_ADAPTER(
       /*may_discard*/ auto Gen,
+      (),
       MachineInsnOperandsHelper,
       ConstructorArgsTuple,
       x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>*,
-      builder_.Gen)
+      builder_.Gen,
+      ())
 
   static x86_64::Assembler::Condition ToAssemblerCond(Decoder::BranchOpcode opcode);
 
