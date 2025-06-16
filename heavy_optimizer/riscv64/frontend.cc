@@ -44,10 +44,8 @@ void HeavyOptimizerFrontend::CompareAndBranch(BranchOpcode opcode,
   ir->AddEdge(cur_bb, then_bb);
   ir->AddEdge(cur_bb, else_bb);
 
-  builder_.Gen<PseudoCondBranch>(ToAssemblerCond(opcode),
-                                 then_bb,
-                                 else_bb,
-                                 std::get<0>(GenSSA<x86_64::CmpqRegReg>(arg1, arg2)));
+  builder_.Gen<PseudoCondBranch>(
+      ToAssemblerCond(opcode), then_bb, else_bb, std::get<0>(Gen<x86_64::CmpqRegReg>(arg1, arg2)));
 
   builder_.StartBasicBlock(then_bb);
   GenJump(pc_ + offset);
@@ -66,11 +64,11 @@ void HeavyOptimizerFrontend::BranchRegister(Register src, int16_t offset) {
   // Avoid the extra insn if unneeded.
   if (offset == 0) {
     // TODO(b/232598137) Maybe move this to translation cache?
-    target = std::get<0>(GenSSA<x86_64::AndqRegImm>(target, ~int32_t{1}));
+    target = std::get<0>(Gen<x86_64::AndqRegImm>(target, ~int32_t{1}));
   } else {
     // TODO(b/232598137) Maybe move this to translation cache?
-    target = std::get<0>(GenSSA<x86_64::AddqRegImm>(src, offset));
-    target = std::get<0>(GenSSA<x86_64::AndqRegImm, kNoSSA>(target, ~int32_t{1}));
+    target = std::get<0>(Gen<x86_64::AddqRegImm>(src, offset));
+    target = std::get<0>(Gen<x86_64::AndqRegImm, kNoSSA>(target, ~int32_t{1}));
   }
   ExitRegionIndirect(target);
 }
@@ -93,7 +91,7 @@ x86_64::Assembler::Condition HeavyOptimizerFrontend::ToAssemblerCond(BranchOpcod
 }
 
 Register HeavyOptimizerFrontend::GetImm(uint64_t imm) {
-  return std::get<0>(GenSSA<x86_64::MovqRegImm>(imm));
+  return std::get<0>(Gen<x86_64::MovqRegImm>(imm));
 }
 
 Register HeavyOptimizerFrontend::AllocTempReg() {
@@ -289,55 +287,55 @@ Register HeavyOptimizerFrontend::Op(Decoder::OpOpcode opcode, Register arg1, Reg
   using Condition = x86_64::Assembler::Condition;
   switch (opcode) {
     case OpOpcode::kAdd:
-      return std::get<0>(GenSSA<x86_64::AddqRegReg>(arg1, arg2));
+      return std::get<0>(Gen<x86_64::AddqRegReg>(arg1, arg2));
     case OpOpcode::kSub:
-      return std::get<0>(GenSSA<x86_64::SubqRegReg>(arg1, arg2));
+      return std::get<0>(Gen<x86_64::SubqRegReg>(arg1, arg2));
     case OpOpcode::kAnd:
-      return std::get<0>(GenSSA<x86_64::AndqRegReg>(arg1, arg2));
+      return std::get<0>(Gen<x86_64::AndqRegReg>(arg1, arg2));
     case OpOpcode::kOr:
-      return std::get<0>(GenSSA<x86_64::OrqRegReg>(arg1, arg2));
+      return std::get<0>(Gen<x86_64::OrqRegReg>(arg1, arg2));
     case OpOpcode::kXor:
-      return std::get<0>(GenSSA<x86_64::XorqRegReg>(arg1, arg2));
+      return std::get<0>(Gen<x86_64::XorqRegReg>(arg1, arg2));
     case OpOpcode::kSll:
-      return std::get<0>(GenSSA<x86_64::ShlqRegReg>(arg1, arg2));
+      return std::get<0>(Gen<x86_64::ShlqRegReg>(arg1, arg2));
     case OpOpcode::kSrl:
-      return std::get<0>(GenSSA<x86_64::ShrqRegReg>(arg1, arg2));
+      return std::get<0>(Gen<x86_64::ShrqRegReg>(arg1, arg2));
     case OpOpcode::kSra:
-      return std::get<0>(GenSSA<x86_64::SarqRegReg>(arg1, arg2));
+      return std::get<0>(Gen<x86_64::SarqRegReg>(arg1, arg2));
     case OpOpcode::kSlt:
       return std::get<0>(
-          GenSSA<x86_64::MovzxbqRegReg, kNoSSA>(std::get<0>(GenSSA<x86_64::SetccReg, kNoSSA>(
-              Condition::kLess, std::get<0>(GenSSA<x86_64::CmpqRegReg>(arg1, arg2))))));
+          Gen<x86_64::MovzxbqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::SetccReg, kNoSSA>(
+              Condition::kLess, std::get<0>(Gen<x86_64::CmpqRegReg>(arg1, arg2))))));
     case OpOpcode::kSltu:
       return std::get<0>(
-          GenSSA<x86_64::MovzxbqRegReg, kNoSSA>(std::get<0>(GenSSA<x86_64::SetccReg, kNoSSA>(
-              Condition::kBelow, std::get<0>(GenSSA<x86_64::CmpqRegReg>(arg1, arg2))))));
+          Gen<x86_64::MovzxbqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::SetccReg, kNoSSA>(
+              Condition::kBelow, std::get<0>(Gen<x86_64::CmpqRegReg>(arg1, arg2))))));
     case OpOpcode::kMul:
-      return std::get<0>(GenSSA<x86_64::ImulqRegReg>(arg1, arg2));
+      return std::get<0>(Gen<x86_64::ImulqRegReg>(arg1, arg2));
     case OpOpcode::kMulh:
-      return std::get<1>(GenSSA<x86_64::ImulqRegRegReg>(arg1, arg2));
+      return std::get<1>(Gen<x86_64::ImulqRegRegReg>(arg1, arg2));
     case OpOpcode::kMulhsu: {
-      auto [low, high, mul_flags] = GenSSA<x86_64::MulqRegRegReg>(arg1, arg2);
-      auto [adjust, imul_flags] = GenSSA<x86_64::ImulqRegReg, kNoSSA>(
-          std::get<0>(GenSSA<x86_64::SarqRegImm>(arg1, 63)), arg2);
-      return std::get<0>(GenSSA<x86_64::AddqRegReg, kNoSSA>(adjust, high));
+      auto [low, high, mul_flags] = Gen<x86_64::MulqRegRegReg>(arg1, arg2);
+      auto [adjust, imul_flags] =
+          Gen<x86_64::ImulqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::SarqRegImm>(arg1, 63)), arg2);
+      return std::get<0>(Gen<x86_64::AddqRegReg, kNoSSA>(adjust, high));
     }
     case OpOpcode::kMulhu:
-      return std::get<1>(GenSSA<x86_64::MulqRegRegReg>(arg1, arg2));
+      return std::get<1>(Gen<x86_64::MulqRegRegReg>(arg1, arg2));
     case OpOpcode::kAndn:
       if (host_platform::kHasBMI) {
-        return std::get<0>(GenSSA<x86_64::AndnqRegRegReg>(arg2, arg1));
+        return std::get<0>(Gen<x86_64::AndnqRegRegReg>(arg2, arg1));
       } else {
         return std::get<0>(
-            GenSSA<x86_64::AndqRegReg, kNoSSA>(std::get<0>(GenSSA<x86_64::NotqReg>(arg2)), arg1));
+            Gen<x86_64::AndqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::NotqReg>(arg2)), arg1));
       }
       break;
     case OpOpcode::kOrn:
       return std::get<0>(
-          GenSSA<x86_64::OrqRegReg, kNoSSA>(std::get<0>(GenSSA<x86_64::NotqReg>(arg2)), arg1));
+          Gen<x86_64::OrqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::NotqReg>(arg2)), arg1));
     case OpOpcode::kXnor:
       return std::get<0>(
-          GenSSA<x86_64::NotqReg, kNoSSA>(std::get<0>(GenSSA<x86_64::XorqRegReg>(arg1, arg2))));
+          Gen<x86_64::NotqReg, kNoSSA>(std::get<0>(Gen<x86_64::XorqRegReg>(arg1, arg2))));
     default:
       Undefined();
       return {};
@@ -348,23 +346,23 @@ Register HeavyOptimizerFrontend::Op32(Decoder::Op32Opcode opcode, Register arg1,
   using Op32Opcode = Decoder::Op32Opcode;
   switch (opcode) {
     case Op32Opcode::kAddw:
-      return std::get<0>(GenSSA<x86_64::MovsxlqRegReg, kNoSSA>(
-          std::get<0>(GenSSA<x86_64::AddlRegReg>(arg1, arg2))));
+      return std::get<0>(
+          Gen<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::AddlRegReg>(arg1, arg2))));
     case Op32Opcode::kSubw:
-      return std::get<0>(GenSSA<x86_64::MovsxlqRegReg, kNoSSA>(
-          std::get<0>(GenSSA<x86_64::SublRegReg>(arg1, arg2))));
+      return std::get<0>(
+          Gen<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::SublRegReg>(arg1, arg2))));
     case Op32Opcode::kSllw:
-      return std::get<0>(GenSSA<x86_64::MovsxlqRegReg, kNoSSA>(
-          std::get<0>(GenSSA<x86_64::ShllRegReg>(arg1, arg2))));
+      return std::get<0>(
+          Gen<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::ShllRegReg>(arg1, arg2))));
     case Op32Opcode::kSrlw:
-      return std::get<0>(GenSSA<x86_64::MovsxlqRegReg, kNoSSA>(
-          std::get<0>(GenSSA<x86_64::ShrlRegReg>(arg1, arg2))));
+      return std::get<0>(
+          Gen<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::ShrlRegReg>(arg1, arg2))));
     case Op32Opcode::kSraw:
-      return std::get<0>(GenSSA<x86_64::MovsxlqRegReg, kNoSSA>(
-          std::get<0>(GenSSA<x86_64::SarlRegReg>(arg1, arg2))));
+      return std::get<0>(
+          Gen<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::SarlRegReg>(arg1, arg2))));
     case Op32Opcode::kMulw:
-      return std::get<0>(GenSSA<x86_64::MovsxlqRegReg, kNoSSA>(
-          std::get<0>(GenSSA<x86_64::ImullRegReg>(arg1, arg2))));
+      return std::get<0>(
+          Gen<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::ImullRegReg>(arg1, arg2))));
     default:
       Undefined();
       return {};
@@ -376,21 +374,21 @@ Register HeavyOptimizerFrontend::OpImm(Decoder::OpImmOpcode opcode, Register arg
   using Condition = x86_64::Assembler::Condition;
   switch (opcode) {
     case OpImmOpcode::kAddi:
-      return std::get<0>(GenSSA<x86_64::AddqRegImm>(arg, imm));
+      return std::get<0>(Gen<x86_64::AddqRegImm>(arg, imm));
     case OpImmOpcode::kSlti:
       return std::get<0>(
-          GenSSA<x86_64::MovsxbqRegReg, kNoSSA>(std::get<0>(GenSSA<x86_64::SetccReg, kNoSSA>(
-              Condition::kLess, std::get<0>(GenSSA<x86_64::CmpqRegImm>(arg, imm))))));
+          Gen<x86_64::MovsxbqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::SetccReg, kNoSSA>(
+              Condition::kLess, std::get<0>(Gen<x86_64::CmpqRegImm>(arg, imm))))));
     case OpImmOpcode::kSltiu:
       return std::get<0>(
-          GenSSA<x86_64::MovsxbqRegReg, kNoSSA>(std::get<0>(GenSSA<x86_64::SetccReg, kNoSSA>(
-              Condition::kBelow, std::get<0>(GenSSA<x86_64::CmpqRegImm>(arg, imm))))));
+          Gen<x86_64::MovsxbqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::SetccReg, kNoSSA>(
+              Condition::kBelow, std::get<0>(Gen<x86_64::CmpqRegImm>(arg, imm))))));
     case OpImmOpcode::kXori:
-      return std::get<0>(GenSSA<x86_64::XorqRegImm>(arg, imm));
+      return std::get<0>(Gen<x86_64::XorqRegImm>(arg, imm));
     case OpImmOpcode::kOri:
-      return std::get<0>(GenSSA<x86_64::OrqRegImm>(arg, imm));
+      return std::get<0>(Gen<x86_64::OrqRegImm>(arg, imm));
     case OpImmOpcode::kAndi:
-      return std::get<0>(GenSSA<x86_64::AndqRegImm>(arg, imm));
+      return std::get<0>(Gen<x86_64::AndqRegImm>(arg, imm));
     default:
       Undefined();
       return {};
@@ -401,7 +399,7 @@ Register HeavyOptimizerFrontend::OpImm32(Decoder::OpImm32Opcode opcode, Register
   switch (opcode) {
     case Decoder::OpImm32Opcode::kAddiw:
       return std::get<0>(
-          GenSSA<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(GenSSA<x86_64::AddlRegImm>(arg, imm))));
+          Gen<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::AddlRegImm>(arg, imm))));
     default:
       Undefined();
       return {};
@@ -409,15 +407,15 @@ Register HeavyOptimizerFrontend::OpImm32(Decoder::OpImm32Opcode opcode, Register
 }
 
 Register HeavyOptimizerFrontend::Slli(Register arg, int8_t imm) {
-  return std::get<0>(GenSSA<x86_64::ShlqRegImm>(arg, imm));
+  return std::get<0>(Gen<x86_64::ShlqRegImm>(arg, imm));
 }
 
 Register HeavyOptimizerFrontend::Srli(Register arg, int8_t imm) {
-  return std::get<0>(GenSSA<x86_64::ShrqRegImm>(arg, imm));
+  return std::get<0>(Gen<x86_64::ShrqRegImm>(arg, imm));
 }
 
 Register HeavyOptimizerFrontend::Srai(Register arg, int8_t imm) {
-  return std::get<0>(GenSSA<x86_64::SarqRegImm>(arg, imm));
+  return std::get<0>(Gen<x86_64::SarqRegImm>(arg, imm));
 }
 
 Register HeavyOptimizerFrontend::ShiftImm32(Decoder::ShiftImm32Opcode opcode,
@@ -427,13 +425,13 @@ Register HeavyOptimizerFrontend::ShiftImm32(Decoder::ShiftImm32Opcode opcode,
   switch (opcode) {
     case ShiftImm32Opcode::kSlliw:
       return std::get<0>(
-          GenSSA<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(GenSSA<x86_64::ShllRegImm>(arg, imm))));
+          Gen<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::ShllRegImm>(arg, imm))));
     case ShiftImm32Opcode::kSrliw:
       return std::get<0>(
-          GenSSA<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(GenSSA<x86_64::ShrlRegImm>(arg, imm))));
+          Gen<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::ShrlRegImm>(arg, imm))));
     case ShiftImm32Opcode::kSraiw:
       return std::get<0>(
-          GenSSA<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(GenSSA<x86_64::SarlRegImm>(arg, imm))));
+          Gen<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::SarlRegImm>(arg, imm))));
     default:
       Undefined();
       return {};
@@ -441,20 +439,20 @@ Register HeavyOptimizerFrontend::ShiftImm32(Decoder::ShiftImm32Opcode opcode,
 }
 
 Register HeavyOptimizerFrontend::Rori(Register arg, int8_t shamt) {
-  return std::get<0>(GenSSA<x86_64::RorqRegImm>(arg, shamt));
+  return std::get<0>(Gen<x86_64::RorqRegImm>(arg, shamt));
 }
 
 Register HeavyOptimizerFrontend::Roriw(Register arg, int8_t shamt) {
   return std::get<0>(
-      GenSSA<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(GenSSA<x86_64::RorlRegImm>(arg, shamt))));
+      Gen<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::RorlRegImm>(arg, shamt))));
 }
 
 Register HeavyOptimizerFrontend::Lui(int32_t imm) {
-  return std::get<0>(GenSSA<x86_64::MovqRegImm>(imm));
+  return std::get<0>(Gen<x86_64::MovqRegImm>(imm));
 }
 
 Register HeavyOptimizerFrontend::Auipc(int32_t imm) {
-  return std::get<0>(GenSSA<x86_64::AddqRegImm>(GetImm(GetInsnAddr()), imm));
+  return std::get<0>(Gen<x86_64::AddqRegImm>(GetImm(GetInsnAddr()), imm));
 }
 
 void HeavyOptimizerFrontend::Store(Decoder::MemoryDataOperandType operand_type,
@@ -555,19 +553,19 @@ Register HeavyOptimizerFrontend::LoadWithoutRecovery(Decoder::LoadOperandType op
                                                      int32_t disp) {
   switch (operand_type) {
     case Decoder::LoadOperandType::k8bitUnsigned:
-      return std::get<0>(GenSSA<x86_64::MovzxblRegOp>({.base = base, .disp = disp}));
+      return std::get<0>(Gen<x86_64::MovzxblRegOp>({.base = base, .disp = disp}));
     case Decoder::LoadOperandType::k16bitUnsigned:
-      return std::get<0>(GenSSA<x86_64::MovzxwlRegOp>({.base = base, .disp = disp}));
+      return std::get<0>(Gen<x86_64::MovzxwlRegOp>({.base = base, .disp = disp}));
     case Decoder::LoadOperandType::k32bitUnsigned:
-      return std::get<0>(GenSSA<x86_64::MovlRegOp>({.base = base, .disp = disp}));
+      return std::get<0>(Gen<x86_64::MovlRegOp>({.base = base, .disp = disp}));
     case Decoder::LoadOperandType::k64bit:
-      return std::get<0>(GenSSA<x86_64::MovqRegOp>({.base = base, .disp = disp}));
+      return std::get<0>(Gen<x86_64::MovqRegOp>({.base = base, .disp = disp}));
     case Decoder::LoadOperandType::k8bitSigned:
-      return std::get<0>(GenSSA<x86_64::MovsxbqRegOp>({.base = base, .disp = disp}));
+      return std::get<0>(Gen<x86_64::MovsxbqRegOp>({.base = base, .disp = disp}));
     case Decoder::LoadOperandType::k16bitSigned:
-      return std::get<0>(GenSSA<x86_64::MovsxwqRegOp>({.base = base, .disp = disp}));
+      return std::get<0>(Gen<x86_64::MovsxwqRegOp>({.base = base, .disp = disp}));
     case Decoder::LoadOperandType::k32bitSigned:
-      return std::get<0>(GenSSA<x86_64::MovsxlqRegOp>({.base = base, .disp = disp}));
+      return std::get<0>(Gen<x86_64::MovsxlqRegOp>({.base = base, .disp = disp}));
     default:
       Undefined();
       return {};
@@ -580,24 +578,19 @@ Register HeavyOptimizerFrontend::LoadWithoutRecovery(Decoder::LoadOperandType op
                                                      int32_t disp) {
   switch (operand_type) {
     case Decoder::LoadOperandType::k8bitUnsigned:
-      return std::get<0>(
-          GenSSA<x86_64::MovzxblRegOp>({.base = base, .index = index, .disp = disp}));
+      return std::get<0>(Gen<x86_64::MovzxblRegOp>({.base = base, .index = index, .disp = disp}));
     case Decoder::LoadOperandType::k16bitUnsigned:
-      return std::get<0>(
-          GenSSA<x86_64::MovzxwlRegOp>({.base = base, .index = index, .disp = disp}));
+      return std::get<0>(Gen<x86_64::MovzxwlRegOp>({.base = base, .index = index, .disp = disp}));
     case Decoder::LoadOperandType::k32bitUnsigned:
-      return std::get<0>(GenSSA<x86_64::MovlRegOp>({.base = base, .index = index, .disp = disp}));
+      return std::get<0>(Gen<x86_64::MovlRegOp>({.base = base, .index = index, .disp = disp}));
     case Decoder::LoadOperandType::k64bit:
-      return std::get<0>(GenSSA<x86_64::MovqRegOp>({.base = base, .index = index, .disp = disp}));
+      return std::get<0>(Gen<x86_64::MovqRegOp>({.base = base, .index = index, .disp = disp}));
     case Decoder::LoadOperandType::k8bitSigned:
-      return std::get<0>(
-          GenSSA<x86_64::MovsxbqRegOp>({.base = base, .index = index, .disp = disp}));
+      return std::get<0>(Gen<x86_64::MovsxbqRegOp>({.base = base, .index = index, .disp = disp}));
     case Decoder::LoadOperandType::k16bitSigned:
-      return std::get<0>(
-          GenSSA<x86_64::MovsxwqRegOp>({.base = base, .index = index, .disp = disp}));
+      return std::get<0>(Gen<x86_64::MovsxwqRegOp>({.base = base, .index = index, .disp = disp}));
     case Decoder::LoadOperandType::k32bitSigned:
-      return std::get<0>(
-          GenSSA<x86_64::MovsxlqRegOp>({.base = base, .index = index, .disp = disp}));
+      return std::get<0>(Gen<x86_64::MovsxlqRegOp>({.base = base, .index = index, .disp = disp}));
     default:
       Undefined();
       return {};
@@ -607,13 +600,13 @@ Register HeavyOptimizerFrontend::LoadWithoutRecovery(Decoder::LoadOperandType op
 Register HeavyOptimizerFrontend::UpdateCsr(Decoder::CsrOpcode opcode, Register arg, Register csr) {
   switch (opcode) {
     case Decoder::CsrOpcode::kCsrrs:
-      return std::get<0>(GenSSA<x86_64::OrqRegReg>(arg, csr));
+      return std::get<0>(Gen<x86_64::OrqRegReg>(arg, csr));
     case Decoder::CsrOpcode::kCsrrc:
       if (host_platform::kHasBMI) {
-        return std::get<0>(GenSSA<x86_64::AndnqRegRegReg>(arg, csr));
+        return std::get<0>(Gen<x86_64::AndnqRegRegReg>(arg, csr));
       } else {
         return std::get<0>(
-            GenSSA<x86_64::AndqRegReg, kNoSSA>(std::get<0>(GenSSA<x86_64::NotqReg>(arg)), csr));
+            Gen<x86_64::AndqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::NotqReg>(arg)), csr));
       }
     default:
       Undefined();
@@ -624,13 +617,13 @@ Register HeavyOptimizerFrontend::UpdateCsr(Decoder::CsrOpcode opcode, Register a
 Register HeavyOptimizerFrontend::UpdateCsr(Decoder::CsrImmOpcode opcode, int8_t imm, Register csr) {
   switch (opcode) {
     case Decoder::CsrImmOpcode::kCsrrwi:
-      return std::get<0>(GenSSA<x86_64::MovlRegImm>(imm));
+      return std::get<0>(Gen<x86_64::MovlRegImm>(imm));
     case Decoder::CsrImmOpcode::kCsrrsi:
       return std::get<0>(
-          GenSSA<x86_64::OrqRegReg, kNoSSA>(std::get<0>(GenSSA<x86_64::MovlRegImm>(imm)), csr));
+          Gen<x86_64::OrqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::MovlRegImm>(imm)), csr));
     case Decoder::CsrImmOpcode::kCsrrci:
       return std::get<0>(
-          GenSSA<x86_64::AndqRegReg, kNoSSA>(std::get<0>(GenSSA<x86_64::MovqRegImm>(~imm)), csr));
+          Gen<x86_64::AndqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::MovqRegImm>(~imm)), csr));
     default:
       Undefined();
       return {};
@@ -643,16 +636,16 @@ void HeavyOptimizerFrontend::StoreWithoutRecovery(Decoder::MemoryDataOperandType
                                                   Register data) {
   switch (operand_type) {
     case Decoder::MemoryDataOperandType::k8bit:
-      GenSSA<x86_64::MovbOpReg>({.base = base, .disp = disp}, data);
+      Gen<x86_64::MovbOpReg>({.base = base, .disp = disp}, data);
       break;
     case Decoder::MemoryDataOperandType::k16bit:
-      GenSSA<x86_64::MovwOpReg>({.base = base, .disp = disp}, data);
+      Gen<x86_64::MovwOpReg>({.base = base, .disp = disp}, data);
       break;
     case Decoder::MemoryDataOperandType::k32bit:
-      GenSSA<x86_64::MovlOpReg>({.base = base, .disp = disp}, data);
+      Gen<x86_64::MovlOpReg>({.base = base, .disp = disp}, data);
       break;
     case Decoder::MemoryDataOperandType::k64bit:
-      GenSSA<x86_64::MovqOpReg>({.base = base, .disp = disp}, data);
+      Gen<x86_64::MovqOpReg>({.base = base, .disp = disp}, data);
       break;
     default:
       return Undefined();
@@ -666,19 +659,19 @@ void HeavyOptimizerFrontend::StoreWithoutRecovery(Decoder::MemoryDataOperandType
                                                   Register data) {
   switch (operand_type) {
     case Decoder::MemoryDataOperandType::k8bit:
-      GenSSA<x86_64::MovbOpReg>(
+      Gen<x86_64::MovbOpReg>(
           {.base = base, .index = index, x86_64::Assembler::kTimesOne, .disp = disp}, data);
       break;
     case Decoder::MemoryDataOperandType::k16bit:
-      GenSSA<x86_64::MovwOpReg>(
+      Gen<x86_64::MovwOpReg>(
           {.base = base, .index = index, x86_64::Assembler::kTimesOne, .disp = disp}, data);
       break;
     case Decoder::MemoryDataOperandType::k32bit:
-      GenSSA<x86_64::MovlOpReg>(
+      Gen<x86_64::MovlOpReg>(
           {.base = base, .index = index, x86_64::Assembler::kTimesOne, .disp = disp}, data);
       break;
     case Decoder::MemoryDataOperandType::k64bit:
-      GenSSA<x86_64::MovqOpReg>(
+      Gen<x86_64::MovqOpReg>(
           {.base = base, .index = index, x86_64::Assembler::kTimesOne, .disp = disp}, data);
       break;
     default:
@@ -708,19 +701,19 @@ void HeavyOptimizerFrontend::Fence(Decoder::FenceOpcode /* opcode */,
   bool write_fence = sw | pw;
   if (read_fence) {
     if (write_fence) {
-      GenSSA<x86_64::Mfence>();
+      Gen<x86_64::Mfence>();
     } else {
-      GenSSA<x86_64::Lfence>();
+      Gen<x86_64::Lfence>();
     }
   } else if (write_fence) {
-    GenSSA<x86_64::Sfence>();
+    Gen<x86_64::Sfence>();
   }
 }
 
 void HeavyOptimizerFrontend::MemoryRegionReservationLoad(Register aligned_addr) {
   // Store aligned_addr in CPUState.
   int32_t address_offset = GetThreadStateReservationAddressOffset();
-  GenSSA<x86_64::MovqOpReg>({.base = x86_64::kMachineRegRBP, .disp = address_offset}, aligned_addr);
+  Gen<x86_64::MovqOpReg>({.base = x86_64::kMachineRegRBP, .disp = address_offset}, aligned_addr);
 
   // MemoryRegionReservation::SetOwner(aligned_addr, &(state->cpu)).
   builder_.GenCallImm(bit_cast<uint64_t>(&MemoryRegionReservation::SetOwner),
@@ -731,9 +724,9 @@ void HeavyOptimizerFrontend::MemoryRegionReservationLoad(Register aligned_addr) 
                       }});
 
   // Load reservation value and store it in CPUState.
-  auto [reservation] = GenSSA<x86_64::MovqRegOp>({.base = aligned_addr});
+  auto [reservation] = Gen<x86_64::MovqRegOp>({.base = aligned_addr});
   int32_t value_offset = GetThreadStateReservationValueOffset();
-  GenSSA<x86_64::MovqOpReg>({.base = x86_64::kMachineRegRBP, .disp = value_offset}, reservation);
+  Gen<x86_64::MovqOpReg>({.base = x86_64::kMachineRegRBP, .disp = value_offset}, reservation);
 }
 
 Register HeavyOptimizerFrontend::MemoryRegionReservationExchange(Register aligned_addr,
@@ -751,21 +744,20 @@ Register HeavyOptimizerFrontend::MemoryRegionReservationExchange(Register aligne
   // MemoryRegionReservation::Clear.
   int32_t address_offset = GetThreadStateReservationAddressOffset();
   auto [stored_aligned_addr] =
-      GenSSA<x86_64::MovqRegOp>({.base = x86_64::kMachineRegRBP, .disp = address_offset});
-  GenSSA<x86_64::MovqOpImm>({.base = x86_64::kMachineRegRBP, .disp = address_offset},
-                            kNullGuestAddr);
+      Gen<x86_64::MovqRegOp>({.base = x86_64::kMachineRegRBP, .disp = address_offset});
+  Gen<x86_64::MovqOpImm>({.base = x86_64::kMachineRegRBP, .disp = address_offset}, kNullGuestAddr);
   // Compare aligned_addr to the one in CPUState.
   builder_.Gen<PseudoCondBranch>(
       x86_64::Assembler::Condition::kNotEqual,
       failure_bb,
       addr_match_bb,
-      std::get<0>(GenSSA<x86_64::CmpqRegReg>(stored_aligned_addr, aligned_addr)));
+      std::get<0>(Gen<x86_64::CmpqRegReg>(stored_aligned_addr, aligned_addr)));
 
   builder_.StartBasicBlock(addr_match_bb);
   // Load new reservation value into integer register where CmpXchgq expects it.
   int32_t value_offset = GetThreadStateReservationValueOffset();
   auto [new_reservation_value] =
-      GenSSA<x86_64::MovqRegOp>({.base = x86_64::kMachineRegRBP, .disp = value_offset});
+      Gen<x86_64::MovqRegOp>({.base = x86_64::kMachineRegRBP, .disp = value_offset});
 
   MemoryRegionReservationSwapWithLockedOwner(
       aligned_addr, curr_reservation_value, new_reservation_value, failure_bb);
@@ -811,15 +803,15 @@ void HeavyOptimizerFrontend::MemoryRegionReservationSwapWithLockedOwner(
   builder_.Gen<PseudoCondBranch>(x86_64::Assembler::Condition::kZero,
                                  failure_bb,
                                  lock_success_bb,
-                                 std::get<0>(GenSSA<x86_64::TestqRegReg>(lock_entry, lock_entry)));
+                                 std::get<0>(Gen<x86_64::TestqRegReg>(lock_entry, lock_entry)));
 
   builder_.StartBasicBlock(lock_success_bb);
   MachineReg host_flags;
-  std::tie(curr_reservation_value, host_flags) = GenSSA<x86_64::LockCmpXchgqRegOpReg>(
+  std::tie(curr_reservation_value, host_flags) = Gen<x86_64::LockCmpXchgqRegOpReg>(
       curr_reservation_value, {.base = aligned_addr}, new_reservation_value);
 
   // MemoryRegionReservation::Unlock(lock_entry)
-  GenSSA<x86_64::MovqOpImm>({.base = lock_entry}, 0);
+  Gen<x86_64::MovqOpImm>({.base = lock_entry}, 0);
   // Zero-flag is set if CmpXchg is successful.
   builder_.Gen<PseudoCondBranch>(
       x86_64::Assembler::Condition::kNotZero, failure_bb, swap_success_bb, host_flags);
