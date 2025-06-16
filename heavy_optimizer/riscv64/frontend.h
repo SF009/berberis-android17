@@ -365,7 +365,7 @@ class HeavyOptimizerFrontend {
   //
 
   Register UpdateCsr(Decoder::CsrOpcode opcode, Register arg, Register csr);
-  Register UpdateCsr(Decoder::CsrImmOpcode opcode, uint8_t imm, Register csr);
+  Register UpdateCsr(Decoder::CsrImmOpcode opcode, int8_t imm, Register csr);
 
   [[nodiscard]] bool success() const { return success_; }
 
@@ -498,20 +498,6 @@ class HeavyOptimizerFrontend {
                                                   MachineBasicBlock* failure_bb);
 
   // Syntax sugar.
-  template <typename InsnType, typename... Args>
-  /*may_discard*/ InsnType* Gen(Args... args) {
-    return builder_.Gen<InsnType, Args...>(args...);
-  }
-
-  BERBERIS_DECLARE_MACHINE_INSN_ADAPTER(
-      /*may_discard*/ auto Gen,
-      (),
-      MachineInsnOperandsHelper,
-      ConstructorArgsTuple,
-      x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>*,
-      builder_.Gen,
-      ())
-
   enum SSAMode { kSSA, kNoSSA };
 
   template <typename InsnType, enum SSAMode kSSAMode = kSSA, typename... Args>
