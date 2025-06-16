@@ -899,10 +899,9 @@ class Interpreter {
                                                      Register vtype,
                                                      const Value<ElementType> kElementType,
                                                      const Value<segment_size> kSegmentSize,
-                                                     Value<vlmul>,
+                                                     const Value<vlmul> kVlmul,
                                                      const Value<vma> kVma,
                                                      ExtraArgs... extra_args) {
-    using ElementTypе = WrappedTypeFromId<kElementType>;
     // Indexed loads and stores have two operands with different ElementType's and lmul sizes,
     // pass vtype to do further selection.
     if constexpr (std::is_same_v<VOpArgs, Decoder::VLoadIndexedArgs> ||
@@ -934,115 +933,187 @@ class Interpreter {
       // For other instruction we have parsed all the information from vtype and only need to pass
       // args and extra_args.
       if ((vtype >> 6) & 1) {
-        return OpVector<ElementTypе, kSegmentSize, vlmul, TailProcessing::kAgnostic, vma>(
-            args, extra_args...);
+        return OpVectorWithElementTypeSegmentSizeVlmulVtaAndVma(args,
+                                                                kElementType,
+                                                                kSegmentSize,
+                                                                kVlmul,
+                                                                kValue<TailProcessing::kAgnostic>,
+                                                                kVma,
+                                                                extra_args...);
       }
-      return OpVector<ElementTypе, kSegmentSize, vlmul, TailProcessing::kUndisturbed, vma>(
-          args, extra_args...);
+      return OpVectorWithElementTypeSegmentSizeVlmulVtaAndVma(args,
+                                                              kElementType,
+                                                              kSegmentSize,
+                                                              kVlmul,
+                                                              kValue<TailProcessing::kUndisturbed>,
+                                                              kVma,
+                                                              extra_args...);
     }
   }
 
-  template <size_t kSegmentSize,
-            TemplateTypeId kIndexElementType,
-            size_t kIndexRegistersInvolved,
+  template <size_t segment_size,
+            TemplateTypeId IndexElementType,
+            size_t index_registers_involved,
             TailProcessing vta,
             auto vma,
             typename VOpArgs,
             typename... ExtraArgs>
-  void OpVectorWithSegmentSizeIndexTypeIndexRegistersCountVtaAndVma(const VOpArgs& args,
-                                                                    Register vtype,
-                                                                    Value<kSegmentSize>,
-                                                                    Value<kIndexElementType>,
-                                                                    Value<kIndexRegistersInvolved>,
-                                                                    Value<vta>,
-                                                                    Value<vma>,
-                                                                    ExtraArgs... extra_args) {
-    using IndexElementType = WrappedTypeFromId<kIndexElementType>;
+  void OpVectorWithSegmentSizeIndexTypeIndexRegistersCountVtaAndVma(
+      const VOpArgs& args,
+      Register vtype,
+      const Value<segment_size> kSegmentSize,
+      const Value<IndexElementType> kIndexElementType,
+      const Value<index_registers_involved> kIndexRegistersInvolved,
+      const Value<vta> kVta,
+      const Value<vma> kVma,
+      ExtraArgs... extra_args) {
     VectorRegisterGroupMultiplier vlmul = static_cast<VectorRegisterGroupMultiplier>(vtype & 0b111);
     switch (static_cast<VectorSelectElementWidth>((vtype >> 3) & 0b111)) {
       case VectorSelectElementWidth::k8bit:
-        return OpVector<UInt8, kSegmentSize, IndexElementType, kIndexRegistersInvolved, vta, vma>(
-            args, vlmul, extra_args...);
+        return OpVectorWithElementTypeSegmentSizeIndexTypeIndexRegistersCountVtaAndVma(
+            args,
+            vlmul,
+            kType<UInt8>,
+            kSegmentSize,
+            kIndexElementType,
+            kIndexRegistersInvolved,
+            kVta,
+            kVma,
+            extra_args...);
       case VectorSelectElementWidth::k16bit:
-        return OpVector<UInt16, kSegmentSize, IndexElementType, kIndexRegistersInvolved, vta, vma>(
-            args, vlmul, extra_args...);
+        return OpVectorWithElementTypeSegmentSizeIndexTypeIndexRegistersCountVtaAndVma(
+            args,
+            vlmul,
+            kType<UInt16>,
+            kSegmentSize,
+            kIndexElementType,
+            kIndexRegistersInvolved,
+            kVta,
+            kVma,
+            extra_args...);
       case VectorSelectElementWidth::k32bit:
-        return OpVector<UInt32, kSegmentSize, IndexElementType, kIndexRegistersInvolved, vta, vma>(
-            args, vlmul, extra_args...);
+        return OpVectorWithElementTypeSegmentSizeIndexTypeIndexRegistersCountVtaAndVma(
+            args,
+            vlmul,
+            kType<UInt32>,
+            kSegmentSize,
+            kIndexElementType,
+            kIndexRegistersInvolved,
+            kVta,
+            kVma,
+            extra_args...);
       case VectorSelectElementWidth::k64bit:
-        return OpVector<UInt64, kSegmentSize, IndexElementType, kIndexRegistersInvolved, vta, vma>(
-            args, vlmul, extra_args...);
+        return OpVectorWithElementTypeSegmentSizeIndexTypeIndexRegistersCountVtaAndVma(
+            args,
+            vlmul,
+            kType<UInt64>,
+            kSegmentSize,
+            kIndexElementType,
+            kIndexRegistersInvolved,
+            kVta,
+            kVma,
+            extra_args...);
       default:
         return Undefined();
     }
   }
 
-  template <typename DataElementType,
-            size_t kSegmentSize,
-            typename IndexElementType,
-            size_t kIndexRegistersInvolved,
+  template <TemplateTypeId DataElementType,
+            size_t segment_size,
+            TemplateTypeId IndexElementType,
+            size_t index_registers_involved,
             TailProcessing vta,
             auto vma,
             typename VOpArgs,
             typename... ExtraArgs>
-  void OpVector(const VOpArgs& args, VectorRegisterGroupMultiplier vlmul, ExtraArgs... extra_args) {
+  void OpVectorWithElementTypeSegmentSizeIndexTypeIndexRegistersCountVtaAndVma(
+      const VOpArgs& args,
+      VectorRegisterGroupMultiplier vlmul,
+      const Value<DataElementType> kDataElementType,
+      const Value<segment_size> kSegmentSize,
+      const Value<IndexElementType> kIndexElementType,
+      const Value<index_registers_involved> kIndexRegistersInvolved,
+      const Value<vta> kVta,
+      const Value<vma> kVma,
+      ExtraArgs... extra_args) {
     switch (vlmul) {
       case VectorRegisterGroupMultiplier::k1register:
-        return OpVector<DataElementType,
-                        VectorRegisterGroupMultiplier::k1register,
-                        IndexElementType,
-                        kSegmentSize,
-                        kIndexRegistersInvolved,
-                        vta,
-                        vma>(args, extra_args...);
+        return OpVectorWithElementTypeVlmulIndexTypeSegmentSizeIndexRegistersCountVtaAndVma(
+            args,
+            kDataElementType,
+            kValue<VectorRegisterGroupMultiplier::k1register>,
+            kIndexElementType,
+            kSegmentSize,
+            kIndexRegistersInvolved,
+            kVta,
+            kVma,
+            extra_args...);
       case VectorRegisterGroupMultiplier::k2registers:
-        return OpVector<DataElementType,
-                        VectorRegisterGroupMultiplier::k2registers,
-                        IndexElementType,
-                        kSegmentSize,
-                        kIndexRegistersInvolved,
-                        vta,
-                        vma>(args, extra_args...);
+        return OpVectorWithElementTypeVlmulIndexTypeSegmentSizeIndexRegistersCountVtaAndVma(
+            args,
+            kDataElementType,
+            kValue<VectorRegisterGroupMultiplier::k2registers>,
+            kIndexElementType,
+            kSegmentSize,
+            kIndexRegistersInvolved,
+            kVta,
+            kVma,
+            extra_args...);
       case VectorRegisterGroupMultiplier::k4registers:
-        return OpVector<DataElementType,
-                        VectorRegisterGroupMultiplier::k4registers,
-                        IndexElementType,
-                        kSegmentSize,
-                        kIndexRegistersInvolved,
-                        vta,
-                        vma>(args, extra_args...);
+        return OpVectorWithElementTypeVlmulIndexTypeSegmentSizeIndexRegistersCountVtaAndVma(
+            args,
+            kDataElementType,
+            kValue<VectorRegisterGroupMultiplier::k4registers>,
+            kIndexElementType,
+            kSegmentSize,
+            kIndexRegistersInvolved,
+            kVta,
+            kVma,
+            extra_args...);
       case VectorRegisterGroupMultiplier::k8registers:
-        return OpVector<DataElementType,
-                        VectorRegisterGroupMultiplier::k8registers,
-                        IndexElementType,
-                        kSegmentSize,
-                        kIndexRegistersInvolved,
-                        vta,
-                        vma>(args, extra_args...);
+        return OpVectorWithElementTypeVlmulIndexTypeSegmentSizeIndexRegistersCountVtaAndVma(
+            args,
+            kDataElementType,
+            kValue<VectorRegisterGroupMultiplier::k8registers>,
+            kIndexElementType,
+            kSegmentSize,
+            kIndexRegistersInvolved,
+            kVta,
+            kVma,
+            extra_args...);
       case VectorRegisterGroupMultiplier::kEigthOfRegister:
-        return OpVector<DataElementType,
-                        VectorRegisterGroupMultiplier::kEigthOfRegister,
-                        IndexElementType,
-                        kSegmentSize,
-                        kIndexRegistersInvolved,
-                        vta,
-                        vma>(args, extra_args...);
+        return OpVectorWithElementTypeVlmulIndexTypeSegmentSizeIndexRegistersCountVtaAndVma(
+            args,
+            kDataElementType,
+            kValue<VectorRegisterGroupMultiplier::kEigthOfRegister>,
+            kIndexElementType,
+            kSegmentSize,
+            kIndexRegistersInvolved,
+            kVta,
+            kVma,
+            extra_args...);
       case VectorRegisterGroupMultiplier::kQuarterOfRegister:
-        return OpVector<DataElementType,
-                        VectorRegisterGroupMultiplier::kQuarterOfRegister,
-                        IndexElementType,
-                        kSegmentSize,
-                        kIndexRegistersInvolved,
-                        vta,
-                        vma>(args, extra_args...);
+        return OpVectorWithElementTypeVlmulIndexTypeSegmentSizeIndexRegistersCountVtaAndVma(
+            args,
+            kDataElementType,
+            kValue<VectorRegisterGroupMultiplier::kQuarterOfRegister>,
+            kIndexElementType,
+            kSegmentSize,
+            kIndexRegistersInvolved,
+            kVta,
+            kVma,
+            extra_args...);
       case VectorRegisterGroupMultiplier::kHalfOfRegister:
-        return OpVector<DataElementType,
-                        VectorRegisterGroupMultiplier::kHalfOfRegister,
-                        IndexElementType,
-                        kSegmentSize,
-                        kIndexRegistersInvolved,
-                        vta,
-                        vma>(args, extra_args...);
+        return OpVectorWithElementTypeVlmulIndexTypeSegmentSizeIndexRegistersCountVtaAndVma(
+            args,
+            kDataElementType,
+            kValue<VectorRegisterGroupMultiplier::kHalfOfRegister>,
+            kIndexElementType,
+            kSegmentSize,
+            kIndexRegistersInvolved,
+            kVta,
+            kVma,
+            extra_args...);
       default:
         return Undefined();
     }
@@ -1063,31 +1134,55 @@ class Interpreter {
     uint8_t start_no;
   };
 
-  template <typename DataElementType,
+  template <TemplateTypeId DataElementType,
             VectorRegisterGroupMultiplier vlmul,
-            typename IndexElementType,
-            size_t kSegmentSize,
-            size_t kIndexRegistersInvolved,
+            TemplateTypeId IndexElementType,
+            size_t segment_size,
+            size_t index_registers_involved,
             TailProcessing vta,
             auto vma>
-  void OpVector(const Decoder::VLoadIndexedArgs& args, Register src) {
-    return OpVector<DataElementType,
-                    kSegmentSize,
-                    NumberOfRegistersInvolved(vlmul),
-                    IndexElementType,
-                    kIndexRegistersInvolved,
-                    vta,
-                    vma>(args, src);
+  void OpVectorWithElementTypeVlmulIndexTypeSegmentSizeIndexRegistersCountVtaAndVma(
+      const Decoder::VLoadIndexedArgs& args,
+      const Value<DataElementType> kDataElementType,
+      Value<vlmul>,
+      const Value<IndexElementType> kIndexElementType,
+      const Value<segment_size> kSegmentSize,
+      Value<index_registers_involved> kIndexRegistersInvolved,
+      const Value<vta> kVta,
+      const Value<vma> kVma,
+      Register src) {
+    return OpVectorWithDataElementTypeSegmentSizeDataRegistersCountIndexTypeIndexRegistersCountVtaAndVma(
+        args,
+        kDataElementType,
+        kSegmentSize,
+        kValue<NumberOfRegistersInvolved(vlmul)>,
+        kIndexElementType,
+        kIndexRegistersInvolved,
+        kVta,
+        kVma,
+        src);
   }
 
-  template <typename DataElementType,
+  template <TemplateTypeId kDataElementType,
             size_t kSegmentSize,
             size_t kNumRegistersInGroup,
-            typename IndexElementType,
+            TemplateTypeId kIndexElementType,
             size_t kIndexRegistersInvolved,
             TailProcessing vta,
             auto vma>
-  void OpVector(const Decoder::VLoadIndexedArgs& args, Register src) {
+  void
+  OpVectorWithDataElementTypeSegmentSizeDataRegistersCountIndexTypeIndexRegistersCountVtaAndVma(
+      const Decoder::VLoadIndexedArgs& args,
+      Value<kDataElementType>,
+      Value<kSegmentSize>,
+      Value<kNumRegistersInGroup>,
+      Value<kIndexElementType>,
+      Value<kIndexRegistersInvolved>,
+      Value<vta>,
+      Value<vma>,
+      Register src) {
+    using DataElementType = WrappedTypeFromId<kDataElementType>;
+    using IndexElementType = WrappedTypeFromId<kIndexElementType>;
     if (!IsAligned<kIndexRegistersInvolved>(args.idx)) {
       return Undefined();
     }
@@ -1099,42 +1194,85 @@ class Interpreter {
         args.dst, src, [&indexes](size_t index) { return indexes[index]; });
   }
 
-  template <typename ElementType,
-            size_t kSegmentSize,
+  template <TemplateTypeId ElementType,
+            size_t segment_size,
             VectorRegisterGroupMultiplier vlmul,
             TailProcessing vta,
             auto vma>
-  void OpVector(const Decoder::VLoadStrideArgs& args, Register src, Register stride) {
-    return OpVector<ElementType, kSegmentSize, NumberOfRegistersInvolved(vlmul), vta, vma>(
-        args, src, stride);
+  void OpVectorWithElementTypeSegmentSizeVlmulVtaAndVma(const Decoder::VLoadStrideArgs& args,
+                                                        const Value<ElementType> kElementType,
+                                                        const Value<segment_size> kSegmentSize,
+                                                        Value<vlmul>,
+                                                        Value<vta> kVta,
+                                                        Value<vma> kVma,
+                                                        Register src,
+                                                        Register stride) {
+    return OpVectorWithElementTypeSegmentSizeRegistersCountVtaAndVma(
+        args,
+        kElementType,
+        kSegmentSize,
+        kValue<NumberOfRegistersInvolved(vlmul)>,
+        kVta,
+        kVma,
+        src,
+        stride);
   }
 
-  template <typename ElementType,
+  template <TemplateTypeId kElementType,
             size_t kSegmentSize,
             size_t kNumRegistersInGroup,
             TailProcessing vta,
             auto vma>
-  void OpVector(const Decoder::VLoadStrideArgs& args, Register src, Register stride) {
+  void OpVectorWithElementTypeSegmentSizeRegistersCountVtaAndVma(
+      const Decoder::VLoadStrideArgs& args,
+      Value<kElementType>,
+      Value<kSegmentSize>,
+      Value<kNumRegistersInGroup>,
+      Value<vta>,
+      Value<vma>,
+      Register src,
+      Register stride) {
+    using ElementType = WrappedTypeFromId<kElementType>;
     return OpVectorLoad<ElementType, kSegmentSize, kNumRegistersInGroup, vta, vma>(
         args.dst, src, [stride](size_t index) { return stride * index; });
   }
 
-  template <typename ElementType,
-            size_t kSegmentSize,
+  template <TemplateTypeId ElementType,
+            size_t segment_size,
             VectorRegisterGroupMultiplier vlmul,
             TailProcessing vta,
             auto vma>
-  void OpVector(const Decoder::VLoadUnitStrideArgs& args, Register src) {
-    return OpVector<ElementType, kSegmentSize, NumberOfRegistersInvolved(vlmul), vta, vma>(args,
-                                                                                           src);
+  void OpVectorWithElementTypeSegmentSizeVlmulVtaAndVma(const Decoder::VLoadUnitStrideArgs& args,
+                                                        const Value<ElementType> kElementType,
+                                                        const Value<segment_size> kSegmentSize,
+                                                        Value<vlmul>,
+                                                        const Value<vta> kVta,
+                                                        const Value<vma> kVma,
+                                                        Register src) {
+    return OpVectorWithElementTypeSegmentSizeRegistersCountVtaAndVma(
+        args,
+        kElementType,
+        kSegmentSize,
+        kValue<NumberOfRegistersInvolved(vlmul)>,
+        kVta,
+        kVma,
+        src);
   }
 
-  template <typename ElementType,
+  template <TemplateTypeId kElementType,
             size_t kSegmentSize,
             size_t kNumRegistersInGroup,
             TailProcessing vta,
             auto vma>
-  void OpVector(const Decoder::VLoadUnitStrideArgs& args, Register src) {
+  void OpVectorWithElementTypeSegmentSizeRegistersCountVtaAndVma(
+      const Decoder::VLoadUnitStrideArgs& args,
+      Value<kElementType>,
+      Value<kSegmentSize>,
+      Value<kNumRegistersInGroup>,
+      Value<vta>,
+      Value<vma>,
+      Register src) {
+    using ElementType = WrappedTypeFromId<kElementType>;
     switch (args.opcode) {
       case Decoder::VLUmOpOpcode::kVleXXff:
         return OpVectorLoad<ElementType,
@@ -3121,29 +3259,52 @@ class Interpreter {
     }
   }
 
-  template <typename DataElementType,
+  template <TemplateTypeId DataElementType,
             VectorRegisterGroupMultiplier vlmul,
-            typename IndexElementType,
-            size_t kSegmentSize,
-            size_t kIndexRegistersInvolved,
+            TemplateTypeId IndexElementType,
+            size_t segment_size,
+            size_t index_registers_involved,
             TailProcessing vta,
             auto vma>
-  void OpVector(const Decoder::VStoreIndexedArgs& args, Register src) {
-    return OpVector<DataElementType,
-                    kSegmentSize,
-                    NumberOfRegistersInvolved(vlmul),
-                    IndexElementType,
-                    kIndexRegistersInvolved,
-                    !std::is_same_v<decltype(vma), intrinsics::NoInactiveProcessing>>(args, src);
+  void OpVectorWithElementTypeVlmulIndexTypeSegmentSizeIndexRegistersCountVtaAndVma(
+      const Decoder::VStoreIndexedArgs& args,
+      const Value<DataElementType> kDataElementType,
+      Value<vlmul>,
+      const Value<IndexElementType> kIndexElementType,
+      const Value<segment_size> kSegmentSize,
+      Value<index_registers_involved> kIndexRegistersInvolved,
+      Value<vta>,
+      Value<vma>,
+      Register src) {
+    return OpVectorWithElementTypeSegmentSizeDataRegistersCountIndexTypeIndexRegistersCountAndUseMasking(
+        args,
+        kDataElementType,
+        kSegmentSize,
+        kValue<NumberOfRegistersInvolved(vlmul)>,
+        kIndexElementType,
+        kIndexRegistersInvolved,
+        kValue<!std::is_same_v<decltype(vma), intrinsics::NoInactiveProcessing>>,
+        src);
   }
 
-  template <typename DataElementType,
+  template <TemplateTypeId kDataElementType,
             size_t kSegmentSize,
             size_t kNumRegistersInGroup,
-            typename IndexElementType,
+            TemplateTypeId kIndexElementType,
             size_t kIndexRegistersInvolved,
             bool kUseMasking>
-  void OpVector(const Decoder::VStoreIndexedArgs& args, Register src) {
+  void
+  OpVectorWithElementTypeSegmentSizeDataRegistersCountIndexTypeIndexRegistersCountAndUseMasking(
+      const Decoder::VStoreIndexedArgs& args,
+      Value<kDataElementType>,
+      Value<kSegmentSize>,
+      Value<kNumRegistersInGroup>,
+      Value<kIndexElementType>,
+      Value<kIndexRegistersInvolved>,
+      Value<kUseMasking>,
+      Register src) {
+    using DataElementType = WrappedTypeFromId<kDataElementType>;
+    using IndexElementType = WrappedTypeFromId<kIndexElementType>;
     if (!IsAligned<kIndexRegistersInvolved>(args.idx)) {
       return Undefined();
     }
@@ -3155,12 +3316,20 @@ class Interpreter {
         args.data, src, [&indexes](size_t index) { return indexes[index]; });
   }
 
-  template <typename ElementType,
+  template <TemplateTypeId kElementType,
             size_t kSegmentSize,
             VectorRegisterGroupMultiplier vlmul,
             TailProcessing vta,
             auto vma>
-  void OpVector(const Decoder::VStoreStrideArgs& args, Register src, Register stride) {
+  void OpVectorWithElementTypeSegmentSizeVlmulVtaAndVma(const Decoder::VStoreStrideArgs& args,
+                                                        Value<kElementType>,
+                                                        Value<kSegmentSize>,
+                                                        Value<vlmul>,
+                                                        Value<vta>,
+                                                        Value<vma>,
+                                                        Register src,
+                                                        Register stride) {
+    using ElementType = WrappedTypeFromId<kElementType>;
     return OpVectorStore<ElementType,
                          kSegmentSize,
                          NumberOfRegistersInvolved(vlmul),
@@ -3168,12 +3337,19 @@ class Interpreter {
         args.data, src, [stride](size_t index) { return stride * index; });
   }
 
-  template <typename ElementType,
+  template <TemplateTypeId kElementType,
             size_t kSegmentSize,
             VectorRegisterGroupMultiplier vlmul,
             TailProcessing vta,
             auto vma>
-  void OpVector(const Decoder::VStoreUnitStrideArgs& args, Register src) {
+  void OpVectorWithElementTypeSegmentSizeVlmulVtaAndVma(const Decoder::VStoreUnitStrideArgs& args,
+                                                        Value<kElementType>,
+                                                        Value<kSegmentSize>,
+                                                        Value<vlmul>,
+                                                        Value<vta>,
+                                                        Value<vma>,
+                                                        Register src) {
+    using ElementType = WrappedTypeFromId<kElementType>;
     switch (args.opcode) {
       case Decoder::VSUmOpOpcode::kVseXX:
         return OpVectorStore<ElementType,
@@ -3576,13 +3752,13 @@ class Interpreter {
             auto vma,
             CsrName... kExtraCsrs,
             typename... DstMaskType>
-  void OpVectorv(uint8_t dst, uint8_t src1, DstMaskType... dst_mask) {
+  void OpVectorv(uint8_t dst, uint8_t src, DstMaskType... dst_mask) {
     return OpVectorv<Intrinsic,
                      ElementType,
                      NumberOfRegistersInvolved(vlmul),
                      vta,
                      vma,
-                     kExtraCsrs...>(dst, src1, dst_mask...);
+                     kExtraCsrs...>(dst, src, dst_mask...);
   }
 
   template <auto Intrinsic,
