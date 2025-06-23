@@ -1906,7 +1906,7 @@
         "Vmovlps": { "feature": "AVX", "opcodes": [ "C4", "01", "00", "13" ] }
       },
       "args": [
-        { "class": "VecMem64", "usage": "use_def" },
+        { "class": "VecMem64", "usage": "def" },
         { "class": "XmmReg", "usage": "use" }
       ]
     },
