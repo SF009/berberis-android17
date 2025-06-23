@@ -2904,7 +2904,7 @@
       "args": [
         { "class": "YmmReg", "usage": "use_def" },
         { "class": "YmmReg", "usage": "use" },
-        { "class": "YmmReg/VecMem128", "usage": "use" },
+        { "class": "YmmReg/VecMem256", "usage": "use" },
         { "class": "YmmReg", "usage": "use" }
       ]
     },
