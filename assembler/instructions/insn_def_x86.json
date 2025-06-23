@@ -2462,7 +2462,7 @@
         "Shrxl": { "feature": "BMI2", "opcodes": [ "C4", "02", "03", "F7" ] }
       },
       "args": [
-        { "class": "GeneralReg32", "usage": "use_def" },
+        { "class": "GeneralReg32", "usage": "def" },
         { "class": "GeneralReg32/Mem32", "usage": "use" },
         { "class": "GeneralReg32", "usage": "use" }
       ]
