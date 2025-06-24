@@ -1230,14 +1230,13 @@ class Interpreter {
         args, kElementType, kSegmentSize, NumberOfRegistersInvolved(kVlmul), kVta, kVma, src);
   }
 
-  template <const TailProcessing vta, const auto vma>
   void OpVectorWithElementTypeSegmentSizeRegistersCountVtaAndVma(
       const Decoder::VLoadUnitStrideArgs& args,
       const auto kElementType,
       const auto kSegmentSize,
       const auto kNumRegistersInGroup,
-      const Value<vta> kVta,
-      const Value<vma> kVma,
+      const auto kVta,
+      const auto kVma,
       Register src) {
     using ElementType = WrappedTypeFromId<kElementType>;
     switch (args.opcode) {
@@ -1262,7 +1261,8 @@ class Interpreter {
             kVma,
             [kSegmentSize](size_t index) { return kSegmentSize * sizeof(ElementType) * index; });
       case Decoder::VLUmOpOpcode::kVlm:
-        if constexpr (std::is_same_v<decltype(vma), intrinsics::NoInactiveProcessing>) {
+        if constexpr (std::is_same_v<decltype(kVma),
+                                     const Value<intrinsics::NoInactiveProcessing{}>>) {
           if (kSegmentSize == kValue<1>) {
             return OpVectorLoad<Decoder::VLUmOpOpcode::kVlm>(args.dst,
                                                              src,
