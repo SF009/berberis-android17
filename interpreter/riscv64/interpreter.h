@@ -189,7 +189,7 @@ class Interpreter {
   }
 #endif
 
-  template <intrinsics::TemplateTypeId IntType, bool aq, bool rl>
+  template <TemplateTypeId IntType, bool aq, bool rl>
   Register Lr(int64_t addr, Value<IntType>, Value<aq>, Value<rl>) {
     static_assert(std::is_integral_v<TypeFromId<IntType>>, "Lr: IntType must be integral");
     static_assert(std::is_signed_v<TypeFromId<IntType>>, "Lr: IntType must be signed");
@@ -200,7 +200,7 @@ class Interpreter {
         &state_->cpu, addr, AqRlToStdMemoryOrder(aq, rl));
   }
 
-  template <intrinsics::TemplateTypeId IntType, bool aq, bool rl>
+  template <TemplateTypeId IntType, bool aq, bool rl>
   Register Sc(int64_t addr, TypeFromId<IntType> val, Value<IntType>, Value<aq>, Value<rl>) {
     static_assert(std::is_integral_v<TypeFromId<IntType>>, "Sc: IntType must be integral");
     static_assert(std::is_signed_v<TypeFromId<IntType>>, "Sc: IntType must be signed");
@@ -566,10 +566,10 @@ class Interpreter {
     return kValue<NumRegistersInvolvedForWideOperand(vlmul)>;
   }
 
-  template <typename ElementType, VectorRegisterGroupMultiplier vlmul>
-  static constexpr size_t GetVlmax() {
-    constexpr size_t kElementsCount = sizeof(SIMD128Register) / sizeof(ElementType);
-    switch (vlmul) {
+  static constexpr size_t GetVlmax(TemplateTypeId kElementType,
+                                   const VectorRegisterGroupMultiplier kVlmul) {
+    const size_t kElementsCount = sizeof(SIMD128Register) / SizeOf(kElementType);
+    switch (kVlmul) {
       case VectorRegisterGroupMultiplier::k1register:
         return kElementsCount;
       case VectorRegisterGroupMultiplier::k2registers:
@@ -587,6 +587,11 @@ class Interpreter {
       default:
         return 0;
     }
+  }
+
+  template <typename ElementType, const VectorRegisterGroupMultiplier kVlmul>
+  static constexpr size_t GetVlmax() {
+    return GetVlmax(kType<ElementType>, kVlmul);
   }
 
   template <typename VOpArgs>
@@ -1487,14 +1492,17 @@ class Interpreter {
   // locations given by the second source vector src2 register group.
   //   src1: element vector register.
   //   GetElementIndex: universal lambda that returns index from src2,
-  template <typename ElementType,
-            VectorRegisterGroupMultiplier vlmul,
-            const TailProcessing kVta,
-            const auto kVma,
-            typename GetElementIndexLambdaType>
-  void OpVectorGather(uint8_t dst, uint8_t src1, GetElementIndexLambdaType GetElementIndex) {
-    constexpr size_t kRegistersInvolved = NumberOfRegistersInvolved(vlmul);
-    if (!IsAligned<kRegistersInvolved>(dst | src1)) {
+  template <const TailProcessing kVta, const auto kVma>
+  void OpVectorGather(uint8_t dst,
+                      uint8_t src1,
+                      const auto kElementType,
+                      const auto kVlmul,
+                      const Value<kVta>,
+                      const Value<kVma>,
+                      auto GetElementIndex) {
+    using ElementType = WrappedTypeFromId<kElementType>;
+    const size_t kRegistersInvolved = NumberOfRegistersInvolved(kVlmul);
+    if (!IsAligned(dst | src1, kRegistersInvolved)) {
       return Undefined();
     }
     // Source and destination must not overlap.
@@ -1502,7 +1510,7 @@ class Interpreter {
       return Undefined();
     }
     constexpr size_t kElementsCount = 16 / sizeof(ElementType);
-    constexpr size_t vlmax = GetVlmax<ElementType, vlmul>();
+    constexpr size_t vlmax = GetVlmax(kElementType, kVlmul);
 
     size_t vstart = GetCsr<CsrName::kVstart>();
     size_t vl = GetCsr<CsrName::kVl>();
@@ -2363,8 +2371,13 @@ class Interpreter {
         return OpVectorvx<intrinsics::Vxorvx<SignedType>, SignedType, vlmul, kVta, kVma>(
             args.dst, args.src, SignedType{args.imm});
       case Decoder::VOpIViOpcode::kVrgathervi:
-        return OpVectorGather<ElementType, vlmul, kVta, kVma>(
-            args.dst, args.src, [&args](size_t /*index*/) { return ElementType{args.uimm}; });
+        return OpVectorGather(args.dst,
+                              args.src,
+                              kElementType,
+                              vlmul,
+                              kValue<kVta>,
+                              kValue<kVma>,
+                              [&args](size_t /*index*/) { return ElementType{args.uimm}; });
       case Decoder::VOpIViOpcode::kVadcvi:
         return OpVectorvxm<intrinsics::Vadcvx<SignedType>,
                            SignedType,
@@ -2528,8 +2541,13 @@ class Interpreter {
         constexpr size_t vlmax = GetVlmax<ElementType, vlmul>();
         alignas(alignof(SIMD128Register)) ElementType indexes[vlmax];
         memcpy(indexes, state_->cpu.v + args.src2, sizeof(indexes));
-        return OpVectorGather<ElementType, vlmul, kVta, kVma>(
-            args.dst, args.src1, [&indexes](size_t index) { return indexes[index]; });
+        return OpVectorGather(args.dst,
+                              args.src1,
+                              kElementType,
+                              vlmul,
+                              kValue<kVta>,
+                              kValue<kVma>,
+                              [&indexes](size_t index) { return indexes[index]; });
       }
       case Decoder::VOpIVvOpcode::kVadcvv:
         return OpVectorvvm<intrinsics::Vadcvv<SignedType>,
@@ -2707,10 +2725,14 @@ class Interpreter {
         return OpVectorvx<intrinsics::Vxorvx<ElementType>, ElementType, vlmul, kVta, kVma>(
             args.dst, args.src1, arg2);
       case Decoder::VOpIVxOpcode::kVrgathervx:
-        return OpVectorGather<ElementType, vlmul, kVta, kVma>(
-            args.dst, args.src1, [&arg2](size_t /*index*/) {
-              return MaybeTruncateTo<ElementType>(arg2);
-            });
+        return OpVectorGather(
+            args.dst,
+            args.src1,
+            kElementType,
+            vlmul,
+            kValue<kVta>,
+            kValue<kVma>,
+            [&arg2](size_t /*index*/) { return MaybeTruncateTo<ElementType>(arg2); });
       case Decoder::VOpIVxOpcode::kVadcvx:
         return OpVectorvxm<intrinsics::Vadcvx<ElementType>,
                            ElementType,
@@ -5070,6 +5092,69 @@ class Interpreter {
           }
         }(args),
         ...);
+  }
+
+  static constexpr TemplateTypeId ToFloat(TemplateTypeId value) {
+    return TemplateTypeIdToFloat(value);
+  }
+
+  template <TemplateTypeId ValueParam>
+  static constexpr Value<ToFloat(ValueParam)> ToFloat(Value<ValueParam>) {
+    return {};
+  }
+
+  static constexpr TemplateTypeId ToInt(TemplateTypeId value) {
+    return TemplateTypeIdToInt(value);
+  }
+
+  template <TemplateTypeId ValueParam>
+  static constexpr Value<ToInt(ValueParam)> ToInt(Value<ValueParam>) {
+    return {};
+  }
+
+  static constexpr TemplateTypeId ToNarrow(TemplateTypeId value) {
+    return TemplateTypeIdToNarrow(value);
+  }
+
+  template <TemplateTypeId ValueParam>
+  static constexpr Value<ToNarrow(ValueParam)> ToNarrow(Value<ValueParam>) {
+    return {};
+  }
+
+  static constexpr TemplateTypeId ToSigned(TemplateTypeId value) {
+    return TemplateTypeIdToSigned(value);
+  }
+
+  template <TemplateTypeId ValueParam>
+  static constexpr Value<ToSigned(ValueParam)> ToSigned(Value<ValueParam>) {
+    return {};
+  }
+
+  static constexpr size_t SizeOf(TemplateTypeId value) {
+    return TemplateTypeIdSizeOf(value);
+  }
+
+  template <TemplateTypeId ValueParam>
+  static constexpr Value<SizeOf(ValueParam)> SizeOf(Value<ValueParam>) {
+    return {};
+  }
+
+  static constexpr TemplateTypeId ToUnsigned(TemplateTypeId value) {
+    return TemplateTypeIdToUnsigned(value);
+  }
+
+  template <TemplateTypeId ValueParam>
+  static constexpr Value<ToUnsigned(ValueParam)> ToUnsigned(Value<ValueParam>) {
+    return {};
+  }
+
+  static constexpr TemplateTypeId ToWide(TemplateTypeId value) {
+    return TemplateTypeIdToWide(value);
+  }
+
+  template <TemplateTypeId ValueParam>
+  static constexpr Value<ToWide(ValueParam)> ToWide(Value<ValueParam>) {
+    return {};
   }
 
   ThreadState* state_;
