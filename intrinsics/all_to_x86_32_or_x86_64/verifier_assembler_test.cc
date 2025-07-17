@@ -66,6 +66,8 @@ class MacroAssembler : public Assembler {
 #include "berberis/intrinsics/all_to_x86_32_or_x86_64/macro_assembler-inl.h"
 #undef DEFINE_MACRO_ASSEMBLER_GENERIC_FUNCTIONS
 
+  using Assembler::PseudoDefXMMReg;
+
   // dst: USE_DEF, src1: USE
   constexpr void SSE3Intrinsic(XMMRegister dst, XMMRegister src1) { Haddpd(dst, src1); }
 
@@ -222,6 +224,12 @@ class MacroAssembler : public Assembler {
     Jcc(Assembler::Condition::kZero, *out);
     Addl(gpr_c, dst);
     Bind(out);
+  }
+
+  // dst: DEF, src1: USE
+  constexpr void IntrinsicPseudoDefinesXMMUseRegister(XMMRegister dst, XMMRegister src1) {
+    PseudoDefXMMReg(src1);
+    Pmov(dst, src1);
   }
 
   using AddressType = int64_t;
@@ -691,6 +699,24 @@ TEST(VerifierAssembler, TestECXOutputWithNoZeroExtensionBindedToOutputNonLinearI
 
   ASSERT_DEATH(VerifyIntrinsic<IntrinsicBindingInfo>(),
                "error: intrinsic didn't zero extend 32 bit ECX output");
+}
+
+TEST(VerifierAssembler, TestXMMPseudoDef) {
+  using IntrinsicBindingInfo = IntrinsicBindingInfo<
+      kBindingName,
+      NoNansOperation,
+      std::tuple<SIMD128Register>,
+      std::tuple<SIMD128Register>,
+      std::tuple<OutArg<0>, InArg<0>>,
+      DeviceInsnInfo<&std::tuple_element_t<0, Assemblers>::IntrinsicPseudoDefinesXMMUseRegister,
+                     kBindingMnemo,
+                     false,
+                     nullptr,
+                     NoCPUIDRestriction,
+                     std::tuple<Operand<XmmReg, kDef>, Operand<XmmReg, kUse>>>>;
+
+  ASSERT_DEATH(VerifyIntrinsic<IntrinsicBindingInfo>(),
+               "error: intrinsic defined a 'use' XMM register");
 }
 
 }  // namespace

@@ -807,6 +807,11 @@ class VerifierAssembler {
 // Instructions.
 #include "gen_verifier_assembler_common_x86-inl.h"  // NOLINT generated file
 
+  constexpr void PseudoDefXMMReg(XMMRegister arg) {
+    RegisterDef(arg);
+    EndInstruction();
+  }
+
  protected:
   bool need_gpr_macroassembler_constants_ = false;
   bool need_gpr_macroassembler_scratch_ = false;
