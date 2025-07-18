@@ -23,7 +23,7 @@
 #include <cstdint>
 
 #include "berberis/base/checks.h"
-#include "berberis/base/logging.h"
+#include "berberis/base/tracing.h"
 #include "berberis/guest_state/guest_addr.h"
 
 namespace berberis {
@@ -44,14 +44,14 @@ void UndefinedInsn(GuestAddr pc) {
   auto* addr = ToHostAddr<const uint16_t>(pc);
   uint8_t size = GetRiscv64InsnSize(pc);
   if (size == 2) {
-    ALOGE("Undefined riscv64 instruction 0x%" PRIx16 " at %p", *addr, addr);
+    TRACE_AND_ALOGE("Undefined riscv64 instruction 0x%" PRIx16 " at %p", *addr, addr);
   } else {
     CHECK_EQ(size, 4);
     // Warning: do not cast and dereference the pointer since the address may not be 4-bytes
     // aligned.
     uint32_t code;
     memcpy(&code, addr, sizeof(code));
-    ALOGE("Undefined riscv64 instruction 0x%" PRIx32 " at %p", code, addr);
+    TRACE_AND_ALOGE("Undefined riscv64 instruction 0x%" PRIx32 " at %p", code, addr);
   }
 #ifdef __GLIBC__
   // Our old 2.17 glibc has a bug resulting in raise() failing after any CLONE_VM.
