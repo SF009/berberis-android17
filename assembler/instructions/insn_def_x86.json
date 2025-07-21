@@ -2674,6 +2674,7 @@
         "Vpsllw": { "feature": "AVX", "opcodes": [ "C4", "01", "01", "F1" ], "type": "vex_rm_to_reg" },
         "Vpsrad": { "feature": "AVX", "opcodes": [ "C4", "01", "01", "E2" ], "type": "vex_rm_to_reg" },
         "Vpsravd": { "feature": "AVX", "opcodes": [ "C4", "02", "01", "46" ], "type": "vex_rm_to_reg" },
+        "Vpsrlvd": { "feature": "AVX", "opcodes": [ "C4", "02", "01", "45" ], "type": "vex_rm_to_reg" },
         "Vpsraw": { "feature": "AVX", "opcodes": [ "C4", "01", "01", "E1" ], "type": "vex_rm_to_reg" },
         "Vpsrld": { "feature": "AVX", "opcodes": [ "C4", "01", "01", "D2" ], "type": "vex_rm_to_reg" },
         "Vpsrlq": { "feature": "AVX", "opcodes": [ "C4", "01", "01", "D3" ], "type": "vex_rm_to_reg" },
