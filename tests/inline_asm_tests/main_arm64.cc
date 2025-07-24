@@ -5775,6 +5775,33 @@ TEST(Arm64InsnTest, AddAcrossInt8x8) {
   ASSERT_EQ(res, MakeUInt128(0x51ULL, 0x0ULL));
 }
 
+TEST(Arm64InsnTest, AddAcrossInt8x16) {
+  __uint128_t arg = MakeUInt128(0x0102030405060708ULL, 0x090a0b0c0d0e0f10ULL);
+  __uint128_t res = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("addv %b0, %1.16b")(arg);
+  // Sum of 1 to 16 is (16 * 17) / 2 = 136 (0x88)
+  ASSERT_EQ(res, MakeUInt128(0x88ULL, 0x0ULL));
+}
+
+TEST(Arm64InsnTest, AddAcrossInt16x4) {
+  __uint128_t arg = MakeUInt128(0x0001000200030004ULL, 0x0ULL);
+  __uint128_t res = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("addv %h0, %1.4h")(arg);
+  // Sum of 1 to 4 is 10 (0xa)
+  ASSERT_EQ(res, MakeUInt128(0x000aULL, 0x0ULL));
+}
+
+TEST(Arm64InsnTest, AddAcrossInt16x8) {
+  __uint128_t arg = MakeUInt128(0x0001000200030004ULL, 0x0005000600070008ULL);
+  __uint128_t res = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("addv %h0, %1.8h")(arg);
+  // Sum of 1 to 8 is 36 (0x24)
+  ASSERT_EQ(res, MakeUInt128(0x0024ULL, 0x0ULL));
+}
+
+TEST(Arm64InsnTest, AddAcrossInt32x4) {
+  __uint128_t arg = MakeUInt128(0x0000000100000002ULL, 0x0000000300000004ULL);
+  __uint128_t res = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("addv %s0, %1.4s")(arg);
+  ASSERT_EQ(res, MakeUInt128(0x0000000aULL, 0x0ULL));
+}
+
 TEST(Arm64InsnTest, SignedAddLongAcrossInt16x8) {
   __uint128_t arg = MakeUInt128(0x9699557377273756ULL, 0x6761552711392258ULL);
   __uint128_t res = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("saddlv %s0, %1.8h")(arg);
