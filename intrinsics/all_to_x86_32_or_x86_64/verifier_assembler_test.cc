@@ -264,7 +264,6 @@ constexpr void VerifyIntrinsic() {
                            : std::tuple_size_v<typename IntrinsicBindingInfo::Bindings>];
   AssignRegisterNumbers<IntrinsicBindingInfo>(register_numbers);
   MacroAssembler<VerifierAssembler> as;
-  as.kCheckDefOrDefEarlyClobberXMMRegistersAreWrittenBeforeRead = true;
   CallVerifierAssembler<IntrinsicBindingInfo, MacroAssembler<VerifierAssembler>>(&as,
                                                                                  register_numbers);
   // Verify CPU vendor and SSE restrictions.
