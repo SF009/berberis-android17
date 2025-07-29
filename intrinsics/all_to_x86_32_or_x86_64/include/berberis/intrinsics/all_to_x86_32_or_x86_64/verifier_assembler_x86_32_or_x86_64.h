@@ -219,12 +219,6 @@ class VerifierAssembler {
   // will see a compiler error, since we detect out-of-bounds access to the array in constexpr.
   static constexpr int kMaxRegisters = 16;
 
-  // Verifier Assmebler checks that 'def' or 'def_early_clober' XMM registers aren't read before
-  // they are written to, unless they are used in a dependency breaking instruction. However, many
-  // intrinsics first use and define an XMM register in a non dependency breaking instruction. This
-  // check is default disabled, but can be enabled to view and manually check these intrinsics.
-  bool kCheckDefOrDefEarlyClobberXMMRegistersAreWrittenBeforeRead = false;
-
   class RegisterUsageFlags {
    public:
     constexpr void CheckValidRegisterUse(bool is_fixed) {
@@ -814,6 +808,11 @@ class VerifierAssembler {
 // Instructions.
 #include "gen_verifier_assembler_common_x86-inl.h"  // NOLINT generated file
 
+  // Verifier Assembler checks that 'def' or 'def_early_clober' XMM registers aren't read before
+  // they are written to, unless they are used in a dependency breaking instruction. However, many
+  // intrinsics first use and define an XMM register in a non dependency breaking instruction.
+  // MacroInstructions can use PseudoDefXMMReg before such an instruction to prevent the
+  // VerifierAssembler from flagging this behaviour as erroneous.
   constexpr void PseudoDefXMMReg(XMMRegister arg) {
     PseudoXMMRegisterDef(arg);
     EndInstruction();
@@ -1040,9 +1039,6 @@ class VerifierAssembler {
     if (reg.get_binding_kind() == device_arch_info::kUse) {
       register_usage_flags.CheckValidXMMRegisterUse();
       register_usage_flags.UpdateIntrinsicXMMRegisterUse();
-    }
-    if (!kCheckDefOrDefEarlyClobberXMMRegistersAreWrittenBeforeRead) {
-      return;
     }
     if (reg.get_binding_kind() == device_arch_info::kDef ||
         reg.get_binding_kind() == device_arch_info::kDefEarlyClobber) {
