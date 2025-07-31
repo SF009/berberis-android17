@@ -635,6 +635,42 @@ TEST(Arm64InsnTest, UnsignedMultiplySubtractLongElemI16x4Upper) {
   ASSERT_EQ(res, MakeUInt128(0x2b7d'4cb2'4d79'259dULL, 0x8895'afc6'423a'13adULL));
 }
 
+TEST(Arm64InsnTest, SignedMultiplySubtractLongElemI32x2) {
+  __uint128_t arg1 = MakeUInt128(0x9143'4478'8636'0410ULL, 0x3182'3507'3650'2778ULL);
+  __uint128_t arg2 = MakeUInt128(0x5908'9757'8272'7313ULL, 0x0504'8893'9890'0992ULL);
+  __uint128_t arg3 = MakeUInt128(0x3913'5033'7325'0855ULL, 0x9826'5586'7089'2426ULL);
+  __uint128_t res =
+      ASM_INSN_WRAP_FUNC_W_RES_WW0_ARG("smlsl %0.2d, %1.2s, %2.s[1]")(arg1, arg2, arg3);
+  ASSERT_EQ(res, MakeUInt128(0x636e'9f19'49e4'36e5ULL, 0xbea9'aa15'898a'175eULL));
+}
+
+TEST(Arm64InsnTest, SignedMultiplySubtractLongElemI32x2Upper) {
+  __uint128_t arg1 = MakeUInt128(0x9320'1991'9968'8285ULL, 0x1718'3953'6691'3452ULL);
+  __uint128_t arg2 = MakeUInt128(0x2244'4708'0459'2396ULL, 0x6028'1715'6551'5656ULL);
+  __uint128_t arg3 = MakeUInt128(0x6611'1359'8231'1225ULL, 0x0628'9058'5491'4509ULL);
+  __uint128_t res =
+      ASM_INSN_WRAP_FUNC_W_RES_WW0_ARG("smlsl2 %0.2d, %1.4s, %2.s[1]")(arg1, arg2, arg3);
+  ASSERT_EQ(res, MakeUInt128(0x5856'6f5f'3e5c'b195ULL, 0x311'2fe3'a3dd'7571ULL));
+}
+
+TEST(Arm64InsnTest, UnsignedMultiplySubtractLongElemI32x2) {
+  __uint128_t arg1 = MakeUInt128(0x9128'0092'8252'5619ULL, 0x0205'2630'1639'1147ULL);
+  __uint128_t arg2 = MakeUInt128(0x7247'3314'8573'9107ULL, 0x7758'7442'5387'6117ULL);
+  __uint128_t arg3 = MakeUInt128(0x4657'8671'1694'1477ULL, 0x6421'4411'1126'3583ULL);
+  __uint128_t res =
+      ASM_INSN_WRAP_FUNC_W_RES_WW0_ARG("umlsl %0.2d, %1.2s, %2.s[0]")(arg1, arg2, arg3);
+  ASSERT_EQ(res, MakeUInt128(0x267eae5395490c8ULL, 0x1875f49155257f85ULL));
+}
+
+TEST(Arm64InsnTest, UnsignedMultiplySubtractLongElemI32x2Upper) {
+  __uint128_t arg1 = MakeUInt128(0x9420'7571'3627'5167ULL, 0x4573'1891'8945'6283ULL);
+  __uint128_t arg2 = MakeUInt128(0x5257'0441'3354'3758ULL, 0x5753'4269'8699'4725ULL);
+  __uint128_t arg3 = MakeUInt128(0x4703'1656'6139'9199ULL, 0x9682'6282'4727'0641ULL);
+  __uint128_t res =
+      ASM_INSN_WRAP_FUNC_W_RES_WW0_ARG("umlsl2 %0.2d, %1.4s, %2.s[1]")(arg1, arg2, arg3);
+  ASSERT_EQ(res, MakeUInt128(0x1adc'33ec'008c'8256ULL, 0x802b'e95f'0d44'8570ULL));
+}
+
 TEST(Arm64InsnTest, AsmConvertI32F32) {
   constexpr auto AsmConvertI32F32 = ASM_INSN_WRAP_FUNC_W_RES_R_ARG("scvtf %s0, %w1");
   ASSERT_EQ(AsmConvertI32F32(21), MakeUInt128(0x41a8'0000U, 0U));
