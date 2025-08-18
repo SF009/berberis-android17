@@ -56,8 +56,21 @@ void DefMap::Initialize() {
   index_ = 0;
 }
 
+std::tuple<std::optional<MachineInsnList::iterator>, int, int> DefMap::FindNonPseudoCopyDef(
+    MachineReg src_reg) const {
+  auto [def_insn_it, def_insn_pos, reg_pos] = Get(src_reg);
+  while (def_insn_it.has_value()) {
+    const berberis::MachineInsn* def_insn = *def_insn_it.value();
+    if (def_insn->opcode() != kMachineOpPseudoCopy) {
+      return {def_insn_it, def_insn_pos, reg_pos};
+    }
+    std::tie(def_insn_it, def_insn_pos, reg_pos) = Get(def_insn->RegAt(1), def_insn_pos);
+  }
+  return {std::nullopt, 0, 0};
+}
+
 std::optional<uint64_t> InsnFolding::GetImmValueIfPossible(MachineReg reg) const {
-  auto general_insn_it = std::get<0>(FindNonPseudoCopyDef(reg));
+  auto general_insn_it = std::get<0>(def_map_.FindNonPseudoCopyDef(reg));
   if (!general_insn_it.has_value()) {
     return std::nullopt;
   }
@@ -152,24 +165,11 @@ berberis::MachineInsn* InsnFolding::NewImmInsnFromRegInsn(const berberis::Machin
   return folded_insn;
 }
 
-std::tuple<std::optional<MachineInsnList::iterator>, int, int> InsnFolding::FindNonPseudoCopyDef(
-    MachineReg src_reg) const {
-  auto [def_insn_it, def_insn_pos, reg_pos] = def_map_.Get(src_reg);
-  while (def_insn_it.has_value()) {
-    const berberis::MachineInsn* def_insn = *def_insn_it.value();
-    if (def_insn->opcode() != kMachineOpPseudoCopy) {
-      return {def_insn_it, def_insn_pos, reg_pos};
-    }
-    std::tie(def_insn_it, def_insn_pos, reg_pos) = def_map_.Get(def_insn->RegAt(1), def_insn_pos);
-  }
-  return {std::nullopt, 0, 0};
-}
-
 bool InsnFolding::IsWritingSameFlagsValue(MachineInsnList::iterator write_flags_insn_it) const {
   const berberis::MachineInsn* write_flags_insn = *write_flags_insn_it;
   CHECK(write_flags_insn && write_flags_insn->opcode() == kMachineOpPseudoWriteFlags);
   MachineReg src_reg = write_flags_insn->RegAt(0);
-  auto [def_insn_it, def_insn_pos, _] = FindNonPseudoCopyDef(src_reg);
+  auto [def_insn_it, def_insn_pos, _] = def_map_.FindNonPseudoCopyDef(src_reg);
   if (!def_insn_it.has_value()) {
     return false;
   }
@@ -316,7 +316,7 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldRedundantMov
   const berberis::MachineInsn* insn = *insn_it;
   CHECK_EQ(insn->opcode(), kMachineOpMovlRegReg);
   auto src = insn->RegAt(1);
-  auto [def_insn_it, def_insn_pos, def_reg_pos] = FindNonPseudoCopyDef(src);
+  auto [def_insn_it, def_insn_pos, def_reg_pos] = def_map_.FindNonPseudoCopyDef(src);
   if (!def_insn_it.has_value()) {
     return {FoldingType::kImpossible, nullptr};
   }
@@ -350,7 +350,7 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldCountLeading
                       : kMachineOpCountLeadingZerosU32;
   CHECK_EQ(insn->opcode(), clz_insn_opcode);
   MachineReg clz_src_reg = insn->RegAt(1);
-  auto [def_insn_it, def_insn_pos, _] = FindNonPseudoCopyDef(clz_src_reg);
+  auto [def_insn_it, def_insn_pos, _] = def_map_.FindNonPseudoCopyDef(clz_src_reg);
   if (!def_insn_it.has_value()) {
     return {FoldingType::kImpossible, nullptr};
   }
