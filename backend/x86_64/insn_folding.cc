@@ -16,6 +16,7 @@
 
 #include "berberis/backend/x86_64/insn_folding.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <tuple>
 
@@ -67,6 +68,59 @@ std::tuple<std::optional<MachineInsnList::iterator>, int, int> DefMap::FindNonPs
     std::tie(def_insn_it, def_insn_pos, reg_pos) = Get(def_insn->RegAt(1), def_insn_pos);
   }
   return {std::nullopt, 0, 0};
+}
+
+void ContextAccessInfo::HandleRegisterUse(const berberis::MachineInsn* insn, MachineReg reg) {
+  auto offset = GetOffset(reg);
+  // PseudoCopy simply propagates a value between virtual registers, and can be removed.
+  // It doesn't count as a substantive use of a value loaded from CPU context, and so we skip
+  // them when counting context read usages.
+  if (offset.has_value() && insn->opcode() != kMachineOpPseudoCopy) {
+    IncrementContextReadUsageCount(offset.value());
+  }
+}
+
+void ContextAccessInfo::HandleRegisterDef(const berberis::MachineInsn* insn, MachineReg reg) {
+  if (MachineIR::IsCPUStateGet(insn)) {
+    MapRegToOffset(reg, AsMachineInsnX86_64(insn)->disp());
+    return;
+  }
+  if (insn->opcode() == kMachineOpPseudoCopy) {
+    auto offset = GetOffset(insn->RegAt(1));
+    if (offset.has_value()) {
+      MapRegToOffset(reg, offset.value());
+      return;
+    }
+  }
+  UnmapReg(reg);
+}
+
+void ContextAccessInfo::ProcessInsn(const berberis::MachineInsn* insn) {
+  for (int op = 0; op < insn->NumRegOperands(); ++op) {
+    const auto reg_kind = insn->RegKindAt(op);
+    const auto reg = insn->RegAt(op);
+    if (!reg.IsVReg()) {
+      continue;
+    }
+    // It's important to process uses before definitions for any given register.
+    // Consider an instruction which modifies a register in-place, like `ADD v1, v2` (where v1 is
+    // both a source and destination), where v1 initially stores a value from a context read.
+    // We must first handle the 'use' of v1 to correctly count the use of its original value from
+    // the context. Only after that can we process the 'def', which will unmap the register because
+    // it now holds a new, computed value. If the order were reversed, we would incorrectly miss
+    // counting the context read value usage.
+    if (reg_kind.IsUse()) {
+      HandleRegisterUse(insn, reg);
+    }
+    if (reg_kind.IsDef()) {
+      HandleRegisterDef(insn, reg);
+    }
+  }
+}
+
+void ContextAccessInfo::Initialize() {
+  std::fill(context_read_usage_map_.begin(), context_read_usage_map_.end(), 0);
+  std::fill(reg_to_offset_map_.begin(), reg_to_offset_map_.end(), std::nullopt);
 }
 
 std::optional<uint64_t> InsnFolding::GetImmValueIfPossible(MachineReg reg) const {

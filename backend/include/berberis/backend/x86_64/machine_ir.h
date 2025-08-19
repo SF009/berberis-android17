@@ -835,7 +835,7 @@ class MachineIR : public berberis::MachineIR {
     bb_order_ = BasicBlockOrder::kUnordered;
   }
 
-  [[nodiscard]] static bool IsCPUStateGet(berberis::MachineInsn* insn) {
+  [[nodiscard]] static bool IsCPUStateGet(const berberis::MachineInsn* insn) {
     if (insn->opcode() != kMachineOpMovqRegMemBaseDisp &&
         insn->opcode() != kMachineOpMovdqaXRegMemBaseDisp &&
         insn->opcode() != kMachineOpMovwRegMemBaseDisp &&
@@ -862,7 +862,7 @@ class MachineIR : public berberis::MachineIR {
     return x86_insn->RegAt(1) == kCPUStatePointer;
   }
 
-  [[nodiscard]] static bool IsCPUStatePut(berberis::MachineInsn* insn) {
+  [[nodiscard]] static bool IsCPUStatePut(const berberis::MachineInsn* insn) {
     if (insn->opcode() != kMachineOpMovqMemBaseDispReg &&
         insn->opcode() != kMachineOpMovdqaMemBaseDispXReg &&
         insn->opcode() != kMachineOpMovwMemBaseDispReg &&

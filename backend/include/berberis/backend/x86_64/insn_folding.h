@@ -21,6 +21,7 @@
 
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/base/arena_vector.h"
+#include "berberis/guest_state/guest_state.h"
 
 namespace berberis::x86_64 {
 
@@ -74,6 +75,60 @@ class DefMap {
   ArenaVector<std::tuple<std::optional<MachineInsnList::iterator>, int, int>> def_map_;
   MachineReg flags_reg_;
   int index_;
+};
+
+// Tracks the usage of values read from the guest CPU state within a basic block.
+// For each guest CPU state offset, it counts how many times a value loaded from that offset is
+// used by subsequent instructions.
+class ContextAccessInfo {
+ public:
+  ContextAccessInfo(size_t size, Arena* arena)
+      : reg_to_offset_map_(size, std::nullopt, arena),
+        context_read_usage_map_(sizeof(CPUState), {0}, arena) {}
+
+  [[nodiscard]] uint32_t GetContextReadUsageCount(uint32_t disp) const {
+    return context_read_usage_map_.at(disp);
+  }
+
+  void ProcessInsn(const berberis::MachineInsn* insn);
+  void Initialize();
+
+ private:
+  [[nodiscard]] std::optional<uint32_t> GetOffset(MachineReg reg) const {
+    if (!reg.IsVReg()) {
+      return {std::nullopt};
+    }
+    return reg_to_offset_map_.at(reg.GetVRegIndex());
+  }
+
+  void MapRegToOffset(MachineReg reg, uint32_t offset) {
+    if (!reg.IsVReg()) {
+      return;
+    }
+    reg_to_offset_map_.at(reg.GetVRegIndex()) = offset;
+  }
+
+  void UnmapReg(MachineReg reg) {
+    if (!reg.IsVReg()) {
+      return;
+    }
+    reg_to_offset_map_.at(reg.GetVRegIndex()) = std::nullopt;
+  }
+
+  void IncrementContextReadUsageCount(uint32_t disp) { context_read_usage_map_.at(disp)++; }
+
+  void HandleRegisterUse(const berberis::MachineInsn* insn, MachineReg reg);
+
+  void HandleRegisterDef(const berberis::MachineInsn* insn, MachineReg reg);
+
+  // reg_to_offset_map_[i] contains the offset of the context read stored in register i, or
+  // nullopt if the register is unwritten or contains a value that isn't the result of a context
+  // read.
+  ArenaVector<std::optional<uint32_t>> reg_to_offset_map_;
+
+  // context_read_usage_map_[i] stores the number of times the value loaded from
+  // kCPUStatePointer + (8 * i) was used in an instruction.
+  ArenaVector<uint32_t> context_read_usage_map_;
 };
 
 class InsnFolding {

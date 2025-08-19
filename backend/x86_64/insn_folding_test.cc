@@ -929,6 +929,50 @@ TEST(InsnFoldingTest, FoldTwoImmediatesRegRegInsn64) {
   TryTwoImmediatesRegRegInsnFolding<ShrqRegReg, true>(imm1, 11, imm1 >> 11);
 }
 
+TEST(InsnFoldingTest, ContextAccessInfoGetsCorrectContextReadUsageValue) {
+  Arena arena;
+  MachineIR machine_ir(&arena);
+
+  MachineIRBuilder builder(&machine_ir);
+
+  auto* bb = machine_ir.NewBasicBlock();
+
+  MachineReg vreg1 = machine_ir.AllocVReg();
+  MachineReg vreg2 = machine_ir.AllocVReg();
+  MachineReg vreg3 = machine_ir.AllocVReg();
+  MachineReg vreg4 = machine_ir.AllocVReg();
+  MachineReg vreg5 = machine_ir.AllocVReg();
+  MachineReg vreg6 = machine_ir.AllocVReg();
+  MachineReg flags = machine_ir.AllocVReg();
+
+  builder.StartBasicBlock(bb);
+  builder.Gen<MovqRegOp>(vreg1, {.base = kCPUStatePointer, .disp = 4});
+  builder.Gen<AddqRegReg>(vreg2, vreg1, flags);
+
+  builder.Gen<PseudoCopy>(vreg3, vreg1, 8);
+  builder.Gen<AddqRegReg>(vreg3, vreg4, flags);
+
+  builder.Gen<MovqRegImm>(vreg1, 5);
+  builder.Gen<AddqRegReg>(vreg4, vreg1, flags);
+
+  builder.Gen<MovqRegOp>(vreg5, {.base = kMachineRegRAX, .disp = 6});
+  builder.Gen<AddqRegReg>(vreg6, vreg5, flags);
+
+  ContextAccessInfo context_access_info(machine_ir.NumVReg(), machine_ir.arena());
+  context_access_info.Initialize();
+  for (const auto* insn : bb->insn_list()) {
+    context_access_info.ProcessInsn(insn);
+  }
+  // Two insns use a register which contains value stored in kCPUStatePointer + 4, so
+  // GetContextReadUsageCount(4) should return 2.
+  EXPECT_EQ(context_access_info.GetContextReadUsageCount(4), uint32_t{2});  //
+  // No memory accesses using disp = 5, so GetContextReadUsageCount should return 0.
+  EXPECT_EQ(context_access_info.GetContextReadUsageCount(5), uint32_t{0});
+  // The only memory accesses with disp = 6 uses base != kCPUStatePointer, so
+  // GetContextReadUsageCount(6) should return 0.
+  EXPECT_EQ(context_access_info.GetContextReadUsageCount(6), uint32_t{0});
+}
+
 }  // namespace
 
 }  // namespace berberis::x86_64
