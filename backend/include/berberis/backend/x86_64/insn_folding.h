@@ -106,6 +106,11 @@ class InsnFolding {
                                                            uint64_t imm2);
 };
 
+MachineInsnList::iterator ExecuteInsnFold(MachineInsnList& insn_list,
+                                          MachineInsnList::iterator folded_insn_it,
+                                          berberis::MachineInsn* new_insn,
+                                          FoldingType folding_type);
+
 void FoldInsns(MachineIR* machine_ir);
 
 void FoldWriteFlags(MachineIR* machine_ir);

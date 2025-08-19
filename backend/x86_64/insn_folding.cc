@@ -470,6 +470,25 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldInsn(
   return {FoldingType::kImpossible, nullptr};
 }
 
+MachineInsnList::iterator ExecuteInsnFold(MachineInsnList& insn_list,
+                                          MachineInsnList::iterator folded_insn_it,
+                                          berberis::MachineInsn* new_insn,
+                                          FoldingType folding_type) {
+  if (folding_type == FoldingType::kRemoveInsn) {
+    folded_insn_it = insn_list.erase(folded_insn_it);
+    return folded_insn_it;
+  } else if (folding_type == FoldingType::kReplaceInsn) {
+    CHECK(new_insn);
+    *folded_insn_it = new_insn;
+    return folded_insn_it;
+  } else if (folding_type == FoldingType::kInsertInsn) {
+    CHECK(new_insn);
+    insn_list.insert(std::next(folded_insn_it), new_insn);
+    return folded_insn_it;
+  }
+  FATAL("Unsupported folding type %d", folding_type);
+}
+
 void FoldInsns(MachineIR* machine_ir) {
   DefMap def_map(machine_ir->NumVReg(), machine_ir->arena());
   for (auto* bb : machine_ir->bb_list()) {
@@ -478,22 +497,13 @@ void FoldInsns(MachineIR* machine_ir) {
     MachineInsnList& insn_list = bb->insn_list();
     for (auto insn_it = insn_list.begin(); insn_it != insn_list.end();) {
       auto [folding_type, new_insn] = insn_folding.TryFoldInsn(insn_it, bb);
-      if (folding_type == FoldingType::kRemoveInsn) {
-        insn_it = insn_list.erase(insn_it);
-        continue;
+      if (folding_type != FoldingType::kImpossible) {
+        insn_it = ExecuteInsnFold(insn_list, insn_it, new_insn, folding_type);
       }
-
-      if (folding_type == FoldingType::kReplaceInsn) {
-        CHECK(new_insn);
-        *insn_it = new_insn;
-      } else if (folding_type == FoldingType::kInsertInsn) {
-        CHECK(new_insn);
-        insn_list.insert(std::next(insn_it), new_insn);
-      } else {
-        CHECK(folding_type == FoldingType::kImpossible);
+      if (folding_type != FoldingType::kRemoveInsn) {
+        def_map.ProcessInsn(insn_it);
+        ++insn_it;
       }
-      def_map.ProcessInsn(insn_it);
-      ++insn_it;
     }
   }
 }
