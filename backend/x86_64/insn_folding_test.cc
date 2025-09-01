@@ -223,7 +223,7 @@ void TryTwoImmediatesRegRegInsnFolding(uint64_t imm1, uint64_t imm2, uint64_t ex
 
 template <template <typename> typename InsnTypeRegReg,
           berberis::MachineOpcode MachineOpInsnTypeRegMemBaseDisp>
-void TryFoldContextReadIntoRegRegArithmetic() {
+void TryFoldContextReadIntoRegMemArithmetic() {
   Arena arena;
   MachineIR machine_ir(&arena);
 
@@ -248,9 +248,36 @@ void TryFoldContextReadIntoRegRegArithmetic() {
   EXPECT_EQ(flags, folded_insn->RegAt(2));
 }
 
+template <template <typename> typename InsnTypeRegReg,
+          berberis::MachineOpcode MachineOpInsnTypeRegMemBaseDisp>
+void TryFoldContextReadIntoMemRegArithmetic() {
+  Arena arena;
+  MachineIR machine_ir(&arena);
+
+  MachineIRBuilder builder(&machine_ir);
+
+  auto* bb = machine_ir.NewBasicBlock();
+
+  MachineReg vreg1 = machine_ir.AllocVReg();
+  MachineReg vreg2 = machine_ir.AllocVReg();
+  MachineReg flags = machine_ir.AllocVReg();
+
+  builder.StartBasicBlock(bb);
+  builder.Gen<MovqRegOp>(vreg1, {.base = kCPUStatePointer, .disp = 4});
+
+  builder.Gen<InsnTypeRegReg>(vreg1, vreg2, flags);
+
+  auto* folded_insn = *FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
+  ASSERT_EQ(MachineOpInsnTypeRegMemBaseDisp, folded_insn->opcode());
+  EXPECT_EQ(kCPUStatePointer, folded_insn->RegAt(0));
+  EXPECT_EQ(4UL, AsMachineInsnX86_64(folded_insn)->disp());
+  EXPECT_EQ(vreg2, folded_insn->RegAt(1));
+  EXPECT_EQ(flags, folded_insn->RegAt(2));
+}
+
 template <template <typename> typename InsnTypeRegImm,
           berberis::MachineOpcode MachineOpInsnTypeMemBaseDispImm>
-void TryFoldContextReadIntoRegImmArithmetic() {
+void TryFoldContextReadIntoMemImmArithmetic() {
   Arena arena;
   MachineIR machine_ir(&arena);
 
@@ -267,7 +294,7 @@ void TryFoldContextReadIntoRegImmArithmetic() {
   builder.Gen<InsnTypeRegImm>(vreg1, 5, flags);
 
   berberis::MachineInsn* folded_insn = *FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
-  EXPECT_EQ(MachineOpInsnTypeMemBaseDispImm, folded_insn->opcode());
+  ASSERT_EQ(MachineOpInsnTypeMemBaseDispImm, folded_insn->opcode());
   EXPECT_EQ(kCPUStatePointer, folded_insn->RegAt(0));
   EXPECT_EQ(4UL, AsMachineInsnX86_64(folded_insn)->disp());
   EXPECT_EQ(static_cast<uint32_t>(AsMachineInsnX86_64(folded_insn)->imm()),
@@ -1025,19 +1052,28 @@ TEST(InsnFoldingTest, ContextAccessInfoGetsCorrectContextReadUsageValue) {
 }
 
 TEST(InsnFoldingTest, FoldContextRead) {
-  TryFoldContextReadIntoRegRegArithmetic<AddqRegReg, kMachineOpAddqRegMemBaseDisp>();
-  TryFoldContextReadIntoRegRegArithmetic<AddlRegReg, kMachineOpAddlRegMemBaseDisp>();
-  TryFoldContextReadIntoRegRegArithmetic<XorqRegReg, kMachineOpXorqRegMemBaseDisp>();
-  TryFoldContextReadIntoRegRegArithmetic<XorlRegReg, kMachineOpXorlRegMemBaseDisp>();
-  TryFoldContextReadIntoRegRegArithmetic<OrqRegReg, kMachineOpOrqRegMemBaseDisp>();
-  TryFoldContextReadIntoRegRegArithmetic<OrlRegReg, kMachineOpOrlRegMemBaseDisp>();
-  TryFoldContextReadIntoRegRegArithmetic<SubqRegReg, kMachineOpSubqRegMemBaseDisp>();
-  TryFoldContextReadIntoRegRegArithmetic<SublRegReg, kMachineOpSublRegMemBaseDisp>();
-  TryFoldContextReadIntoRegRegArithmetic<CmpqRegReg, kMachineOpCmpqRegMemBaseDisp>();
-  TryFoldContextReadIntoRegRegArithmetic<CmplRegReg, kMachineOpCmplRegMemBaseDisp>();
-  TryFoldContextReadIntoRegRegArithmetic<AndqRegReg, kMachineOpAndqRegMemBaseDisp>();
-  TryFoldContextReadIntoRegRegArithmetic<AndlRegReg, kMachineOpAndlRegMemBaseDisp>();
-  TryFoldContextReadIntoRegImmArithmetic<BtqRegImm, kMachineOpBtqMemBaseDispImm>();
+  TryFoldContextReadIntoRegMemArithmetic<AddqRegReg, kMachineOpAddqRegMemBaseDisp>();
+  TryFoldContextReadIntoRegMemArithmetic<AddlRegReg, kMachineOpAddlRegMemBaseDisp>();
+  TryFoldContextReadIntoRegMemArithmetic<XorqRegReg, kMachineOpXorqRegMemBaseDisp>();
+  TryFoldContextReadIntoRegMemArithmetic<XorlRegReg, kMachineOpXorlRegMemBaseDisp>();
+  TryFoldContextReadIntoRegMemArithmetic<OrqRegReg, kMachineOpOrqRegMemBaseDisp>();
+  TryFoldContextReadIntoRegMemArithmetic<OrlRegReg, kMachineOpOrlRegMemBaseDisp>();
+  TryFoldContextReadIntoRegMemArithmetic<SubqRegReg, kMachineOpSubqRegMemBaseDisp>();
+  TryFoldContextReadIntoRegMemArithmetic<SublRegReg, kMachineOpSublRegMemBaseDisp>();
+  TryFoldContextReadIntoRegMemArithmetic<CmpqRegReg, kMachineOpCmpqRegMemBaseDisp>();
+  TryFoldContextReadIntoRegMemArithmetic<CmplRegReg, kMachineOpCmplRegMemBaseDisp>();
+  TryFoldContextReadIntoRegMemArithmetic<AndqRegReg, kMachineOpAndqRegMemBaseDisp>();
+  TryFoldContextReadIntoRegMemArithmetic<AndlRegReg, kMachineOpAndlRegMemBaseDisp>();
+  TryFoldContextReadIntoMemRegArithmetic<BtqRegReg, kMachineOpBtqMemBaseDispReg>();
+  TryFoldContextReadIntoMemRegArithmetic<BtlRegReg, kMachineOpBtlMemBaseDispReg>();
+  TryFoldContextReadIntoMemRegArithmetic<TestqRegReg, kMachineOpTestqMemBaseDispReg>();
+  TryFoldContextReadIntoMemRegArithmetic<TestlRegReg, kMachineOpTestlMemBaseDispReg>();
+  TryFoldContextReadIntoMemImmArithmetic<CmpqRegImm, kMachineOpCmpqMemBaseDispImm>();
+  TryFoldContextReadIntoMemImmArithmetic<CmplRegImm, kMachineOpCmplMemBaseDispImm>();
+  TryFoldContextReadIntoMemImmArithmetic<BtqRegImm, kMachineOpBtqMemBaseDispImm>();
+  TryFoldContextReadIntoMemImmArithmetic<BtlRegImm, kMachineOpBtlMemBaseDispImm>();
+  TryFoldContextReadIntoMemImmArithmetic<TestqRegImm, kMachineOpTestqMemBaseDispImm>();
+  TryFoldContextReadIntoMemImmArithmetic<TestlRegImm, kMachineOpTestlMemBaseDispImm>();
 }
 
 TEST(InsnFoldingTest, ReadContextFoldingCancelledIfIncreasesMemoryAccesses) {
