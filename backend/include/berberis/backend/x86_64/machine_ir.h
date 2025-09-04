@@ -896,8 +896,7 @@ class MachineIR : public berberis::MachineIR {
         insn->opcode() != kMachineOpMovdqaMemBaseDispXReg &&
         insn->opcode() != kMachineOpMovwMemBaseDispReg &&
         insn->opcode() != kMachineOpMovsdMemBaseDispXReg &&
-        insn->opcode() != kMachineOpMovqMemBaseDispImm &&
-        insn->opcode() != kMachineOpMovlMemBaseDispImm) {
+        insn->opcode() != kMachineOpMovqMemBaseDispImm) {
       return false;
     }
 
