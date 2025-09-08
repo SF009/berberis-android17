@@ -560,9 +560,8 @@ berberis::MachineInsn* InsnFolding::NewArithmeticInsnWithFoldedContextRead(
 }
 
 std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldContextRead(
-    MachineInsnList::iterator insn_it,
+    const berberis::MachineInsn* insn,
     int32_t mem_reg_pos) {
-  const berberis::MachineInsn* insn = *insn_it;
   const MachineReg arith_src_reg = insn->RegAt(mem_reg_pos);
   auto [def_insn_it, def_insn_pos, _] = def_map_.FindNonPseudoCopyDef(arith_src_reg);
   if (!def_insn_it.has_value()) {
@@ -586,6 +585,25 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldContextRead(
   return {FoldingType::kReplaceInsn, folded_insn};
 }
 
+template <bool kIsInput64Bit>
+std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldImmediateAndContextReadInputs(
+    MachineInsnList::iterator insn_it) {
+  auto [immediate_folding_type, immediate_folded_insn] =
+      TryFoldImmediateInput<kIsInput64Bit>(insn_it);
+  berberis::MachineInsn* insn_to_context_read_fold =
+      immediate_folding_type == FoldingType::kImpossible ? *insn_it : immediate_folded_insn;
+
+  auto [context_read_folding_type, context_read_folding_insn] =
+      TryFoldContextRead(insn_to_context_read_fold, 0);
+  if (context_read_folding_type != FoldingType::kImpossible) {
+    return {context_read_folding_type, context_read_folding_insn};
+  }
+  if (immediate_folding_type != FoldingType::kImpossible) {
+    return {immediate_folding_type, immediate_folded_insn};
+  }
+  return TryFoldContextRead(insn_to_context_read_fold, 1);
+}
+
 std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldInsn(
     const MachineInsnList::iterator insn_it,
     const MachineBasicBlock* bb) {
@@ -600,22 +618,16 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldInsn(
     case kMachineOpXorqRegReg:
     case kMachineOpOrqRegReg:
     case kMachineOpSubqRegReg:
-    case kMachineOpCmpqRegReg:
-    case kMachineOpTestqRegReg:
     case kMachineOpAndqRegReg: {
       auto [folding_type, folded_insn] = TryFoldImmediateInput<true>(insn_it);
       if (folding_type != FoldingType::kImpossible) {
         return {folding_type, folded_insn};
       }
-      std::tie(folding_type, folded_insn) = TryFoldContextRead(insn_it, 1);
-      if (folding_type != FoldingType::kImpossible) {
-        return {folding_type, folded_insn};
-      }
-      if (insn->opcode() == kMachineOpTestqRegReg || insn->opcode() == kMachineOpCmpqRegReg) {
-        return TryFoldContextRead(insn_it, 0);
-      }
-      return {FoldingType::kImpossible, nullptr};
+      return TryFoldContextRead(*insn_it, 1);
     }
+    case kMachineOpCmpqRegReg:
+    case kMachineOpTestqRegReg:
+      return TryFoldImmediateAndContextReadInputs<true>(insn_it);
     case kMachineOpBtqRegImm:
     case kMachineOpBtlRegImm:
     case kMachineOpBtqRegReg:
@@ -624,7 +636,7 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldInsn(
     case kMachineOpTestlRegImm:
     case kMachineOpCmpqRegImm:
     case kMachineOpCmplRegImm:
-      return TryFoldContextRead(insn_it, 0);
+      return TryFoldContextRead(*insn_it, 0);
     case kMachineOpMovlRegReg: {
       auto [folding_type, folded_insn] = TryFoldImmediateInput<false>(insn_it);
       if (folding_type != FoldingType::kImpossible) {
@@ -640,22 +652,16 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldInsn(
     case kMachineOpXorlRegReg:
     case kMachineOpOrlRegReg:
     case kMachineOpSublRegReg:
-    case kMachineOpAndlRegReg:
-    case kMachineOpCmplRegReg:
-    case kMachineOpTestlRegReg: {
+    case kMachineOpAndlRegReg: {
       auto [folding_type, folded_insn] = TryFoldImmediateInput<false>(insn_it);
       if (folding_type != FoldingType::kImpossible) {
         return {folding_type, folded_insn};
       }
-      std::tie(folding_type, folded_insn) = TryFoldContextRead(insn_it, 1);
-      if (folding_type != FoldingType::kImpossible) {
-        return {folding_type, folded_insn};
-      }
-      if (insn->opcode() == kMachineOpTestlRegReg || insn->opcode() == kMachineOpCmplRegReg) {
-        return TryFoldContextRead(insn_it, 0);
-      }
-      return {FoldingType::kImpossible, nullptr};
+      return TryFoldContextRead(*insn_it, 1);
     }
+    case kMachineOpCmplRegReg:
+    case kMachineOpTestlRegReg:
+      return TryFoldImmediateAndContextReadInputs<false>(insn_it);
     case kMachineOpPseudoWriteFlags: {
       if (IsWritingSameFlagsValue(insn_it)) {
         return {FoldingType::kRemoveInsn, nullptr};

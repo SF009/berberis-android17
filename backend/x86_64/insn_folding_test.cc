@@ -310,6 +310,34 @@ void TryFoldContextReadIntoMemImmArithmetic() {
   EXPECT_EQ(flags, folded_insn->RegAt(1));
 }
 
+template <template <typename> typename InsnTypeRegImm,
+          berberis::MachineOpcode MachineOpInsnTypeMemBaseDispImm>
+void TryFoldContextReadAndImmediateMemImmArithmetic() {
+  Arena arena;
+  MachineIR machine_ir(&arena);
+
+  MachineIRBuilder builder(&machine_ir);
+
+  auto* bb = machine_ir.NewBasicBlock();
+
+  MachineReg vreg1 = machine_ir.AllocVReg();
+  MachineReg vreg2 = machine_ir.AllocVReg();
+  MachineReg flags = machine_ir.AllocVReg();
+
+  builder.StartBasicBlock(bb);
+  builder.Gen<MovqRegOp>(vreg1, {.base = kCPUStatePointer, .disp = 4});
+  builder.Gen<MovqRegImm>(vreg2, 5);
+  builder.Gen<InsnTypeRegImm>(vreg1, vreg2, flags);
+
+  berberis::MachineInsn* folded_insn = *FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
+  EXPECT_EQ(MachineOpInsnTypeMemBaseDispImm, folded_insn->opcode());
+  EXPECT_EQ(kCPUStatePointer, folded_insn->RegAt(0));
+  EXPECT_EQ(4UL, AsMachineInsnX86_64(folded_insn)->disp());
+  EXPECT_EQ(static_cast<uint32_t>(AsMachineInsnX86_64(folded_insn)->imm()),
+            static_cast<uint32_t>(5));
+  EXPECT_EQ(flags, folded_insn->RegAt(1));
+}
+
 TEST(InsnFoldingTest, DefMapGetsLatestDef) {
   Arena arena;
   MachineIR machine_ir(&arena);
@@ -1088,6 +1116,13 @@ TEST(InsnFoldingTest, FoldContextRead) {
   TryFoldContextReadIntoMemImmArithmetic<TestlRegImm, kMachineOpTestlMemBaseDispImm>();
 }
 
+TEST(InsnFoldingTest, FoldContextReadAndImmediate) {
+  TryFoldContextReadAndImmediateMemImmArithmetic<CmpqRegReg, kMachineOpCmpqMemBaseDispImm>();
+  TryFoldContextReadAndImmediateMemImmArithmetic<CmplRegReg, kMachineOpCmplMemBaseDispImm>();
+  TryFoldContextReadAndImmediateMemImmArithmetic<TestqRegReg, kMachineOpTestqMemBaseDispImm>();
+  TryFoldContextReadAndImmediateMemImmArithmetic<TestlRegReg, kMachineOpTestlMemBaseDispImm>();
+}
+
 TEST(InsnFoldingTest, ReadContextFoldingCancelledIfIncreasesMemoryAccesses) {
   Arena arena;
   MachineIR machine_ir(&arena);
@@ -1113,7 +1148,7 @@ TEST(InsnFoldingTest, ReadContextFoldingCancelledIfIncreasesMemoryAccesses) {
   def_map.Initialize();
   def_map.ProcessInsn(bb->insn_list().begin());
   auto insn_to_fold_it = std::prev(bb->insn_list().end());
-  auto [folding_type, insn] = insn_folder.TryFoldContextReadForTesting(insn_to_fold_it, 1);
+  auto [folding_type, insn] = insn_folder.TryFoldContextReadForTesting(*insn_to_fold_it, 1);
   // Basic block has one usage of context read value, so we expect the optimization to occur.
   ASSERT_EQ(folding_type, FoldingType::kReplaceInsn);
 
@@ -1121,7 +1156,7 @@ TEST(InsnFoldingTest, ReadContextFoldingCancelledIfIncreasesMemoryAccesses) {
   builder.Gen<AddqRegReg>(vreg4, vreg3, flags);
 
   context_access_info.Initialize(bb->insn_list());
-  std::tie(folding_type, insn) = insn_folder.TryFoldContextReadForTesting(insn_to_fold_it, 1);
+  std::tie(folding_type, insn) = insn_folder.TryFoldContextReadForTesting(*insn_to_fold_it, 1);
   // Basic block has two usages of context read value, so we do not expect the optimization to
   // occur.
   ASSERT_EQ(folding_type, FoldingType::kImpossible);
