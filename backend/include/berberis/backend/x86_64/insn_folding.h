@@ -31,8 +31,9 @@ enum class FoldingType { kImpossible, kReplaceInsn, kInsertInsn, kRemoveInsn };
 // It also contains the index of the last insn which accessed memory.
 class DefMap {
  public:
-  DefMap(size_t size, Arena* arena)
-      : def_map_(size, {std::nullopt, 0, 0}, arena),
+  DefMap(MachineIR* machine_ir)
+      : def_map_(machine_ir->NumVReg(), {std::nullopt, 0, 0}, machine_ir->arena()),
+        machine_ir_(machine_ir),
         flags_reg_(kInvalidMachineReg),
         index_(0),
         last_context_write_insn_(0) {}
@@ -84,6 +85,7 @@ class DefMap {
   // - The index of the instruction that defines the register
   // - The position of the register in the instruction that defines it
   ArenaVector<std::tuple<std::optional<MachineInsnList::iterator>, int, int>> def_map_;
+  MachineIR* machine_ir_;
   MachineReg flags_reg_;
   int index_;
   int last_context_write_insn_;

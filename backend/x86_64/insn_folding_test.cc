@@ -323,7 +323,7 @@ TEST(InsnFoldingTest, DefMapGetsLatestDef) {
   bb->live_out().push_back(vreg1);
   bb->live_out().push_back(vreg2);
 
-  DefMap def_map(machine_ir.NumVReg(), machine_ir.arena());
+  DefMap def_map(&machine_ir);
   for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end(); ++insn_it) {
     def_map.ProcessInsn(insn_it);
   }
@@ -361,7 +361,7 @@ TEST(InsnFoldingTest, DefMapReturnsNoDefIfVRegIsOverwrittenByInsn) {
   builder.Gen<AddqRegReg>(vreg1, vreg2, flags);
   builder.Gen<AddqRegReg>(vreg2, vreg1, flags);
 
-  DefMap def_map(machine_ir.NumVReg(), machine_ir.arena());
+  DefMap def_map(&machine_ir);
   for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end(); ++insn_it) {
     def_map.ProcessInsn(insn_it);
   }
@@ -390,7 +390,7 @@ TEST(InsnFoldingTest, DefMapReturnsCorrectRegisterPosition) {
   builder.StartBasicBlock(bb);
   builder.Gen<AddqRegReg>(vreg1, vreg2, flags);
 
-  DefMap def_map(machine_ir.NumVReg(), machine_ir.arena());
+  DefMap def_map(&machine_ir);
   for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end(); ++insn_it) {
     def_map.ProcessInsn(insn_it);
   }
@@ -1095,7 +1095,7 @@ TEST(InsnFoldingTest, ReadContextFoldingCancelledIfIncreasesMemoryAccesses) {
   builder.Gen<AddqRegReg>(vreg2, vreg1, flags);
 
   ContextAccessInfo context_access_info(machine_ir.NumVReg(), machine_ir.arena());
-  DefMap def_map(machine_ir.NumVReg(), machine_ir.arena());
+  DefMap def_map(&machine_ir);
   InsnFolding insn_folder(def_map, context_access_info, &machine_ir);
   context_access_info.Initialize(bb->insn_list());
   def_map.Initialize();
@@ -1167,6 +1167,28 @@ TEST(InsnFoldingTest,
   EXPECT_EQ(vreg3, folded_insn->RegAt(0));
   EXPECT_EQ(vreg1, folded_insn->RegAt(1));
   EXPECT_EQ(flags, folded_insn->RegAt(2));
+}
+
+TEST(InsnFoldingTest, InsnFoldingExecutionMakesIsCPUStatePutInvalid) {
+  Arena arena;
+  MachineIR machine_ir(&arena);
+
+  MachineIRBuilder builder(&machine_ir);
+
+  auto* bb = machine_ir.NewBasicBlock();
+
+  MachineReg vreg1 = machine_ir.AllocVReg();
+
+  builder.StartBasicBlock(bb);
+  builder.Gen<MovqRegImm>(vreg1, 5);
+
+  berberis::MachineInsn* insn = *bb->insn_list().begin();
+  ASSERT_FALSE(machine_ir.IsCPUStatePut(insn));
+
+  FoldInsns(&machine_ir);
+
+  ASSERT_DEATH(EXPECT_FALSE(machine_ir.IsCPUStatePut(insn)),
+               "IsCPUStatePut called after insn folding.");
 }
 
 }  // namespace

@@ -31,7 +31,7 @@ namespace berberis::x86_64 {
 
 void DefMap::MapDefRegs(MachineInsnList::iterator insn_it) {
   const berberis::MachineInsn* insn = *insn_it;
-  if (MachineIR::IsCPUStatePut(insn)) {
+  if (machine_ir_->IsCPUStatePut(insn)) {
     last_context_write_insn_ = index_;
   }
   for (int op = 0; op < insn->NumRegOperands(); ++op) {
@@ -669,7 +669,7 @@ MachineInsnList::iterator ExecuteInsnFold(MachineInsnList& insn_list,
 
 void FoldInsns(MachineIR* machine_ir) {
   ContextAccessInfo context_access_info(machine_ir->NumVReg(), machine_ir->arena());
-  DefMap def_map(machine_ir->NumVReg(), machine_ir->arena());
+  DefMap def_map(machine_ir);
   for (auto* bb : machine_ir->bb_list()) {
     MachineInsnList& insn_list = bb->insn_list();
     context_access_info.Initialize(insn_list);
@@ -686,6 +686,7 @@ void FoldInsns(MachineIR* machine_ir) {
       }
     }
   }
+  machine_ir->SetInsnFoldingExecuted();
 }
 
 // TODO(b/179708579): Maybe combine with FoldInsns.
