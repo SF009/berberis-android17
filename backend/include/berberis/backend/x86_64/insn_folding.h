@@ -158,8 +158,9 @@ class InsnFolding {
                                                               const MachineBasicBlock* bb);
 
   std::tuple<FoldingType, berberis::MachineInsn*> TryFoldContextReadForTesting(
-      const MachineInsnList::iterator insn) {
-    return TryFoldContextRead(insn);
+      const MachineInsnList::iterator insn,
+      int32_t mem_reg_pos) {
+    return TryFoldContextRead(insn, mem_reg_pos);
   }
 
  private:
@@ -180,14 +181,15 @@ class InsnFolding {
       MachineInsnList::iterator insn_it,
       const MachineBasicBlock* bb);
   std::tuple<FoldingType, berberis::MachineInsn*> TryFoldContextRead(
-      const MachineInsnList::iterator insn);
+      const MachineInsnList::iterator insn,
+      int32_t mem_reg_pos);
   berberis::MachineInsn* NewImmInsnFromRegInsn(const berberis::MachineInsn* insn, int32_t imm);
   berberis::MachineInsn* NewInsnFromTwoImmediatesOperation(const berberis::MachineInsn* insn,
                                                            uint64_t imm1,
                                                            uint64_t imm2);
-  berberis::MachineInsn* NewArithmeticInsnWithFoldedContextRead(
-      const berberis::MachineInsn* insn,
-      const berberis::MachineInsn* read_context_insn);
+  berberis::MachineInsn* NewArithmeticInsnWithFoldedContextRead(const berberis::MachineInsn* insn,
+                                                                int32_t context_read_disp,
+                                                                int32_t mem_reg_pos);
 };
 
 MachineInsnList::iterator ExecuteInsnFold(MachineInsnList& insn_list,

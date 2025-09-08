@@ -242,8 +242,16 @@ void TryFoldContextReadIntoRegMemArithmetic() {
 
   auto* folded_insn = *FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   ASSERT_EQ(MachineOpInsnTypeRegMemBaseDisp, folded_insn->opcode());
-  EXPECT_EQ(vreg2, folded_insn->RegAt(0));
-  EXPECT_EQ(kCPUStatePointer, folded_insn->RegAt(1));
+  if constexpr (MachineOpInsnTypeRegMemBaseDisp == kMachineOpTestqMemBaseDispReg ||
+                MachineOpInsnTypeRegMemBaseDisp == kMachineOpTestlMemBaseDispReg) {
+    // Since the Test insn has a TestMemReg version but no TestRegMem version, the order of
+    // operands are swapped in the folded instruction.
+    EXPECT_EQ(kCPUStatePointer, folded_insn->RegAt(0));
+    EXPECT_EQ(vreg2, folded_insn->RegAt(1));
+  } else {
+    EXPECT_EQ(vreg2, folded_insn->RegAt(0));
+    EXPECT_EQ(kCPUStatePointer, folded_insn->RegAt(1));
+  }
   EXPECT_EQ(4UL, AsMachineInsnX86_64(folded_insn)->disp());
   EXPECT_EQ(flags, folded_insn->RegAt(2));
 }
@@ -1062,10 +1070,14 @@ TEST(InsnFoldingTest, FoldContextRead) {
   TryFoldContextReadIntoRegMemArithmetic<SublRegReg, kMachineOpSublRegMemBaseDisp>();
   TryFoldContextReadIntoRegMemArithmetic<CmpqRegReg, kMachineOpCmpqRegMemBaseDisp>();
   TryFoldContextReadIntoRegMemArithmetic<CmplRegReg, kMachineOpCmplRegMemBaseDisp>();
+  TryFoldContextReadIntoRegMemArithmetic<TestqRegReg, kMachineOpTestqMemBaseDispReg>();
+  TryFoldContextReadIntoRegMemArithmetic<TestlRegReg, kMachineOpTestlMemBaseDispReg>();
   TryFoldContextReadIntoRegMemArithmetic<AndqRegReg, kMachineOpAndqRegMemBaseDisp>();
   TryFoldContextReadIntoRegMemArithmetic<AndlRegReg, kMachineOpAndlRegMemBaseDisp>();
   TryFoldContextReadIntoMemRegArithmetic<BtqRegReg, kMachineOpBtqMemBaseDispReg>();
   TryFoldContextReadIntoMemRegArithmetic<BtlRegReg, kMachineOpBtlMemBaseDispReg>();
+  TryFoldContextReadIntoMemRegArithmetic<CmpqRegReg, kMachineOpCmpqMemBaseDispReg>();
+  TryFoldContextReadIntoMemRegArithmetic<CmplRegReg, kMachineOpCmplMemBaseDispReg>();
   TryFoldContextReadIntoMemRegArithmetic<TestqRegReg, kMachineOpTestqMemBaseDispReg>();
   TryFoldContextReadIntoMemRegArithmetic<TestlRegReg, kMachineOpTestlMemBaseDispReg>();
   TryFoldContextReadIntoMemImmArithmetic<CmpqRegImm, kMachineOpCmpqMemBaseDispImm>();
@@ -1101,7 +1113,7 @@ TEST(InsnFoldingTest, ReadContextFoldingCancelledIfIncreasesMemoryAccesses) {
   def_map.Initialize();
   def_map.ProcessInsn(bb->insn_list().begin());
   auto insn_to_fold_it = std::prev(bb->insn_list().end());
-  auto [folding_type, insn] = insn_folder.TryFoldContextReadForTesting(insn_to_fold_it);
+  auto [folding_type, insn] = insn_folder.TryFoldContextReadForTesting(insn_to_fold_it, 1);
   // Basic block has one usage of context read value, so we expect the optimization to occur.
   ASSERT_EQ(folding_type, FoldingType::kReplaceInsn);
 
@@ -1109,7 +1121,7 @@ TEST(InsnFoldingTest, ReadContextFoldingCancelledIfIncreasesMemoryAccesses) {
   builder.Gen<AddqRegReg>(vreg4, vreg3, flags);
 
   context_access_info.Initialize(bb->insn_list());
-  std::tie(folding_type, insn) = insn_folder.TryFoldContextReadForTesting(insn_to_fold_it);
+  std::tie(folding_type, insn) = insn_folder.TryFoldContextReadForTesting(insn_to_fold_it, 1);
   // Basic block has two usages of context read value, so we do not expect the optimization to
   // occur.
   ASSERT_EQ(folding_type, FoldingType::kImpossible);
