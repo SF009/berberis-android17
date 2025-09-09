@@ -62,8 +62,7 @@ void GenCode(MachineIR* machine_ir, MachineCode* machine_code, const GenCodePara
     RenameCopyUses(machine_ir);
     RemoveDeadCode(machine_ir);
     FoldWriteFlags(machine_ir);
-    // TODO(369881234): Re-enable after root causing and fixing the crash.
-    // OptimizeReadFlags(machine_ir);
+    OptimizeReadFlags(machine_ir);
   }
 
   AllocRegs(machine_ir);
