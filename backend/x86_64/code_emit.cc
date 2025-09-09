@@ -211,16 +211,13 @@ Assembler::YMMRegister GetYReg(MachineReg r) {
 }
 
 void CallImm::Emit(CodeEmitter* as) const {
+  // Note that a call to AVX-compiled code may touch YMM bits above 128, which
+  // would require `vzeroupper` before we come back to generated code. This is
+  // to make/ sure there is no performance penalty. ABI requires such `vzeroupper`s
+  // done by the callee unless the result in returned in full YMM register.
+  // Since we don't support full YMM results here, we don't need extra
+  // `vzeroupper`s here.
   as->Call(AsHostCode(imm()));
-  if (custom_avx256_abi_) {
-    // We don't support 256bit registers in IR. So we hide this YMM0 inside CallImm
-    // and forward the result to IR in (XMM0, XMM1). See go/ndkt-avx-runtime.
-    as->Vextractf128(as->xmm1, as->ymm0, uint8_t{1});
-  }
-#ifdef __AVX__
-  // Clean-up potentially dirty upper bits after executing AVX256 instructions in runtime.
-  as->Vzeroupper();
-#endif
 }
 
 }  // namespace x86_64
