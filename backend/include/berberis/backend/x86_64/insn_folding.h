@@ -96,9 +96,10 @@ class DefMap {
 // used by subsequent instructions.
 class ContextAccessInfo {
  public:
-  ContextAccessInfo(size_t size, Arena* arena)
-      : reg_to_offset_map_(size, std::nullopt, arena),
-        context_read_usage_map_(sizeof(CPUState), {0}, arena) {}
+  ContextAccessInfo(MachineIR* machine_ir)
+      : machine_ir_(machine_ir),
+        reg_to_offset_map_(machine_ir->NumVReg(), std::nullopt, machine_ir->arena()),
+        context_read_usage_map_(sizeof(CPUState), {0}, machine_ir->arena()) {}
 
   [[nodiscard]] uint32_t GetContextReadUsageCount(uint32_t disp) const {
     return context_read_usage_map_.at(disp);
@@ -135,6 +136,7 @@ class ContextAccessInfo {
 
   void HandleRegisterDef(const berberis::MachineInsn* insn, MachineReg reg);
 
+  MachineIR* machine_ir_;
   // reg_to_offset_map_[i] contains the offset of the context read stored in register i, or
   // nullopt if the register is unwritten or contains a value that isn't the result of a context
   // read.

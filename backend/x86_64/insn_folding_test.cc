@@ -1039,7 +1039,7 @@ TEST(InsnFoldingTest, ContextAccessInfoGetsCorrectContextReadUsageValue) {
   builder.Gen<MovqRegOp>(vreg5, {.base = kMachineRegRAX, .disp = 6});
   builder.Gen<AddqRegReg>(vreg6, vreg5, flags);
 
-  ContextAccessInfo context_access_info(machine_ir.NumVReg(), machine_ir.arena());
+  ContextAccessInfo context_access_info(&machine_ir);
   context_access_info.Initialize(bb->insn_list());
   // Two insns use a register which contains value stored in kCPUStatePointer + 4, so
   // GetContextReadUsageCount(4) should return 2.
@@ -1094,7 +1094,7 @@ TEST(InsnFoldingTest, ReadContextFoldingCancelledIfIncreasesMemoryAccesses) {
   builder.Gen<MovqRegOp>(vreg1, {.base = kCPUStatePointer, .disp = 4});
   builder.Gen<AddqRegReg>(vreg2, vreg1, flags);
 
-  ContextAccessInfo context_access_info(machine_ir.NumVReg(), machine_ir.arena());
+  ContextAccessInfo context_access_info(&machine_ir);
   DefMap def_map(&machine_ir);
   InsnFolding insn_folder(def_map, context_access_info, &machine_ir);
   context_access_info.Initialize(bb->insn_list());
@@ -1189,6 +1189,28 @@ TEST(InsnFoldingTest, InsnFoldingExecutionMakesIsCPUStatePutInvalid) {
 
   ASSERT_DEATH(EXPECT_FALSE(machine_ir.IsCPUStatePut(insn)),
                "IsCPUStatePut called after insn folding.");
+}
+
+TEST(InsnFoldingTest, InsnFoldingExecutionMakesIsCPUStateGetInvalid) {
+  Arena arena;
+  MachineIR machine_ir(&arena);
+
+  MachineIRBuilder builder(&machine_ir);
+
+  auto* bb = machine_ir.NewBasicBlock();
+
+  MachineReg vreg1 = machine_ir.AllocVReg();
+
+  builder.StartBasicBlock(bb);
+  builder.Gen<MovqRegImm>(vreg1, 5);
+
+  berberis::MachineInsn* insn = *bb->insn_list().begin();
+  ASSERT_FALSE(machine_ir.IsCPUStatePut(insn));
+
+  FoldInsns(&machine_ir);
+
+  ASSERT_DEATH(EXPECT_FALSE(machine_ir.IsCPUStateGet(insn)),
+               "IsCPUStateGet called after insn folding.");
 }
 
 }  // namespace

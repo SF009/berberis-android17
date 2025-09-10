@@ -85,7 +85,7 @@ void ContextAccessInfo::HandleRegisterUse(const berberis::MachineInsn* insn, Mac
 }
 
 void ContextAccessInfo::HandleRegisterDef(const berberis::MachineInsn* insn, MachineReg reg) {
-  if (MachineIR::IsCPUStateGet(insn)) {
+  if (machine_ir_->IsCPUStateGet(insn)) {
     MapRegToOffset(reg, AsMachineInsnX86_64(insn)->disp());
     return;
   }
@@ -540,7 +540,7 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldContextRead(
     return {FoldingType::kImpossible, nullptr};
   }
   const berberis::MachineInsn* def_insn = *def_insn_it.value();
-  if (!MachineIR::IsCPUStateGet(def_insn)) {
+  if (!machine_ir_->IsCPUStateGet(def_insn)) {
     return {FoldingType::kImpossible, nullptr};
   }
   if (!def_map_.IsContextReadActive(def_insn_pos)) {
@@ -668,7 +668,7 @@ MachineInsnList::iterator ExecuteInsnFold(MachineInsnList& insn_list,
 }
 
 void FoldInsns(MachineIR* machine_ir) {
-  ContextAccessInfo context_access_info(machine_ir->NumVReg(), machine_ir->arena());
+  ContextAccessInfo context_access_info(machine_ir);
   DefMap def_map(machine_ir);
   for (auto* bb : machine_ir->bb_list()) {
     MachineInsnList& insn_list = bb->insn_list();

@@ -837,7 +837,12 @@ class MachineIR : public berberis::MachineIR {
     bb_order_ = BasicBlockOrder::kUnordered;
   }
 
-  [[nodiscard]] static bool IsCPUStateGet(const berberis::MachineInsn* insn) {
+  [[nodiscard]] bool IsCPUStateGet(const berberis::MachineInsn* insn) const {
+    // Insn folding can introduce new insns to the IR which read from CPU state. Thus, once insn
+    // folding has been executed IsCPUStateGet calls are no longer valid.
+    if (insn_folding_executed_) {
+      FATAL("IsCPUStateGet called after insn folding.");
+    }
     if (insn->opcode() != kMachineOpMovqRegMemBaseDisp &&
         insn->opcode() != kMachineOpMovdqaXRegMemBaseDisp &&
         insn->opcode() != kMachineOpMovwRegMemBaseDisp &&
