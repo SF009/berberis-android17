@@ -25,7 +25,13 @@
 
 namespace berberis::x86_64 {
 
-enum class FoldingType { kImpossible, kReplaceInsn, kInsertInsn, kRemoveInsn };
+enum class FoldingType {
+  kImpossible,
+  kInsertInsn,
+  kRemoveInsn,
+  kReplaceInsn,
+  kReplaceInsnAndSwapOperands
+};
 
 // The DefMap class stores a map between registers and their latest definitions and positions.
 // It also contains the index of the last insn which accessed memory.
@@ -208,6 +214,8 @@ class InsnFolding {
   std::tuple<FoldingType, berberis::MachineInsn*> TryFoldContextRead(
       const berberis::MachineInsn* insn,
       int32_t mem_reg_pos);
+  std::tuple<FoldingType, berberis::MachineInsn*> TryFoldContextReadAndSwapOperands(
+      const berberis::MachineInsn* insn);
   template <bool kIsInput64Bit>
   std::tuple<FoldingType, berberis::MachineInsn*> TryFoldImmediateAndContextReadInputs(
       MachineInsnList::iterator insn_it);
@@ -218,6 +226,9 @@ class InsnFolding {
   berberis::MachineInsn* NewArithmeticInsnWithFoldedContextRead(const berberis::MachineInsn* insn,
                                                                 int32_t context_read_disp,
                                                                 int32_t mem_reg_pos);
+  berberis::MachineInsn* NewArithmeticInsnWithSwappedOperands(const berberis::MachineInsn* insn,
+                                                              berberis::MachineReg new_reg,
+                                                              int32_t context_read_disp);
 };
 
 void FoldInsns(MachineIR* machine_ir);

@@ -23,6 +23,7 @@
 #include "berberis/backend/code_emitter.h"  // for CodeEmitter::Condition
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/backend/x86_64/machine_ir_builder.h"
+#include "berberis/base/algorithm.h"
 #include "berberis/base/arena_alloc.h"
 #include "berberis/guest_state/guest_addr.h"
 
@@ -336,6 +337,44 @@ void TryFoldContextReadAndImmediateMemImmArithmetic() {
   EXPECT_EQ(static_cast<uint32_t>(AsMachineInsnX86_64(folded_insn)->imm()),
             static_cast<uint32_t>(5));
   EXPECT_EQ(flags, folded_insn->RegAt(1));
+}
+
+template <template <typename> typename InsnTypeRegReg,
+          berberis::MachineOpcode MachineOpInsnTypeMemBaseDispImm>
+void TrySwapRegOperandsAndFoldContextReadArithmetic() {
+  Arena arena;
+  MachineIR machine_ir(&arena);
+
+  MachineIRBuilder builder(&machine_ir);
+
+  auto* bb = machine_ir.NewBasicBlock();
+
+  MachineReg vreg1 = machine_ir.AllocVReg();
+  MachineReg vreg2 = machine_ir.AllocVReg();
+  MachineReg flags = machine_ir.AllocVReg();
+
+  builder.StartBasicBlock(bb);
+  builder.Gen<MovqRegOp>(vreg1, {.base = kCPUStatePointer, .disp = 4});
+  builder.Gen<InsnTypeRegReg>(vreg1, vreg2, flags);
+
+  auto final_folded_insn_it = FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
+  berberis::MachineInsn* second_folded_pseudo_copy = *final_folded_insn_it;
+  EXPECT_EQ(kMachineOpPseudoCopy, second_folded_pseudo_copy->opcode());
+  EXPECT_EQ(vreg1, second_folded_pseudo_copy->RegAt(0));
+  auto new_vreg = second_folded_pseudo_copy->RegAt(1);
+  EXPECT_FALSE(Contains(std::list{vreg1, vreg2, flags}, new_vreg));
+
+  berberis::MachineInsn* folded_op_insn = *std::prev(final_folded_insn_it);
+  EXPECT_EQ(MachineOpInsnTypeMemBaseDispImm, folded_op_insn->opcode());
+  EXPECT_EQ(new_vreg, folded_op_insn->RegAt(0));
+  EXPECT_EQ(kCPUStatePointer, folded_op_insn->RegAt(1));
+  EXPECT_EQ(4UL, AsMachineInsnX86_64(folded_op_insn)->disp());
+  EXPECT_EQ(flags, folded_op_insn->RegAt(2));
+
+  berberis::MachineInsn* first_folded_pseudo_copy = *std::prev(final_folded_insn_it, 2);
+  EXPECT_EQ(kMachineOpPseudoCopy, first_folded_pseudo_copy->opcode());
+  EXPECT_EQ(new_vreg, first_folded_pseudo_copy->RegAt(0));
+  EXPECT_EQ(vreg2, first_folded_pseudo_copy->RegAt(1));
 }
 
 TEST(InsnFoldingTest, DefMapGetsLatestDef) {
@@ -1286,6 +1325,72 @@ TEST(InsnFoldingTest, InsnFoldingExecutionMakesIsCPUStateGetInvalid) {
 
   ASSERT_DEATH(EXPECT_FALSE(machine_ir.IsCPUStateGet(insn)),
                "IsCPUStateGet called after insn folding.");
+}
+
+TEST(InsnFoldingTest, SwapRegOperandsAndFoldContextRead) {
+  TrySwapRegOperandsAndFoldContextReadArithmetic<AddqRegReg, kMachineOpAddqRegMemBaseDisp>();
+  TrySwapRegOperandsAndFoldContextReadArithmetic<AndqRegReg, kMachineOpAndqRegMemBaseDisp>();
+  TrySwapRegOperandsAndFoldContextReadArithmetic<OrqRegReg, kMachineOpOrqRegMemBaseDisp>();
+  TrySwapRegOperandsAndFoldContextReadArithmetic<XorqRegReg, kMachineOpXorqRegMemBaseDisp>();
+}
+
+TEST(InsnFoldingTest, SwapRegOperandsAndFoldContextReadTwiceWithDifferentTempReg) {
+  Arena arena;
+  MachineIR machine_ir(&arena);
+
+  MachineIRBuilder builder(&machine_ir);
+
+  auto* bb = machine_ir.NewBasicBlock();
+
+  MachineReg vreg1 = machine_ir.AllocVReg();
+  MachineReg vreg2 = machine_ir.AllocVReg();
+  MachineReg vreg3 = machine_ir.AllocVReg();
+  MachineReg vreg4 = machine_ir.AllocVReg();
+  MachineReg flags = machine_ir.AllocVReg();
+
+  builder.StartBasicBlock(bb);
+  builder.Gen<MovqRegOp>(vreg1, {.base = kCPUStatePointer, .disp = 4});
+  builder.Gen<AddqRegReg>(vreg1, vreg2, flags);
+
+  builder.Gen<MovqRegOp>(vreg3, {.base = kCPUStatePointer, .disp = 8});
+  builder.Gen<AndqRegReg>(vreg3, vreg4, flags);
+
+  auto final_folded_insn_it = FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
+  berberis::MachineInsn* fourth_folded_pseudo_copy = *final_folded_insn_it;
+  EXPECT_EQ(kMachineOpPseudoCopy, fourth_folded_pseudo_copy->opcode());
+  EXPECT_EQ(vreg3, fourth_folded_pseudo_copy->RegAt(0));
+  auto new_vreg2 = fourth_folded_pseudo_copy->RegAt(1);
+  EXPECT_FALSE(Contains(std::list{vreg1, vreg2, vreg3, vreg4, flags}, new_vreg2));
+
+  berberis::MachineInsn* second_folded_op_insn = *std::prev(final_folded_insn_it);
+  EXPECT_EQ(kMachineOpAndqRegMemBaseDisp, second_folded_op_insn->opcode());
+  EXPECT_EQ(new_vreg2, second_folded_op_insn->RegAt(0));
+  EXPECT_EQ(kCPUStatePointer, second_folded_op_insn->RegAt(1));
+  EXPECT_EQ(8UL, AsMachineInsnX86_64(second_folded_op_insn)->disp());
+  EXPECT_EQ(flags, second_folded_op_insn->RegAt(2));
+
+  berberis::MachineInsn* third_folded_pseudo_copy = *std::prev(final_folded_insn_it, 2);
+  EXPECT_EQ(kMachineOpPseudoCopy, third_folded_pseudo_copy->opcode());
+  EXPECT_EQ(new_vreg2, third_folded_pseudo_copy->RegAt(0));
+  EXPECT_EQ(vreg4, third_folded_pseudo_copy->RegAt(1));
+
+  berberis::MachineInsn* second_folded_pseudo_copy = *std::prev(final_folded_insn_it, 4);
+  EXPECT_EQ(kMachineOpPseudoCopy, second_folded_pseudo_copy->opcode());
+  EXPECT_EQ(vreg1, second_folded_pseudo_copy->RegAt(0));
+  auto new_vreg1 = second_folded_pseudo_copy->RegAt(1);
+  EXPECT_FALSE(Contains(std::list{vreg1, vreg2, vreg3, vreg4, flags, new_vreg2}, new_vreg1));
+
+  berberis::MachineInsn* first_folded_op_insn = *std::prev(final_folded_insn_it, 5);
+  EXPECT_EQ(kMachineOpAddqRegMemBaseDisp, first_folded_op_insn->opcode());
+  EXPECT_EQ(new_vreg1, first_folded_op_insn->RegAt(0));
+  EXPECT_EQ(kCPUStatePointer, first_folded_op_insn->RegAt(1));
+  EXPECT_EQ(4UL, AsMachineInsnX86_64(first_folded_op_insn)->disp());
+  EXPECT_EQ(flags, first_folded_op_insn->RegAt(2));
+
+  berberis::MachineInsn* first_folded_pseudo_copy = *std::prev(final_folded_insn_it, 6);
+  EXPECT_EQ(kMachineOpPseudoCopy, first_folded_pseudo_copy->opcode());
+  EXPECT_EQ(new_vreg1, first_folded_pseudo_copy->RegAt(0));
+  EXPECT_EQ(vreg2, first_folded_pseudo_copy->RegAt(1));
 }
 
 }  // namespace
