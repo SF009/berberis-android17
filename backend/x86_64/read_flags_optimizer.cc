@@ -116,9 +116,19 @@ bool CheckPostLoopNode(MachineBasicBlock* bb, const MachineRegVector& regs) {
   if (bb->in_edges().size() != 1) {
     return false;
   }
+
+  // Keep track of copies to check live_out since we don't call
+  // CheckRegsUnusedWithinInsnRange.
+  MachineRegVector copies(regs.get_allocator());
+  for (auto* insn : bb->insn_list()) {
+    if ((insn->opcode() == kMachineOpPseudoCopy) && Contains(regs, insn->RegAt(1))) {
+      copies.push_back(insn->RegAt(0));
+    }
+  }
+
   // Check that it's not live_out.
   for (auto r : bb->live_out()) {
-    if (Contains(regs, r)) {
+    if (Contains(regs, r) || Contains(copies, r)) {
       return false;
     }
   }
