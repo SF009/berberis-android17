@@ -436,6 +436,34 @@ TEST(InsnFoldingTest, DefMapReturnsCorrectRegisterPosition) {
   EXPECT_EQ(std::get<2>(def_map.Get(flags)), 2);
 }
 
+TEST(InsnFoldingTest, DefMapHandlesNewlyAllocatedVreg) {
+  Arena arena;
+  MachineIR machine_ir(&arena);
+
+  auto* bb = machine_ir.NewBasicBlock();
+  MachineIRBuilder builder(&machine_ir);
+
+  MachineReg vreg1 = machine_ir.AllocVReg();
+  MachineReg flags = machine_ir.AllocVReg();
+
+  builder.StartBasicBlock(bb);
+  DefMap def_map(&machine_ir);
+
+  MachineReg vreg2 = machine_ir.AllocVReg();
+  builder.Gen<SubqRegReg>(vreg2, vreg1, flags);
+  auto failed_get_def_it = std::get<0>(def_map.SafeGetForTesting(vreg2));
+  ASSERT_EQ(std::nullopt, failed_get_def_it);
+
+  def_map.SetForTesting(vreg2, std::prev(bb->insn_list().end()), 0);
+
+  auto [vreg2_def_it, vreg2_def_insn_pos, vreg2_def_reg_pos] = def_map.Get(vreg2);
+  ASSERT_TRUE(vreg2_def_it.has_value());
+  berberis::MachineInsn* vreg2_def_insn = *vreg2_def_it.value();
+  EXPECT_EQ(kMachineOpSubqRegReg, vreg2_def_insn->opcode());
+  EXPECT_EQ(0, vreg2_def_insn_pos);
+  EXPECT_EQ(0, vreg2_def_reg_pos);
+}
+
 TEST(InsnFoldingTest, MovFolding) {
   constexpr uint64_t kSignExtendableImm = 0xffff'ffff'8000'0000ULL;
   constexpr uint64_t kNotSignExtendableImm = 0xffff'ffff'0000'0000ULL;

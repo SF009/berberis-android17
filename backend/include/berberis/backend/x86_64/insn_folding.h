@@ -42,7 +42,8 @@ class DefMap {
     if (!reg.IsVReg()) {
       return {std::nullopt, 0, 0};
     }
-    auto [def_insn, def_insn_index, reg_pos] = def_map_.at(reg.GetVRegIndex());
+    uint32_t reg_index = reg.GetVRegIndex();
+    auto [def_insn, def_insn_index, reg_pos] = def_map_.at(reg_index);
     if (!def_insn) {
       return {std::nullopt, 0, 0};
     }
@@ -54,7 +55,8 @@ class DefMap {
     if (!reg.IsVReg()) {
       return {std::nullopt, 0, 0};
     }
-    auto [def_insn, def_insn_index, reg_pos] = def_map_.at(reg.GetVRegIndex());
+    uint32_t reg_index = reg.GetVRegIndex();
+    auto [def_insn, def_insn_index, reg_pos] = def_map_.at(reg_index);
     if (!def_insn || def_insn_index >= use_index) {
       return {std::nullopt, 0, 0};
     }
@@ -72,11 +74,29 @@ class DefMap {
   std::tuple<std::optional<MachineInsnList::iterator>, int, int> FindNonPseudoCopyDef(
       MachineReg src_reg) const;
 
+  void SetForTesting(MachineReg reg, MachineInsnList::iterator insn_it, int reg_pos) {
+    Set(reg, insn_it, reg_pos);
+  }
+
+  [[nodiscard]] std::tuple<std::optional<MachineInsnList::iterator>, int, int> SafeGetForTesting(
+      MachineReg reg) const {
+    if (!reg.IsVReg() || reg.GetVRegIndex() >= def_map_.size()) {
+      return {std::nullopt, 0, 0};
+    }
+    return Get(reg);
+  }
+
  private:
   void Set(MachineReg reg, MachineInsnList::iterator insn_it, int reg_pos) {
-    if (reg.IsVReg()) {
-      def_map_.at(reg.GetVRegIndex()) = std::tuple(insn_it, index_, reg_pos);
+    if (!reg.IsVReg()) {
+      return;
     }
+    uint32_t reg_index = reg.GetVRegIndex();
+    if (reg_index >= def_map_.size()) {
+      // Resize with a buffer to avoid frequent resizes.
+      def_map_.resize(reg_index + 256, {std::nullopt, 0, 0});
+    }
+    def_map_.at(reg_index) = {insn_it, index_, reg_pos};
   }
   void MapDefRegs(MachineInsnList::iterator insn_it);
 
