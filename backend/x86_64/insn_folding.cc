@@ -697,21 +697,26 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldInsn(
   return {FoldingType::kImpossible, nullptr};
 }
 
-MachineInsnList::iterator ExecuteInsnFold(MachineInsnList& insn_list,
-                                          MachineInsnList::iterator folded_insn_it,
-                                          berberis::MachineInsn* new_insn,
-                                          FoldingType folding_type) {
-  if (folding_type == FoldingType::kRemoveInsn) {
+MachineInsnList::iterator InsnFolding::ExecuteInsnFold(MachineInsnList& insn_list,
+                                                       MachineInsnList::iterator folded_insn_it,
+                                                       berberis::MachineInsn* new_insn,
+                                                       FoldingType folding_type) {
+  if (folding_type == FoldingType::kImpossible) {
+    def_map_.ProcessInsn(folded_insn_it);
+    return std::next(folded_insn_it);
+  } else if (folding_type == FoldingType::kRemoveInsn) {
     folded_insn_it = insn_list.erase(folded_insn_it);
     return folded_insn_it;
   } else if (folding_type == FoldingType::kReplaceInsn) {
     CHECK(new_insn);
     *folded_insn_it = new_insn;
-    return folded_insn_it;
+    def_map_.ProcessInsn(folded_insn_it);
+    return std::next(folded_insn_it);
   } else if (folding_type == FoldingType::kInsertInsn) {
     CHECK(new_insn);
     insn_list.insert(std::next(folded_insn_it), new_insn);
-    return folded_insn_it;
+    def_map_.ProcessInsn(folded_insn_it);
+    return std::next(folded_insn_it);
   }
   FATAL("Unsupported folding type %d", folding_type);
 }
@@ -726,13 +731,7 @@ void FoldInsns(MachineIR* machine_ir) {
     InsnFolding insn_folding(def_map, context_access_info, machine_ir);
     for (auto insn_it = insn_list.begin(); insn_it != insn_list.end();) {
       auto [folding_type, new_insn] = insn_folding.TryFoldInsn(insn_it, bb);
-      if (folding_type != FoldingType::kImpossible) {
-        insn_it = ExecuteInsnFold(insn_list, insn_it, new_insn, folding_type);
-      }
-      if (folding_type != FoldingType::kRemoveInsn) {
-        def_map.ProcessInsn(insn_it);
-        ++insn_it;
-      }
+      insn_it = insn_folding.ExecuteInsnFold(insn_list, insn_it, new_insn, folding_type);
     }
   }
   machine_ir->SetInsnFoldingExecuted();

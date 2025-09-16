@@ -183,6 +183,11 @@ class InsnFolding {
     return TryFoldContextRead(insn, mem_reg_pos);
   }
 
+  MachineInsnList::iterator ExecuteInsnFold(MachineInsnList& insn_list,
+                                            MachineInsnList::iterator folded_insn_it,
+                                            berberis::MachineInsn* new_insn,
+                                            FoldingType folding_type);
+
  private:
   DefMap& def_map_;
   ContextAccessInfo& context_access_info_;
@@ -214,11 +219,6 @@ class InsnFolding {
                                                                 int32_t context_read_disp,
                                                                 int32_t mem_reg_pos);
 };
-
-MachineInsnList::iterator ExecuteInsnFold(MachineInsnList& insn_list,
-                                          MachineInsnList::iterator folded_insn_it,
-                                          berberis::MachineInsn* new_insn,
-                                          FoldingType folding_type);
 
 void FoldInsns(MachineIR* machine_ir);
 
