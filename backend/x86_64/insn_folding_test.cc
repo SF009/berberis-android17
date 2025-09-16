@@ -1329,9 +1329,13 @@ TEST(InsnFoldingTest, InsnFoldingExecutionMakesIsCPUStateGetInvalid) {
 
 TEST(InsnFoldingTest, SwapRegOperandsAndFoldContextRead) {
   TrySwapRegOperandsAndFoldContextReadArithmetic<AddqRegReg, kMachineOpAddqRegMemBaseDisp>();
+  TrySwapRegOperandsAndFoldContextReadArithmetic<AddlRegReg, kMachineOpAddlRegMemBaseDisp>();
   TrySwapRegOperandsAndFoldContextReadArithmetic<AndqRegReg, kMachineOpAndqRegMemBaseDisp>();
+  TrySwapRegOperandsAndFoldContextReadArithmetic<AndlRegReg, kMachineOpAndlRegMemBaseDisp>();
   TrySwapRegOperandsAndFoldContextReadArithmetic<OrqRegReg, kMachineOpOrqRegMemBaseDisp>();
+  TrySwapRegOperandsAndFoldContextReadArithmetic<OrlRegReg, kMachineOpOrlRegMemBaseDisp>();
   TrySwapRegOperandsAndFoldContextReadArithmetic<XorqRegReg, kMachineOpXorqRegMemBaseDisp>();
+  TrySwapRegOperandsAndFoldContextReadArithmetic<XorlRegReg, kMachineOpXorlRegMemBaseDisp>();
 }
 
 TEST(InsnFoldingTest, SwapRegOperandsAndFoldContextReadTwiceWithDifferentTempReg) {

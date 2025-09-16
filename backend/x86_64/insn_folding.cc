@@ -612,12 +612,20 @@ berberis::MachineInsn* InsnFolding::NewArithmeticInsnWithSwappedOperands(
   switch (insn->opcode()) {
     case kMachineOpAddqRegReg:
       return machine_ir_->NewInsn<AddqRegOp>(new_reg, mem_op, insn->RegAt(2));
+    case kMachineOpAddlRegReg:
+      return machine_ir_->NewInsn<AddlRegOp>(new_reg, mem_op, insn->RegAt(2));
     case kMachineOpAndqRegReg:
       return machine_ir_->NewInsn<AndqRegOp>(new_reg, mem_op, insn->RegAt(2));
+    case kMachineOpAndlRegReg:
+      return machine_ir_->NewInsn<AndlRegOp>(new_reg, mem_op, insn->RegAt(2));
     case kMachineOpOrqRegReg:
       return machine_ir_->NewInsn<OrqRegOp>(new_reg, mem_op, insn->RegAt(2));
+    case kMachineOpOrlRegReg:
+      return machine_ir_->NewInsn<OrlRegOp>(new_reg, mem_op, insn->RegAt(2));
     case kMachineOpXorqRegReg:
       return machine_ir_->NewInsn<XorqRegOp>(new_reg, mem_op, insn->RegAt(2));
+    case kMachineOpXorlRegReg:
+      return machine_ir_->NewInsn<XorlRegOp>(new_reg, mem_op, insn->RegAt(2));
     default:
       FATAL("unexpected opcode");
       return nullptr;
@@ -705,10 +713,20 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldInsn(
     case kMachineOpShrlRegReg:
       return TryFoldImmediateInput<false>(insn_it);
     case kMachineOpAddlRegReg:
+    case kMachineOpAndlRegReg:
     case kMachineOpXorlRegReg:
-    case kMachineOpOrlRegReg:
-    case kMachineOpSublRegReg:
-    case kMachineOpAndlRegReg: {
+    case kMachineOpOrlRegReg: {
+      auto [folding_type, folded_insn] = TryFoldImmediateInput<false>(insn_it);
+      if (folding_type != FoldingType::kImpossible) {
+        return {folding_type, folded_insn};
+      }
+      std::tie(folding_type, folded_insn) = TryFoldContextRead(*insn_it, 1);
+      if (folding_type != FoldingType::kImpossible) {
+        return {folding_type, folded_insn};
+      }
+      return TryFoldContextReadAndSwapOperands(insn);
+    }
+    case kMachineOpSublRegReg: {
       auto [folding_type, folded_insn] = TryFoldImmediateInput<false>(insn_it);
       if (folding_type != FoldingType::kImpossible) {
         return {folding_type, folded_insn};
