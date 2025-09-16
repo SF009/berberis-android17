@@ -256,13 +256,11 @@ class CallImm final : public MachineInsnX86_64 {
 
   [[nodiscard]] std::string GetDebugString() const override;
   void Emit(CodeEmitter* as) const override;
-  void EnableCustomAVX256ABI() { custom_avx256_abi_ = true; };
 
  private:
   friend CallImm* NewInArena<CallImm, const CallImm&>(Arena*, const CallImm&);
   CallImm(const CallImm&) = default;
   MachineInsn* Clone(Arena* arena) const override;
-  bool custom_avx256_abi_;
 };
 
 // An auxiliary instruction to express data-flow for CallImm arguments.  It uses the same vreg as
