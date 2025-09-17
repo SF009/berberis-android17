@@ -658,6 +658,55 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldContextReadA
   return {FoldingType::kReplaceInsnAndSwapOperands, new_insn};
 }
 
+template <bool kIsAccess64Bit, bool kIsMemWrite>
+std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldScaleIntoMemAccess(
+    const berberis::MachineInsn* insn) {
+  CHECK_EQ(AsMachineInsnX86_64(insn)->scale(), Assembler::ScaleFactor::kTimesOne);
+  MachineReg index_reg = insn->RegAt(kIsMemWrite ? 1 : 2);
+  auto [shift_insn_it, shift_insn_pos, _] = def_map_.FindNonPseudoCopyDef(index_reg);
+  if (!shift_insn_it.has_value()) {
+    return {FoldingType::kImpossible, nullptr};
+  }
+  berberis::MachineInsn* shift_insn = *shift_insn_it.value();
+  if (shift_insn->opcode() != kMachineOpShlqRegImm) {
+    return {FoldingType::kImpossible, nullptr};
+  }
+  auto pseudo_copy_insn_it = std::prev(shift_insn_it.value());
+  berberis::MachineInsn* pseudo_copy_insn = *pseudo_copy_insn_it;
+  if (pseudo_copy_insn->opcode() != kMachineOpPseudoCopy) {
+    return {FoldingType::kImpossible, nullptr};
+  }
+  auto pseudo_copy_dst_reg = pseudo_copy_insn->RegAt(0);
+  if (pseudo_copy_dst_reg != shift_insn->RegAt(0)) {
+    return {FoldingType::kImpossible, nullptr};
+  }
+  auto pseudo_copy_src_reg = pseudo_copy_insn->RegAt(1);
+  if (pseudo_copy_dst_reg == pseudo_copy_src_reg) {
+    return {FoldingType::kImpossible, nullptr};
+  }
+  auto src_insn_it = std::get<0>(def_map_.Get(pseudo_copy_src_reg, shift_insn_pos));
+  if (!src_insn_it.has_value()) {
+    return {FoldingType::kImpossible, nullptr};
+  }
+
+  uint64_t imm = AsMachineInsnX86_64(shift_insn)->imm();
+  Assembler::ScaleFactor new_scale_factor;
+  if (imm == 1) {
+    new_scale_factor = Assembler::ScaleFactor::kTimesTwo;
+  } else if (imm == 2) {
+    new_scale_factor = Assembler::ScaleFactor::kTimesFour;
+  } else if (imm == 3) {
+    new_scale_factor = Assembler::ScaleFactor::kTimesEight;
+  } else {
+    return {FoldingType::kImpossible, nullptr};
+  }
+  berberis::MachineInsn* new_insn = machine_ir_->CloneInstruction(insn);
+  AsMachineInsnX86_64(new_insn)->set_scale(new_scale_factor);
+  new_insn->SetRegAt(kIsMemWrite ? 1 : 2, pseudo_copy_src_reg);
+
+  return {FoldingType::kReplaceInsn, new_insn};
+}
+
 std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldInsn(
     const MachineInsnList::iterator insn_it,
     const MachineBasicBlock* bb) {
@@ -765,6 +814,14 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldInsn(
       return TryFoldCountLeadingZeros<false, false>(insn_it, bb);
     case kMachineOpCountLeadingZerosU64:
       return TryFoldCountLeadingZeros<false, true>(insn_it, bb);
+    case kMachineOpMovqMemBaseIndexDispReg:
+      return TryFoldScaleIntoMemAccess<true, true>(insn);
+    case kMachineOpMovqRegMemBaseIndexDisp:
+      return TryFoldScaleIntoMemAccess<true, false>(insn);
+    case kMachineOpMovlMemBaseIndexDispReg:
+      return TryFoldScaleIntoMemAccess<false, true>(insn);
+    case kMachineOpMovlRegMemBaseIndexDisp:
+      return TryFoldScaleIntoMemAccess<false, false>(insn);
     default:
       return {FoldingType::kImpossible, nullptr};
   }
