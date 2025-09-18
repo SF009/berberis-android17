@@ -60,6 +60,66 @@ TEST(Arm64InsnTest, Lsr) {
   ASSERT_EQ(res, 0x0327'6561'8093'7734ULL);
 }
 
+TEST(Arm64InsnTest, SxtbI32) {
+  uint32_t arg = 0x0937'7344UL;
+  uint64_t res = 0x1234'1234'2657'9787ULL;
+
+  asm("sxtb %w0, %w1" : "=r"(res) : "r"(arg));
+  ASSERT_EQ(res, 0x0000'0000'0000'0044ULL);
+
+  arg = 0x8937'7384UL;
+  asm("sxtb %w0, %w1" : "=r"(res) : "r"(arg));
+  ASSERT_EQ(res, 0x0000'0000'ffff'ff84UL);
+}
+
+TEST(Arm64InsnTest, SxtbI64) {
+  uint64_t arg = 0x3276'5618'0937'7344ULL;
+  uint64_t res = 0x1668'0396'2657'9787ULL;
+
+  asm("sxtb %0, %1" : "=r"(res) : "r"(arg));
+  ASSERT_EQ(res, 0x0000'0000'0000'0044ULL);
+
+  arg = 0x3276'5618'8937'7384ULL;
+  asm("sxtb %0, %1" : "=r"(res) : "r"(arg));
+  ASSERT_EQ(res, 0xffff'ffff'ffff'ff84ULL);
+}
+
+TEST(Arm64InsnTest, SxthI32) {
+  uint32_t arg = 0x0937'7344UL;
+  uint64_t res = 0x1234'1234'2657'9787ULL;
+
+  asm("sxth %w0, %w1" : "=r"(res) : "r"(arg));
+  ASSERT_EQ(res, 0x0000'0000'0000'7344UL);
+
+  arg = 0x8937'9384UL;
+  asm("sxth %w0, %w1" : "=r"(res) : "r"(arg));
+  ASSERT_EQ(res, 0x0000'0000'ffff'9384UL);
+}
+
+TEST(Arm64InsnTest, SxthI64) {
+  uint64_t arg = 0x3276'5618'0937'7344ULL;
+  uint64_t res = 0x1668'0396'2657'9787ULL;
+
+  asm("sxth %0, %1" : "=r"(res) : "r"(arg));
+  ASSERT_EQ(res, 0x0000'0000'0000'7344ULL);
+
+  arg = 0x3276'5618'8937'9384ULL;
+  asm("sxth %0, %1" : "=r"(res) : "r"(arg));
+  ASSERT_EQ(res, 0xffff'ffff'ffff'9384ULL);
+}
+
+TEST(Arm64InsnTest, Sxtw) {
+  uint64_t arg = 0x3276'5618'0937'7344ULL;
+  uint64_t res = 0x1668'0396'2657'9787ULL;
+
+  asm("sxtw %0, %1" : "=r"(res) : "r"(arg));
+  ASSERT_EQ(res, 0x0000'0000'0937'7344ULL);
+
+  arg = 0x3276'5618'8937'7344ULL;
+  asm("sxtw %0, %1" : "=r"(res) : "r"(arg));
+  ASSERT_EQ(res, 0xffff'ffff'8937'7344ULL);
+}
+
 TEST(Arm64InsnTest, MoveImmToFp32) {
   // The tests below verify that fmov works with various immediates.
   // Specifically, the instruction has an 8-bit immediate field consisting of
