@@ -1084,7 +1084,6 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersRecursesOnNeighbors) {
   auto bb0 = machine_ir.NewBasicBlock();
   auto bb1 = machine_ir.NewBasicBlock();
   auto bb2 = machine_ir.NewBasicBlock();
-  auto bb3 = machine_ir.NewBasicBlock();
   machine_ir.AddEdge(bb0, bb1);
   machine_ir.AddEdge(bb0, bb2);
   machine_ir.AddEdge(bb2, bb0);

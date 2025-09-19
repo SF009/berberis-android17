@@ -87,12 +87,6 @@ class FakeInsnWithDefEarlyClobber : public MachineInsn {
  public:
   explicit FakeInsnWithDefEarlyClobber(MachineReg reg)
       : MachineInsn(kMachineOpUndefined, 1, &reg_kind_, &reg_, kMachineInsnDefault), reg_{reg} {}
-  static constexpr x86_64::MachineInsnInfo kInfo =
-      x86_64::MachineInsnInfo({MachineOpcode{0},
-                               1,
-                               {{&x86_64::kRegisterClass<x86_64::device_arch_info::GeneralReg32>,
-                                 MachineRegKind::kDefEarlyClobber}},
-                               kMachineInsnDefault});
   [[nodiscard]] std::string GetDebugString() const override {
     return "FakeInsnWithDefEarlyClobber";
   }
