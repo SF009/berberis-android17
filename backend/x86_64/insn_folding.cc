@@ -177,6 +177,10 @@ berberis::MachineInsn* InsnFolding::NewImmInsnFromRegInsn(const berberis::Machin
     case kMachineOpShrqRegReg:
       folded_insn = machine_ir_->NewInsn<ShrqRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
       break;
+    case kMachineOpImulqRegReg:
+      folded_insn = machine_ir_->NewInsn<ImulqRegRegImm>(
+          insn->RegAt(0), insn->RegAt(0), imm32, insn->RegAt(2));
+      break;
     case kMachineOpMovlRegReg:
       folded_insn = machine_ir_->NewInsn<MovlRegImm>(insn->RegAt(0), imm32);
       break;
@@ -206,6 +210,10 @@ berberis::MachineInsn* InsnFolding::NewImmInsnFromRegInsn(const berberis::Machin
       break;
     case kMachineOpShrlRegReg:
       folded_insn = machine_ir_->NewInsn<ShrlRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
+      break;
+    case kMachineOpImullRegReg:
+      folded_insn = machine_ir_->NewInsn<ImullRegRegImm>(
+          insn->RegAt(0), insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpMovlMemBaseDispReg:
       folded_insn = machine_ir_->NewInsn<MovlOpImm>(
@@ -663,6 +671,7 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldInsn(
     const MachineBasicBlock* bb) {
   const berberis::MachineInsn* insn = *insn_it;
   switch (insn->opcode()) {
+    case kMachineOpImulqRegReg:
     case kMachineOpMovqMemBaseDispReg:
     case kMachineOpMovqRegReg:
     case kMachineOpShlqRegReg:
@@ -708,6 +717,7 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldInsn(
       }
       return TryFoldRedundantMovl(insn_it);
     }
+    case kMachineOpImullRegReg:
     case kMachineOpMovlMemBaseDispReg:
     case kMachineOpShllRegReg:
     case kMachineOpShrlRegReg:

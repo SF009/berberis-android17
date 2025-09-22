@@ -74,9 +74,15 @@ void TryRegRegInsnFolding(bool is_64bit_mov_imm, uint64_t imm = 0x7777'ffffULL) 
   }
   EXPECT_EQ(MachineInsnType<InsnTypeRegImm>::kInfo.opcode, folded_insn->opcode());
   EXPECT_EQ(vreg2, folded_insn->RegAt(0));
-  EXPECT_EQ(flags, folded_insn->RegAt(1));
   EXPECT_EQ(static_cast<uint64_t>(static_cast<int32_t>(imm)),
             AsMachineInsnX86_64(folded_insn)->imm());
+  if (MachineInsnType<InsnTypeRegImm>::kInfo.opcode == kMachineOpImulqRegRegImm ||
+      MachineInsnType<InsnTypeRegImm>::kInfo.opcode == kMachineOpImullRegRegImm) {
+    EXPECT_EQ(vreg2, folded_insn->RegAt(1));
+    EXPECT_EQ(flags, folded_insn->RegAt(2));
+  } else {
+    EXPECT_EQ(flags, folded_insn->RegAt(1));
+  }
 }
 
 template <template <typename> typename InsnTypeRegReg, template <typename> typename InsnTypeRegImm>
@@ -105,9 +111,15 @@ void TryRegRegInsnFoldingExtraPseudoCopy(bool is_64bit_mov_imm, uint64_t imm = 0
   berberis::MachineInsn* folded_insn = *folded_insn_it;
   EXPECT_EQ(MachineInsnType<InsnTypeRegImm>::kInfo.opcode, folded_insn->opcode());
   EXPECT_EQ(vreg3, folded_insn->RegAt(0));
-  EXPECT_EQ(flags, folded_insn->RegAt(1));
   EXPECT_EQ(static_cast<uint64_t>(static_cast<int32_t>(imm)),
             AsMachineInsnX86_64(folded_insn)->imm());
+  if (MachineInsnType<InsnTypeRegImm>::kInfo.opcode == kMachineOpImulqRegRegImm ||
+      MachineInsnType<InsnTypeRegImm>::kInfo.opcode == kMachineOpImullRegRegImm) {
+    EXPECT_EQ(vreg3, folded_insn->RegAt(1));
+    EXPECT_EQ(flags, folded_insn->RegAt(2));
+  } else {
+    EXPECT_EQ(flags, folded_insn->RegAt(1));
+  }
 
   auto prev_insn_it = std::prev(folded_insn_it);
   berberis::MachineInsn* prev_insn = *prev_insn_it;
@@ -671,6 +683,7 @@ TEST(InsnFoldingTest, RegRegInsnTypeFolding) {
     TryRegRegInsnFolding<TestqRegReg, TestqRegImm>(is_64bit_mov_imm);
     TryRegRegInsnFolding<ShlqRegReg, ShlqRegImm>(is_64bit_mov_imm, 10);
     TryRegRegInsnFolding<ShrqRegReg, ShrqRegImm>(is_64bit_mov_imm, 11);
+    TryRegRegInsnFolding<ImulqRegReg, ImulqRegRegImm>(is_64bit_mov_imm);
 
     TryRegRegInsnFolding<AddlRegReg, AddlRegImm>(is_64bit_mov_imm);
     TryRegRegInsnFolding<SublRegReg, SublRegImm>(is_64bit_mov_imm);
@@ -681,6 +694,7 @@ TEST(InsnFoldingTest, RegRegInsnTypeFolding) {
     TryRegRegInsnFolding<TestlRegReg, TestlRegImm>(is_64bit_mov_imm);
     TryRegRegInsnFolding<ShllRegReg, ShllRegImm>(is_64bit_mov_imm, 10);
     TryRegRegInsnFolding<ShrlRegReg, ShrlRegImm>(is_64bit_mov_imm, 11);
+    TryRegRegInsnFolding<ImullRegReg, ImullRegRegImm>(is_64bit_mov_imm);
 
     TryRegRegInsnFoldingExtraPseudoCopy<AddqRegReg, AddqRegImm>(is_64bit_mov_imm);
     TryRegRegInsnFoldingExtraPseudoCopy<SubqRegReg, SubqRegImm>(is_64bit_mov_imm);
@@ -689,6 +703,7 @@ TEST(InsnFoldingTest, RegRegInsnTypeFolding) {
     TryRegRegInsnFoldingExtraPseudoCopy<XorqRegReg, XorqRegImm>(is_64bit_mov_imm);
     TryRegRegInsnFoldingExtraPseudoCopy<AndqRegReg, AndqRegImm>(is_64bit_mov_imm);
     TryRegRegInsnFoldingExtraPseudoCopy<TestqRegReg, TestqRegImm>(is_64bit_mov_imm);
+    TryRegRegInsnFoldingExtraPseudoCopy<ImulqRegReg, ImulqRegRegImm>(is_64bit_mov_imm);
 
     TryRegRegInsnFoldingExtraPseudoCopy<AddlRegReg, AddlRegImm>(is_64bit_mov_imm);
     TryRegRegInsnFoldingExtraPseudoCopy<SublRegReg, SublRegImm>(is_64bit_mov_imm);
@@ -697,6 +712,7 @@ TEST(InsnFoldingTest, RegRegInsnTypeFolding) {
     TryRegRegInsnFoldingExtraPseudoCopy<XorlRegReg, XorlRegImm>(is_64bit_mov_imm);
     TryRegRegInsnFoldingExtraPseudoCopy<AndlRegReg, AndlRegImm>(is_64bit_mov_imm);
     TryRegRegInsnFoldingExtraPseudoCopy<TestlRegReg, TestlRegImm>(is_64bit_mov_imm);
+    TryRegRegInsnFoldingExtraPseudoCopy<ImullRegReg, ImullRegRegImm>(is_64bit_mov_imm);
   }
 }
 
