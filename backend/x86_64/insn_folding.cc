@@ -543,6 +543,10 @@ berberis::MachineInsn* InsnFolding::NewArithmeticInsnWithFoldedContextRead(
       // and both operands are 'use'. Therefore we can safely swap the operands.
       return machine_ir_->NewInsn<TestlOpReg>(
           mem_op, insn->RegAt(mem_reg_pos == 0 ? 1 : 0), insn->RegAt(2));
+    case kMachineOpImulqRegReg:
+      return machine_ir_->NewInsn<ImulqRegOp>(insn->RegAt(0), mem_op, insn->RegAt(2));
+    case kMachineOpImullRegReg:
+      return machine_ir_->NewInsn<ImullRegOp>(insn->RegAt(0), mem_op, insn->RegAt(2));
     case kMachineOpCmpqRegImm:
       return machine_ir_->NewInsn<CmpqOpImm>(
           mem_op, AsMachineInsnX86_64(insn)->imm(), insn->RegAt(1));
@@ -626,6 +630,10 @@ berberis::MachineInsn* InsnFolding::NewArithmeticInsnWithSwappedOperands(
       return machine_ir_->NewInsn<AndqRegOp>(new_reg, mem_op, insn->RegAt(2));
     case kMachineOpAndlRegReg:
       return machine_ir_->NewInsn<AndlRegOp>(new_reg, mem_op, insn->RegAt(2));
+    case kMachineOpImulqRegReg:
+      return machine_ir_->NewInsn<ImulqRegOp>(new_reg, mem_op, insn->RegAt(2));
+    case kMachineOpImullRegReg:
+      return machine_ir_->NewInsn<ImullRegOp>(new_reg, mem_op, insn->RegAt(2));
     case kMachineOpOrqRegReg:
       return machine_ir_->NewInsn<OrqRegOp>(new_reg, mem_op, insn->RegAt(2));
     case kMachineOpOrlRegReg:
@@ -671,7 +679,6 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldInsn(
     const MachineBasicBlock* bb) {
   const berberis::MachineInsn* insn = *insn_it;
   switch (insn->opcode()) {
-    case kMachineOpImulqRegReg:
     case kMachineOpMovqMemBaseDispReg:
     case kMachineOpMovqRegReg:
     case kMachineOpShlqRegReg:
@@ -679,6 +686,7 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldInsn(
       return TryFoldImmediateInput<true>(insn_it);
     case kMachineOpAddqRegReg:
     case kMachineOpAndqRegReg:
+    case kMachineOpImulqRegReg:
     case kMachineOpXorqRegReg:
     case kMachineOpOrqRegReg: {
       auto [folding_type, folded_insn] = TryFoldImmediateInput<true>(insn_it);
@@ -717,13 +725,13 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldInsn(
       }
       return TryFoldRedundantMovl(insn_it);
     }
-    case kMachineOpImullRegReg:
     case kMachineOpMovlMemBaseDispReg:
     case kMachineOpShllRegReg:
     case kMachineOpShrlRegReg:
       return TryFoldImmediateInput<false>(insn_it);
     case kMachineOpAddlRegReg:
     case kMachineOpAndlRegReg:
+    case kMachineOpImullRegReg:
     case kMachineOpXorlRegReg:
     case kMachineOpOrlRegReg: {
       auto [folding_type, folded_insn] = TryFoldImmediateInput<false>(insn_it);

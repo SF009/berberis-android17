@@ -1179,6 +1179,8 @@ TEST(InsnFoldingTest, FoldContextRead) {
   TryFoldContextReadIntoRegMemArithmetic<OrlRegReg, kMachineOpOrlRegMemBaseDisp>();
   TryFoldContextReadIntoRegMemArithmetic<SubqRegReg, kMachineOpSubqRegMemBaseDisp>();
   TryFoldContextReadIntoRegMemArithmetic<SublRegReg, kMachineOpSublRegMemBaseDisp>();
+  TryFoldContextReadIntoRegMemArithmetic<ImulqRegReg, kMachineOpImulqRegMemBaseDisp>();
+  TryFoldContextReadIntoRegMemArithmetic<ImullRegReg, kMachineOpImullRegMemBaseDisp>();
   TryFoldContextReadIntoRegMemArithmetic<CmpqRegReg, kMachineOpCmpqRegMemBaseDisp>();
   TryFoldContextReadIntoRegMemArithmetic<CmplRegReg, kMachineOpCmplRegMemBaseDisp>();
   TryFoldContextReadIntoRegMemArithmetic<TestqRegReg, kMachineOpTestqMemBaseDispReg>();
@@ -1348,6 +1350,8 @@ TEST(InsnFoldingTest, SwapRegOperandsAndFoldContextRead) {
   TrySwapRegOperandsAndFoldContextReadArithmetic<AddlRegReg, kMachineOpAddlRegMemBaseDisp>();
   TrySwapRegOperandsAndFoldContextReadArithmetic<AndqRegReg, kMachineOpAndqRegMemBaseDisp>();
   TrySwapRegOperandsAndFoldContextReadArithmetic<AndlRegReg, kMachineOpAndlRegMemBaseDisp>();
+  TrySwapRegOperandsAndFoldContextReadArithmetic<ImulqRegReg, kMachineOpImulqRegMemBaseDisp>();
+  TrySwapRegOperandsAndFoldContextReadArithmetic<ImullRegReg, kMachineOpImullRegMemBaseDisp>();
   TrySwapRegOperandsAndFoldContextReadArithmetic<OrqRegReg, kMachineOpOrqRegMemBaseDisp>();
   TrySwapRegOperandsAndFoldContextReadArithmetic<OrlRegReg, kMachineOpOrlRegMemBaseDisp>();
   TrySwapRegOperandsAndFoldContextReadArithmetic<XorqRegReg, kMachineOpXorqRegMemBaseDisp>();
