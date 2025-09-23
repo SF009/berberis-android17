@@ -25,7 +25,13 @@
 
 namespace berberis::x86_64 {
 
-enum class FoldingType { kImpossible, kReplaceInsn, kInsertInsn, kRemoveInsn };
+enum class FoldingType {
+  kImpossible,
+  kInsertInsn,
+  kRemoveInsn,
+  kReplaceInsn,
+  kReplaceInsnAndSwapOperands
+};
 
 // The DefMap class stores a map between registers and their latest definitions and positions.
 // It also contains the index of the last insn which accessed memory.
@@ -42,7 +48,8 @@ class DefMap {
     if (!reg.IsVReg()) {
       return {std::nullopt, 0, 0};
     }
-    auto [def_insn, def_insn_index, reg_pos] = def_map_.at(reg.GetVRegIndex());
+    uint32_t reg_index = reg.GetVRegIndex();
+    auto [def_insn, def_insn_index, reg_pos] = def_map_.at(reg_index);
     if (!def_insn) {
       return {std::nullopt, 0, 0};
     }
@@ -54,7 +61,8 @@ class DefMap {
     if (!reg.IsVReg()) {
       return {std::nullopt, 0, 0};
     }
-    auto [def_insn, def_insn_index, reg_pos] = def_map_.at(reg.GetVRegIndex());
+    uint32_t reg_index = reg.GetVRegIndex();
+    auto [def_insn, def_insn_index, reg_pos] = def_map_.at(reg_index);
     if (!def_insn || def_insn_index >= use_index) {
       return {std::nullopt, 0, 0};
     }
@@ -72,11 +80,29 @@ class DefMap {
   std::tuple<std::optional<MachineInsnList::iterator>, int, int> FindNonPseudoCopyDef(
       MachineReg src_reg) const;
 
+  void SetForTesting(MachineReg reg, MachineInsnList::iterator insn_it, int reg_pos) {
+    Set(reg, insn_it, reg_pos);
+  }
+
+  [[nodiscard]] std::tuple<std::optional<MachineInsnList::iterator>, int, int> SafeGetForTesting(
+      MachineReg reg) const {
+    if (!reg.IsVReg() || reg.GetVRegIndex() >= def_map_.size()) {
+      return {std::nullopt, 0, 0};
+    }
+    return Get(reg);
+  }
+
  private:
   void Set(MachineReg reg, MachineInsnList::iterator insn_it, int reg_pos) {
-    if (reg.IsVReg()) {
-      def_map_.at(reg.GetVRegIndex()) = std::tuple(insn_it, index_, reg_pos);
+    if (!reg.IsVReg()) {
+      return;
     }
+    uint32_t reg_index = reg.GetVRegIndex();
+    if (reg_index >= def_map_.size()) {
+      // Resize with a buffer to avoid frequent resizes.
+      def_map_.resize(reg_index + 256, {std::nullopt, 0, 0});
+    }
+    def_map_.at(reg_index) = {insn_it, index_, reg_pos};
   }
   void MapDefRegs(MachineInsnList::iterator insn_it);
 
@@ -163,6 +189,11 @@ class InsnFolding {
     return TryFoldContextRead(insn, mem_reg_pos);
   }
 
+  MachineInsnList::iterator ExecuteInsnFold(MachineInsnList& insn_list,
+                                            MachineInsnList::iterator folded_insn_it,
+                                            berberis::MachineInsn* new_insn,
+                                            FoldingType folding_type);
+
  private:
   DefMap& def_map_;
   ContextAccessInfo& context_access_info_;
@@ -183,6 +214,8 @@ class InsnFolding {
   std::tuple<FoldingType, berberis::MachineInsn*> TryFoldContextRead(
       const berberis::MachineInsn* insn,
       int32_t mem_reg_pos);
+  std::tuple<FoldingType, berberis::MachineInsn*> TryFoldContextReadAndSwapOperands(
+      const berberis::MachineInsn* insn);
   template <bool kIsInput64Bit>
   std::tuple<FoldingType, berberis::MachineInsn*> TryFoldImmediateAndContextReadInputs(
       MachineInsnList::iterator insn_it);
@@ -193,12 +226,10 @@ class InsnFolding {
   berberis::MachineInsn* NewArithmeticInsnWithFoldedContextRead(const berberis::MachineInsn* insn,
                                                                 int32_t context_read_disp,
                                                                 int32_t mem_reg_pos);
+  berberis::MachineInsn* NewArithmeticInsnWithSwappedOperands(const berberis::MachineInsn* insn,
+                                                              berberis::MachineReg new_reg,
+                                                              int32_t context_read_disp);
 };
-
-MachineInsnList::iterator ExecuteInsnFold(MachineInsnList& insn_list,
-                                          MachineInsnList::iterator folded_insn_it,
-                                          berberis::MachineInsn* new_insn,
-                                          FoldingType folding_type);
 
 void FoldInsns(MachineIR* machine_ir);
 
