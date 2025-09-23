@@ -26,6 +26,7 @@ cc_defaults {
         "-Wmost",
         "-Wover-aligned",
         "-Wunused",
+        "-Werror=deprecated-volatile",
         "-Werror=unused-variable",
         "-Wimplicit-fallthrough",
         "-Werror=reorder-init-list",
