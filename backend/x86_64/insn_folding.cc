@@ -529,6 +529,16 @@ berberis::MachineInsn* InsnFolding::NewArithmeticInsnWithFoldedContextRead(
       return machine_ir_->NewInsn<AndqRegOp>(insn->RegAt(0), mem_op, insn->RegAt(2));
     case kMachineOpAndlRegReg:
       return machine_ir_->NewInsn<AndlRegOp>(insn->RegAt(0), mem_op, insn->RegAt(2));
+    case kMachineOpPandXRegXReg:
+      return machine_ir_->NewInsn<PandXRegOp>(insn->RegAt(0), mem_op);
+    case kMachineOpPadddXRegXReg:
+      return machine_ir_->NewInsn<PadddXRegOp>(insn->RegAt(0), mem_op);
+    case kMachineOpPsubdXRegXReg:
+      return machine_ir_->NewInsn<PsubdXRegOp>(insn->RegAt(0), mem_op);
+    case kMachineOpPorXRegXReg:
+      return machine_ir_->NewInsn<PorXRegOp>(insn->RegAt(0), mem_op);
+    case kMachineOpPxorXRegXReg:
+      return machine_ir_->NewInsn<PxorXRegOp>(insn->RegAt(0), mem_op);
     case kMachineOpBtqRegReg:
       return machine_ir_->NewInsn<BtqOpReg>(mem_op, insn->RegAt(1), insn->RegAt(2));
     case kMachineOpBtlRegReg:
@@ -840,6 +850,12 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldInsn(
       return TryFoldScaleIntoMemAccess<false, true>(insn);
     case kMachineOpMovlRegMemBaseIndexDisp:
       return TryFoldScaleIntoMemAccess<false, false>(insn);
+    case kMachineOpPandXRegXReg:
+    case kMachineOpPadddXRegXReg:
+    case kMachineOpPsubdXRegXReg:
+    case kMachineOpPorXRegXReg:
+    case kMachineOpPxorXRegXReg:
+      return TryFoldContextRead(*insn_it, 1);
     default:
       return {FoldingType::kImpossible, nullptr};
   }
