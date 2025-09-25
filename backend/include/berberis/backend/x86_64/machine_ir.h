@@ -184,17 +184,6 @@ class MachineInsnX86_64 : public MachineInsn {
 
   uint64_t imm() const { return x86_64_insn_info_.imm_; }
 
- protected:
-  explicit MachineInsnX86_64(const MachineInsnX86_64& other)
-      : MachineInsn(other, x86_64_insn_info_.regs_), x86_64_insn_info_(other.x86_64_insn_info_) {}
-
-  explicit MachineInsnX86_64(const MachineInsnInfo* info)
-      : MachineInsn(info->opcode,
-                    info->num_reg_operands,
-                    info->reg_kinds,
-                    x86_64_insn_info_.regs_,
-                    info->kind) {}
-
   void set_scale(Assembler::ScaleFactor scale) { x86_64_insn_info_.scale_ = scale; }
 
   void set_scale2(Assembler::ScaleFactor scale2) { x86_64_insn_info_.scale2_ = scale2; }
@@ -206,6 +195,17 @@ class MachineInsnX86_64 : public MachineInsn {
   void set_cond(Assembler::Condition cond) { x86_64_insn_info_.cond_ = cond; }
 
   void set_imm(uint64_t imm) { x86_64_insn_info_.imm_ = imm; }
+
+ protected:
+  explicit MachineInsnX86_64(const MachineInsnX86_64& other)
+      : MachineInsn(other, x86_64_insn_info_.regs_), x86_64_insn_info_(other.x86_64_insn_info_) {}
+
+  explicit MachineInsnX86_64(const MachineInsnInfo* info)
+      : MachineInsn(info->opcode,
+                    info->num_reg_operands,
+                    info->reg_kinds,
+                    x86_64_insn_info_.regs_,
+                    info->kind) {}
 
  private:
   struct {
