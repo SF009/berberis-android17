@@ -143,52 +143,52 @@ cc_genrule {
     name: "inline_asm_tests_riscv64_interpret_only_run_test_x86_64_riscv64",
     defaults: ["berberis_ndk_program_tests_riscv64_defaults"],
     out: ["inline_asm_tests_riscv64_interpret_only_result.xml"],
-    srcs: [
-        ":inline_asm_tests_riscv64",
+    host_first_srcs: [
+        ":inline_asm_tests_riscv64_prebuilt",
     ],
     cmd: "$(location :berberis_gen_gtest_failure_template) berberis_host_tests_riscv64 inline_asm_tests_riscv64_interpret_only > $(out)" +
         " && cp -t $(genDir) $(location :berberis_program_runner_riscv64) $(location :liblog) $(location :libc++) $(location :libbase) $(location :libberberis_riscv64)" +
         " && BERBERIS_MODE=interpret-only" +
-        ld_library_path + " " + prebuilt_ld + " $(genDir)/berberis_program_runner_riscv64 $(location :inline_asm_tests_riscv64) --gtest_output=xml:$(out) ; true",
+        ld_library_path + " " + prebuilt_ld + " $(genDir)/berberis_program_runner_riscv64 $(location :inline_asm_tests_riscv64_prebuilt) --gtest_output=xml:$(out) ; true",
 }
 
 cc_genrule {
     name: "inline_asm_tests_riscv64_lite_translate_or_interpret_run_test_x86_64_riscv64",
     defaults: ["berberis_ndk_program_tests_riscv64_defaults"],
     out: ["inline_asm_tests_riscv64_lite_translate_or_interpret_result.xml"],
-    srcs: [
-        ":inline_asm_tests_riscv64",
+    host_first_srcs: [
+        ":inline_asm_tests_riscv64_prebuilt",
     ],
     cmd: "$(location :berberis_gen_gtest_failure_template) berberis_host_tests_riscv64 inline_asm_tests_riscv64_lite_translate_or_interpret > $(out)" +
         " && cp -t $(genDir) $(location :berberis_program_runner_riscv64) $(location :liblog) $(location :libc++) $(location :libbase) $(location :libberberis_riscv64)" +
         " && BERBERIS_MODE=lite-translate-or-interpret" +
-        ld_library_path + " " + prebuilt_ld + " $(genDir)/berberis_program_runner_riscv64 $(location :inline_asm_tests_riscv64) --gtest_output=xml:$(out) ; true",
+        ld_library_path + " " + prebuilt_ld + " $(genDir)/berberis_program_runner_riscv64 $(location :inline_asm_tests_riscv64_prebuilt) --gtest_output=xml:$(out) ; true",
 }
 
 cc_genrule {
     name: "inline_asm_tests_riscv64_heavy_optimize_or_interpret_run_test_x86_64_riscv64",
     defaults: ["berberis_ndk_program_tests_riscv64_defaults"],
     out: ["inline_asm_tests_riscv64_heavy_optimize_or_interpret_result.xml"],
-    srcs: [
-        ":inline_asm_tests_riscv64",
+    host_first_srcs: [
+        ":inline_asm_tests_riscv64_prebuilt",
     ],
     cmd: "$(location :berberis_gen_gtest_failure_template) berberis_host_tests_riscv64 inline_asm_tests_riscv64_heavy_optimize_or_interpret > $(out)" +
         " && cp -t $(genDir) $(location :berberis_program_runner_riscv64) $(location :liblog) $(location :libc++) $(location :libbase) $(location :libberberis_riscv64)" +
         " && BERBERIS_MODE=heavy-optimize-or-interpret" +
-        ld_library_path + " " + prebuilt_ld + " $(genDir)/berberis_program_runner_riscv64 $(location :inline_asm_tests_riscv64) --gtest_output=xml:$(out) ; true",
+        ld_library_path + " " + prebuilt_ld + " $(genDir)/berberis_program_runner_riscv64 $(location :inline_asm_tests_riscv64_prebuilt) --gtest_output=xml:$(out) ; true",
 }
 
 cc_genrule {
     name: "inline_asm_tests_riscv64_two_gear_run_test_x86_64_riscv64",
     defaults: ["berberis_ndk_program_tests_riscv64_defaults"],
     out: ["inline_asm_tests_riscv64_two_gear_result.xml"],
-    srcs: [
-        ":inline_asm_tests_riscv64",
+    host_first_srcs: [
+        ":inline_asm_tests_riscv64_prebuilt",
     ],
     cmd: "$(location :berberis_gen_gtest_failure_template) berberis_host_tests_riscv64 inline_asm_tests_riscv64_two_gear > $(out)" +
         " && cp -t $(genDir) $(location :berberis_program_runner_riscv64) $(location :liblog) $(location :libc++) $(location :libbase) $(location :libberberis_riscv64)" +
         " && BERBERIS_MODE=two-gear" +
-        ld_library_path + " " + prebuilt_ld + " $(genDir)/berberis_program_runner_riscv64 $(location :inline_asm_tests_riscv64) --gtest_output=xml:$(out) ; true",
+        ld_library_path + " " + prebuilt_ld + " $(genDir)/berberis_program_runner_riscv64 $(location :inline_asm_tests_riscv64_prebuilt) --gtest_output=xml:$(out) ; true",
 }
 
 // berberis_host_tests

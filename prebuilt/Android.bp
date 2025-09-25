@@ -60,3 +60,10 @@ cc_prebuilt_test_binary {
     relative_install_path: "berberis_ndk_program_tests_static_riscv64_prebuilt",
     srcs: ["testcases/berberis_ndk_program_tests_static_riscv64"],
 }
+
+cc_prebuilt_test_binary {
+    name: "inline_asm_tests_riscv64_prebuilt",
+    host_supported: true,
+    relative_install_path: "inline_asm_tests_riscv64_prebuilt",
+    srcs: ["testcases/inline_asm_tests_riscv64"],
+}
