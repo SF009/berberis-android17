@@ -926,7 +926,8 @@ void TestFoldCond(Cond input_cond, Cond expected_new_cond, uint16_t expected_fla
   EXPECT_EQ(expected_new_cond, branch->cond());
 }
 
-template <bool kIsMemoryAccess64Bit>
+template <template <typename> typename MemoryAccessInsn,
+          berberis::MachineOpcode MemoryAccessInsnOpcode>
 void TryFoldScaleIntoMemWrite(int shift_amount, Assembler::ScaleFactor expected_scale_factor) {
   Arena arena;
   MachineIR machine_ir(&arena);
@@ -946,21 +947,14 @@ void TryFoldScaleIntoMemWrite(int shift_amount, Assembler::ScaleFactor expected_
   builder.Gen<PseudoCopy>(vreg1, vreg4, 8);
   builder.Gen<PseudoCopy>(vreg2, vreg1, 8);
   builder.Gen<ShlqRegImm>(vreg2, shift_amount, flags);
-  if constexpr (kIsMemoryAccess64Bit) {
-    builder.Gen<MovqOpReg>({.base = vreg3, .index = vreg2, .disp = 12}, vreg4);
-  } else {
-    builder.Gen<MovlOpReg>({.base = vreg3, .index = vreg2, .disp = 12}, vreg4);
-  }
+  builder.Gen<MemoryAccessInsn>({.base = vreg3, .index = vreg2, .disp = 12}, vreg4);
   builder.SetRecoveryPointAtLastInsn(recovery_bb);
   builder.SetRecoveryWithGuestPCAtLastInsn(42);
 
   MachineInsnList::iterator folded_insn_it = FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   berberis::MachineInsn* folded_insn = *folded_insn_it;
-  if constexpr (kIsMemoryAccess64Bit) {
-    EXPECT_EQ(kMachineOpMovqMemBaseIndexDispReg, folded_insn->opcode());
-  } else {
-    EXPECT_EQ(kMachineOpMovlMemBaseIndexDispReg, folded_insn->opcode());
-  }
+
+  EXPECT_EQ(MemoryAccessInsnOpcode, folded_insn->opcode());
   EXPECT_EQ(vreg3, folded_insn->RegAt(0));
   EXPECT_EQ(vreg1, folded_insn->RegAt(1));
   EXPECT_EQ(vreg4, folded_insn->RegAt(2));
@@ -970,7 +964,8 @@ void TryFoldScaleIntoMemWrite(int shift_amount, Assembler::ScaleFactor expected_
   EXPECT_EQ(42UL, folded_insn->recovery_pc());
 }
 
-template <bool kIsMemoryAccess64Bit>
+template <template <typename> typename MemoryAccessInsn,
+          berberis::MachineOpcode MemoryAccessInsnOpcode>
 void TryFoldScaleIntoMemRead(int shift_amount, Assembler::ScaleFactor expected_scale_factor) {
   Arena arena;
   MachineIR machine_ir(&arena);
@@ -990,21 +985,14 @@ void TryFoldScaleIntoMemRead(int shift_amount, Assembler::ScaleFactor expected_s
   builder.Gen<PseudoCopy>(vreg1, vreg4, 8);
   builder.Gen<PseudoCopy>(vreg2, vreg1, 8);
   builder.Gen<ShlqRegImm>(vreg2, shift_amount, flags);
-  if constexpr (kIsMemoryAccess64Bit) {
-    builder.Gen<MovqRegOp>(vreg4, {.base = vreg3, .index = vreg2, .disp = 12});
-  } else {
-    builder.Gen<MovlRegOp>(vreg4, {.base = vreg3, .index = vreg2, .disp = 12});
-  }
+  builder.Gen<MemoryAccessInsn>(vreg4, {.base = vreg3, .index = vreg2, .disp = 12});
   builder.SetRecoveryPointAtLastInsn(recovery_bb);
   builder.SetRecoveryWithGuestPCAtLastInsn(42);
 
   MachineInsnList::iterator folded_insn_it = FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   berberis::MachineInsn* folded_insn = *folded_insn_it;
-  if constexpr (kIsMemoryAccess64Bit) {
-    EXPECT_EQ(kMachineOpMovqRegMemBaseIndexDisp, folded_insn->opcode());
-  } else {
-    EXPECT_EQ(kMachineOpMovlRegMemBaseIndexDisp, folded_insn->opcode());
-  }
+
+  EXPECT_EQ(MemoryAccessInsnOpcode, folded_insn->opcode());
   EXPECT_EQ(vreg4, folded_insn->RegAt(0));
   EXPECT_EQ(vreg3, folded_insn->RegAt(1));
   EXPECT_EQ(vreg1, folded_insn->RegAt(2));
@@ -1520,21 +1508,51 @@ TEST(InsnFoldingTest, SwapRegOperandsAndFoldContextReadTwiceWithDifferentTempReg
 }
 
 TEST(InsnFoldingTest, FoldScaleIntoMemWrite) {
-  TryFoldScaleIntoMemWrite<false>(1, Assembler::ScaleFactor::kTimesTwo);
-  TryFoldScaleIntoMemWrite<false>(2, Assembler::ScaleFactor::kTimesFour);
-  TryFoldScaleIntoMemWrite<false>(3, Assembler::ScaleFactor::kTimesEight);
-  TryFoldScaleIntoMemWrite<true>(1, Assembler::ScaleFactor::kTimesTwo);
-  TryFoldScaleIntoMemWrite<true>(2, Assembler::ScaleFactor::kTimesFour);
-  TryFoldScaleIntoMemWrite<true>(3, Assembler::ScaleFactor::kTimesEight);
+  TryFoldScaleIntoMemWrite<MovlOpReg, kMachineOpMovlMemBaseIndexDispReg>(
+      1, Assembler::ScaleFactor::kTimesTwo);
+  TryFoldScaleIntoMemWrite<MovlOpReg, kMachineOpMovlMemBaseIndexDispReg>(
+      2, Assembler::ScaleFactor::kTimesFour);
+  TryFoldScaleIntoMemWrite<MovlOpReg, kMachineOpMovlMemBaseIndexDispReg>(
+      3, Assembler::ScaleFactor::kTimesEight);
+  TryFoldScaleIntoMemWrite<MovqOpReg, kMachineOpMovqMemBaseIndexDispReg>(
+      1, Assembler::ScaleFactor::kTimesTwo);
+  TryFoldScaleIntoMemWrite<MovqOpReg, kMachineOpMovqMemBaseIndexDispReg>(
+      2, Assembler::ScaleFactor::kTimesFour);
+  TryFoldScaleIntoMemWrite<MovqOpReg, kMachineOpMovqMemBaseIndexDispReg>(
+      3, Assembler::ScaleFactor::kTimesEight);
 }
 
 TEST(InsnFoldingTest, FoldScaleIntoMemRead) {
-  TryFoldScaleIntoMemRead<false>(1, Assembler::ScaleFactor::kTimesTwo);
-  TryFoldScaleIntoMemRead<false>(2, Assembler::ScaleFactor::kTimesFour);
-  TryFoldScaleIntoMemRead<false>(3, Assembler::ScaleFactor::kTimesEight);
-  TryFoldScaleIntoMemRead<true>(1, Assembler::ScaleFactor::kTimesTwo);
-  TryFoldScaleIntoMemRead<true>(2, Assembler::ScaleFactor::kTimesFour);
-  TryFoldScaleIntoMemRead<true>(3, Assembler::ScaleFactor::kTimesEight);
+  TryFoldScaleIntoMemRead<MovlRegOp, kMachineOpMovlRegMemBaseIndexDisp>(
+      1, Assembler::ScaleFactor::kTimesTwo);
+  TryFoldScaleIntoMemRead<MovlRegOp, kMachineOpMovlRegMemBaseIndexDisp>(
+      2, Assembler::ScaleFactor::kTimesFour);
+  TryFoldScaleIntoMemRead<MovlRegOp, kMachineOpMovlRegMemBaseIndexDisp>(
+      3, Assembler::ScaleFactor::kTimesEight);
+  TryFoldScaleIntoMemRead<MovqRegOp, kMachineOpMovqRegMemBaseIndexDisp>(
+      1, Assembler::ScaleFactor::kTimesTwo);
+  TryFoldScaleIntoMemRead<MovqRegOp, kMachineOpMovqRegMemBaseIndexDisp>(
+      2, Assembler::ScaleFactor::kTimesFour);
+  TryFoldScaleIntoMemRead<MovqRegOp, kMachineOpMovqRegMemBaseIndexDisp>(
+      3, Assembler::ScaleFactor::kTimesEight);
+  TryFoldScaleIntoMemRead<MovzxwlRegOp, kMachineOpMovzxwlRegMemBaseIndexDisp>(
+      1, Assembler::ScaleFactor::kTimesTwo);
+  TryFoldScaleIntoMemRead<MovzxwlRegOp, kMachineOpMovzxwlRegMemBaseIndexDisp>(
+      2, Assembler::ScaleFactor::kTimesFour);
+  TryFoldScaleIntoMemRead<MovzxwlRegOp, kMachineOpMovzxwlRegMemBaseIndexDisp>(
+      3, Assembler::ScaleFactor::kTimesEight);
+  TryFoldScaleIntoMemRead<MovsxwlRegOp, kMachineOpMovsxwlRegMemBaseIndexDisp>(
+      1, Assembler::ScaleFactor::kTimesTwo);
+  TryFoldScaleIntoMemRead<MovsxwlRegOp, kMachineOpMovsxwlRegMemBaseIndexDisp>(
+      2, Assembler::ScaleFactor::kTimesFour);
+  TryFoldScaleIntoMemRead<MovsxwlRegOp, kMachineOpMovsxwlRegMemBaseIndexDisp>(
+      3, Assembler::ScaleFactor::kTimesEight);
+  TryFoldScaleIntoMemRead<MovsxlqRegOp, kMachineOpMovsxlqRegMemBaseIndexDisp>(
+      1, Assembler::ScaleFactor::kTimesTwo);
+  TryFoldScaleIntoMemRead<MovsxlqRegOp, kMachineOpMovsxlqRegMemBaseIndexDisp>(
+      2, Assembler::ScaleFactor::kTimesFour);
+  TryFoldScaleIntoMemRead<MovsxlqRegOp, kMachineOpMovsxlqRegMemBaseIndexDisp>(
+      3, Assembler::ScaleFactor::kTimesEight);
 }
 
 TEST(InsnFoldingTest, FoldScaleIntoMemAccessCancelledIfShiftTooLarge) {

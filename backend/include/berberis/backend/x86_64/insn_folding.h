@@ -219,7 +219,7 @@ class InsnFolding {
   template <bool kIsInput64Bit>
   std::tuple<FoldingType, berberis::MachineInsn*> TryFoldImmediateAndContextReadInputs(
       MachineInsnList::iterator insn_it);
-  template <bool kIsAccess64Bit, bool kIsMemWrite>
+  template <bool kIsMemWrite>
   std::tuple<FoldingType, berberis::MachineInsn*> TryFoldScaleIntoMemAccess(
       const berberis::MachineInsn* insn);
   berberis::MachineInsn* NewImmInsnFromRegInsn(const berberis::MachineInsn* insn, int32_t imm);

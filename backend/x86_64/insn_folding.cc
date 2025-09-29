@@ -684,7 +684,7 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldContextReadA
   return {FoldingType::kReplaceInsnAndSwapOperands, new_insn};
 }
 
-template <bool kIsAccess64Bit, bool kIsMemWrite>
+template <bool kIsMemWrite>
 std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldScaleIntoMemAccess(
     const berberis::MachineInsn* insn) {
   CHECK_EQ(AsMachineInsnX86_64(insn)->scale(), Assembler::ScaleFactor::kTimesOne);
@@ -843,13 +843,14 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldInsn(
     case kMachineOpCountLeadingZerosU64:
       return TryFoldCountLeadingZeros<false, true>(insn_it, bb);
     case kMachineOpMovqMemBaseIndexDispReg:
-      return TryFoldScaleIntoMemAccess<true, true>(insn);
-    case kMachineOpMovqRegMemBaseIndexDisp:
-      return TryFoldScaleIntoMemAccess<true, false>(insn);
     case kMachineOpMovlMemBaseIndexDispReg:
-      return TryFoldScaleIntoMemAccess<false, true>(insn);
+      return TryFoldScaleIntoMemAccess<true>(insn);
+    case kMachineOpMovqRegMemBaseIndexDisp:
     case kMachineOpMovlRegMemBaseIndexDisp:
-      return TryFoldScaleIntoMemAccess<false, false>(insn);
+    case kMachineOpMovzxwlRegMemBaseIndexDisp:
+    case kMachineOpMovsxwlRegMemBaseIndexDisp:
+    case kMachineOpMovsxlqRegMemBaseIndexDisp:
+      return TryFoldScaleIntoMemAccess<false>(insn);
     case kMachineOpPandXRegXReg:
     case kMachineOpPadddXRegXReg:
     case kMachineOpPsubdXRegXReg:
