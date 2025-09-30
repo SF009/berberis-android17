@@ -546,6 +546,17 @@ TEST(Arm64InsnTest, MoveFpRegToFpReg) {
   ASSERT_EQ(res, MakeUInt128(0x40e5'1eb8ULL, 0ULL));
 }
 
+TEST(Arm64InsnTest, MoveSimdRegToReg) {
+  __uint128_t arg = MakeUInt128(0x1111'aaaa'2222'bbbbULL, 0x3333'cccc'4444'ddddULL);
+  uint64_t res32;
+  asm("fmov %w0, %s1" : "=r"(res32) : "w"(arg));
+  ASSERT_EQ(res32, 0x2222'bbbbUL);
+
+  uint64_t res64;
+  asm("fmov %x0, %d1" : "=r"(res64) : "w"(arg));
+  ASSERT_EQ(res64, 0x1111'aaaa'2222'bbbbULL);
+}
+
 TEST(Arm64InsnTest, InsertRegPartIntoSimd128) {
   uint64_t arg = 0xffff'eeee'dddd'ccccULL;
   __uint128_t res = MakeUInt128(0x1111'aaaa'2222'bbbbULL, 0x3333'cccc'4444'ddddULL);
