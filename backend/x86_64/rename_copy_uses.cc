@@ -84,30 +84,33 @@ void RenameCopyUsesMap::StartBasicBlock(MachineBasicBlock* bb) {
   }
 }
 
+void RenameCopyUsesInBasicBlock(MachineBasicBlock* bb, RenameCopyUsesMap* map) {
+  map->StartBasicBlock(bb);
+  for (berberis::MachineInsn* insn : bb->insn_list()) {
+    for (int i = 0; i < insn->NumRegOperands(); ++i) {
+      // Note that Def-Use operands cannot be renamed, so we handle them as Defs.
+      if (insn->RegKindAt(i).IsDef()) {
+        map->ProcessDef(insn, i);
+      } else {
+        map->RenameUseIfMapped(insn, i);
+      }
+    }  // for operand in insn
+
+    // Note that we intentionally rename copy's use before attempting to create a mapping, so that
+    // the existing mappings are applied and propagated further.
+    if (insn->is_copy()) {
+      map->ProcessCopy(insn);
+    }
+    map->Tick();
+  }  // For insn in bb
+}
+
 void RenameCopyUses(MachineIR* machine_ir) {
   RenameCopyUsesMap map(machine_ir);
 
   for (auto* bb : machine_ir->bb_list()) {
-    map.StartBasicBlock(bb);
-
-    for (berberis::MachineInsn* insn : bb->insn_list()) {
-      for (int i = 0; i < insn->NumRegOperands(); ++i) {
-        // Note that Def-Use operands cannot be renamed, so we handle them as Defs.
-        if (insn->RegKindAt(i).IsDef()) {
-          map.ProcessDef(insn, i);
-        } else {
-          map.RenameUseIfMapped(insn, i);
-        }
-      }  // for operand in insn
-
-      // Note that we intentionally rename copy's use before attempting to create a mapping, so that
-      // the existing mappings are applied and propagated further.
-      if (insn->is_copy()) {
-        map.ProcessCopy(insn);
-      }
-      map.Tick();
-    }  // For insn in bb
-  }    // For bb in IR
+    RenameCopyUsesInBasicBlock(bb, &map);
+  }
 }
 
 }  // namespace berberis::x86_64

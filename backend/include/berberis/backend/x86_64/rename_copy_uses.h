@@ -53,6 +53,7 @@ class RenameCopyUsesMap {
   MachineBasicBlock* bb_;
 };
 
+void RenameCopyUsesInBasicBlock(MachineBasicBlock* bb, RenameCopyUsesMap* rename_copy_uses_map);
 void RenameCopyUses(MachineIR* machine_ir);
 
 }  // namespace berberis::x86_64
