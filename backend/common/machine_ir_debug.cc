@@ -182,7 +182,12 @@ std::string PseudoJump::GetDebugString() const {
 
 std::string PseudoIndirectJump::GetDebugString() const {
   std::string out("PSEUDO_INDIRECT_JUMP ");
-  out += GetMachineRegDebugString(src_);
+  for (int i = 0; i < NumRegOperands(); ++i) {
+    if (i != 0) {
+      out += ", ";
+    }
+    out += GetRegOperandDebugString(this, i);
+  }
   return out;
 }
 
