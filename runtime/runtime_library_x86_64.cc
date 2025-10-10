@@ -24,6 +24,52 @@
 // up to the users of this macro. The users of this macro may choose to perform
 // a sibling call as necessary.
 // clang-format off
+#if defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
+#define END_GENERATED_CODE(EXIT_INSN)                                   \
+  asm(                                                                  \
+      /* Sync insn_addr. */                                             \
+      "mov %%rax, %[InsnAddr](%%rbp)\n"                                 \
+      "cmpl $0, %[OptimizedABIFlag](%%rbp)\n"                           \
+      "je 1f\n"                                                         \
+      "mov %%r8, %[X0](%%rbp)\n"                                        \
+      "mov %%r9, %[X1](%%rbp)\n"                                        \
+      "mov %%r10, %[X2](%%rbp)\n"                                       \
+      "mov %%r11, %[X3](%%rbp)\n"                                       \
+      "mov %%r12, %[X4](%%rbp)\n"                                       \
+      "mov %%r13, %[X5](%%rbp)\n"                                       \
+      "1:\n"                                                            \
+      /* Set kOutsideGeneratedCode residence. */                        \
+      "movb %[OutsideGeneratedCode], %[Residence](%%rbp)\n"             \
+                                                                        \
+      /* Set %rdi to the pointer to the guest state so that             \
+       * we can perform a sibling call to functions like                \
+       * berberis_HandleNotTranslated.                                  \
+       */                                                               \
+      "mov %%rbp, %%rdi\n"                                              \
+                                                                        \
+      /* Restore stack */                                               \
+      "add %[FrameSizeAtTranslatedCode], %%rsp\n"                       \
+                                                                        \
+      /* Epilogue */                                                    \
+      "pop %%r15\n"                                                     \
+      "pop %%r14\n"                                                     \
+      "pop %%r13\n"                                                     \
+      "pop %%r12\n"                                                     \
+      "pop %%rbx\n"                                                     \
+      "pop %%rbp\n"                                                     \
+      EXIT_INSN                                                         \
+      ::[InsnAddr] "p"(offsetof(berberis::ThreadState, cpu.insn_addr)), \
+      [OptimizedABIFlag] "p"(offsetof(berberis::ThreadState, is_optimized_inter_region_abi)), \
+      [X0] "p"(offsetof(berberis::ThreadState, cpu.x[0])),              \
+      [X1] "p"(offsetof(berberis::ThreadState, cpu.x[1])),              \
+      [X2] "p"(offsetof(berberis::ThreadState, cpu.x[8])),              \
+      [X3] "p"(offsetof(berberis::ThreadState, cpu.x[19])),             \
+      [X4] "p"(offsetof(berberis::ThreadState, cpu.x[30])),             \
+      [X5] "p"(offsetof(berberis::ThreadState, cpu.sp)),                \
+      [Residence] "p"(offsetof(berberis::ThreadState, residence)),      \
+      [OutsideGeneratedCode] "J"(berberis::kOutsideGeneratedCode),      \
+      [FrameSizeAtTranslatedCode] "J"(berberis::config::kFrameSizeAtTranslatedCode))
+#else  // defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
 #define END_GENERATED_CODE(EXIT_INSN)                                   \
   asm(                                                                  \
       /* Sync insn_addr. */                                             \
@@ -52,6 +98,7 @@
       [Residence] "p"(offsetof(berberis::ThreadState, residence)),      \
       [OutsideGeneratedCode] "J"(berberis::kOutsideGeneratedCode),      \
       [FrameSizeAtTranslatedCode] "J"(berberis::config::kFrameSizeAtTranslatedCode))
+#endif  // defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
 // clang-format on
 
 namespace berberis {
@@ -146,12 +193,32 @@ extern "C" {
 
     // Set insn_addr.
     "mov %[InsnAddr](%%rbp), %%rax\n"
+#if defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
+    "cmpl $0, %[OptimizedABIFlag](%%rbp)\n"
+    "je 1f\n"
+    "mov %[X0](%%rbp), %%r8\n"
+    "mov %[X1](%%rbp), %%r9\n"
+    "mov %[X2](%%rbp), %%r10\n"
+    "mov %[X3](%%rbp), %%r11\n"
+    "mov %[X4](%%rbp), %%r12\n"
+    "mov %[X5](%%rbp), %%r13\n"
+    "1:\n"
+#endif  // defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
     // Set kInsideGeneratedCode residence.
     "movb %[InsideGeneratedCode], %[Residence](%%rbp)\n"
 
     // Jump to entry
     "jmp *%%rsi"
     ::[InsnAddr] "p"(offsetof(ThreadState, cpu.insn_addr)),
+#if defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
+    [OptimizedABIFlag] "p"(offsetof(berberis::ThreadState, is_optimized_inter_region_abi)),
+    [X0] "p"(offsetof(berberis::ThreadState, cpu.x[0])),
+    [X1] "p"(offsetof(berberis::ThreadState, cpu.x[1])),
+    [X2] "p"(offsetof(berberis::ThreadState, cpu.x[8])),
+    [X3] "p"(offsetof(berberis::ThreadState, cpu.x[19])),
+    [X4] "p"(offsetof(berberis::ThreadState, cpu.x[30])),
+    [X5] "p"(offsetof(berberis::ThreadState, cpu.sp)),
+#endif  // defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
     [Residence] "p"(offsetof(ThreadState, residence)),
     [InsideGeneratedCode] "J"(kInsideGeneratedCode),
     [FrameSizeAtTranslatedCode] "J"(config::kFrameSizeAtTranslatedCode));
