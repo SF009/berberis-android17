@@ -17,6 +17,7 @@
 #include "berberis/guest_state/guest_state_opaque.h"
 
 #include "berberis/base/checks.h"
+#include "berberis/base/config_globals.h"
 #include "berberis/base/mmap.h"
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state.h"
@@ -78,6 +79,7 @@ void InitThreadState(ThreadState* state) {
   state->pending_signals_status.store(kPendingSignalsDisabled, std::memory_order_relaxed);
   state->residence = kOutsideGeneratedCode;
   state->instrument_data = nullptr;
+  state->is_optimized_inter_region_abi = IsConfigFlagSet(kOptimizedInterRegionABI);
 }
 
 void InitializeNativeBridgeGuestStateHeader(NativeBridgeGuestStateHeader* guest_state_header,

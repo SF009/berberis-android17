@@ -51,6 +51,9 @@ struct ThreadState {
 
   // Point to the guest thread memory start position.
   void* thread_state_storage;
+
+  // Optimized ABI Flag.
+  bool is_optimized_inter_region_abi;
 };
 
 inline constexpr unsigned kNumGuestRegs = std::size(CPUState{}.x);
