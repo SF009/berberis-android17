@@ -45,6 +45,7 @@ inline constexpr int kLowMachineOpcodeBits = 24;
 
 enum MachineOpcode : int {
   kMachineOpUndefined = 0,
+  kMachineOpEnter,
   kMachineOpCallImm,
   kMachineOpCallImmArg,
   kMachineOpPseudoBranch,
@@ -227,6 +228,19 @@ inline const MachineInsnX86_64* AsMachineInsnX86_64(const MachineInsn* insn) {
 inline MachineInsnX86_64* AsMachineInsnX86_64(MachineInsn* insn) {
   return static_cast<MachineInsnX86_64*>(insn);
 }
+
+class Enter final : public MachineInsnX86_64 {
+ public:
+  explicit Enter();
+
+  [[nodiscard]] std::string GetDebugString() const override;
+  void Emit(CodeEmitter* as) const override;
+
+ private:
+  friend Enter* NewInArena<Enter, const Enter&>(Arena*, const Enter&);
+  Enter(const Enter&) = default;
+  MachineInsn* Clone(Arena* arena) const override;
+};
 
 // Clobbered registers are described as DEF'ed.
 // TODO(b/232598137): implement simpler support for clobbered registers?

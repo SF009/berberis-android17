@@ -210,6 +210,10 @@ Assembler::YMMRegister GetYReg(MachineReg r) {
   return GetXReg(r).To256Bit();
 }
 
+void Enter::Emit(CodeEmitter*) const {
+  // Enter is a pseudo instruction to connect ABI to IR. We don't emit it.
+}
+
 void CallImm::Emit(CodeEmitter* as) const {
   // Note that a call to AVX-compiled code may touch YMM bits above 128, which
   // would require `vzeroupper` before we come back to generated code. This is

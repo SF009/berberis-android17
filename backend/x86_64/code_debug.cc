@@ -42,6 +42,17 @@ const char* GetMachineHardRegDebugName(MachineReg r) {
 
 namespace x86_64 {
 
+string Enter::GetDebugString() const {
+  string out(StringPrintf("ENTER "));
+  for (int i = 0; i < NumRegOperands(); ++i) {
+    if (i != 0) {
+      out += ", ";
+    }
+    out += GetRegOperandDebugString(this, i);
+  }
+  return out;
+}
+
 string CallImm::GetDebugString() const {
   string out(StringPrintf("CALL 0x%" PRIx64, imm()));
   for (int i = 0; i < NumRegOperands(); ++i) {

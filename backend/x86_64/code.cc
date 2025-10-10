@@ -17,7 +17,8 @@
 #include <array>
 
 #include "berberis/backend/x86_64/machine_ir.h"
-#include "berberis/base/logging.h"
+#include "berberis/base/checks.h"
+#include "berberis/device_arch_info/x86_64/device_arch_info.h"
 #include "berberis/guest_state/guest_addr.h"
 
 namespace berberis {
@@ -25,6 +26,19 @@ namespace berberis {
 namespace x86_64 {
 
 namespace {
+
+constexpr MachineInsnInfo kEnterInfo = {
+    kMachineOpEnter,
+    6,
+    {
+        {&kRegisterClass<device_arch_info::R8>, MachineRegKind::kDef},
+        {&kRegisterClass<device_arch_info::R9>, MachineRegKind::kDef},
+        {&kRegisterClass<device_arch_info::R10>, MachineRegKind::kDef},
+        {&kRegisterClass<device_arch_info::R11>, MachineRegKind::kDef},
+        {&kRegisterClass<device_arch_info::R12>, MachineRegKind::kDef},
+        {&kRegisterClass<device_arch_info::R13>, MachineRegKind::kDef},
+    },
+    kMachineInsnSideEffects};
 
 constexpr MachineInsnInfo kCallImmInfo = {
     kMachineOpCallImm,
@@ -95,6 +109,12 @@ constexpr MachineRegKind kPseudoWriteFlagsInfo[] = {{&kRAX, MachineRegKind::kUse
                                                     {&kFLAGS, MachineRegKind::kDef}};
 
 }  // namespace
+
+Enter::Enter() : MachineInsnX86_64(&kEnterInfo) {}
+
+berberis::MachineInsn* Enter::Clone(Arena* arena) const {
+  return NewInArena<Enter, const Enter&>(arena, *this);
+}
 
 CallImm::CallImm(uint64_t imm) : MachineInsnX86_64(&kCallImmInfo) {
   set_imm(imm);
