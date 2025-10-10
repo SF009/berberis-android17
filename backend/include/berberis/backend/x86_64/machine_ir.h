@@ -906,13 +906,19 @@ MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
 
 class MachineIR : public berberis::MachineIR {
  public:
+  enum class ABI {
+    kRegular,
+    kOptimized,
+  };
+
   enum class BasicBlockOrder {
     kUnordered,
     kReversePostOrder,
   };
 
-  explicit MachineIR(Arena* arena, int num_vreg = 0)
+  explicit MachineIR(Arena* arena, ABI abi = ABI::kRegular, int num_vreg = 0)
       : berberis::MachineIR(arena, num_vreg, 0),
+        abi_{abi},
         bb_order_(BasicBlockOrder::kUnordered),
         insn_folding_executed_(false) {}
 
@@ -1023,6 +1029,8 @@ class MachineIR : public berberis::MachineIR {
 
   void set_bb_order(BasicBlockOrder order) { bb_order_ = order; }
 
+  [[nodiscard]] ABI abi() const { return abi_; }
+
   void SetInsnFoldingExecuted() { insn_folding_executed_ = true; }
 
   using berberis::MachineIR::NewInsn;
@@ -1042,6 +1050,7 @@ class MachineIR : public berberis::MachineIR {
       ())
 
  private:
+  ABI abi_;
   BasicBlockOrder bb_order_;
   bool insn_folding_executed_;
 };
