@@ -16,8 +16,10 @@
 
 #include "berberis/backend/x86_64/machine_ir_check.h"
 
+#include "berberis/backend/common/machine_ir.h"
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/base/algorithm.h"
+#include "berberis/base/config_globals.h"
 
 namespace berberis::x86_64 {
 
@@ -83,33 +85,54 @@ bool IsBasicBlockSuccessor(const MachineBasicBlock* src, const MachineBasicBlock
   return false;
 }
 
-bool CheckControlTransferInsn(const MachineBasicBlock* bb) {
+MachineIRCheckStatus CheckInsnListIntegrity(const MachineIR* ir, const MachineBasicBlock* bb) {
+  const berberis::MachineInsn* enter = nullptr;
+  if (IsConfigFlagSet(kOptimizedInterRegionABI)) {
+    enter = ir->bb_list().front()->insn_list().front();
+    // Enter must be the very first instruction in the IR.
+    if (enter->opcode() != kMachineOpEnter) {
+      return kMachineIRWrongEnterInsnLocation;
+    }
+  }
   for (auto* insn : bb->insn_list()) {
     switch (insn->opcode()) {
+      case MachineOpcode::kMachineOpEnter:
+        if (!IsConfigFlagSet(kOptimizedInterRegionABI)) {
+          return kMachineIRWrongEnterInsnLocation;
+        }
+        if (insn != enter) {
+          return kMachineIRWrongEnterInsnLocation;
+        };
+        break;
       case MachineOpcode::kMachineOpPseudoIndirectJump:
-        return insn == bb->insn_list().back();
       case MachineOpcode::kMachineOpPseudoJump:
-        return insn == bb->insn_list().back();
+        return insn == bb->insn_list().back() ? kMachineIRCheckSuccess
+                                              : kMachineIRWrongControlFlowInsnLocation;
       case MachineOpcode::kMachineOpPseudoBranch: {
         if (insn != bb->insn_list().back()) {
-          return false;
+          return kMachineIRWrongControlFlowInsnLocation;
         }
         const PseudoBranch* branch = reinterpret_cast<const PseudoBranch*>(insn);
-        return IsBasicBlockSuccessor(bb, branch->then_bb());
+        return IsBasicBlockSuccessor(bb, branch->then_bb())
+                   ? kMachineIRCheckSuccess
+                   : kMachineIRControlFlowInsnSuccessorMismatch;
       }
       case MachineOpcode::kMachineOpPseudoCondBranch: {
         if (insn != bb->insn_list().back()) {
-          return false;
+          return kMachineIRWrongControlFlowInsnLocation;
         }
         const PseudoCondBranch* cond_branch = reinterpret_cast<const PseudoCondBranch*>(insn);
-        return IsBasicBlockSuccessor(bb, cond_branch->then_bb()) &&
-               IsBasicBlockSuccessor(bb, cond_branch->else_bb());
+        return (IsBasicBlockSuccessor(bb, cond_branch->then_bb()) &&
+                IsBasicBlockSuccessor(bb, cond_branch->else_bb()))
+                   ? kMachineIRCheckSuccess
+                   : kMachineIRControlFlowInsnSuccessorMismatch;
       }
       default:
         continue;
     }
   }
-  return false;
+  // Didn't reach any control flow instruction at the end of the block.
+  return kMachineIRWrongControlFlowInsnLocation;
 }
 
 MachineIRCheckStatus CheckCFG(const MachineIR& machine_ir) {
@@ -121,8 +144,9 @@ MachineIRCheckStatus CheckCFG(const MachineIR& machine_ir) {
     if (status != kMachineIRCheckSuccess) {
       return status;
     }
-    if (!CheckControlTransferInsn(bb)) {
-      return kMachineIRCheckFail;
+    status = CheckInsnListIntegrity(&machine_ir, bb);
+    if (status != kMachineIRCheckSuccess) {
+      return status;
     }
   }
   return kMachineIRCheckSuccess;

@@ -178,7 +178,7 @@ TEST(MachineIRCheckTest, NoControlFlow) {
 
   bb->insn_list().push_back(insn);
 
-  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckFail);
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRWrongControlFlowInsnLocation);
 }
 
 TEST(MachineIRCheckTest, MisplacedJump) {
@@ -194,7 +194,7 @@ TEST(MachineIRCheckTest, MisplacedJump) {
   builder.Gen<PseudoJump>(kNullGuestAddr);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);
 
-  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckFail);
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRWrongControlFlowInsnLocation);
 }
 
 TEST(MachineIRCheckTest, MisplacedIndirectJump) {
@@ -210,7 +210,7 @@ TEST(MachineIRCheckTest, MisplacedIndirectJump) {
   builder.Gen<PseudoIndirectJump>(vreg);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);
 
-  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckFail);
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRWrongControlFlowInsnLocation);
 }
 
 TEST(MachineIRCheckTest, MisplacedPseudoBranch) {
@@ -233,7 +233,7 @@ TEST(MachineIRCheckTest, MisplacedPseudoBranch) {
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
-  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckFail);
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRWrongControlFlowInsnLocation);
 }
 
 TEST(MachineIRCheckTest, MisplacedPseudoCondBranch) {
@@ -262,7 +262,7 @@ TEST(MachineIRCheckTest, MisplacedPseudoCondBranch) {
   builder.Gen<x86_64::MovqRegImm>(vreg, 1);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
-  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckFail);
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRWrongControlFlowInsnLocation);
 }
 
 TEST(MachineIRCheckTest, NoThenEdgePseudoBranch) {
@@ -311,7 +311,7 @@ TEST(MachineIRCheckTest, NoThenEdgePseudoCondBranch) {
   builder.Gen<x86_64::MovqRegImm>(vreg, 1);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
-  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckFail);
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRControlFlowInsnSuccessorMismatch);
 }
 
 TEST(MachineIRCheckTest, NoElseEdgePseudoCondBranch) {
@@ -339,7 +339,7 @@ TEST(MachineIRCheckTest, NoElseEdgePseudoCondBranch) {
   builder.Gen<x86_64::MovqRegImm>(vreg, 1);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
-  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckFail);
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRControlFlowInsnSuccessorMismatch);
 }
 
 }  // namespace
