@@ -68,6 +68,7 @@ enum ConfigFlag {
   kLocalExperiment,
   // A convenience flag which enables a custom platform capability.
   kPlatformCustomCPUCapability,
+  kOptimizedInterRegionABI,
   kNumConfigFlags
 };
 
