@@ -526,7 +526,12 @@ class PseudoJump final : public MachineInsn {
     kSyscall,
   };
 
+  struct WithOptimizedABI {};
+
   PseudoJump(GuestAddr target, Kind kind = Kind::kJumpWithPendingSignalsCheck);
+  PseudoJump(GuestAddr target,
+             WithOptimizedABI tag,
+             Kind kind = Kind::kJumpWithPendingSignalsCheck);
 
   std::string GetDebugString() const override;
   void Emit(CodeEmitter* as) const override;
@@ -540,6 +545,8 @@ class PseudoJump final : public MachineInsn {
   MachineInsn* Clone(Arena* arena) const override;
   GuestAddr target_;
   Kind kind_;
+  // ABI outputs.
+  MachineReg args_[6];
 };
 
 class PseudoIndirectJump final : public MachineInsn {

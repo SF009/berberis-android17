@@ -168,10 +168,16 @@ std::string PseudoJump::GetDebugString() const {
       suffix = "_EXIT_GEN_CODE";
       break;
   }
-  if (IsConfigFlagSet(kDeterministicTracing)) {
-    return StringPrintf("PSEUDO_JUMP%s <ADDR STRIPPED>", suffix);
+  std::string out = StringPrintf("PSEUDO_JUMP%s ", suffix);
+  out += IsConfigFlagSet(kDeterministicTracing) ? std::string("<ADDR STRIPPED>")
+                                                : StringPrintf("0x%" PRIxPTR, target_);
+  if (IsConfigFlagSet(kOptimizedInterRegionABI)) {
+    for (int i = 0; i < NumRegOperands(); ++i) {
+      out += ", ";
+      out += GetRegOperandDebugString(this, i);
+    }
   }
-  return StringPrintf("PSEUDO_JUMP%s 0x%" PRIxPTR, suffix, target_);
+  return out;
 }
 
 std::string PseudoIndirectJump::GetDebugString() const {

@@ -16,6 +16,7 @@
 
 #include <array>
 
+#include "berberis/backend/common/machine_ir.h"
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/base/checks.h"
 #include "berberis/device_arch_info/x86_64/device_arch_info.h"
@@ -38,6 +39,9 @@ constexpr MachineInsnInfo kEnterInfo = {
         {&kRegisterClass<device_arch_info::R12>, MachineRegKind::kDef},
         {&kRegisterClass<device_arch_info::R13>, MachineRegKind::kDef},
     },
+    // If all guest ABI registers are overwritten without a use in the region
+    // Enter may became dead and can be removed.
+    // TODO(b/363608817): Try removing side effects declaration.
     kMachineInsnSideEffects};
 
 constexpr MachineInsnInfo kCallImmInfo = {
@@ -86,6 +90,15 @@ constexpr MachineInsnInfo kCallImmXmmArgInfo = {kMachineOpCallImmArg,
                                                 kMachineInsnSideEffects};
 
 constexpr MachineRegKind kPseudoCondBranchInfo[] = {{&kFLAGS, MachineRegKind::kUse}};
+
+constexpr MachineRegKind kPseudoJumpInfoOptimizedABI[] = {
+    {&kRegisterClass<device_arch_info::R8>, MachineRegKind::kUse},
+    {&kRegisterClass<device_arch_info::R9>, MachineRegKind::kUse},
+    {&kRegisterClass<device_arch_info::R10>, MachineRegKind::kUse},
+    {&kRegisterClass<device_arch_info::R11>, MachineRegKind::kUse},
+    {&kRegisterClass<device_arch_info::R12>, MachineRegKind::kUse},
+    {&kRegisterClass<device_arch_info::R13>, MachineRegKind::kUse},
+};
 
 constexpr MachineRegKind kPseudoIndirectJumpInfo[] = {{&kGeneralReg64, MachineRegKind::kUse}};
 
@@ -223,6 +236,15 @@ MachineInsn* PseudoCondBranch::Clone(Arena* arena) const {
 
 PseudoJump::PseudoJump(GuestAddr target, Kind kind)
     : MachineInsn(kMachineOpPseudoJump, 0, nullptr, nullptr, kMachineInsnSideEffects),
+      target_(target),
+      kind_(kind) {}
+
+PseudoJump::PseudoJump(GuestAddr target, WithOptimizedABI, Kind kind)
+    : MachineInsn(kMachineOpPseudoJump,
+                  6,
+                  x86_64::kPseudoJumpInfoOptimizedABI,
+                  args_,
+                  kMachineInsnSideEffects),
       target_(target),
       kind_(kind) {}
 
