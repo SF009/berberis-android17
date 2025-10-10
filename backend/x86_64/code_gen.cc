@@ -26,6 +26,7 @@
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/backend/x86_64/machine_ir_check.h"
 #include "berberis/backend/x86_64/machine_ir_opt.h"
+#include "berberis/backend/x86_64/merge_basic_blocks.h"
 #include "berberis/backend/x86_64/read_flags_optimizer.h"
 #include "berberis/backend/x86_64/rename_copy_uses.h"
 #include "berberis/backend/x86_64/rename_vregs.h"
@@ -41,6 +42,11 @@ void GenCode(MachineIR* machine_ir, MachineCode* machine_code, const GenCodePara
     TRACE("MachineIR before optimizations {\n");
     TRACE("%s", machine_ir->GetDebugString().c_str());
     TRACE("}\n\n");
+  }
+
+  if (!IsConfigFlagSet(kDisableHeavyOptimizations)) {
+    // Must be called before any IR passes which introduce bb live_in's and live_out's
+    MergeBasicBlocks(machine_ir);
   }
 
   // Required unconditionally by RenameVRegs.
