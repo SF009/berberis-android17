@@ -323,6 +323,10 @@ void PseudoWriteFlags::Emit(CodeEmitter* as) const {
   as->Sahf();
 }
 
+void SSAPseudoWriteFlags::Emit(CodeEmitter* /*as*/) const {
+  FATAL("SSAPseudoWriteFlags couldn't be emitted");
+}
+
 void MachineIR::Emit(CodeEmitter* as) const {
   EmitAllocStackFrame(as, as->frame_size());
   ArenaVector<std::pair<CodeEmitter::Label*, GuestAddr>> recovery_labels(arena());
