@@ -49,7 +49,7 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
       (),
       MachineInsnOperandsHelper,
       ConstructorArgsTuple,
-      MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>*,
+      MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, kSSAMode>*,
       MachineIRBuilderBase::Gen,
       ())
 
