@@ -42,6 +42,10 @@ void EmitIndirectJump(Assembler* as, Assembler::Register target);
 }  // namespace x86_32
 
 #elif defined(__x86_64__)
+
+void EmitStoreMappedRegsIfNeeded(x86_64::Assembler* as);
+void EmitLoadMappedRegsIfNeeded(x86_64::Assembler* as);
+
 void EmitSyscall(x86_64::Assembler* as, GuestAddr pc);
 void EmitDirectDispatch(x86_64::Assembler* as, GuestAddr pc, bool check_pending_signals);
 void EmitIndirectDispatch(x86_64::Assembler* as, x86_64::Assembler::Register target);

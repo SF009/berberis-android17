@@ -75,10 +75,14 @@ void GenTrampolineAdaptor(MachineCode* mc,
     }
   }
 
+  EmitStoreMappedRegsIfNeeded(&as);
+
   // void Trampoline(void*, ThreadState*);
   as.Movq(as.rdi, reinterpret_cast<intptr_t>(callee));
   as.Movq(as.rsi, as.rbp);
   as.Call(marshall);
+
+  EmitLoadMappedRegsIfNeeded(&as);
 
   if (kInstrumentTrampolines) {
     if (auto instrument = GetOnTrampolineReturn(name)) {
@@ -103,9 +107,13 @@ void EmitSyscall(x86_64::Assembler* as, GuestAddr pc) {
   as->Movq({.base = as->rbp, .disp = offsetof(ThreadState, cpu.insn_addr)}, as->rdi);
   as->Movq({.base = as->rbp, .disp = offsetof(ThreadState, residence)}, kOutsideGeneratedCode);
 
+  EmitStoreMappedRegsIfNeeded(as);
+
   // void RunGuestSyscall(ThreadState*);
   as->Movq(as->rdi, as->rbp);
   as->Call(AsHostCode(RunGuestSyscall));
+
+  EmitLoadMappedRegsIfNeeded(as);
 
   // We are returning to generated code.
   as->Movq({.base = as->rbp, .disp = offsetof(ThreadState, residence)}, kInsideGeneratedCode);
