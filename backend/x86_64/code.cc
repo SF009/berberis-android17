@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include <array>
-
 #include "berberis/backend/common/machine_ir.h"
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/base/checks.h"
@@ -101,6 +99,16 @@ constexpr MachineRegKind kPseudoJumpInfoOptimizedABI[] = {
 };
 
 constexpr MachineRegKind kPseudoIndirectJumpInfo[] = {{&kGeneralReg64, MachineRegKind::kUse}};
+
+constexpr MachineRegKind kPseudoIndirectJumpInfoOptimizedABI[] = {
+    {&kGeneralReg64, MachineRegKind::kUse},
+    {&kRegisterClass<device_arch_info::R8>, MachineRegKind::kUse},
+    {&kRegisterClass<device_arch_info::R9>, MachineRegKind::kUse},
+    {&kRegisterClass<device_arch_info::R10>, MachineRegKind::kUse},
+    {&kRegisterClass<device_arch_info::R11>, MachineRegKind::kUse},
+    {&kRegisterClass<device_arch_info::R12>, MachineRegKind::kUse},
+    {&kRegisterClass<device_arch_info::R13>, MachineRegKind::kUse},
+};
 
 constexpr MachineRegKind kPseudoCopyReg32Info[] = {{&kReg32, MachineRegKind::kDef},
                                                    {&kReg32, MachineRegKind::kUse}};
@@ -282,16 +290,29 @@ std::array<MachineInsn*, PseudoJump::kMaxLoweredInsns> PseudoJump::Lower(Arena* 
   return {NewInArena<PseudoJump, const PseudoJump&>(arena, *this)};
 }
 
-PseudoIndirectJump::PseudoIndirectJump(MachineReg src)
+PseudoIndirectJump::PseudoIndirectJump(MachineReg target)
     : MachineInsn(kMachineOpPseudoIndirectJump,
                   1,
                   x86_64::kPseudoIndirectJumpInfo,
-                  &src_,
-                  kMachineInsnSideEffects),
-      src_(src) {}
+                  regs_,
+                  kMachineInsnSideEffects) {
+  regs_[0] = target;
+}
 
-PseudoIndirectJump::PseudoIndirectJump(const PseudoIndirectJump& insn)
-    : MachineInsn(insn, &src_), src_{insn.src_} {}
+PseudoIndirectJump::PseudoIndirectJump(MachineReg target, WithOptimizedABI)
+    : MachineInsn(kMachineOpPseudoIndirectJump,
+                  1 + 6,
+                  x86_64::kPseudoIndirectJumpInfoOptimizedABI,
+                  regs_,
+                  kMachineInsnSideEffects) {
+  regs_[0] = target;
+}
+
+PseudoIndirectJump::PseudoIndirectJump(const PseudoIndirectJump& insn) : MachineInsn(insn, regs_) {
+  for (size_t i = 0; i < arraysize(regs_); i++) {
+    regs_[i] = insn.regs_[i];
+  }
+}
 
 MachineInsn* PseudoIndirectJump::Clone(Arena* arena) const {
   return NewInArena<PseudoIndirectJump, const PseudoIndirectJump&>(arena, *this);

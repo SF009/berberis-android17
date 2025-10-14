@@ -19,7 +19,6 @@
 #include "berberis/backend/common/machine_ir.h"
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/base/algorithm.h"
-#include "berberis/base/config_globals.h"
 
 namespace berberis::x86_64 {
 
@@ -87,7 +86,7 @@ bool IsBasicBlockSuccessor(const MachineBasicBlock* src, const MachineBasicBlock
 
 MachineIRCheckStatus CheckInsnListIntegrity(const MachineIR* ir, const MachineBasicBlock* bb) {
   const berberis::MachineInsn* enter = nullptr;
-  if (IsConfigFlagSet(kOptimizedInterRegionABI)) {
+  if (ir->abi() == MachineIR::ABI::kOptimized) {
     enter = ir->bb_list().front()->insn_list().front();
     // Enter must be the very first instruction in the IR.
     if (enter->opcode() != kMachineOpEnter) {
@@ -97,7 +96,7 @@ MachineIRCheckStatus CheckInsnListIntegrity(const MachineIR* ir, const MachineBa
   for (auto* insn : bb->insn_list()) {
     switch (insn->opcode()) {
       case MachineOpcode::kMachineOpEnter:
-        if (!IsConfigFlagSet(kOptimizedInterRegionABI)) {
+        if (ir->abi() == MachineIR::ABI::kRegular) {
           return kMachineIRWrongEnterInsnLocation;
         }
         if (insn != enter) {

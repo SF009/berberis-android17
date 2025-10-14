@@ -287,6 +287,8 @@ void PseudoJump::Emit(CodeEmitter* as) const {
   }
 }
 
+// Note that we don't emit ABI arguments. They only help to connect IR's data flow with the next
+// region.
 void PseudoIndirectJump::Emit(CodeEmitter* as) const {
   EmitFreeStackFrame(as, as->frame_size());
   if (as->exit_label_for_testing()) {
