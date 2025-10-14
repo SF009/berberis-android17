@@ -452,7 +452,7 @@ class MachineIR {
     return NewInArena<T>(arena(), args...);
   }
 
-  MachineInsn* CloneInstruction(const MachineInsn* insn) { return insn->Clone(arena()); }
+  MachineInsn* CloneInsn(const MachineInsn* insn) { return insn->Clone(arena()); }
   std::array<MachineInsn*, MachineInsn::kMaxLoweredInsns> LowerInsn(const MachineInsn* insn) {
     return insn->Lower(arena());
   }

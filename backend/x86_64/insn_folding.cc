@@ -726,7 +726,7 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldScaleIntoMem
   } else {
     return {FoldingType::kImpossible, nullptr};
   }
-  berberis::MachineInsn* new_insn = machine_ir_->CloneInstruction(insn);
+  berberis::MachineInsn* new_insn = machine_ir_->CloneInsn(insn);
   AsMachineInsnX86_64(new_insn)->set_scale(new_scale_factor);
   new_insn->SetRegAt(kIsMemWrite ? 1 : 2, pseudo_copy_src_reg);
 

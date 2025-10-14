@@ -401,7 +401,7 @@ TEST(MachineIRReadFlagsOptimizer, CheckSuccessorNodeLiveIn) {
 void TestCopiedInstruction(MachineIR* machine_ir, berberis::MachineInsn* insn) {
   MachineReg reg = machine_ir->AllocVReg();
 
-  auto* copy = machine_ir->CloneInstruction(insn);
+  auto* copy = machine_ir->CloneInsn(insn);
 
   ASSERT_EQ(copy->opcode(), insn->opcode());
   // Note we use debug string to compare because it contains the actual

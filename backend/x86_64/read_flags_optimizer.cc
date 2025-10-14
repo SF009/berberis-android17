@@ -238,7 +238,7 @@ void InsertFlagGenInstructions(MachineIR* machine_ir,
   }
   MachineReg flag_reg;
   // First add instruction that sets flags register.
-  auto insn = machine_ir->CloneInstruction(*context.flag_set_insn.insn);
+  auto insn = machine_ir->CloneInsn(*context.flag_set_insn.insn);
   for (int i = 0; i < insn->NumRegOperands(); i++) {
     if (insn->RegKindAt(i).IsInput()) {
       CHECK(reg_map.contains(insn->RegAt(i)));
@@ -270,7 +270,7 @@ void InsertFlagGenInstructions(MachineIR* machine_ir,
   }
 
   // Now add readflags instruction.
-  insn = machine_ir->CloneInstruction(*context.readflags_insn);
+  insn = machine_ir->CloneInsn(*context.readflags_insn);
   insn->SetRegAt(0, reg);
   insn->SetRegAt(1, flag_reg);
   context.bb->insn_list().insert(insn_it, insn);
