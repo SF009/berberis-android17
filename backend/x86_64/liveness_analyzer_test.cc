@@ -103,6 +103,10 @@ class FakeInsnWithDefEarlyClobber : public MachineInsn {
     return NewInArena<FakeInsnWithDefEarlyClobber, const FakeInsnWithDefEarlyClobber&>(arena,
                                                                                        *this);
   }
+  std::array<MachineInsn*, kMaxLoweredInsns> Lower(Arena* arena) const {
+    return {
+        NewInArena<FakeInsnWithDefEarlyClobber, const FakeInsnWithDefEarlyClobber&>(arena, *this)};
+  }
   static MachineRegKind reg_kind_;
   MachineReg reg_;
 };
