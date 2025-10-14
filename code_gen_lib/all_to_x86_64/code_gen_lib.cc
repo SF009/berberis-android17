@@ -75,10 +75,14 @@ void GenTrampolineAdaptor(MachineCode* mc,
     }
   }
 
+  EmitStoreMappedRegsIfNeeded(&as);
+
   // void Trampoline(void*, ThreadState*);
   as.Movq(as.rdi, reinterpret_cast<intptr_t>(callee));
   as.Movq(as.rsi, as.rbp);
   as.Call(marshall);
+
+  EmitLoadMappedRegsIfNeeded(&as);
 
   if (kInstrumentTrampolines) {
     if (auto instrument = GetOnTrampolineReturn(name)) {
