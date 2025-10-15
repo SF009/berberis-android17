@@ -908,8 +908,7 @@ class MachineIR : public berberis::MachineIR {
  public:
   enum class ABI {
     kRegular,
-    kOptimizedEnabled,
-    kOptimizedDisabled,
+    kOptimized,
   };
 
   enum class BasicBlockOrder {
