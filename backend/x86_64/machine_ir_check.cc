@@ -86,7 +86,8 @@ bool IsBasicBlockSuccessor(const MachineBasicBlock* src, const MachineBasicBlock
 
 MachineIRCheckStatus CheckInsnListIntegrity(const MachineIR* ir, const MachineBasicBlock* bb) {
   const berberis::MachineInsn* enter = nullptr;
-  if (ir->abi() == MachineIR::ABI::kOptimized) {
+  if (ir->abi() == MachineIR::ABI::kOptimizedEnabled ||
+      ir->abi() == MachineIR::ABI::kOptimizedDisabled) {
     enter = ir->bb_list().front()->insn_list().front();
     // Enter must be the very first instruction in the IR.
     if (enter->opcode() != kMachineOpEnter) {
