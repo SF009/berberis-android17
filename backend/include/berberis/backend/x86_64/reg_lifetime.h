@@ -34,12 +34,14 @@ struct LiveOut {};
 // actually reuse that register for the write portion so we are overcounting.
 struct RegLifetime {
   std::variant<LiveIn, berberis::MachineInsn*> start;
-  std::variant<LiveIn, LiveOut, berberis::MachineInsn*> end;
+  std::variant<LiveOut, berberis::MachineInsn*> end;
 };
 
 using RegLifetimeMap = ArenaMap<MachineReg, RegLifetime>;
+using RegLifetimeCounts = ArenaMap<berberis::MachineInsn*, int>;
 
 RegLifetimeMap CountRegLifetimeMap(MachineIR* machine_ir, MachineBasicBlock* bb);
+RegLifetimeCounts CountRegLifetimes(MachineIR* machine_ir, MachineBasicBlock* bb);
 
 }  // namespace berberis::x86_64
 

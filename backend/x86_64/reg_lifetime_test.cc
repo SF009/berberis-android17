@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 #include "berberis/backend/x86_64/reg_lifetime.h"
@@ -32,6 +33,46 @@ namespace berberis::x86_64 {
 
 namespace {
 
+TEST(MachineIRReadFlagsOptimizer, CountLifetimeCounts) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  MachineReg unused_reg = machine_ir.AllocVReg();
+  MachineReg reg0 = machine_ir.AllocVReg();
+  MachineReg reg1 = machine_ir.AllocVReg();
+  MachineReg reg2 = machine_ir.AllocVReg();
+  MachineReg reg3 = machine_ir.AllocVReg();
+  MachineReg reg4 = machine_ir.AllocVReg();
+
+  auto bb = machine_ir.NewBasicBlock();
+  bb->live_in().push_back(unused_reg);
+  bb->live_in().push_back(reg0);
+  bb->live_in().push_back(reg3);
+  bb->live_out().push_back(reg2);
+  bb->live_out().push_back(reg3);
+  builder.StartBasicBlock(bb);
+  builder.Gen<AddqRegImm>(reg0, 1, machine_ir.AllocVReg());
+  builder.Gen<MovqRegImm>(reg1, 1);
+  builder.Gen<MovqRegImm>(reg2, 1);
+  builder.Gen<AddqRegReg>(reg0, reg1, machine_ir.AllocVReg());
+  builder.Gen<AddqRegReg>(reg1, reg2, machine_ir.AllocVReg());
+  builder.Gen<MovqRegReg>(reg4, reg2);
+  builder.Gen<PseudoJump>(kNullGuestAddr);
+
+  auto counts = CountRegLifetimes(&machine_ir, bb);
+  auto insn_it = bb->insn_list().begin();
+
+  ASSERT_THAT(counts,
+              testing::ElementsAre(testing::Pair(*insn_it++, 2),
+                                   testing::Pair(*insn_it++, 3),
+                                   testing::Pair(*insn_it++, 4),
+                                   testing::Pair(*insn_it++, 4),
+                                   testing::Pair(*insn_it++, 3),
+                                   testing::Pair(*insn_it++, 3),
+                                   testing::Pair(*insn_it++, 2)));
+}
+
 TEST(MachineIRReadFlagsOptimizer, CountRegLifetimeMap) {
   Arena arena;
   x86_64::MachineIR machine_ir(&arena);
@@ -47,10 +88,10 @@ TEST(MachineIRReadFlagsOptimizer, CountRegLifetimeMap) {
   bb->live_in().push_back(reg1);
   bb->live_out().push_back(reg2);
   builder.StartBasicBlock(bb);
-  auto reg0_end = builder.Gen<AddqRegReg>(reg0, reg1, machine_ir.AllocVReg());
-  builder.Gen<AddqRegReg>(reg1, reg1, machine_ir.AllocVReg());
-  auto reg1_end = builder.Gen<MovqRegReg>(reg3, reg1);
-  auto reg2_start = builder.Gen<MovqRegImm>(reg2, 5);
+  builder.Gen<AddqRegReg>(reg0, reg1, machine_ir.AllocVReg());
+  auto reg0_end = builder.Gen<AddqRegReg>(reg1, reg1, machine_ir.AllocVReg());
+  auto reg3_start = builder.Gen<MovqRegReg>(reg3, reg1);
+  auto reg1_end = builder.Gen<MovqRegImm>(reg2, 5);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
   auto lifetime_map = CountRegLifetimeMap(&machine_ir, bb);
@@ -60,10 +101,10 @@ TEST(MachineIRReadFlagsOptimizer, CountRegLifetimeMap) {
   ASSERT_TRUE(std::holds_alternative<LiveIn>(lifetime_map[reg1].start));
   ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map[reg1].end), reg1_end);
 
-  ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map[reg2].start), reg2_start);
+  ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map[reg2].start), reg1_end);
   ASSERT_TRUE(std::holds_alternative<LiveOut>(lifetime_map[reg2].end));
 
-  ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map[reg3].start), reg1_end);
+  ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map[reg3].start), reg3_start);
   ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map[reg3].end), reg1_end);
 }
 
