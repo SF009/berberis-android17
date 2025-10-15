@@ -21,7 +21,7 @@
 #include "berberis/assembler/x86_64.h"
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/base/checks.h"
-#include "berberis/base/config.h"
+#include "berberis/base/config_globals.h"
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state_arch.h"
 #include "berberis/guest_state/guest_state_opaque.h"
@@ -147,7 +147,7 @@ bool HeavyOptimizerFrontend::IsRegionEndReached() const {
 }
 
 void HeavyOptimizerFrontend::ResolveJumps() {
-  if (!config::kLinkJumpsWithinRegion) {
+  if (IsConfigFlagSet(kDisableLinkJumpsWithinRegion)) {
     return;
   }
   auto ir = builder_.ir();
