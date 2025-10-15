@@ -342,6 +342,70 @@ TEST(MachineIRCheckTest, NoElseEdgePseudoCondBranch) {
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRControlFlowInsnSuccessorMismatch);
 }
 
+TEST(MachineIRCheckTest, EnterLocationWithRegularABI) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena, x86_64::MachineIR::ABI::kRegular);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+  auto* bb1 = machine_ir.NewBasicBlock();
+  auto* bb2 = machine_ir.NewBasicBlock();
+
+  machine_ir.AddEdge(bb1, bb2);
+
+  builder.StartBasicBlock(bb1);
+  builder.Gen<PseudoBranch>(bb2);
+
+  builder.StartBasicBlock(bb2);
+  builder.Gen<PseudoJump>(kNullGuestAddr);
+
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+
+  // Enter is not allowed anywhere.
+
+  bb1->insn_list().push_front(machine_ir.NewInsn<x86_64::Enter>());
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRWrongEnterInsnLocation);
+  bb1->insn_list().pop_front();
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+
+  bb2->insn_list().push_front(machine_ir.NewInsn<x86_64::Enter>());
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRWrongEnterInsnLocation);
+}
+
+TEST(MachineIRCheckTest, EnterLocationWithOptimizedABI) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena, x86_64::MachineIR::ABI::kOptimized);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+  auto* bb1 = machine_ir.NewBasicBlock();
+  auto* bb2 = machine_ir.NewBasicBlock();
+
+  machine_ir.AddEdge(bb1, bb2);
+
+  builder.StartBasicBlock(bb1);
+  builder.Gen<PseudoBranch>(bb2);
+
+  builder.StartBasicBlock(bb2);
+  builder.Gen<PseudoJump>(kNullGuestAddr);
+
+  // Enter is missing.
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRWrongEnterInsnLocation);
+
+  // Enter is properly located.
+  bb1->insn_list().push_front(machine_ir.NewInsn<x86_64::Enter>());
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+
+  // Disallowed enter in the middle of the basic block.
+  bb1->insn_list().push_front(machine_ir.NewInsn<x86_64::Enter>());
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRWrongEnterInsnLocation);
+  // Undo wrong enter.
+  bb1->insn_list().pop_front();
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+
+  // Enter at the beginning of non-entry basic block.
+  bb2->insn_list().push_front(machine_ir.NewInsn<x86_64::Enter>());
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRWrongEnterInsnLocation);
+}
+
 }  // namespace
 
 }  // namespace berberis
