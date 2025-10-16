@@ -373,7 +373,7 @@ TEST(MachineIRCheckTest, EnterLocationWithRegularABI) {
 
 TEST(MachineIRCheckTest, EnterLocationWithOptimizedABI) {
   Arena arena;
-  x86_64::MachineIR machine_ir(&arena, x86_64::MachineIR::ABI::kOptimized);
+  x86_64::MachineIR machine_ir(&arena, x86_64::MachineIR::ABI::kOptimizedEnabled);
 
   x86_64::MachineIRBuilder builder(&machine_ir);
   auto* bb1 = machine_ir.NewBasicBlock();
