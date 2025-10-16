@@ -20,6 +20,7 @@
 #include "berberis/assembler/x86_64.h"
 #include "berberis/base/checks.h"
 #include "berberis/base/config.h"
+#include "berberis/base/config_globals.h"
 #include "berberis/calling_conventions/calling_conventions_x86_64.h"
 #include "berberis/code_gen_lib/code_gen_lib_arch.h"
 #include "berberis/code_gen_lib/gen_adaptor.h"
@@ -129,7 +130,7 @@ void EmitDirectDispatch(x86_64::Assembler* as, GuestAddr pc, bool check_pending_
   // insn_addr is passed between regions in rax.
   as->Movq(as->rax, pc);
 
-  if (!config::kLinkJumpsBetweenRegions) {
+  if (IsConfigFlagSet(kDisableLinkJumpsBetweenRegions)) {
     as->Jmp32(kEntryExitGeneratedCode);
     return;
   }
@@ -160,7 +161,7 @@ void EmitIndirectDispatch(x86_64::Assembler* as, x86_64::Assembler::Register tar
     as->Movq(as->rax, target);
   }
 
-  if (!config::kLinkJumpsBetweenRegions) {
+  if (IsConfigFlagSet(kDisableLinkJumpsBetweenRegions)) {
     as->Jmp32(kEntryExitGeneratedCode);
     return;
   }

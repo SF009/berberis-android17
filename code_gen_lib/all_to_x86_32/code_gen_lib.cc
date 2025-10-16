@@ -20,6 +20,7 @@
 #include "berberis/assembler/x86_32.h"
 #include "berberis/base/bit_util.h"
 #include "berberis/base/config.h"
+#include "berberis/base/config_globals.h"
 #include "berberis/calling_conventions/calling_conventions_x86_32.h"
 #include "berberis/code_gen_lib/code_gen_lib_arch.h"
 #include "berberis/guest_state/guest_addr.h"
@@ -75,7 +76,7 @@ void EmitDispatch(Assembler* as, Assembler::Register target) {
   // Allocate another temporary register.
   Assembler::Register reg2 = reg1 == Assembler::ecx ? Assembler::edx : Assembler::ecx;
 
-  if (!config::kLinkJumpsBetweenRegions) {
+  if (IsConfigFlagSet(kDisableLinkJumpsBetweenRegions)) {
     as->Jmp(kEntryExitGeneratedCode);
     return;
   }
@@ -168,7 +169,7 @@ void EmitJump(Assembler* as, GuestAddr target) {
   // non-translated code handler or trampolines that require synced state to run signal handlers).
   as->Movl(Assembler::eax, target);
 
-  if (!config::kLinkJumpsBetweenRegions) {
+  if (IsConfigFlagSet(kDisableLinkJumpsBetweenRegions)) {
     as->Jmp(kEntryExitGeneratedCode);
     return;
   }
