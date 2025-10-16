@@ -86,7 +86,7 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(
     auto sorted_offsets = GetSortedOffsetCounters(machine_ir_, bb);
     ArenaVector<bool> optimized_offsets(sizeof(CPUState), false, machine_ir_->arena());
 
-    size_t general_reg_count = machine_ir_->abi() == MachineIR::ABI::kOptimized ? 6 : 0;
+    size_t general_reg_count = 0;
     size_t simd_reg_count = 0;
     for (auto [offset, unused_counter] : sorted_offsets) {
       // TODO(b/232598137): Account for f and v register classes.
