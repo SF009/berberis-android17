@@ -301,6 +301,61 @@ TEST(MachineIRLocalGuestContextOptimizer, LimitRegisters) {
   }
 }
 
+TEST(MachineIRLocalGuestContextOptimizer, LimitRegistersWithOptimizedABI) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena, x86_64::MachineIR::ABI::kOptimizedEnabled);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  auto bb = machine_ir.NewBasicBlock();
+  builder.StartBasicBlock(bb);
+  builder.Gen<x86_64::Enter>();
+
+  // Access 8 different general purpose registers twice.
+  // With OptimizedABI, general_reg_count starts at 6.
+  // With a limit of 10, only 4 registers should be optimized.
+  for (int i = 0; i < 8; ++i) {
+    builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(i));
+    builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(i));
+  }
+  builder.Gen<PseudoJump>(kNullGuestAddr);
+
+  ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+
+  x86_64::RemoveLocalGuestContextAccesses(&machine_ir,
+                                          x86_64::OptimizeLocalParams{
+                                              .general_reg_limit = 10,
+                                              .simd_reg_limit = 0,
+                                          });
+  ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+
+  auto insn_it = bb->insn_list().begin();
+
+  ASSERT_EQ((*insn_it++)->opcode(), kMachineOpEnter);
+  // First 4 registers should be optimized.
+  // The first access is a load, the second is a copy.
+  for (int i = 0; i < 4; ++i) {
+    ASSERT_EQ((*insn_it)->opcode(), kMachineOpMovqRegMemBaseDisp);
+    ASSERT_EQ(x86_64::AsMachineInsnX86_64(*insn_it)->disp(), GetThreadStateRegOffset(i));
+    insn_it++;
+    ASSERT_EQ((*insn_it)->opcode(), kMachineOpPseudoCopy);
+    insn_it++;
+  }
+
+  // Next 4 registers should not be optimized.
+  // Both accesses should remain loads.
+  for (int i = 4; i < 8; ++i) {
+    ASSERT_EQ((*insn_it)->opcode(), kMachineOpMovqRegMemBaseDisp);
+    ASSERT_EQ(x86_64::AsMachineInsnX86_64(*insn_it)->disp(), GetThreadStateRegOffset(i));
+    insn_it++;
+    ASSERT_EQ((*insn_it)->opcode(), kMachineOpMovqRegMemBaseDisp);
+    ASSERT_EQ(x86_64::AsMachineInsnX86_64(*insn_it)->disp(), GetThreadStateRegOffset(i));
+    insn_it++;
+  }
+
+  ASSERT_EQ((*insn_it)->opcode(), kMachineOpPseudoJump);
+}
+
 }  // namespace
 
 }  // namespace berberis
