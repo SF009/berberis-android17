@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 The Android Open Source Project
+ * Copyright (C) 2025 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,20 +14,18 @@
  * limitations under the License.
  */
 
-#ifndef BERBERIS_BACKEND_X86_64_INSN_FOLDING_RENAME_REGS_H_
-#define BERBERIS_BACKEND_X86_64_INSN_FOLDING_RENAME_REGS_H_
+#include "berberis/code_gen_lib/code_gen_lib.h"
 
-#include "berberis/backend/x86_64/machine_ir.h"
-#include "berberis/base/arena_vector.h"
+#include "berberis/assembler/x86_64.h"
 
 namespace berberis {
 
-namespace x86_64 {
+void EmitStoreMappedRegsIfNeeded(x86_64::Assembler* /*as*/) {
+  // This feature is not currently enabled for riscv64.
+}
 
-void RenameVRegsLocal(MachineIR* machine_ir);
-
-}  // namespace x86_64
+void EmitLoadMappedRegsIfNeeded(x86_64::Assembler* /*as*/) {
+  // This feature is not currently enabled for riscv64.
+}
 
 }  // namespace berberis
-
-#endif  // BERBERIS_BACKEND_X86_64_INSN_FOLDING_RENAME_REGS_H_

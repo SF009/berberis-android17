@@ -369,21 +369,29 @@ TEST(MachineIRLoopGuestContextOptimizer, GenerateGetInsns) {
           ((DoesCpuStateHaveDedicatedSimdRegs() || DoesCpuStateHaveDedicatedVecRegs()) ? 1UL
                                                                                        : 0UL));
   auto insn_it = bb->insn_list().begin();
-  CheckGetInsn(*insn_it, kMachineOpMovqRegMemBaseDisp, reg1, GetThreadStateRegOffset(0));
+  CheckGetInsn(
+      &machine_ir, *insn_it, kMachineOpMovqRegMemBaseDisp, reg1, GetThreadStateRegOffset(0));
   std::advance(insn_it, 1);
   if (DoesCpuStateHaveFlags()) {
-    CheckGetInsn(*insn_it, kMachineOpMovwRegMemBaseDisp, reg4, GetThreadStateFlagOffset());
+    CheckGetInsn(
+        &machine_ir, *insn_it, kMachineOpMovwRegMemBaseDisp, reg4, GetThreadStateFlagOffset());
     std::advance(insn_it, 1);
   }
   if (DoesCpuStateHaveDedicatedFpRegs()) {
-    CheckGetInsn(*insn_it, kMachineOpMovsdXRegMemBaseDisp, reg3, GetThreadStateFRegOffset(0));
+    CheckGetInsn(
+        &machine_ir, *insn_it, kMachineOpMovsdXRegMemBaseDisp, reg3, GetThreadStateFRegOffset(0));
     std::advance(insn_it, 1);
   }
   if (DoesCpuStateHaveDedicatedSimdRegs()) {
-    CheckGetInsn(*insn_it, kMachineOpMovdqaXRegMemBaseDisp, reg2, GetThreadStateSimdRegOffset(0));
+    CheckGetInsn(&machine_ir,
+                 *insn_it,
+                 kMachineOpMovdqaXRegMemBaseDisp,
+                 reg2,
+                 GetThreadStateSimdRegOffset(0));
     std::advance(insn_it, 1);
   } else if (DoesCpuStateHaveDedicatedVecRegs()) {
-    CheckGetInsn(*insn_it, kMachineOpMovdqaXRegMemBaseDisp, reg2, GetThreadStateVRegOffset(0));
+    CheckGetInsn(
+        &machine_ir, *insn_it, kMachineOpMovdqaXRegMemBaseDisp, reg2, GetThreadStateVRegOffset(0));
     std::advance(insn_it, 1);
   }
 }
@@ -425,21 +433,29 @@ TEST(MachineIRLoopGuestContextOptimizer, GeneratePutInsns) {
           ((DoesCpuStateHaveDedicatedSimdRegs() || DoesCpuStateHaveDedicatedVecRegs()) ? 1UL
                                                                                        : 0UL));
   auto insn_it = bb->insn_list().begin();
-  CheckPutInsn(*insn_it, kMachineOpMovqMemBaseDispReg, reg1, GetThreadStateRegOffset(0));
+  CheckPutInsn(
+      &machine_ir, *insn_it, kMachineOpMovqMemBaseDispReg, reg1, GetThreadStateRegOffset(0));
   std::advance(insn_it, 1);
   if (DoesCpuStateHaveFlags()) {
-    CheckPutInsn(*insn_it, kMachineOpMovwMemBaseDispReg, reg4, GetThreadStateFlagOffset());
+    CheckPutInsn(
+        &machine_ir, *insn_it, kMachineOpMovwMemBaseDispReg, reg4, GetThreadStateFlagOffset());
     std::advance(insn_it, 1);
   }
   if (DoesCpuStateHaveDedicatedFpRegs()) {
-    CheckPutInsn(*insn_it, kMachineOpMovsdMemBaseDispXReg, reg3, GetThreadStateFRegOffset(0));
+    CheckPutInsn(
+        &machine_ir, *insn_it, kMachineOpMovsdMemBaseDispXReg, reg3, GetThreadStateFRegOffset(0));
     std::advance(insn_it, 1);
   }
   if (DoesCpuStateHaveDedicatedSimdRegs()) {
-    CheckPutInsn(*insn_it, kMachineOpMovdqaMemBaseDispXReg, reg2, GetThreadStateSimdRegOffset(0));
+    CheckPutInsn(&machine_ir,
+                 *insn_it,
+                 kMachineOpMovdqaMemBaseDispXReg,
+                 reg2,
+                 GetThreadStateSimdRegOffset(0));
     std::advance(insn_it, 1);
   } else if (DoesCpuStateHaveDedicatedVecRegs()) {
-    CheckPutInsn(*insn_it, kMachineOpMovdqaMemBaseDispXReg, reg2, GetThreadStateVRegOffset(0));
+    CheckPutInsn(
+        &machine_ir, *insn_it, kMachineOpMovdqaMemBaseDispXReg, reg2, GetThreadStateVRegOffset(0));
     std::advance(insn_it, 1);
   }
 }
@@ -498,21 +514,29 @@ TEST(MachineIRLoopGuestContextOptimizer, GeneratePreloop) {
           ((DoesCpuStateHaveDedicatedSimdRegs() || DoesCpuStateHaveDedicatedVecRegs()) ? 1UL
                                                                                        : 0UL));
   auto insn_it = preloop->insn_list().begin();
-  CheckGetInsn(*insn_it, kMachineOpMovqRegMemBaseDisp, reg1, GetThreadStateRegOffset(0));
+  CheckGetInsn(
+      &machine_ir, *insn_it, kMachineOpMovqRegMemBaseDisp, reg1, GetThreadStateRegOffset(0));
   std::advance(insn_it, 1);
   if (DoesCpuStateHaveFlags()) {
-    CheckGetInsn(*insn_it, kMachineOpMovwRegMemBaseDisp, reg4, GetThreadStateFlagOffset());
+    CheckGetInsn(
+        &machine_ir, *insn_it, kMachineOpMovwRegMemBaseDisp, reg4, GetThreadStateFlagOffset());
     std::advance(insn_it, 1);
   }
   if (DoesCpuStateHaveDedicatedFpRegs()) {
-    CheckGetInsn(*insn_it, kMachineOpMovsdXRegMemBaseDisp, reg3, GetThreadStateFRegOffset(0));
+    CheckGetInsn(
+        &machine_ir, *insn_it, kMachineOpMovsdXRegMemBaseDisp, reg3, GetThreadStateFRegOffset(0));
     std::advance(insn_it, 1);
   }
   if (DoesCpuStateHaveDedicatedSimdRegs()) {
-    CheckGetInsn(*insn_it, kMachineOpMovdqaXRegMemBaseDisp, reg2, GetThreadStateSimdRegOffset(0));
+    CheckGetInsn(&machine_ir,
+                 *insn_it,
+                 kMachineOpMovdqaXRegMemBaseDisp,
+                 reg2,
+                 GetThreadStateSimdRegOffset(0));
     std::advance(insn_it, 1);
   } else if (DoesCpuStateHaveDedicatedVecRegs()) {
-    CheckGetInsn(*insn_it, kMachineOpMovdqaXRegMemBaseDisp, reg2, GetThreadStateVRegOffset(0));
+    CheckGetInsn(
+        &machine_ir, *insn_it, kMachineOpMovdqaXRegMemBaseDisp, reg2, GetThreadStateVRegOffset(0));
     std::advance(insn_it, 1);
   }
 }
@@ -571,21 +595,29 @@ TEST(MachineIRLoopGuestContextOptimizer, GenerateAfterloop) {
           ((DoesCpuStateHaveDedicatedSimdRegs() || DoesCpuStateHaveDedicatedVecRegs()) ? 1UL
                                                                                        : 0UL));
   auto insn_it = afterloop->insn_list().begin();
-  CheckPutInsn(*insn_it, kMachineOpMovqMemBaseDispReg, reg1, GetThreadStateRegOffset(0));
+  CheckPutInsn(
+      &machine_ir, *insn_it, kMachineOpMovqMemBaseDispReg, reg1, GetThreadStateRegOffset(0));
   std::advance(insn_it, 1);
   if (DoesCpuStateHaveFlags()) {
-    CheckPutInsn(*insn_it, kMachineOpMovwMemBaseDispReg, reg4, GetThreadStateFlagOffset());
+    CheckPutInsn(
+        &machine_ir, *insn_it, kMachineOpMovwMemBaseDispReg, reg4, GetThreadStateFlagOffset());
     std::advance(insn_it, 1);
   }
   if (DoesCpuStateHaveDedicatedFpRegs()) {
-    CheckPutInsn(*insn_it, kMachineOpMovsdMemBaseDispXReg, reg3, GetThreadStateFRegOffset(0));
+    CheckPutInsn(
+        &machine_ir, *insn_it, kMachineOpMovsdMemBaseDispXReg, reg3, GetThreadStateFRegOffset(0));
     std::advance(insn_it, 1);
   }
   if (DoesCpuStateHaveDedicatedSimdRegs()) {
-    CheckPutInsn(*insn_it, kMachineOpMovdqaMemBaseDispXReg, reg2, GetThreadStateSimdRegOffset(0));
+    CheckPutInsn(&machine_ir,
+                 *insn_it,
+                 kMachineOpMovdqaMemBaseDispXReg,
+                 reg2,
+                 GetThreadStateSimdRegOffset(0));
     std::advance(insn_it, 1);
   } else if (DoesCpuStateHaveDedicatedVecRegs()) {
-    CheckPutInsn(*insn_it, kMachineOpMovdqaMemBaseDispXReg, reg2, GetThreadStateVRegOffset(0));
+    CheckPutInsn(
+        &machine_ir, *insn_it, kMachineOpMovdqaMemBaseDispXReg, reg2, GetThreadStateVRegOffset(0));
     std::advance(insn_it, 1);
   }
 }
@@ -627,11 +659,13 @@ TEST(MachineIRLoopGuestContextOptimizer, GenerateMultiplePreloops) {
 
   EXPECT_EQ(preloop1->insn_list().size(), 2UL);
   auto insn_it = preloop1->insn_list().begin();
-  CheckGetInsn(*insn_it, kMachineOpMovqRegMemBaseDisp, reg1, GetThreadStateRegOffset(0));
+  CheckGetInsn(
+      &machine_ir, *insn_it, kMachineOpMovqRegMemBaseDisp, reg1, GetThreadStateRegOffset(0));
 
   EXPECT_EQ(preloop2->insn_list().size(), 2UL);
   insn_it = preloop2->insn_list().begin();
-  CheckGetInsn(*insn_it, kMachineOpMovqRegMemBaseDisp, reg1, GetThreadStateRegOffset(0));
+  CheckGetInsn(
+      &machine_ir, *insn_it, kMachineOpMovqRegMemBaseDisp, reg1, GetThreadStateRegOffset(0));
 }
 
 TEST(MachineIRLoopGuestContextOptimizer, GenerateMultiplePostloops) {
@@ -677,11 +711,13 @@ TEST(MachineIRLoopGuestContextOptimizer, GenerateMultiplePostloops) {
 
   EXPECT_EQ(postloop1->insn_list().size(), 2UL);
   auto insn_it = postloop1->insn_list().begin();
-  CheckPutInsn(*insn_it, kMachineOpMovqMemBaseDispReg, reg1, GetThreadStateRegOffset(0));
+  CheckPutInsn(
+      &machine_ir, *insn_it, kMachineOpMovqMemBaseDispReg, reg1, GetThreadStateRegOffset(0));
 
   EXPECT_EQ(postloop2->insn_list().size(), 2UL);
   insn_it = postloop2->insn_list().begin();
-  CheckPutInsn(*insn_it, kMachineOpMovqMemBaseDispReg, reg1, GetThreadStateRegOffset(0));
+  CheckPutInsn(
+      &machine_ir, *insn_it, kMachineOpMovqMemBaseDispReg, reg1, GetThreadStateRegOffset(0));
 }
 
 TEST(MachineIRLoopGuestContextOptimizer, RemovePutInSelfLoop) {
@@ -725,7 +761,56 @@ TEST(MachineIRLoopGuestContextOptimizer, RemovePutInSelfLoop) {
 
   EXPECT_EQ(afterloop->insn_list().size(), 2UL);
   auto* put_insn = afterloop->insn_list().front();
-  CheckPutInsn(put_insn, kMachineOpMovqMemBaseDispReg, mapped_reg, GetThreadStateRegOffset(0));
+  CheckPutInsn(
+      &machine_ir, put_insn, kMachineOpMovqMemBaseDispReg, mapped_reg, GetThreadStateRegOffset(0));
+}
+
+TEST(MachineIRLoopGuestContextOptimizer, RemovePutRegAndPutImmediateInSelfLoop) {
+  Arena arena;
+  MachineIR machine_ir(&arena);
+
+  auto* preloop = machine_ir.NewBasicBlock();
+  auto* body = machine_ir.NewBasicBlock();
+  auto* afterloop = machine_ir.NewBasicBlock();
+  machine_ir.AddEdge(preloop, body);
+  machine_ir.AddEdge(body, body);
+  machine_ir.AddEdge(body, afterloop);
+
+  MachineReg vreg1 = machine_ir.AllocVReg();
+
+  MachineIRBuilder builder(&machine_ir);
+
+  builder.StartBasicBlock(preloop);
+  builder.Gen<PseudoBranch>(body);
+
+  builder.StartBasicBlock(body);
+  builder.GenPut(GetThreadStateRegOffset(0), vreg1);
+  builder.GenPutImm(GetThreadStateRegOffset(0), 10);
+  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, body, afterloop, kMachineRegFLAGS);
+
+  builder.StartBasicBlock(afterloop);
+  builder.Gen<PseudoJump>(kNullGuestAddr);
+
+  RemoveLoopGuestContextAccesses(&machine_ir);
+  ASSERT_EQ(CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+
+  EXPECT_EQ(preloop->insn_list().size(), 2UL);
+  auto* get_insn = preloop->insn_list().front();
+  EXPECT_EQ(get_insn->opcode(), kMachineOpMovqRegMemBaseDisp);
+  auto mapped_reg = get_insn->RegAt(0);
+  auto disp = AsMachineInsnX86_64(get_insn)->disp();
+  EXPECT_EQ(disp, GetThreadStateRegOffset(0));
+
+  EXPECT_EQ(body->insn_list().size(), 3UL);
+  auto* copy_reg_insn = body->insn_list().front();
+  EXPECT_EQ(CheckCopyPutInsnAndObtainMappedReg(copy_reg_insn, vreg1), mapped_reg);
+  auto* copy_imm_insn = *std::next(body->insn_list().begin());
+  EXPECT_EQ(CheckCopyPutImmInsnAndObtainMappedReg(copy_imm_insn, 10), mapped_reg);
+
+  EXPECT_EQ(afterloop->insn_list().size(), 2UL);
+  auto* put_insn = afterloop->insn_list().front();
+  CheckPutInsn(
+      &machine_ir, put_insn, kMachineOpMovqMemBaseDispReg, mapped_reg, GetThreadStateRegOffset(0));
 }
 
 TEST(MachineIRLoopGuestContextOptimizer, RemoveGetInSelfLoop) {
@@ -815,7 +900,8 @@ TEST(MachineIRLoopGuestContextOptimizer, RemoveGetPutInSelfLoop) {
 
   EXPECT_EQ(afterloop->insn_list().size(), 2UL);
   auto* put_insn = afterloop->insn_list().front();
-  CheckPutInsn(put_insn, kMachineOpMovqMemBaseDispReg, mapped_reg, GetThreadStateRegOffset(0));
+  CheckPutInsn(
+      &machine_ir, put_insn, kMachineOpMovqMemBaseDispReg, mapped_reg, GetThreadStateRegOffset(0));
 }
 
 TEST(MachineIRLoopGuestContextOptimizer, RemovePutInLoopWithMultipleExits) {
@@ -870,11 +956,13 @@ TEST(MachineIRLoopGuestContextOptimizer, RemovePutInLoopWithMultipleExits) {
 
   EXPECT_EQ(afterloop1->insn_list().size(), 2UL);
   auto* put_insn = afterloop1->insn_list().front();
-  CheckPutInsn(put_insn, kMachineOpMovqMemBaseDispReg, mapped_reg, GetThreadStateRegOffset(0));
+  CheckPutInsn(
+      &machine_ir, put_insn, kMachineOpMovqMemBaseDispReg, mapped_reg, GetThreadStateRegOffset(0));
 
   EXPECT_EQ(afterloop2->insn_list().size(), 2UL);
   put_insn = afterloop2->insn_list().front();
-  CheckPutInsn(put_insn, kMachineOpMovqMemBaseDispReg, mapped_reg, GetThreadStateRegOffset(0));
+  CheckPutInsn(
+      &machine_ir, put_insn, kMachineOpMovqMemBaseDispReg, mapped_reg, GetThreadStateRegOffset(0));
 }
 
 TEST(MachineIRLoopGuestContextOptimizer, CountGuestRegAccesses) {
@@ -907,7 +995,7 @@ TEST(MachineIRLoopGuestContextOptimizer, CountGuestRegAccesses) {
 
   builder.StartBasicBlock(body2);
   builder.GenGet(vreg1, GetThreadStateRegOffset(1));
-  builder.GenPut(GetThreadStateRegOffset(1), vreg1);
+  builder.GenPutImm(GetThreadStateRegOffset(1), 5);
   if (DoesCpuStateHaveDedicatedSimdRegs()) {
     builder.GenSetSimd<16>(GetThreadStateSimdRegOffset(0), vreg2);
   } else if (DoesCpuStateHaveDedicatedVecRegs()) {
@@ -953,7 +1041,7 @@ TEST(MachineIRLoopGuestContextOptimizer, GetOffsetCounters) {
   builder.StartBasicBlock(body2);
   builder.GenGet(vreg1, GetThreadStateRegOffset(2));
   builder.GenPut(GetThreadStateRegOffset(2), vreg1);
-  builder.GenPut(GetThreadStateRegOffset(0), vreg1);
+  builder.GenPutImm(GetThreadStateRegOffset(0), 5);
   builder.Gen<PseudoBranch>(body1);
 
   Loop loop({body1, body2}, machine_ir.arena());
@@ -1053,14 +1141,24 @@ TEST(MachineIRLoopGuestContextOptimizer, OptimizeLoopWithPriority) {
 
   EXPECT_EQ(afterloop->insn_list().size(), 3UL);
   auto* put_insn_1 = afterloop->insn_list().front();
-  CheckPutInsn(put_insn_1, kMachineOpMovqMemBaseDispReg, mapped_reg_1, GetThreadStateRegOffset(0));
+  CheckPutInsn(&machine_ir,
+               put_insn_1,
+               kMachineOpMovqMemBaseDispReg,
+               mapped_reg_1,
+               GetThreadStateRegOffset(0));
   auto* put_insn_2 = *std::next(afterloop->insn_list().begin());
   if (DoesCpuStateHaveDedicatedSimdRegs()) {
-    CheckPutInsn(
-        put_insn_2, kMachineOpMovdqaMemBaseDispXReg, mapped_reg_2, GetThreadStateSimdRegOffset(0));
+    CheckPutInsn(&machine_ir,
+                 put_insn_2,
+                 kMachineOpMovdqaMemBaseDispXReg,
+                 mapped_reg_2,
+                 GetThreadStateSimdRegOffset(0));
   } else if (DoesCpuStateHaveDedicatedVecRegs()) {
-    CheckPutInsn(
-        put_insn_2, kMachineOpMovdqaMemBaseDispXReg, mapped_reg_2, GetThreadStateVRegOffset(0));
+    CheckPutInsn(&machine_ir,
+                 put_insn_2,
+                 kMachineOpMovdqaMemBaseDispXReg,
+                 mapped_reg_2,
+                 GetThreadStateVRegOffset(0));
   }
 }
 

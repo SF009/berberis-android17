@@ -360,12 +360,12 @@ TEST(Signal, SigActionAndSuspendMasks) {
   }
 }
 
-volatile int g_handler_counter;
+std::atomic_int g_handler_counter;
 
 void SigActionDeferHandler(int signal) {
   ASSERT_EQ(signal, SIGPWR);
 
-  static volatile bool in_handler = false;
+  static std::atomic_bool in_handler{false};
   ASSERT_FALSE(in_handler);
   in_handler = true;
 
@@ -399,7 +399,7 @@ TEST(Signal, SigActionDefer) {
 void SigActionNoDeferHandler(int signal) {
   ASSERT_EQ(signal, SIGPWR);
 
-  static volatile bool in_handler = false;
+  static std::atomic_bool in_handler = false;
   ASSERT_EQ(in_handler, (g_handler_counter == 1));
   in_handler = true;
 

@@ -210,17 +210,18 @@ Assembler::YMMRegister GetYReg(MachineReg r) {
   return GetXReg(r).To256Bit();
 }
 
+void Enter::Emit(CodeEmitter*) const {
+  // Enter is a pseudo instruction to connect ABI to IR. We don't emit it.
+}
+
 void CallImm::Emit(CodeEmitter* as) const {
+  // Note that a call to AVX-compiled code may touch YMM bits above 128, which
+  // would require `vzeroupper` before we come back to generated code. This is
+  // to make/ sure there is no performance penalty. ABI requires such `vzeroupper`s
+  // done by the callee unless the result in returned in full YMM register.
+  // Since we don't support full YMM results here, we don't need extra
+  // `vzeroupper`s here.
   as->Call(AsHostCode(imm()));
-  if (custom_avx256_abi_) {
-    // We don't support 256bit registers in IR. So we hide this YMM0 inside CallImm
-    // and forward the result to IR in (XMM0, XMM1). See go/ndkt-avx-runtime.
-    as->Vextractf128(as->xmm1, as->ymm0, uint8_t{1});
-  }
-#ifdef __AVX__
-  // Clean-up potentially dirty upper bits after executing AVX256 instructions in runtime.
-  as->Vzeroupper();
-#endif
 }
 
 }  // namespace x86_64
@@ -258,6 +259,8 @@ void PseudoCondBranch::Emit(CodeEmitter* as) const {
   }
 }
 
+// Note that we don't emit ABI arguments. They only help to connect IR's data flow with the next
+// region.
 void PseudoJump::Emit(CodeEmitter* as) const {
   EmitFreeStackFrame(as, as->frame_size());
 
@@ -284,6 +287,8 @@ void PseudoJump::Emit(CodeEmitter* as) const {
   }
 }
 
+// Note that we don't emit ABI arguments. They only help to connect IR's data flow with the next
+// region.
 void PseudoIndirectJump::Emit(CodeEmitter* as) const {
   EmitFreeStackFrame(as, as->frame_size());
   if (as->exit_label_for_testing()) {
@@ -320,6 +325,10 @@ void PseudoReadFlags::Emit(CodeEmitter* as) const {
 void PseudoWriteFlags::Emit(CodeEmitter* as) const {
   as->Addb(as->rax, int8_t{0x7f});
   as->Sahf();
+}
+
+void SSAPseudoWriteFlags::Emit(CodeEmitter* /*as*/) const {
+  FATAL("SSAPseudoWriteFlags couldn't be emitted");
 }
 
 void MachineIR::Emit(CodeEmitter* as) const {

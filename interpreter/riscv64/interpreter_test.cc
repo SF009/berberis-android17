@@ -534,7 +534,6 @@ class Riscv64InterpreterTest : public ::testing::Test {
   }
 
   void TestVsm(uint32_t insn_bytes, __v16qu expected_results) {
-    const auto kUndisturbedValue = SIMD128Register{kUndisturbedResult}.Get<__uint128_t>();
     // Vlm.v is special form of normal vector load which mostly ignores vtype.
     // The only bit that it honors is vill: https://github.com/riscv/riscv-v-spec/pull/877
     // Verify that changes to vtype don't affect the execution (but vstart and vl do).

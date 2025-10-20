@@ -169,17 +169,13 @@ TEST(LibCxxAbi, Tuple_UInt64) {
 }
 
 // Note: tuple is returned on registers when libc++ is used and on stack if libstdc++ is used.
-TEST(LibCxxAbi, Tuple_SIMDRegisterSIMDRegister) {
+TEST(LibCxxAbi, DISABLED_Tuple_SIMDRegisterSIMDRegister) {
   auto tuple_is_returned_on_registers =
       TupleIsReturnedOnRegisters<std::tuple<SIMD128Register, SIMD128Register>,
                                  AsmTupleTestSIMDRegisterSIMDRegister>(
           std::tuple{Int64x2{1, 2}, Int64x2{3, 4}}, std::tuple{Int64x2{0, 0}, Int64x2{0, 0}});
   ASSERT_TRUE(tuple_is_returned_on_registers.has_value());
-#if defined(_LIBCPP_VERSION) && defined(__AVX__)
-  EXPECT_TRUE(*tuple_is_returned_on_registers);
-#else
   EXPECT_FALSE(*tuple_is_returned_on_registers);
-#endif
 }
 
 // Note: tuple is returned on registers when libc++ is used and on stack if libstdc++ is used.

@@ -20,6 +20,7 @@
 #include "berberis/assembler/x86_64.h"
 #include "berberis/base/checks.h"
 #include "berberis/base/config.h"
+#include "berberis/base/config_globals.h"
 #include "berberis/calling_conventions/calling_conventions_x86_64.h"
 #include "berberis/code_gen_lib/code_gen_lib_arch.h"
 #include "berberis/code_gen_lib/gen_adaptor.h"
@@ -75,10 +76,14 @@ void GenTrampolineAdaptor(MachineCode* mc,
     }
   }
 
+  EmitStoreMappedRegsIfNeeded(&as);
+
   // void Trampoline(void*, ThreadState*);
   as.Movq(as.rdi, reinterpret_cast<intptr_t>(callee));
   as.Movq(as.rsi, as.rbp);
   as.Call(marshall);
+
+  EmitLoadMappedRegsIfNeeded(&as);
 
   if (kInstrumentTrampolines) {
     if (auto instrument = GetOnTrampolineReturn(name)) {
@@ -87,11 +92,6 @@ void GenTrampolineAdaptor(MachineCode* mc,
       as.Call(AsHostCode(instrument));
     }
   }
-
-#ifdef __AVX__
-  // Clean up dirty AVX256 state if induced by calls to runtime.
-  as.Vzeroupper();
-#endif
 
   // jump to guest return address
   // Prefer rdx, since rax/rcx will result in extra moves inside EmitIndirectDispatch.
@@ -108,9 +108,13 @@ void EmitSyscall(x86_64::Assembler* as, GuestAddr pc) {
   as->Movq({.base = as->rbp, .disp = offsetof(ThreadState, cpu.insn_addr)}, as->rdi);
   as->Movq({.base = as->rbp, .disp = offsetof(ThreadState, residence)}, kOutsideGeneratedCode);
 
+  EmitStoreMappedRegsIfNeeded(as);
+
   // void RunGuestSyscall(ThreadState*);
   as->Movq(as->rdi, as->rbp);
   as->Call(AsHostCode(RunGuestSyscall));
+
+  EmitLoadMappedRegsIfNeeded(as);
 
   // We are returning to generated code.
   as->Movq({.base = as->rbp, .disp = offsetof(ThreadState, residence)}, kInsideGeneratedCode);
@@ -126,7 +130,7 @@ void EmitDirectDispatch(x86_64::Assembler* as, GuestAddr pc, bool check_pending_
   // insn_addr is passed between regions in rax.
   as->Movq(as->rax, pc);
 
-  if (!config::kLinkJumpsBetweenRegions) {
+  if (IsConfigFlagSet(kDisableLinkJumpsBetweenRegions)) {
     as->Jmp32(kEntryExitGeneratedCode);
     return;
   }
@@ -157,7 +161,7 @@ void EmitIndirectDispatch(x86_64::Assembler* as, x86_64::Assembler::Register tar
     as->Movq(as->rax, target);
   }
 
-  if (!config::kLinkJumpsBetweenRegions) {
+  if (IsConfigFlagSet(kDisableLinkJumpsBetweenRegions)) {
     as->Jmp32(kEntryExitGeneratedCode);
     return;
   }

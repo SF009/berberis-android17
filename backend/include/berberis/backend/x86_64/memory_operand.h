@@ -50,237 +50,291 @@ struct MemoryOperand {
 // helper functions only exist to solve this particular problem and delegate actual work to
 // another functions).
 
-#define BERBERIS_DECLARE_MACHINE_INSN_ADAPTER(                                                     \
-    AdapterName, ExtraArgs, TupleClass, TupleName, ResultType, ForwarderName, ExtraForward)        \
-  template <template <typename> typename InsnType BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs> \
-  AdapterName()                                                                                    \
-      ->std::enable_if_t<std::tuple_size_v<typename x86_64::TupleClass<typename InsnType<          \
-                             typename CodeEmitter::Assemblers>::DeviceInsnInfo>::TupleName> == 0,  \
-                         ResultType> {                                                             \
-    return ForwarderName<                                                                          \
-        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>   \
-            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward>();                                 \
-  }                                                                                                \
-                                                                                                   \
-  template <template <typename> typename InsnType BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs> \
-  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName) arg0)                  \
-      ->std::enable_if_t<std::tuple_size_v<typename x86_64::TupleClass<typename InsnType<          \
-                             typename CodeEmitter::Assemblers>::DeviceInsnInfo>::TupleName> == 1,  \
-                         ResultType> {                                                             \
-    return ForwarderName<                                                                          \
-        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>   \
-            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward,                                    \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName)>(arg0);                      \
-  }                                                                                                \
-                                                                                                   \
-  template <template <typename> typename InsnType BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs> \
-  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName) arg0,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName) arg1)                  \
-      ->std::enable_if_t<std::tuple_size_v<typename x86_64::TupleClass<typename InsnType<          \
-                             typename CodeEmitter::Assemblers>::DeviceInsnInfo>::TupleName> == 2,  \
-                         ResultType> {                                                             \
-    return ForwarderName<                                                                          \
-        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>   \
-            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward,                                    \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName)>(arg0, arg1);                \
-  }                                                                                                \
-                                                                                                   \
-  template <template <typename> typename InsnType BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs> \
-  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName) arg0,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName) arg1,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName) arg2)                  \
-      ->std::enable_if_t<std::tuple_size_v<typename x86_64::TupleClass<typename InsnType<          \
-                             typename CodeEmitter::Assemblers>::DeviceInsnInfo>::TupleName> == 3,  \
-                         ResultType> {                                                             \
-    return ForwarderName<                                                                          \
-        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>   \
-            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward,                                    \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName)>(arg0, arg1, arg2);          \
-  }                                                                                                \
-                                                                                                   \
-  template <template <typename> typename InsnType BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs> \
-  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName) arg0,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName) arg1,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName) arg2,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName) arg3)                  \
-      ->std::enable_if_t<std::tuple_size_v<typename x86_64::TupleClass<typename InsnType<          \
-                             typename CodeEmitter::Assemblers>::DeviceInsnInfo>::TupleName> == 4,  \
-                         ResultType> {                                                             \
-    return ForwarderName<                                                                          \
-        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>   \
-            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward,                                    \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName)>(arg0, arg1, arg2, arg3);    \
-  }                                                                                                \
-                                                                                                   \
-  template <template <typename> typename InsnType BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs> \
-  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName) arg0,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName) arg1,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName) arg2,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName) arg3,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName) arg4)                  \
-      ->std::enable_if_t<std::tuple_size_v<typename x86_64::TupleClass<typename InsnType<          \
-                             typename CodeEmitter::Assemblers>::DeviceInsnInfo>::TupleName> == 5,  \
-                         ResultType> {                                                             \
-    return ForwarderName<                                                                          \
-        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>   \
-            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward,                                    \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName)>(                            \
-        arg0, arg1, arg2, arg3, arg4);                                                             \
-  }                                                                                                \
-                                                                                                   \
-  template <template <typename> typename InsnType BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs> \
-  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName) arg0,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName) arg1,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName) arg2,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName) arg3,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName) arg4,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleClass, TupleName) arg5)                  \
-      ->std::enable_if_t<std::tuple_size_v<typename x86_64::TupleClass<typename InsnType<          \
-                             typename CodeEmitter::Assemblers>::DeviceInsnInfo>::TupleName> == 6,  \
-                         ResultType> {                                                             \
-    return ForwarderName<                                                                          \
-        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>   \
-            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward,                                    \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleClass, TupleName)>(                            \
-        arg0, arg1, arg2, arg3, arg4, arg5);                                                       \
-  }                                                                                                \
-                                                                                                   \
-  template <template <typename> typename InsnType BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs> \
-  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName) arg0,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName) arg1,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName) arg2,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName) arg3,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName) arg4,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleClass, TupleName) arg5,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(6, TupleClass, TupleName) arg6)                  \
-      ->std::enable_if_t<std::tuple_size_v<typename x86_64::TupleClass<typename InsnType<          \
-                             typename CodeEmitter::Assemblers>::DeviceInsnInfo>::TupleName> == 7,  \
-                         ResultType> {                                                             \
-    return ForwarderName<                                                                          \
-        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>   \
-            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward,                                    \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(6, TupleClass, TupleName)>(                            \
-        arg0, arg1, arg2, arg3, arg4, arg5, arg6);                                                 \
-  }                                                                                                \
-                                                                                                   \
-  template <template <typename> typename InsnType BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs> \
-  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName) arg0,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName) arg1,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName) arg2,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName) arg3,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName) arg4,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleClass, TupleName) arg5,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(6, TupleClass, TupleName) arg6,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(7, TupleClass, TupleName) arg7)                  \
-      ->std::enable_if_t<std::tuple_size_v<typename x86_64::TupleClass<typename InsnType<          \
-                             typename CodeEmitter::Assemblers>::DeviceInsnInfo>::TupleName> == 8,  \
-                         ResultType> {                                                             \
-    return ForwarderName<                                                                          \
-        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>   \
-            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward,                                    \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(6, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(7, TupleClass, TupleName)>(                            \
-        arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7);                                           \
-  }                                                                                                \
-                                                                                                   \
-  template <template <typename> typename InsnType BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs> \
-  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName) arg0,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName) arg1,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName) arg2,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName) arg3,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName) arg4,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleClass, TupleName) arg5,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(6, TupleClass, TupleName) arg6,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(7, TupleClass, TupleName) arg7,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(8, TupleClass, TupleName) arg8)                  \
-      ->std::enable_if_t<std::tuple_size_v<typename x86_64::TupleClass<typename InsnType<          \
-                             typename CodeEmitter::Assemblers>::DeviceInsnInfo>::TupleName> == 9,  \
-                         ResultType> {                                                             \
-    return ForwarderName<                                                                          \
-        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>   \
-            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward,                                    \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(6, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(7, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(8, TupleClass, TupleName)>(                            \
-        arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);                                     \
-  }                                                                                                \
-                                                                                                   \
-  template <template <typename> typename InsnType BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs> \
-  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName) arg0,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName) arg1,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName) arg2,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName) arg3,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName) arg4,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleClass, TupleName) arg5,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(6, TupleClass, TupleName) arg6,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(7, TupleClass, TupleName) arg7,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(8, TupleClass, TupleName) arg8,                  \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(9, TupleClass, TupleName) arg9)                  \
-      ->std::enable_if_t<std::tuple_size_v<typename x86_64::TupleClass<typename InsnType<          \
-                             typename CodeEmitter::Assemblers>::DeviceInsnInfo>::TupleName> == 10, \
-                         ResultType> {                                                             \
-    return ForwarderName<                                                                          \
-        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>   \
-            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward,                                    \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(6, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(7, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(8, TupleClass, TupleName),                             \
-        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(9, TupleClass, TupleName)>(                            \
-        arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);                               \
-  }                                                                                                \
-                                                                                                   \
-  template <template <typename> typename InsnType BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs, \
-            typename... Args>                                                                      \
-  AdapterName(Args... args)->ResultType {                                                          \
-    return ForwarderName<                                                                          \
-        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>   \
-            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward,                                    \
-        Args...>(args...);                                                                         \
+#define BERBERIS_DECLARE_MACHINE_INSN_ADAPTER(AdapterName,                                        \
+                                              ExtraArgs,                                          \
+                                              TupleClass,                                         \
+                                              TupleName,                                          \
+                                              ResultType1,                                        \
+                                              ResultType2,                                        \
+                                              ForwarderName,                                      \
+                                              ExtraForward)                                       \
+  template <template <typename> typename InsnType,                                                \
+            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs enum x86_64::SSAMode kSSAMode =       \
+                x86_64::kNoSSA>                                                                   \
+  AdapterName()                                                                                   \
+      ->std::enable_if_t<std::tuple_size_v<typename x86_64::TupleClass<                           \
+                             typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, \
+                             kSSAMode>::TupleName> == 0,                                          \
+                         ResultType1,                                                             \
+                         ResultType2> {                                                           \
+    return ForwarderName<                                                                         \
+        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,  \
+                            kSSAMode> BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward>();      \
+  }                                                                                               \
+                                                                                                  \
+  template <template <typename> typename InsnType,                                                \
+            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs enum x86_64::SSAMode kSSAMode =       \
+                x86_64::kNoSSA>                                                                   \
+  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName) arg0)                 \
+      ->std::enable_if_t<std::tuple_size_v<typename x86_64::TupleClass<                           \
+                             typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, \
+                             kSSAMode>::TupleName> == 1,                                          \
+                         ResultType1,                                                             \
+                         ResultType2> {                                                           \
+    return ForwarderName<                                                                         \
+        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,  \
+                            kSSAMode> BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward,         \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName)>(arg0);                     \
+  }                                                                                               \
+                                                                                                  \
+  template <template <typename> typename InsnType,                                                \
+            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs enum x86_64::SSAMode kSSAMode =       \
+                x86_64::kNoSSA>                                                                   \
+  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName) arg0,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName) arg1)                 \
+      ->std::enable_if_t<std::tuple_size_v<typename x86_64::TupleClass<                           \
+                             typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, \
+                             kSSAMode>::TupleName> == 2,                                          \
+                         ResultType1,                                                             \
+                         ResultType2> {                                                           \
+    return ForwarderName<                                                                         \
+        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,  \
+                            kSSAMode> BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward,         \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName)>(arg0, arg1);               \
+  }                                                                                               \
+                                                                                                  \
+  template <template <typename> typename InsnType,                                                \
+            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs enum x86_64::SSAMode kSSAMode =       \
+                x86_64::kNoSSA>                                                                   \
+  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName) arg0,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName) arg1,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName) arg2)                 \
+      ->std::enable_if_t<std::tuple_size_v<typename x86_64::TupleClass<                           \
+                             typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, \
+                             kSSAMode>::TupleName> == 3,                                          \
+                         ResultType1,                                                             \
+                         ResultType2> {                                                           \
+    return ForwarderName<                                                                         \
+        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,  \
+                            kSSAMode> BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward,         \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName)>(arg0, arg1, arg2);         \
+  }                                                                                               \
+                                                                                                  \
+  template <template <typename> typename InsnType,                                                \
+            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs enum x86_64::SSAMode kSSAMode =       \
+                x86_64::kNoSSA>                                                                   \
+  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName) arg0,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName) arg1,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName) arg2,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName) arg3)                 \
+      ->std::enable_if_t<std::tuple_size_v<typename x86_64::TupleClass<                           \
+                             typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, \
+                             kSSAMode>::TupleName> == 4,                                          \
+                         ResultType1,                                                             \
+                         ResultType2> {                                                           \
+    return ForwarderName<                                                                         \
+        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,  \
+                            kSSAMode> BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward,         \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName)>(arg0, arg1, arg2, arg3);   \
+  }                                                                                               \
+                                                                                                  \
+  template <template <typename> typename InsnType,                                                \
+            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs enum x86_64::SSAMode kSSAMode =       \
+                x86_64::kNoSSA>                                                                   \
+  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName) arg0,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName) arg1,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName) arg2,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName) arg3,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName) arg4)                 \
+      ->std::enable_if_t<std::tuple_size_v<typename x86_64::TupleClass<                           \
+                             typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, \
+                             kSSAMode>::TupleName> == 5,                                          \
+                         ResultType1,                                                             \
+                         ResultType2> {                                                           \
+    return ForwarderName<                                                                         \
+        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,  \
+                            kSSAMode> BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward,         \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName)>(                           \
+        arg0, arg1, arg2, arg3, arg4);                                                            \
+  }                                                                                               \
+                                                                                                  \
+  template <template <typename> typename InsnType,                                                \
+            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs enum x86_64::SSAMode kSSAMode =       \
+                x86_64::kNoSSA>                                                                   \
+  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName) arg0,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName) arg1,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName) arg2,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName) arg3,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName) arg4,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleClass, TupleName) arg5)                 \
+      ->std::enable_if_t<std::tuple_size_v<typename x86_64::TupleClass<                           \
+                             typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, \
+                             kSSAMode>::TupleName> == 6,                                          \
+                         ResultType1,                                                             \
+                         ResultType2> {                                                           \
+    return ForwarderName<                                                                         \
+        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,  \
+                            kSSAMode> BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward,         \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleClass, TupleName)>(                           \
+        arg0, arg1, arg2, arg3, arg4, arg5);                                                      \
+  }                                                                                               \
+                                                                                                  \
+  template <template <typename> typename InsnType,                                                \
+            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs enum x86_64::SSAMode kSSAMode =       \
+                x86_64::kNoSSA>                                                                   \
+  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName) arg0,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName) arg1,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName) arg2,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName) arg3,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName) arg4,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleClass, TupleName) arg5,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(6, TupleClass, TupleName) arg6)                 \
+      ->std::enable_if_t<std::tuple_size_v<typename x86_64::TupleClass<                           \
+                             typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, \
+                             kSSAMode>::TupleName> == 7,                                          \
+                         ResultType1,                                                             \
+                         ResultType2> {                                                           \
+    return ForwarderName<                                                                         \
+        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,  \
+                            kSSAMode> BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward,         \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(6, TupleClass, TupleName)>(                           \
+        arg0, arg1, arg2, arg3, arg4, arg5, arg6);                                                \
+  }                                                                                               \
+                                                                                                  \
+  template <template <typename> typename InsnType,                                                \
+            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs enum x86_64::SSAMode kSSAMode =       \
+                x86_64::kNoSSA>                                                                   \
+  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName) arg0,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName) arg1,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName) arg2,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName) arg3,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName) arg4,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleClass, TupleName) arg5,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(6, TupleClass, TupleName) arg6,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(7, TupleClass, TupleName) arg7)                 \
+      ->std::enable_if_t<std::tuple_size_v<typename x86_64::TupleClass<                           \
+                             typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, \
+                             kSSAMode>::TupleName> == 8,                                          \
+                         ResultType1,                                                             \
+                         ResultType2> {                                                           \
+    return ForwarderName<                                                                         \
+        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,  \
+                            kSSAMode> BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward,         \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(6, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(7, TupleClass, TupleName)>(                           \
+        arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7);                                          \
+  }                                                                                               \
+                                                                                                  \
+  template <template <typename> typename InsnType,                                                \
+            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs enum x86_64::SSAMode kSSAMode =       \
+                x86_64::kNoSSA>                                                                   \
+  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName) arg0,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName) arg1,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName) arg2,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName) arg3,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName) arg4,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleClass, TupleName) arg5,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(6, TupleClass, TupleName) arg6,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(7, TupleClass, TupleName) arg7,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(8, TupleClass, TupleName) arg8)                 \
+      ->std::enable_if_t<std::tuple_size_v<typename x86_64::TupleClass<                           \
+                             typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, \
+                             kSSAMode>::TupleName> == 9,                                          \
+                         ResultType1,                                                             \
+                         ResultType2> {                                                           \
+    return ForwarderName<                                                                         \
+        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,  \
+                            kSSAMode> BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward,         \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(6, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(7, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(8, TupleClass, TupleName)>(                           \
+        arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);                                    \
+  }                                                                                               \
+                                                                                                  \
+  template <template <typename> typename InsnType,                                                \
+            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs enum x86_64::SSAMode kSSAMode =       \
+                x86_64::kNoSSA>                                                                   \
+  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName) arg0,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName) arg1,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName) arg2,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName) arg3,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName) arg4,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleClass, TupleName) arg5,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(6, TupleClass, TupleName) arg6,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(7, TupleClass, TupleName) arg7,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(8, TupleClass, TupleName) arg8,                 \
+              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(9, TupleClass, TupleName) arg9)                 \
+      ->std::enable_if_t<std::tuple_size_v<typename x86_64::TupleClass<                           \
+                             typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, \
+                             kSSAMode>::TupleName> == 10,                                         \
+                         ResultType1,                                                             \
+                         ResultType2> {                                                           \
+    return ForwarderName<                                                                         \
+        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,  \
+                            kSSAMode> BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward,         \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(6, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(7, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(8, TupleClass, TupleName),                            \
+        BERBERIS_DECLARE_MACHINE_INSN_TUPLE(9, TupleClass, TupleName)>(                           \
+        arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);                              \
+  }                                                                                               \
+                                                                                                  \
+  template <template <typename> typename InsnType,                                                \
+            BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraArgs enum x86_64::SSAMode kSSAMode =       \
+                x86_64::kNoSSA,                                                                   \
+            typename... Args>                                                                     \
+  AdapterName(Args... args)->ResultType1,                                                         \
+      ResultType2 {                                                                               \
+    return ForwarderName<                                                                         \
+        x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,  \
+                            kSSAMode> BERBERIS_DECLARE_MACHINE_INSN_UNBRACE ExtraForward,         \
+        Args...>(args...);                                                                        \
   }
 
-#define BERBERIS_DECLARE_MACHINE_INSN_TUPLE(N, TupleClass, TupleName) \
-  std::tuple_element_t<N,                                             \
-                       typename x86_64::TupleClass<typename InsnType< \
-                           typename CodeEmitter::Assemblers>::DeviceInsnInfo>::TupleName>
+#define BERBERIS_DECLARE_MACHINE_INSN_TUPLE(N, TupleClass, TupleName)                           \
+  std::tuple_element_t<N,                                                                       \
+                       typename x86_64::TupleClass<                                             \
+                           typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, \
+                           kSSAMode>::TupleName>
 
 #define BERBERIS_DECLARE_MACHINE_INSN_UNBRACE(...) __VA_ARGS__
 

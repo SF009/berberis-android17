@@ -28,6 +28,9 @@ enum MachineIRCheckStatus {
   kMachineIRCheckFail,
   kMachineIRCheckDanglingEdge,
   kMachineIRCheckDanglingBasicBlock,
+  kMachineIRWrongControlFlowInsnLocation,
+  kMachineIRControlFlowInsnSuccessorMismatch,
+  kMachineIRWrongEnterInsnLocation,
 };
 
 [[nodiscard]] MachineIRCheckStatus CheckMachineIR(const MachineIR& machine_ir);

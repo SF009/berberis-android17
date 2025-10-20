@@ -49,7 +49,7 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
       (),
       MachineInsnOperandsHelper,
       ConstructorArgsTuple,
-      MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>*,
+      MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, kSSAMode>*,
       MachineIRBuilderBase::Gen,
       ())
 
@@ -59,6 +59,10 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
 
   void GenPut(int32_t offset, MachineReg src_reg) {
     Gen<x86_64::MovqOpReg>({.base = x86_64::kMachineRegRBP, .disp = offset}, src_reg);
+  }
+
+  void GenPutImm(int32_t offset, int32_t imm) {
+    Gen<x86_64::MovqOpImm>({.base = x86_64::kMachineRegRBP, .disp = offset}, imm);
   }
 
   template <size_t kSize>

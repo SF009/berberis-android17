@@ -18,6 +18,7 @@
 
 #include "berberis/assembler/machine_code.h"
 #include "berberis/assembler/rv64i.h"
+#include "berberis/base/config_globals.h"
 #include "berberis/base/macros.h"
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/runtime_primitives/host_code.h"
@@ -39,7 +40,7 @@ void EmitDirectDispatch(rv64i::Assembler* as, GuestAddr pc, bool check_pending_s
   // insn_addr is passed between regions in s11.
   as->Li(as->s11, pc);
 
-  if (!config::kLinkJumpsBetweenRegions) {
+  if (IsConfigFlagSet(kDisableLinkJumpsBetweenRegions)) {
     as->Li(as->t1, reinterpret_cast<uint64_t>(kEntryExitGeneratedCode));
     as->Jr(as->t1);
     return;
@@ -59,7 +60,7 @@ void EmitIndirectDispatch(rv64i::Assembler* as, rv64i::Assembler::Register targe
     as->Mv(as->s11, target);
   }
 
-  if (!config::kLinkJumpsBetweenRegions) {
+  if (IsConfigFlagSet(kDisableLinkJumpsBetweenRegions)) {
     as->Li(as->t1, reinterpret_cast<uint64_t>(kEntryExitGeneratedCode));
     as->Jr(as->t1);
     return;

@@ -21,7 +21,8 @@
 #include "berberis/assembler/x86_64.h"
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/base/checks.h"
-#include "berberis/base/config.h"
+#include "berberis/base/config_globals.h"
+#include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state_arch.h"
 #include "berberis/guest_state/guest_state_opaque.h"
 #include "berberis/runtime_primitives/memory_region_reservation.h"
@@ -68,7 +69,7 @@ void HeavyOptimizerFrontend::BranchRegister(Register src, int16_t offset) {
   } else {
     // TODO(b/232598137) Maybe move this to translation cache?
     target = std::get<0>(Gen<x86_64::AddqRegImm>(src, offset));
-    target = std::get<0>(Gen<x86_64::AndqRegImm, kNoSSA>(target, ~int32_t{1}));
+    target = std::get<0>(Gen<x86_64::AndqRegImm>(target, ~int32_t{1}));
   }
   ExitRegionIndirect(target);
 }
@@ -146,7 +147,7 @@ bool HeavyOptimizerFrontend::IsRegionEndReached() const {
 }
 
 void HeavyOptimizerFrontend::ResolveJumps() {
-  if (!config::kLinkJumpsWithinRegion) {
+  if (IsConfigFlagSet(kDisableLinkJumpsWithinRegion)) {
     return;
   }
   auto ir = builder_.ir();
@@ -303,13 +304,11 @@ Register HeavyOptimizerFrontend::Op(Decoder::OpOpcode opcode, Register arg1, Reg
     case OpOpcode::kSra:
       return std::get<0>(Gen<x86_64::SarqRegReg>(arg1, arg2));
     case OpOpcode::kSlt:
-      return std::get<0>(
-          Gen<x86_64::MovzxbqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::SetccReg, kNoSSA>(
-              Condition::kLess, std::get<0>(Gen<x86_64::CmpqRegReg>(arg1, arg2))))));
+      return std::get<0>(Gen<x86_64::MovzxbqRegReg>(std::get<0>(Gen<x86_64::SetccReg>(
+          Condition::kLess, std::get<0>(Gen<x86_64::CmpqRegReg>(arg1, arg2))))));
     case OpOpcode::kSltu:
-      return std::get<0>(
-          Gen<x86_64::MovzxbqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::SetccReg, kNoSSA>(
-              Condition::kBelow, std::get<0>(Gen<x86_64::CmpqRegReg>(arg1, arg2))))));
+      return std::get<0>(Gen<x86_64::MovzxbqRegReg>(std::get<0>(Gen<x86_64::SetccReg>(
+          Condition::kBelow, std::get<0>(Gen<x86_64::CmpqRegReg>(arg1, arg2))))));
     case OpOpcode::kMul:
       return std::get<0>(Gen<x86_64::ImulqRegReg>(arg1, arg2));
     case OpOpcode::kMulh:
@@ -317,8 +316,8 @@ Register HeavyOptimizerFrontend::Op(Decoder::OpOpcode opcode, Register arg1, Reg
     case OpOpcode::kMulhsu: {
       auto [low, high, mul_flags] = Gen<x86_64::MulqRegRegReg>(arg1, arg2);
       auto [adjust, imul_flags] =
-          Gen<x86_64::ImulqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::SarqRegImm>(arg1, 63)), arg2);
-      return std::get<0>(Gen<x86_64::AddqRegReg, kNoSSA>(adjust, high));
+          Gen<x86_64::ImulqRegReg>(std::get<0>(Gen<x86_64::SarqRegImm>(arg1, 63)), arg2);
+      return std::get<0>(Gen<x86_64::AddqRegReg>(adjust, high));
     }
     case OpOpcode::kMulhu:
       return std::get<1>(Gen<x86_64::MulqRegRegReg>(arg1, arg2));
@@ -326,16 +325,13 @@ Register HeavyOptimizerFrontend::Op(Decoder::OpOpcode opcode, Register arg1, Reg
       if (host_platform::kHasBMI) {
         return std::get<0>(Gen<x86_64::AndnqRegRegReg>(arg2, arg1));
       } else {
-        return std::get<0>(
-            Gen<x86_64::AndqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::NotqReg>(arg2)), arg1));
+        return std::get<0>(Gen<x86_64::AndqRegReg>(std::get<0>(Gen<x86_64::NotqReg>(arg2)), arg1));
       }
       break;
     case OpOpcode::kOrn:
-      return std::get<0>(
-          Gen<x86_64::OrqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::NotqReg>(arg2)), arg1));
+      return std::get<0>(Gen<x86_64::OrqRegReg>(std::get<0>(Gen<x86_64::NotqReg>(arg2)), arg1));
     case OpOpcode::kXnor:
-      return std::get<0>(
-          Gen<x86_64::NotqReg, kNoSSA>(std::get<0>(Gen<x86_64::XorqRegReg>(arg1, arg2))));
+      return std::get<0>(Gen<x86_64::NotqReg>(std::get<0>(Gen<x86_64::XorqRegReg>(arg1, arg2))));
     default:
       Undefined();
       return {};
@@ -347,22 +343,22 @@ Register HeavyOptimizerFrontend::Op32(Decoder::Op32Opcode opcode, Register arg1,
   switch (opcode) {
     case Op32Opcode::kAddw:
       return std::get<0>(
-          Gen<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::AddlRegReg>(arg1, arg2))));
+          Gen<x86_64::MovsxlqRegReg>(std::get<0>(Gen<x86_64::AddlRegReg>(arg1, arg2))));
     case Op32Opcode::kSubw:
       return std::get<0>(
-          Gen<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::SublRegReg>(arg1, arg2))));
+          Gen<x86_64::MovsxlqRegReg>(std::get<0>(Gen<x86_64::SublRegReg>(arg1, arg2))));
     case Op32Opcode::kSllw:
       return std::get<0>(
-          Gen<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::ShllRegReg>(arg1, arg2))));
+          Gen<x86_64::MovsxlqRegReg>(std::get<0>(Gen<x86_64::ShllRegReg>(arg1, arg2))));
     case Op32Opcode::kSrlw:
       return std::get<0>(
-          Gen<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::ShrlRegReg>(arg1, arg2))));
+          Gen<x86_64::MovsxlqRegReg>(std::get<0>(Gen<x86_64::ShrlRegReg>(arg1, arg2))));
     case Op32Opcode::kSraw:
       return std::get<0>(
-          Gen<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::SarlRegReg>(arg1, arg2))));
+          Gen<x86_64::MovsxlqRegReg>(std::get<0>(Gen<x86_64::SarlRegReg>(arg1, arg2))));
     case Op32Opcode::kMulw:
       return std::get<0>(
-          Gen<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::ImullRegReg>(arg1, arg2))));
+          Gen<x86_64::MovsxlqRegReg>(std::get<0>(Gen<x86_64::ImullRegReg>(arg1, arg2))));
     default:
       Undefined();
       return {};
@@ -376,13 +372,11 @@ Register HeavyOptimizerFrontend::OpImm(Decoder::OpImmOpcode opcode, Register arg
     case OpImmOpcode::kAddi:
       return std::get<0>(Gen<x86_64::AddqRegImm>(arg, imm));
     case OpImmOpcode::kSlti:
-      return std::get<0>(
-          Gen<x86_64::MovsxbqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::SetccReg, kNoSSA>(
-              Condition::kLess, std::get<0>(Gen<x86_64::CmpqRegImm>(arg, imm))))));
+      return std::get<0>(Gen<x86_64::MovsxbqRegReg>(std::get<0>(Gen<x86_64::SetccReg>(
+          Condition::kLess, std::get<0>(Gen<x86_64::CmpqRegImm>(arg, imm))))));
     case OpImmOpcode::kSltiu:
-      return std::get<0>(
-          Gen<x86_64::MovsxbqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::SetccReg, kNoSSA>(
-              Condition::kBelow, std::get<0>(Gen<x86_64::CmpqRegImm>(arg, imm))))));
+      return std::get<0>(Gen<x86_64::MovsxbqRegReg>(std::get<0>(Gen<x86_64::SetccReg>(
+          Condition::kBelow, std::get<0>(Gen<x86_64::CmpqRegImm>(arg, imm))))));
     case OpImmOpcode::kXori:
       return std::get<0>(Gen<x86_64::XorqRegImm>(arg, imm));
     case OpImmOpcode::kOri:
@@ -399,7 +393,7 @@ Register HeavyOptimizerFrontend::OpImm32(Decoder::OpImm32Opcode opcode, Register
   switch (opcode) {
     case Decoder::OpImm32Opcode::kAddiw:
       return std::get<0>(
-          Gen<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::AddlRegImm>(arg, imm))));
+          Gen<x86_64::MovsxlqRegReg>(std::get<0>(Gen<x86_64::AddlRegImm>(arg, imm))));
     default:
       Undefined();
       return {};
@@ -425,13 +419,13 @@ Register HeavyOptimizerFrontend::ShiftImm32(Decoder::ShiftImm32Opcode opcode,
   switch (opcode) {
     case ShiftImm32Opcode::kSlliw:
       return std::get<0>(
-          Gen<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::ShllRegImm>(arg, imm))));
+          Gen<x86_64::MovsxlqRegReg>(std::get<0>(Gen<x86_64::ShllRegImm>(arg, imm))));
     case ShiftImm32Opcode::kSrliw:
       return std::get<0>(
-          Gen<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::ShrlRegImm>(arg, imm))));
+          Gen<x86_64::MovsxlqRegReg>(std::get<0>(Gen<x86_64::ShrlRegImm>(arg, imm))));
     case ShiftImm32Opcode::kSraiw:
       return std::get<0>(
-          Gen<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::SarlRegImm>(arg, imm))));
+          Gen<x86_64::MovsxlqRegReg>(std::get<0>(Gen<x86_64::SarlRegImm>(arg, imm))));
     default:
       Undefined();
       return {};
@@ -443,8 +437,7 @@ Register HeavyOptimizerFrontend::Rori(Register arg, int8_t shamt) {
 }
 
 Register HeavyOptimizerFrontend::Roriw(Register arg, int8_t shamt) {
-  return std::get<0>(
-      Gen<x86_64::MovsxlqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::RorlRegImm>(arg, shamt))));
+  return std::get<0>(Gen<x86_64::MovsxlqRegReg>(std::get<0>(Gen<x86_64::RorlRegImm>(arg, shamt))));
 }
 
 Register HeavyOptimizerFrontend::Lui(int32_t imm) {
@@ -605,8 +598,7 @@ Register HeavyOptimizerFrontend::UpdateCsr(Decoder::CsrOpcode opcode, Register a
       if (host_platform::kHasBMI) {
         return std::get<0>(Gen<x86_64::AndnqRegRegReg>(arg, csr));
       } else {
-        return std::get<0>(
-            Gen<x86_64::AndqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::NotqReg>(arg)), csr));
+        return std::get<0>(Gen<x86_64::AndqRegReg>(std::get<0>(Gen<x86_64::NotqReg>(arg)), csr));
       }
     default:
       Undefined();
@@ -619,11 +611,9 @@ Register HeavyOptimizerFrontend::UpdateCsr(Decoder::CsrImmOpcode opcode, int8_t 
     case Decoder::CsrImmOpcode::kCsrrwi:
       return std::get<0>(Gen<x86_64::MovlRegImm>(imm));
     case Decoder::CsrImmOpcode::kCsrrsi:
-      return std::get<0>(
-          Gen<x86_64::OrqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::MovlRegImm>(imm)), csr));
+      return std::get<0>(Gen<x86_64::OrqRegReg>(std::get<0>(Gen<x86_64::MovlRegImm>(imm)), csr));
     case Decoder::CsrImmOpcode::kCsrrci:
-      return std::get<0>(
-          Gen<x86_64::AndqRegReg, kNoSSA>(std::get<0>(Gen<x86_64::MovqRegImm>(~imm)), csr));
+      return std::get<0>(Gen<x86_64::AndqRegReg>(std::get<0>(Gen<x86_64::MovqRegImm>(~imm)), csr));
     default:
       Undefined();
       return {};
@@ -745,7 +735,7 @@ Register HeavyOptimizerFrontend::MemoryRegionReservationExchange(Register aligne
   int32_t address_offset = GetThreadStateReservationAddressOffset();
   auto [stored_aligned_addr] =
       Gen<x86_64::MovqRegOp>({.base = x86_64::kMachineRegRBP, .disp = address_offset});
-  Gen<x86_64::MovqOpImm>({.base = x86_64::kMachineRegRBP, .disp = address_offset}, kNullGuestAddr);
+  builder_.GenPutImm(address_offset, kNullGuestAddr);
   // Compare aligned_addr to the one in CPUState.
   builder_.Gen<PseudoCondBranch>(
       x86_64::Assembler::Condition::kNotEqual,

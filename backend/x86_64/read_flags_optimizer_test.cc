@@ -226,6 +226,45 @@ TEST(MachineIRReadFlagsOptimizer, CheckPostLoopNodeLiveIn) {
   ASSERT_FALSE(CheckPostLoopNode(bb1, regs));
 }
 
+// CheckPostLoopNode should check for copies in live_out.
+TEST(MachineIRReadFlagsOptimizer, CheckPostLoopNodeLiveOut) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  MachineReg flags = machine_ir.AllocVReg();
+  MachineReg flags_copy = machine_ir.AllocVReg();
+  MachineRegVector regs({flags}, machine_ir.arena());
+
+  auto bb0 = machine_ir.NewBasicBlock();
+  auto bb1 = machine_ir.NewBasicBlock();
+  auto bb2 = machine_ir.NewBasicBlock();
+  auto bb3 = machine_ir.NewBasicBlock();
+  machine_ir.AddEdge(bb0, bb1);
+  machine_ir.AddEdge(bb1, bb1);
+  machine_ir.AddEdge(bb1, bb2);
+  machine_ir.AddEdge(bb2, bb3);
+
+  builder.StartBasicBlock(bb0);
+  builder.Gen<PseudoBranch>(bb1);
+
+  builder.StartBasicBlock(bb1);
+  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb1, bb2, kMachineRegFLAGS);
+
+  bb2->live_in().push_back(flags);
+  builder.StartBasicBlock(bb2);
+  builder.Gen<PseudoCopy>(flags_copy, flags, 8);
+  builder.Gen<PseudoBranch>(bb3);
+  bb2->live_out().push_back(flags_copy);
+
+  bb3->live_in().push_back(flags_copy);
+  builder.StartBasicBlock(bb3);
+  builder.Gen<PseudoJump>(kNullGuestAddr);
+
+  // Should fail because we make a copy of flags that's live_out.
+  ASSERT_FALSE(CheckPostLoopNode(bb2, regs));
+}
+
 // Test that CheckPostLoopNode fails when node has more than one in_edge.
 TEST(MachineIRReadFlagsOptimizer, CheckPostLoopNodeInEdges) {
   Arena arena;
@@ -362,7 +401,7 @@ TEST(MachineIRReadFlagsOptimizer, CheckSuccessorNodeLiveIn) {
 void TestCopiedInstruction(MachineIR* machine_ir, berberis::MachineInsn* insn) {
   MachineReg reg = machine_ir->AllocVReg();
 
-  auto* copy = machine_ir->CloneInstruction(insn);
+  auto* copy = machine_ir->CloneInsn(insn);
 
   ASSERT_EQ(copy->opcode(), insn->opcode());
   // Note we use debug string to compare because it contains the actual
@@ -1084,7 +1123,6 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersRecursesOnNeighbors) {
   auto bb0 = machine_ir.NewBasicBlock();
   auto bb1 = machine_ir.NewBasicBlock();
   auto bb2 = machine_ir.NewBasicBlock();
-  auto bb3 = machine_ir.NewBasicBlock();
   machine_ir.AddEdge(bb0, bb1);
   machine_ir.AddEdge(bb0, bb2);
   machine_ir.AddEdge(bb2, bb0);

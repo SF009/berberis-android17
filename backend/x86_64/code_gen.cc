@@ -26,6 +26,7 @@
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/backend/x86_64/machine_ir_check.h"
 #include "berberis/backend/x86_64/machine_ir_opt.h"
+#include "berberis/backend/x86_64/merge_basic_blocks.h"
 #include "berberis/backend/x86_64/read_flags_optimizer.h"
 #include "berberis/backend/x86_64/rename_copy_uses.h"
 #include "berberis/backend/x86_64/rename_vregs.h"
@@ -43,27 +44,39 @@ void GenCode(MachineIR* machine_ir, MachineCode* machine_code, const GenCodePara
     TRACE("}\n\n");
   }
 
+  if (!IsConfigFlagSet(kDisableHeavyOptimizations)) {
+    // Must be called before any IR passes which introduce bb live_in's and live_out's
+    MergeBasicBlocks(machine_ir);
+  }
+
+  // Required unconditionally by RenameVRegs.
   RemoveCriticalEdges(machine_ir);
 
-  MoveColdBlocksToEnd(machine_ir);
+  if (!IsConfigFlagSet(kDisableHeavyOptimizations)) {
+    MoveColdBlocksToEnd(machine_ir);
+    RemoveLoopGuestContextAccesses(machine_ir);
+  }
 
-  RemoveLoopGuestContextAccesses(machine_ir);
+  // Required unconditionally for the correct work of AllocRegs.
   RenameVRegs(machine_ir);
 
-  RemoveLocalGuestContextAccesses(machine_ir);
-  RemoveRedundantPut(machine_ir);
-  FoldInsns(machine_ir);
-  // Call this after all phases that create copy instructions.
-  RenameCopyUses(machine_ir);
-  RemoveDeadCode(machine_ir);
-
-  FoldWriteFlags(machine_ir);
-  OptimizeReadFlags(machine_ir);
+  if (!IsConfigFlagSet(kDisableHeavyOptimizations)) {
+    RemoveLocalGuestContextAccesses(machine_ir);
+    RemoveRedundantPut(machine_ir);
+    FoldInsns(machine_ir);
+    // Call this after all phases that create copy instructions.
+    RenameCopyUses(machine_ir);
+    RemoveDeadCode(machine_ir);
+    FoldWriteFlags(machine_ir);
+    OptimizeReadFlags(machine_ir);
+  }
 
   AllocRegs(machine_ir);
 
-  RemoveNopPseudoCopy(machine_ir);
-  x86_64::RemoveForwarderBlocks(machine_ir);
+  if (!IsConfigFlagSet(kDisableHeavyOptimizations)) {
+    RemoveNopPseudoCopy(machine_ir);
+    x86_64::RemoveForwarderBlocks(machine_ir);
+  }
 
   CHECK_EQ(CheckMachineIR(*machine_ir), kMachineIRCheckSuccess);
 

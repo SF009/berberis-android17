@@ -46,15 +46,6 @@ inline constexpr uint32_t kFrameSizeAtTranslatedCode = sizeof(size_t) == 4 ? 12u
 // may be *very* slow especially if kAllJumpsExitGeneratedCode flag is
 // enabled.
 inline constexpr bool kTraceGeneratedCode = false;
-// Setting this to true enables instrumentation of every executed region in the
-// main execution loop (ExecuteGuest).
-inline constexpr bool kAllJumpsExitGeneratedCode = false;
-// Eliminate overhead of exiting/reentering generated code by searching in
-// the translation cache directly from the generated code.
-inline constexpr bool kLinkJumpsBetweenRegions = !kAllJumpsExitGeneratedCode;
-// Generate local jumps if jump's target address falls within the
-// current region. If false dispatch to another region instead.
-inline constexpr bool kLinkJumpsWithinRegion = !kAllJumpsExitGeneratedCode;
 // Number of hard registers assumed by the register allocator.
 inline constexpr uint32_t kMaxHardRegs = 64u;
 // Threshold for switching between gears

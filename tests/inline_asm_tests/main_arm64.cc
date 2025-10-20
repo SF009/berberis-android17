@@ -51,6 +51,75 @@ TEST(Arm64InsnTest, BitfieldRightInsertion) {
   ASSERT_EQ(res, 0x1668'0391'8093'7734ULL);
 }
 
+TEST(Arm64InsnTest, Lsr) {
+  uint64_t arg = 0x3276'5618'0937'7344ULL;
+  uint64_t res = 0x1668'0396'2657'9787ULL;
+
+  asm("lsr %0, %1, #4" : "=r"(res) : "r"(arg));
+
+  ASSERT_EQ(res, 0x0327'6561'8093'7734ULL);
+}
+
+TEST(Arm64InsnTest, SxtbI32) {
+  uint32_t arg = 0x0937'7344UL;
+  uint64_t res = 0x1234'1234'2657'9787ULL;
+
+  asm("sxtb %w0, %w1" : "=r"(res) : "r"(arg));
+  ASSERT_EQ(res, 0x0000'0000'0000'0044ULL);
+
+  arg = 0x8937'7384UL;
+  asm("sxtb %w0, %w1" : "=r"(res) : "r"(arg));
+  ASSERT_EQ(res, 0x0000'0000'ffff'ff84UL);
+}
+
+TEST(Arm64InsnTest, SxtbI64) {
+  uint64_t arg = 0x3276'5618'0937'7344ULL;
+  uint64_t res = 0x1668'0396'2657'9787ULL;
+
+  asm("sxtb %0, %1" : "=r"(res) : "r"(arg));
+  ASSERT_EQ(res, 0x0000'0000'0000'0044ULL);
+
+  arg = 0x3276'5618'8937'7384ULL;
+  asm("sxtb %0, %1" : "=r"(res) : "r"(arg));
+  ASSERT_EQ(res, 0xffff'ffff'ffff'ff84ULL);
+}
+
+TEST(Arm64InsnTest, SxthI32) {
+  uint32_t arg = 0x0937'7344UL;
+  uint64_t res = 0x1234'1234'2657'9787ULL;
+
+  asm("sxth %w0, %w1" : "=r"(res) : "r"(arg));
+  ASSERT_EQ(res, 0x0000'0000'0000'7344UL);
+
+  arg = 0x8937'9384UL;
+  asm("sxth %w0, %w1" : "=r"(res) : "r"(arg));
+  ASSERT_EQ(res, 0x0000'0000'ffff'9384UL);
+}
+
+TEST(Arm64InsnTest, SxthI64) {
+  uint64_t arg = 0x3276'5618'0937'7344ULL;
+  uint64_t res = 0x1668'0396'2657'9787ULL;
+
+  asm("sxth %0, %1" : "=r"(res) : "r"(arg));
+  ASSERT_EQ(res, 0x0000'0000'0000'7344ULL);
+
+  arg = 0x3276'5618'8937'9384ULL;
+  asm("sxth %0, %1" : "=r"(res) : "r"(arg));
+  ASSERT_EQ(res, 0xffff'ffff'ffff'9384ULL);
+}
+
+TEST(Arm64InsnTest, Sxtw) {
+  uint64_t arg = 0x3276'5618'0937'7344ULL;
+  uint64_t res = 0x1668'0396'2657'9787ULL;
+
+  asm("sxtw %0, %1" : "=r"(res) : "r"(arg));
+  ASSERT_EQ(res, 0x0000'0000'0937'7344ULL);
+
+  arg = 0x3276'5618'8937'7344ULL;
+  asm("sxtw %0, %1" : "=r"(res) : "r"(arg));
+  ASSERT_EQ(res, 0xffff'ffff'8937'7344ULL);
+}
+
 TEST(Arm64InsnTest, MoveImmToFp32) {
   // The tests below verify that fmov works with various immediates.
   // Specifically, the instruction has an 8-bit immediate field consisting of
@@ -475,6 +544,17 @@ TEST(Arm64InsnTest, MoveFpRegToFpReg) {
       MakeUInt128(0xaabb'ccdd'40e5'1eb8ULL, 0x0011'2233'4455'6677ULL);  // 7.16 in float
   asm("fmov %s0, %s1" : "=w"(res) : "w"(fp32_arg));
   ASSERT_EQ(res, MakeUInt128(0x40e5'1eb8ULL, 0ULL));
+}
+
+TEST(Arm64InsnTest, MoveSimdRegToReg) {
+  __uint128_t arg = MakeUInt128(0x1111'aaaa'2222'bbbbULL, 0x3333'cccc'4444'ddddULL);
+  uint64_t res32;
+  asm("fmov %w0, %s1" : "=r"(res32) : "w"(arg));
+  ASSERT_EQ(res32, 0x2222'bbbbUL);
+
+  uint64_t res64;
+  asm("fmov %x0, %d1" : "=r"(res64) : "w"(arg));
+  ASSERT_EQ(res64, 0x1111'aaaa'2222'bbbbULL);
 }
 
 TEST(Arm64InsnTest, InsertRegPartIntoSimd128) {
@@ -3473,6 +3553,19 @@ TEST(Arm64InsnTest, MulAddFp64Precision) {
   ASSERT_EQ(res, bit_cast<uint64_t>(0x1.7ffffffffffff8p1023));
 }
 
+TEST(Arm64InsnTest, MulAddI64) {
+  uint64_t arg1 = 12345;
+  uint64_t arg2 = 67890;
+  uint64_t arg3 = 100;
+  int64_t res;
+  asm("madd %0, %1, %2, %3" : "=r"(res) : "r"(arg1), "r"(arg2), "r"(arg3));
+  ASSERT_EQ(res, 838102150);
+
+  // mul is an alias for madd with the zero register.
+  asm("mul %0, %1, %2" : "=r"(res) : "r"(arg1), "r"(arg2));
+  ASSERT_EQ(res, 838102050);
+}
+
 TEST(Arm64InsnTest, NegMulAddFp32) {
   constexpr auto AsmFnmadd = ASM_INSN_WRAP_FUNC_W_RES_WWW_ARG("fnmadd %s0, %s1, %s2, %s3");
 
@@ -3664,6 +3757,18 @@ TEST(Arm64InsnTest, MulSubF64IndexedElem) {
   __uint128_t arg3 = MakeF64x2(6.0, 7.0f);
   // 6 - (2 * 1)
   ASSERT_EQ(AsmFmls(arg1, arg2, arg3), bit_cast<uint64_t>(4.0));
+}
+
+TEST(Arm64InsnTest, MulSubI64) {
+  uint64_t arg1 = 12345;
+  uint64_t arg2 = 67890;
+  uint64_t arg3 = 100;
+  int64_t res;
+  asm("msub %0, %1, %2, %3" : "=r"(res) : "r"(arg1), "r"(arg2), "r"(arg3));
+  ASSERT_EQ(res, -838101950);
+
+  asm("msub %0, %1, %2, xzr" : "=r"(res) : "r"(arg1), "r"(arg2));
+  ASSERT_EQ(res, -838102050);
 }
 
 TEST(Arm64InsnTest, CompareEqualF32) {

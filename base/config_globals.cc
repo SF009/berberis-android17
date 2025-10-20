@@ -139,6 +139,8 @@ std::string ToString(ConfigFlag flag) {
       return "accurate-sigsegv";
     case kTopByteIgnore:
       return "top-byte-ignore";
+    case kDisableHeavyOptimizations:
+      return "disable-heavy-opts";
     case kDisableRegMap:
       return "disable-reg-map";
     case kDisableAdjacentRegionsTranslation:
@@ -161,6 +163,14 @@ std::string ToString(ConfigFlag flag) {
       return "local-experiment";
     case kPlatformCustomCPUCapability:
       return "platform-custom-cpu-capability";
+    case kOptimizedInterRegionABI:
+      return "opt-inter-region-abi";
+    case kAllJumpsExitGeneratedCode:
+      return "all-jumps-exit-gen-code";
+    case kDisableLinkJumpsBetweenRegions:
+      return "disable-link-jumps-between-regions";
+    case kDisableLinkJumpsWithinRegion:
+      return "disable-link-jumps-within-region";
     case kNumConfigFlags:
       break;
   }
@@ -233,6 +243,12 @@ uintptr_t GetEntryPointOverride() {
 
 bool IsConfigFlagSet(ConfigFlag flag) {
   static auto flags_set = MakeConfigFlagsSet();
+  if (flag == kDisableLinkJumpsBetweenRegions && flags_set.test(kAllJumpsExitGeneratedCode)) {
+    return true;
+  }
+  if (flag == kDisableLinkJumpsWithinRegion && flags_set.test(kAllJumpsExitGeneratedCode)) {
+    return true;
+  }
   return flags_set.test(flag);
 }
 

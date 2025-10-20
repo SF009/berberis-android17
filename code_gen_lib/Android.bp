@@ -36,7 +36,10 @@ cc_library_headers {
 
 filegroup {
     name: "berberis_code_gen_lib_riscv64_to_x86_64_files",
-    srcs: ["riscv64_to_x86_64/gen_wrapper.cc"],
+    srcs: [
+        "riscv64_to_x86_64/code_gen_lib.cc",
+        "riscv64_to_x86_64/gen_wrapper.cc",
+    ],
 }
 
 filegroup {
@@ -56,7 +59,10 @@ filegroup {
 
 filegroup {
     name: "berberis_code_gen_lib_arm64_to_x86_64_files",
-    srcs: ["arm64_to_x86_64/gen_wrapper.cc"],
+    srcs: [
+        "arm64_to_x86_64/code_gen_lib.cc",
+        "arm64_to_x86_64/gen_wrapper.cc",
+    ],
 }
 
 filegroup {

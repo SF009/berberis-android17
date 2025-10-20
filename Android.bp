@@ -18,7 +18,7 @@ package {
 }
 
 cc_defaults {
-    name: "berberis_guest_agnostic_defaults",
+    name: "berberis_cflags_defaults",
     cflags: [
         "-Wall",
         "-Werror",
@@ -26,10 +26,17 @@ cc_defaults {
         "-Wmost",
         "-Wover-aligned",
         "-Wunused",
+        "-Werror=deprecated-volatile",
+        "-Werror=unused-variable",
         "-Wimplicit-fallthrough",
         "-Werror=reorder-init-list",
         "-Wdefaulted-function-deleted",
     ],
+}
+
+cc_defaults {
+    name: "berberis_guest_agnostic_defaults",
+    defaults: ["berberis_cflags_defaults"],
     // It is tempting to disable builds by default and explicitly enable only x86.
     // Unfortunately that way disabling darwin has no effect. So instead
     // we disable unneeded targets individually.
@@ -238,6 +245,7 @@ cc_test_host {
         "libberberis_elf_backed_exec_region_unit_tests",
         "libberberis_calling_conventions_unit_tests",
         "libberberis_intrinsics_unit_tests",
+        "libberberis_intrinsics_unit_tests_riscv64",
         "libberberis_tinyloader_unit_tests",
         "libberberis_runtime_primitives_unit_tests",
     ],
@@ -515,6 +523,13 @@ berberis_phony_rule {
             },
         },
     },
+    phony_deps: select(soong_config_variable("berberis", "target_native_bridge_abi"), {
+        "riscv64": [
+            "berberis_host_tests_result",
+        ],
+        default: [
+        ],
+    }),
 }
 
 python_binary_host {
