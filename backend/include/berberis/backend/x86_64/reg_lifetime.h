@@ -25,6 +25,12 @@
 
 namespace berberis::x86_64 {
 
+enum class RegType {
+  kUnknown,
+  kGeneral,
+  kXmm,
+};
+
 struct LiveIn {};
 struct LiveOut {};
 // Note that we treat each instruction as one unit but if we wanted to more
@@ -35,10 +41,19 @@ struct LiveOut {};
 struct RegLifetime {
   std::variant<LiveIn, berberis::MachineInsn*> start;
   std::variant<LiveOut, berberis::MachineInsn*> end;
+  RegType reg_type;
+};
+
+struct RegLifetimeCount {
+  int general;
+  int xmm;
+  void Increment(RegType reg_type);
+  void Decrement(RegType reg_type);
+  bool operator==(const RegLifetimeCount&) const = default;
 };
 
 using RegLifetimeMap = ArenaMap<MachineReg, RegLifetime>;
-using RegLifetimeCounts = ArenaMap<berberis::MachineInsn*, int>;
+using RegLifetimeCounts = ArenaMap<berberis::MachineInsn*, RegLifetimeCount>;
 
 RegLifetimeMap CountRegLifetimeMap(MachineIR* machine_ir, MachineBasicBlock* bb);
 RegLifetimeCounts CountRegLifetimes(MachineIR* machine_ir, MachineBasicBlock* bb);
