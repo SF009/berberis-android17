@@ -95,6 +95,16 @@ void DuplicateLiveOutsMap::SaveDuplicates(int bb_id, MachineReg reg1, MachineReg
   bb_contains_duplicates_map_.at(bb_id) = true;
 }
 
+void DuplicateLiveOutsMap::ProcessDef(const berberis::MachineBasicBlock* bb,
+                                      const berberis::MachineInsn* insn,
+                                      int i) {
+  MachineReg reg = insn->RegAt(i);
+  if (!reg.IsVReg()) {
+    return;
+  }
+  registers_defined_map_.at(bb->id()).at(reg.GetVRegIndex()) = true;
+}
+
 void ComputeDuplicateLiveOuts(MachineIR* machine_ir,
                               MachineBasicBlock* bb,
                               const RenameCopyUsesMap* rename_copy_uses_map,
