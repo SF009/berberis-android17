@@ -427,15 +427,14 @@ MachineInsnList PseudoWriteFlags::Lower(Arena* arena) const {
 }
 
 const MachineOpcode SSAPseudoWriteFlags::kOpcode =
-    static_cast<MachineOpcode>(kMachineOpPseudoWriteFlags | x86_64::kSSA << kSSAOpcodeBit);
+    static_cast<MachineOpcode>(kMachineOpPseudoWriteFlags | (x86_64::kSSA << kSSAOpcodeBit));
 
 SSAPseudoWriteFlags::SSAPseudoWriteFlags(MachineReg clobber, MachineReg src, MachineReg flags)
-    : MachineInsn(
-          static_cast<MachineOpcode>(kMachineOpPseudoWriteFlags | x86_64::kSSA << kSSAOpcodeBit),
-          3,
-          x86_64::kSSAPseudoWriteFlagsInfo,
-          regs_,
-          kMachineInsnDefault),
+    : MachineInsn(SSAPseudoWriteFlags::kOpcode,
+                  3,
+                  x86_64::kSSAPseudoWriteFlagsInfo,
+                  regs_,
+                  kMachineInsnDefault),
       regs_{clobber, src, flags} {}
 
 SSAPseudoWriteFlags::SSAPseudoWriteFlags(const SSAPseudoWriteFlags& insn)
