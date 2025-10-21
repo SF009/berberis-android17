@@ -247,7 +247,7 @@ class Enter final : public MachineInsnX86_64 {
   friend Enter* NewInArena<Enter, const Enter&>(Arena*, const Enter&);
   Enter(const Enter&) = default;
   MachineInsn* Clone(Arena* arena) const override;
-  std::array<MachineInsn*, kMaxLoweredInsns> Lower(Arena* arena) const override;
+  MachineInsnList Lower(Arena* arena) const override;
 };
 
 // Clobbered registers are described as DEF'ed.
@@ -283,7 +283,7 @@ class CallImm final : public MachineInsnX86_64 {
   friend CallImm* NewInArena<CallImm, const CallImm&>(Arena*, const CallImm&);
   CallImm(const CallImm&) = default;
   MachineInsn* Clone(Arena* arena) const override;
-  std::array<MachineInsn*, kMaxLoweredInsns> Lower(Arena* arena) const override;
+  MachineInsnList Lower(Arena* arena) const override;
 };
 
 // An auxiliary instruction to express data-flow for CallImm arguments.  It uses the same vreg as
@@ -303,7 +303,7 @@ class CallImmArg final : public MachineInsnX86_64 {
   friend CallImmArg* NewInArena<CallImmArg, const CallImmArg&>(Arena*, const CallImmArg&);
   CallImmArg(const CallImmArg&) = default;
   MachineInsn* Clone(Arena* arena) const override;
-  std::array<MachineInsn*, kMaxLoweredInsns> Lower(Arena* arena) const override;
+  MachineInsnList Lower(Arena* arena) const override;
 };
 
 enum SSAMode {
@@ -408,10 +408,6 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
   static constexpr std::array<MachineInsnInfo,
                               1 << (2 * (device_arch_info::kIsMemoryOperand<Operands> + ... + 0))>
   GenMachineInsnInfos();
-
-  static_assert(((device_arch_info::kIsRegister<Operands> &&
-                  Operands::kUsage == device_arch_info::kUseDef) +
-                 ... + 0) < kMaxLoweredInsns);
 
  public:
   // This static simplifies constructing this MachineInsn in intrinsic implementations.
@@ -642,11 +638,11 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
   berberis::MachineInsn* Clone(Arena* arena) const override {
     return NewInArena<MachineInsn, const MachineInsn&>(arena, *this);
   }
-  std::array<berberis::MachineInsn*, kMaxLoweredInsns> Lower(Arena* arena) const override {
+  MachineInsnList Lower(Arena* arena) const override {
     if constexpr (kSSAMode == kSSA) {
       FATAL("Not implemented yet:");
     } else {
-      return {NewInArena<MachineInsn, const MachineInsn&>(arena, *this)};
+      return {1, NewInArena<MachineInsn, const MachineInsn&>(arena, *this), arena};
     }
   }
 
