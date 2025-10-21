@@ -29,12 +29,17 @@ void EmitStoreMappedRegsIfNeeded(x86_64::Assembler* as) {
     return;
   }
 
+  x86_64::Assembler::Label* end_label = as->MakeLabel();
+  as->Cmpb({.base = as->rbp, .disp = offsetof(ThreadState, is_optimized_inter_region_abi_enabled)},
+           uint8_t{0});
+  as->Jcc(x86_64::Assembler::Condition::kEqual, *end_label);
   as->Movq({.base = as->rbp, .disp = static_cast<int32_t>(GetThreadStateRegOffset(0))}, as->r8);
   as->Movq({.base = as->rbp, .disp = static_cast<int32_t>(GetThreadStateRegOffset(1))}, as->r9);
   as->Movq({.base = as->rbp, .disp = static_cast<int32_t>(GetThreadStateRegOffset(8))}, as->r10);
   as->Movq({.base = as->rbp, .disp = static_cast<int32_t>(GetThreadStateRegOffset(19))}, as->r11);
   as->Movq({.base = as->rbp, .disp = static_cast<int32_t>(GetThreadStateRegOffset(30))}, as->r12);
   as->Movq({.base = as->rbp, .disp = offsetof(ThreadState, cpu.sp)}, as->r13);
+  as->Bind(end_label);
 }
 
 void EmitLoadMappedRegsIfNeeded(x86_64::Assembler* as) {
@@ -42,12 +47,17 @@ void EmitLoadMappedRegsIfNeeded(x86_64::Assembler* as) {
     return;
   }
 
+  x86_64::Assembler::Label* end_label = as->MakeLabel();
+  as->Cmpb({.base = as->rbp, .disp = offsetof(ThreadState, is_optimized_inter_region_abi_enabled)},
+           uint8_t{0});
+  as->Jcc(x86_64::Assembler::Condition::kEqual, *end_label);
   as->Movq(as->r8, {.base = as->rbp, .disp = static_cast<int32_t>(GetThreadStateRegOffset(0))});
   as->Movq(as->r9, {.base = as->rbp, .disp = static_cast<int32_t>(GetThreadStateRegOffset(1))});
   as->Movq(as->r10, {.base = as->rbp, .disp = static_cast<int32_t>(GetThreadStateRegOffset(8))});
   as->Movq(as->r11, {.base = as->rbp, .disp = static_cast<int32_t>(GetThreadStateRegOffset(19))});
   as->Movq(as->r12, {.base = as->rbp, .disp = static_cast<int32_t>(GetThreadStateRegOffset(30))});
   as->Movq(as->r13, {.base = as->rbp, .disp = offsetof(ThreadState, cpu.sp)});
+  as->Bind(end_label);
 }
 
 }  // namespace berberis
