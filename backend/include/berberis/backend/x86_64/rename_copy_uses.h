@@ -35,6 +35,7 @@ class RenameCopyUsesMap {
   void ProcessCopy(berberis::MachineInsn* copy);
   void Tick() { time_++; }
   void StartBasicBlock(MachineBasicBlock* bb);
+  MachineReg Get(MachineReg reg) const;
 
  private:
   struct RenameData {
@@ -43,8 +44,8 @@ class RenameCopyUsesMap {
     uint64_t last_def_time;
   };
 
-  MachineReg Get(MachineReg reg);
   RenameData& RenameDataForReg(MachineReg reg) { return map_.at(reg.GetVRegIndex()); }
+  const RenameData& RenameDataForReg(MachineReg reg) const { return map_.at(reg.GetVRegIndex()); }
 
   ArenaVector<RenameData> map_;
   // Since we are not SSA or SSI we keep track of time of definitions to see if
@@ -52,6 +53,50 @@ class RenameCopyUsesMap {
   uint64_t time_ = 0;
   MachineBasicBlock* bb_;
 };
+
+class DuplicateLiveOutsMap {
+ public:
+  explicit DuplicateLiveOutsMap(MachineIR* machine_ir)
+      : duplicate_live_outs_map_(
+            machine_ir->NumBasicBlocks(),
+            ArenaVector<MachineReg>(machine_ir->NumVReg(), kInvalidMachineReg, machine_ir->arena()),
+            machine_ir->arena()),
+        bb_contains_duplicates_map_(machine_ir->NumBasicBlocks(), false, machine_ir->arena()) {}
+
+  void SaveDuplicates(int bb_id, MachineReg reg1, MachineReg reg2);
+
+  [[nodiscard]] MachineReg GetDuplicateForTesting(const berberis::MachineBasicBlock* bb,
+                                                  MachineReg reg) const {
+    return GetDuplicate(bb, reg);
+  }
+
+  [[nodiscard]] bool BasicBlockContainsDuplicateLiveOuts(
+      const berberis::MachineBasicBlock* bb) const {
+    return bb_contains_duplicates_map_.at(bb->id());
+  }
+
+ private:
+  [[nodiscard]] MachineReg GetDuplicate(const berberis::MachineBasicBlock* bb,
+                                        MachineReg reg) const {
+    if (!reg.IsVReg()) {
+      return kInvalidMachineReg;
+    }
+    return duplicate_live_outs_map_.at(bb->id()).at(reg.GetVRegIndex());
+  }
+
+  // duplicate_live_outs_map_[x][y] == z means:
+  // at the end of basic block x, register y has the same value as z, where both y and z
+  // are live_out registers.
+  ArenaVector<ArenaVector<MachineReg>> duplicate_live_outs_map_;
+
+  // bb_contains_duplicates_map_[x] == true means: bb x contains duplicate live_outs.
+  ArenaVector<bool> bb_contains_duplicates_map_;
+};
+
+void ComputeDuplicateLiveOuts(MachineIR* machine_ir,
+                              MachineBasicBlock* bb,
+                              const RenameCopyUsesMap* rename_copy_uses_map,
+                              DuplicateLiveOutsMap* duplicate_live_outs_map);
 
 void RenameCopyUsesInBasicBlock(MachineBasicBlock* bb, RenameCopyUsesMap* rename_copy_uses_map);
 void RenameCopyUses(MachineIR* machine_ir);

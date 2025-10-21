@@ -20,7 +20,7 @@
 
 namespace berberis::x86_64 {
 
-MachineReg RenameCopyUsesMap::Get(MachineReg reg) {
+MachineReg RenameCopyUsesMap::Get(MachineReg reg) const {
   MachineReg renamed = RenameDataForReg(reg).renamed;
   if (renamed == kInvalidMachineReg) {
     return kInvalidMachineReg;
@@ -66,10 +66,14 @@ void RenameCopyUsesMap::ProcessCopy(berberis::MachineInsn* copy) {
     return;
   }
 
-  if (Contains(bb_->live_out(), dst)) {
+  if (Contains(bb_->live_out(), dst) && !Contains(bb_->live_out(), src)) {
     // If dst is a live-out then renaming it to src won't help eliminate the copy. So instead we
-    // rename src to dst. In an unlikely event when src is also a live-out it doesn't matter
-    // which one we rename.
+    // rename src to dst.
+    // When dst and src are both live-out, we choose to rename dst to src. This means that when
+    // either dst or src is copied to another live-out register, say dst2, both dst and dst2 will
+    // be renamed to src by the global renamer.
+    // TODO(b/448293427): Use RenameCopyUsesData and DuplicateLiveOut data to implement global copy
+    // use renaming.
     RenameDataForReg(src).renamed = dst;
     RenameDataForReg(src).renaming_time = time_;
   } else {
@@ -81,6 +85,38 @@ void RenameCopyUsesMap::StartBasicBlock(MachineBasicBlock* bb) {
   bb_ = bb;
   for (auto& data : map_) {
     data = {kInvalidMachineReg, 0, 0};
+  }
+}
+
+void DuplicateLiveOutsMap::SaveDuplicates(int bb_id, MachineReg reg1, MachineReg reg2) {
+  CHECK(reg1.IsVReg() && reg2.IsVReg());
+  CHECK_NE(reg1.GetVRegIndex(), reg2.GetVRegIndex());
+  duplicate_live_outs_map_.at(bb_id).at(reg1.GetVRegIndex()) = reg2;
+  bb_contains_duplicates_map_.at(bb_id) = true;
+}
+
+void ComputeDuplicateLiveOuts(MachineIR* machine_ir,
+                              MachineBasicBlock* bb,
+                              const RenameCopyUsesMap* rename_copy_uses_map,
+                              DuplicateLiveOutsMap* duplicate_live_outs_map) {
+  ArenaVector<bool> bb_live_outs_set(machine_ir->NumVReg(), false, machine_ir->arena());
+  for (auto reg : bb->live_out()) {
+    CHECK(reg.IsVReg());
+    bb_live_outs_set.at(reg.GetVRegIndex()) = true;
+  }
+  for (auto reg : bb->live_out()) {
+    MachineReg mapped = rename_copy_uses_map->Get(reg);
+    if (mapped.IsInvalidReg()) {
+      continue;
+    }
+    if (bb_live_outs_set.at(mapped.GetVRegIndex())) {
+      // We should never see a reg mapped to a mapped reg
+      CHECK(rename_copy_uses_map->Get(mapped).IsInvalidReg());
+      // Note that bb->live_out() can contain multiple instances of the same vreg, and so
+      // SaveDuplicates may be called multiple times for the same pair, but SaveDuplicates is
+      // implemented such that this is harmless.
+      duplicate_live_outs_map->SaveDuplicates(bb->id(), reg, mapped);
+    }
   }
 }
 
