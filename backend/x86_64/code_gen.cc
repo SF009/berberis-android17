@@ -23,6 +23,7 @@
 #include "berberis/backend/x86_64/insn_folding.h"
 #include "berberis/backend/x86_64/local_guest_context_optimizer.h"
 #include "berberis/backend/x86_64/loop_guest_context_optimizer.h"
+#include "berberis/backend/x86_64/lower_ssa_instructions.h"
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/backend/x86_64/machine_ir_check.h"
 #include "berberis/backend/x86_64/machine_ir_opt.h"
@@ -37,6 +38,7 @@
 namespace berberis::x86_64 {
 
 void GenCode(MachineIR* machine_ir, MachineCode* machine_code, const GenCodeParams& params) {
+  LowerSSAInstructions(machine_ir);
   CHECK_EQ(CheckMachineIR(*machine_ir), kMachineIRCheckSuccess);
   if (IsConfigFlagSet(kVerboseTranslation) || IsConfigFlagSet(kPrintIRs)) {
     TRACE("MachineIR before optimizations {\n");
