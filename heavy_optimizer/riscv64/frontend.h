@@ -250,31 +250,35 @@ class HeavyOptimizerFrontend {
     if (host_platform::kHasAVX) {
       // This code is defined as intrinsic but if we would call it as intrinsic it would be called
       // recursively.
-      builder_.Gen<x86_64::MachineInsn<device_arch_info::DeviceInsnInfo<
-          &MacroAssembler<x86_64::Assembler>::UnboxNanAVX<Float32>,
-          "UNBOX_F32",
-          true,
-          []<typename Opcode> { return Opcode::kMachineOpUnboxNanFloat32AVX; },
-          x86_64::device_arch_info::HasAVX,
-          std::tuple<device_arch_info::OperandInfo<x86_64::device_arch_info::FpReg32,
-                                                   device_arch_info::kDef>,
-                     device_arch_info::OperandInfo<x86_64::device_arch_info::FpReg64,
-                                                   device_arch_info::kUseDef>>>>>(
-          unboxed_result.machine_reg(), result.machine_reg());
+      builder_.Gen<x86_64::MachineInsn<
+          device_arch_info::DeviceInsnInfo<
+              &MacroAssembler<x86_64::Assembler>::UnboxNanAVX<Float32>,
+              "UNBOX_F32",
+              true,
+              []<typename Opcode> { return Opcode::kMachineOpUnboxNanFloat32AVX; },
+              x86_64::device_arch_info::HasAVX,
+              std::tuple<device_arch_info::OperandInfo<x86_64::device_arch_info::FpReg32,
+                                                       device_arch_info::kDef>,
+                         device_arch_info::OperandInfo<x86_64::device_arch_info::FpReg64,
+                                                       device_arch_info::kUseDef>>>,
+          x86_64::kSSA>>(
+          unboxed_result.machine_reg(), AllocTempSimdReg().machine_reg(), result.machine_reg());
     } else {
       // This code is defined as intrinsic but if we would call it as intrinsic it would be called
       // recursively.
-      builder_.Gen<x86_64::MachineInsn<device_arch_info::DeviceInsnInfo<
-          &MacroAssembler<x86_64::Assembler>::UnboxNan<Float32>,
-          "UNBOX_F32",
-          true,
-          []<typename Opcode> { return Opcode::kMachineOpUnboxNanFloat32; },
-          device_arch_info::NoCPUIDRestriction,
-          std::tuple<device_arch_info::OperandInfo<x86_64::device_arch_info::FpReg32,
-                                                   device_arch_info::kDef>,
-                     device_arch_info::OperandInfo<x86_64::device_arch_info::FpReg64,
-                                                   device_arch_info::kUseDef>>>>>(
-          unboxed_result.machine_reg(), result.machine_reg());
+      builder_.Gen<x86_64::MachineInsn<
+          device_arch_info::DeviceInsnInfo<
+              &MacroAssembler<x86_64::Assembler>::UnboxNan<Float32>,
+              "UNBOX_F32",
+              true,
+              []<typename Opcode> { return Opcode::kMachineOpUnboxNanFloat32; },
+              device_arch_info::NoCPUIDRestriction,
+              std::tuple<device_arch_info::OperandInfo<x86_64::device_arch_info::FpReg32,
+                                                       device_arch_info::kDef>,
+                         device_arch_info::OperandInfo<x86_64::device_arch_info::FpReg64,
+                                                       device_arch_info::kUseDef>>>,
+          x86_64::kSSA>>(
+          unboxed_result.machine_reg(), AllocTempSimdReg().machine_reg(), result.machine_reg());
     }
     return unboxed_result;
   }
@@ -284,29 +288,32 @@ class HeavyOptimizerFrontend {
     if (host_platform::kHasAVX) {
       // This code is defined as intrinsic but if we would call it as intrinsic it would be called
       // recursively.
-      builder_.Gen<x86_64::MachineInsn<device_arch_info::DeviceInsnInfo<
-          &MacroAssembler<x86_64::Assembler>::NanBoxAVX<Float32>,
-          "BOX_F32",
-          true,
-          []<typename Opcode> { return Opcode::kMachineOpNanBoxFloat32AVX; },
-          x86_64::device_arch_info::HasAVX,
-          std::tuple<device_arch_info::OperandInfo<x86_64::device_arch_info::FpReg64,
-                                                   device_arch_info::kDef>,
-                     device_arch_info::OperandInfo<x86_64::device_arch_info::FpReg32,
-                                                   device_arch_info::kUseDef>>>>>(
-          value.machine_reg(), value.machine_reg());
+      builder_.Gen<x86_64::MachineInsn<
+          device_arch_info::DeviceInsnInfo<
+              &MacroAssembler<x86_64::Assembler>::NanBoxAVX<Float32>,
+              "BOX_F32",
+              true,
+              []<typename Opcode> { return Opcode::kMachineOpNanBoxFloat32AVX; },
+              x86_64::device_arch_info::HasAVX,
+              std::tuple<device_arch_info::OperandInfo<x86_64::device_arch_info::FpReg64,
+                                                       device_arch_info::kDef>,
+                         device_arch_info::OperandInfo<x86_64::device_arch_info::FpReg32,
+                                                       device_arch_info::kUseDef>>>,
+          x86_64::kSSA>>(
+          value.machine_reg(), AllocTempSimdReg().machine_reg(), value.machine_reg());
     } else {
       // This code is defined as intrinsic but if we would call it as intrinsic it would be called
       // recursively.
-      builder_.Gen<x86_64::MachineInsn<device_arch_info::DeviceInsnInfo<
-          &MacroAssembler<x86_64::Assembler>::NanBox<Float32>,
-          "BOX_F32",
-          true,
-          []<typename Opcode> { return Opcode::kMachineOpNanBoxFloat32; },
-          device_arch_info::NoCPUIDRestriction,
-          std::tuple<device_arch_info::OperandInfo<x86_64::device_arch_info::FpReg64,
-                                                   device_arch_info::kUseDef>>>>>(
-          value.machine_reg());
+      builder_.Gen<x86_64::MachineInsn<
+          device_arch_info::DeviceInsnInfo<
+              &MacroAssembler<x86_64::Assembler>::NanBox<Float32>,
+              "BOX_F32",
+              true,
+              []<typename Opcode> { return Opcode::kMachineOpNanBoxFloat32; },
+              device_arch_info::NoCPUIDRestriction,
+              std::tuple<device_arch_info::OperandInfo<x86_64::device_arch_info::FpReg64,
+                                                       device_arch_info::kUseDef>>>,
+          x86_64::kSSA>>(AllocTempSimdReg().machine_reg(), value.machine_reg());
     }
   }
 
@@ -569,7 +576,7 @@ class HeavyOptimizerFrontend {
       InputArgsTuple,
       typename x86_64::MachineInsn<
           typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,
-          kSSAMode>::OutputArgsTuple,
+          x86_64::kSSA>::OutputArgsTuple,
       Gen,
       ())
 
