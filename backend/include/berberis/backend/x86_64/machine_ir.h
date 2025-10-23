@@ -612,6 +612,7 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                            }
                            operand.disp = static_cast<int32_t>(disp());
                          } else /* mem_idx == 2 */ {
+                           CHECK_EQ(mem_idx, 2);
                            if (has_index) {
                              operand.scale = scale2();
                            }
@@ -640,7 +641,73 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
   }
   MachineInsnList Lower(Arena* arena) const override {
     if constexpr (kSSAMode == kSSA) {
-      FATAL("Not implemented yet:");
+      MachineInsnList result(arena);
+      // Code below assumes that we have at most two memory operands.
+      static_assert((device_arch_info::kIsMemoryOperand<Operands> + ... + 0) <= 2);
+      size_t kind_idx{}, reg_idx{}, mem_idx{};
+      result.push_back(std::apply(
+          NewInArena<MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
+                                                                  kMnemo,
+                                                                  kSideEffects,
+                                                                  GetOpcode,
+                                                                  CPUIDRestriction,
+                                                                  std::tuple<Operands...>>,
+                                 kNoSSA>,
+                     NoSSAConstructorArgs...>,
+          std::tuple_cat(
+              std::tuple{arena},
+              [&kind_idx, &reg_idx, &mem_idx, &result, arena, this]<typename Operand> {
+                // Suppress spurious warnings.
+                // See
+                // https://github.com/llvm/llvm-project/issues/34798#issuecomment-980989495
+                (void)kind_idx;
+                (void)reg_idx;
+                (void)mem_idx;
+                (void)result;
+                (void)arena;
+                if constexpr (device_arch_info::kIsCondition<Operands>) {
+                  return std::tuple{MachineInsnX86_64::cond()};
+                } else if constexpr (device_arch_info::kIsImmediate<Operands>) {
+                  return std::tuple{MachineInsnX86_64::imm()};
+                } else if constexpr (device_arch_info::kIsMemoryOperand<Operands>) {
+                  auto [has_base, has_index] = OpcodeHasMemoryBaseIndex(mem_idx++);
+                  MemoryOperand operand;
+                  if (has_base) {
+                    operand.base = MachineInsnX86_64::RegAt(reg_idx++);
+                  }
+                  if (has_index) {
+                    operand.index = MachineInsnX86_64::RegAt(reg_idx++);
+                  }
+                  if (mem_idx == 1) {
+                    if (has_index) {
+                      operand.scale = scale();
+                    }
+                    operand.disp = static_cast<int32_t>(disp());
+                  } else /* mem_idx == 2 */ {
+                    CHECK_EQ(mem_idx, 2);
+                    if (has_index) {
+                      operand.scale = scale2();
+                    }
+                    operand.disp = static_cast<int32_t>(disp2());
+                  }
+                  return std::tuple{operand};
+                } else if constexpr (device_arch_info::kIsRegister<Operand>) {
+                  if (Operand::kUsage == device_arch_info::kUseDef) {
+                    auto dst = MachineInsnX86_64::RegAt(reg_idx++);
+                    kind_idx++;
+                    auto src = MachineInsnX86_64::RegAt(reg_idx++);
+                    result.push_back(NewInArena<PseudoCopy>(
+                        arena, dst, src, kInfo.reg_kinds[kind_idx++].RegClass()->reg_size));
+                    return std::tuple{dst};
+                  } else {
+                    kind_idx++;
+                    return std::tuple{MachineInsnX86_64::RegAt(reg_idx++)};
+                  }
+                } else {
+                  static_assert(kDependentTypeFalse<Operand>);
+                }
+              }.template operator()<Operands>()...)));
+      return result;
     } else {
       return {1, NewInArena<MachineInsn, const MachineInsn&>(arena, *this), arena};
     }
