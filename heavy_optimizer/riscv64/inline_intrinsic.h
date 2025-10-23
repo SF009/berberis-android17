@@ -408,12 +408,12 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
           static_assert(kDependentTypeFalse<ArgBinding>);
         } else {
           CHECK(xmm_result_reg_.IsInvalidReg());
-          xmm_result_reg_ = AllocVReg();
-          return std::tuple{xmm_result_reg_, std::get<ArgBinding::kArgInfo.from>(input_args_)};
+          return std::tuple{xmm_result_reg_ = AllocVReg(),
+                            std::get<ArgBinding::kArgInfo.from>(input_args_)};
         }
       } else if constexpr (kNumOut > 1) {
-        auto res = std::get<ArgBinding::kArgInfo.to>(result_);
-        return std::tuple{res, std::get<ArgBinding::kArgInfo.from>(input_args_)};
+        return std::tuple{std::get<ArgBinding::kArgInfo.to>(result_),
+                          std::get<ArgBinding::kArgInfo.from>(input_args_)};
       } else {
         return std::tuple{result_, std::get<ArgBinding::kArgInfo.from>(input_args_)};
       }
@@ -425,13 +425,12 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
         static_assert(kDependentTypeFalse<ArgBinding>);
       } else {
         CHECK(implicit_result_reg_.IsInvalidReg());
-        implicit_result_reg_ = AllocVReg();
-        return std::tuple{implicit_result_reg_, std::get<ArgBinding::kArgInfo.from>(input_args_)};
+        return std::tuple{implicit_result_reg_ = AllocVReg(),
+                          std::get<ArgBinding::kArgInfo.from>(input_args_)};
       }
     } else if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::IN_TMP_ARG) {
       if constexpr (kUsage == device_arch_info::kUseDef) {
-        auto clobber_reg = AllocVReg();
-        return std::tuple{clobber_reg, std::get<ArgBinding::kArgInfo.from>(input_args_)};
+        return std::tuple{AllocVReg(), std::get<ArgBinding::kArgInfo.from>(input_args_)};
       } else if constexpr (device_arch_info::kIsImplicitReg<OperandInfo>) {
         static_assert(kUsage == device_arch_info::kUse);
         auto implicit_reg = AllocVReg();
