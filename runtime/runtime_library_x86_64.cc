@@ -29,7 +29,7 @@
   asm(                                                                  \
       /* Sync insn_addr. */                                             \
       "mov %%rax, %[InsnAddr](%%rbp)\n"                                 \
-      "cmpl $0, %[OptimizedABIFlag](%%rbp)\n"                           \
+      "cmpb $0, %[OptimizedABIEnabledFlag](%%rbp)\n"                    \
       "je 1f\n"                                                         \
       "mov %%r8, %[X0](%%rbp)\n"                                        \
       "mov %%r9, %[X1](%%rbp)\n"                                        \
@@ -59,7 +59,7 @@
       "pop %%rbp\n"                                                     \
       EXIT_INSN                                                         \
       ::[InsnAddr] "p"(offsetof(berberis::ThreadState, cpu.insn_addr)), \
-      [OptimizedABIFlag] "p"(offsetof(berberis::ThreadState, is_optimized_inter_region_abi)), \
+      [OptimizedABIEnabledFlag] "p"(offsetof(berberis::ThreadState, is_optimized_inter_region_abi_enabled)), \
       [X0] "p"(offsetof(berberis::ThreadState, cpu.x[0])),              \
       [X1] "p"(offsetof(berberis::ThreadState, cpu.x[1])),              \
       [X2] "p"(offsetof(berberis::ThreadState, cpu.x[8])),              \
@@ -194,15 +194,7 @@ extern "C" {
     // Set insn_addr.
     "mov %[InsnAddr](%%rbp), %%rax\n"
 #if defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
-    "cmpl $0, %[OptimizedABIFlag](%%rbp)\n"
-    "je 1f\n"
-    "mov %[X0](%%rbp), %%r8\n"
-    "mov %[X1](%%rbp), %%r9\n"
-    "mov %[X2](%%rbp), %%r10\n"
-    "mov %[X3](%%rbp), %%r11\n"
-    "mov %[X4](%%rbp), %%r12\n"
-    "mov %[X5](%%rbp), %%r13\n"
-    "1:\n"
+    "movb $0, %[OptimizedABIEnabledFlag](%%rbp)\n"
 #endif  // defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
     // Set kInsideGeneratedCode residence.
     "movb %[InsideGeneratedCode], %[Residence](%%rbp)\n"
@@ -211,7 +203,7 @@ extern "C" {
     "jmp *%%rsi"
     ::[InsnAddr] "p"(offsetof(ThreadState, cpu.insn_addr)),
 #if defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
-    [OptimizedABIFlag] "p"(offsetof(berberis::ThreadState, is_optimized_inter_region_abi)),
+    [OptimizedABIEnabledFlag] "p"(offsetof(berberis::ThreadState, is_optimized_inter_region_abi_enabled)),
     [X0] "p"(offsetof(berberis::ThreadState, cpu.x[0])),
     [X1] "p"(offsetof(berberis::ThreadState, cpu.x[1])),
     [X2] "p"(offsetof(berberis::ThreadState, cpu.x[8])),
