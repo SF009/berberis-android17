@@ -368,7 +368,7 @@ void VRegLifetimeAllocator::Allocate() {
 }
 
 void CollectLifetimes(const MachineIR* machine_ir, VRegLifetimeList* lifetimes) {
-  VRegLifetimeAnalysis lifetime_analysis(machine_ir->arena(), 2 * machine_ir->NumVReg(), lifetimes);
+  VRegLifetimeAnalysis lifetime_analysis(machine_ir->arena(), machine_ir->NumVReg(), lifetimes);
 
   // Not 'const' because we need pointer to modifiable bb->insn_list().
   for (auto* bb : machine_ir->bb_list()) {

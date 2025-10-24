@@ -86,7 +86,7 @@ class VRegUse {
  private:
   // Insn to rewrite and spill/reload insert position.
   MachineInsnListPosition pos_;
-  // Index or register operand.
+  // Index of register operand.
   int index_;
   // Range for interference test.
   int begin_;

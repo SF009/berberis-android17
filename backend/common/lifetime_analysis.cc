@@ -16,14 +16,14 @@
 
 #include "berberis/backend/common/lifetime_analysis.h"
 
+#include "berberis/backend/common/lifetime.h"
+#include "berberis/backend/common/machine_ir.h"
+#include "berberis/base/checks.h"
+
 namespace berberis {
 
 VRegLifetime* VRegLifetimeAnalysis::GetVRegLifetime(MachineReg r, int begin) {
-  uint32_t i = r.GetVRegIndex();
-  if (vreg_lifetimes_.size() < i + 1) {
-    vreg_lifetimes_.resize(i + 1, nullptr);
-  }
-  VRegLifetime*& lifetime = vreg_lifetimes_[i];
+  VRegLifetime*& lifetime = vreg_lifetimes_.at(r.GetVRegIndex());
   if (lifetime) {
     // Ensure the lifetime has live range for current basic block.
     // Use last live range begin to check that, as lifetime end might be equal

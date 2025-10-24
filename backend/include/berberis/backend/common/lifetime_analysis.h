@@ -21,7 +21,7 @@
 #include "berberis/backend/common/machine_ir.h"
 #include "berberis/base/arena_alloc.h"
 #include "berberis/base/arena_vector.h"
-#include "berberis/base/logging.h"
+#include "berberis/base/checks.h"
 
 namespace berberis {
 
