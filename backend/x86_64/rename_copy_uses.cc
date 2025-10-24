@@ -109,6 +109,10 @@ void DuplicateLiveOutsMap::RenameAndRemoveDuplicateLiveIns(
     const berberis::MachineBasicBlock* prev_bb) {
   ArenaVector<bool> bb_renamed_live_in_registers_map(
       machine_ir->NumVReg(), false, machine_ir->arena());
+  ArenaVector<bool> live_ins_map(machine_ir->NumVReg(), false, machine_ir->arena());
+  for (auto live_in : bb->live_in()) {
+    live_ins_map.at(live_in.GetVRegIndex()) = true;
+  }
   bool live_in_register_renaming_occurred = false;
   for (auto* insn : bb->insn_list()) {
     for (int i = 0; i < insn->NumRegOperands(); ++i) {
@@ -118,6 +122,12 @@ void DuplicateLiveOutsMap::RenameAndRemoveDuplicateLiveIns(
         continue;
       }
       if (BasicBlockDefinesRegister(bb, reg) || BasicBlockDefinesRegister(bb, mapped_reg)) {
+        continue;
+      }
+      CHECK(live_ins_map.at(reg.GetVRegIndex()));
+      // 'mapped_reg' may not live-in into this block and only be used in another successor of
+      // 'prev_bb'
+      if (!live_ins_map.at(mapped_reg.GetVRegIndex())) {
         continue;
       }
       live_in_register_renaming_occurred = true;

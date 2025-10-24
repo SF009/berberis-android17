@@ -597,6 +597,50 @@ TEST(MachineIRRenameCopyUsesTest, DuplicateLiveInsWhichAreOverwrittenDoNotGetRen
   EXPECT_TRUE(Contains(bb2->live_in(), vreg1));
 }
 
+TEST(MachineIRRenameCopyUsesTest, DoNotRenameDuplicateRegisterWhichIsMappedToNonLiveIn) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  auto* bb1 = machine_ir.NewBasicBlock();
+  auto* bb2 = machine_ir.NewBasicBlock();
+  auto* bb3 = machine_ir.NewBasicBlock();
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  MachineReg vreg1 = machine_ir.AllocVReg();
+  MachineReg vreg2 = machine_ir.AllocVReg();
+  MachineReg vreg3 = machine_ir.AllocVReg();
+
+  builder.StartBasicBlock(bb1);
+  builder.Gen<PseudoCopy>(vreg1, vreg2, 8);
+  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  machine_ir.AddEdge(bb1, bb2);
+  machine_ir.AddEdge(bb1, bb3);
+  bb1->live_out().push_back(vreg1);
+  bb1->live_out().push_back(vreg2);
+
+  builder.StartBasicBlock(bb2);
+  bb2->live_in().push_back(vreg1);
+  bb2->live_in().push_back(vreg2);
+  auto* bb2_insn_1 = builder.Gen<PseudoCopy>(vreg3, vreg1, 8);
+  builder.Gen<PseudoJump>(kNullGuestAddr);
+
+  builder.StartBasicBlock(bb3);
+  bb3->live_in().push_back(vreg1);
+  auto* bb3_insn_1 = builder.Gen<PseudoCopy>(vreg3, vreg1, 8);
+  builder.Gen<PseudoJump>(kNullGuestAddr);
+
+  ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
+  RenameCopyUses(&machine_ir);
+  ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
+
+  EXPECT_EQ(bb2_insn_1->RegAt(1), vreg2);
+  EXPECT_EQ(bb3_insn_1->RegAt(1), vreg1);
+
+  EXPECT_FALSE(Contains(bb2->live_in(), vreg1));
+  EXPECT_TRUE(Contains(bb3->live_in(), vreg1));
+}
+
 }  // namespace
 
 }  // namespace berberis::x86_64
