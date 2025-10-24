@@ -540,9 +540,8 @@ def _get_semantics_player_hook_template_switch(name, intr):
     expectations =  _get_expectations_for_variant(variant)
     yield '%scase intrinsics::TrivialDemultiplexer(%s):' % (
       INDENT, ', '.join(expectations))
-    yield 2 * INDENT + "// Disable LOG_NDEBUG to use DCHECK for debugging!"
     for expectation, variable in zip(expectations, variables):
-      yield 2 * INDENT + 'DCHECK_EQ(%s, %s);' % (expectation, variable)
+      yield 2 * INDENT + 'CHECK_EQ(%s, %s);' % (expectation, variable)
     yield 2 * INDENT + 'return %s(%s);' % (
       name,
       ','.join(list('arg%d' % arg[0] for arg in enumerate(intr['in'])) +

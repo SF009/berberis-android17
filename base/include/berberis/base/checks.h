@@ -141,41 +141,4 @@ constexpr auto&& ValueForFmtSpec(auto&& value) {
 #endif
 #define CHECK_GE(v1, v2) BERBERIS_CHECK_OP(>=, v1, v2)
 
-#ifdef DCHECK
-#undef DCHECK
-#endif
-#define DCHECK(cond) CHECK(cond)
-
-#define BERBERIS_DCHECK_OP(op, v1, v2) BERBERIS_CHECK_OP(op, v1, v2)
-
-#ifdef DCHECK_EQ
-#undef DCHECK_EQ
-#endif
-#define DCHECK_EQ(v1, v2) BERBERIS_DCHECK_OP(==, v1, v2)
-
-#ifdef DCHECK_NE
-#undef DCHECK_NE
-#endif
-#define DCHECK_NE(v1, v2) BERBERIS_DCHECK_OP(!=, v1, v2)
-
-#ifdef DCHECK_LT
-#undef DCHECK_LT
-#endif
-#define DCHECK_LT(v1, v2) BERBERIS_DCHECK_OP(<, v1, v2)
-
-#ifdef DCHECK_LE
-#undef DCHECK_LE
-#endif
-#define DCHECK_LE(v1, v2) BERBERIS_DCHECK_OP(<=, v1, v2)
-
-#ifdef DCHECK_GT
-#undef DCHECK_GT
-#endif
-#define DCHECK_GT(v1, v2) BERBERIS_DCHECK_OP(>, v1, v2)
-
-#ifdef DCHECK_GE
-#undef DCHECK_GE
-#endif
-#define DCHECK_GE(v1, v2) BERBERIS_DCHECK_OP(>=, v1, v2)
-
 #endif  // BERBERIS_BASE_CHECKS_H_

@@ -107,9 +107,9 @@ class VRegLiveRange {
 
   // Modify begin only if there are no uses yet.
   void set_begin(int begin) {
-    DCHECK_LE(begin_, begin);
-    DCHECK_LE(end_, begin);
-    DCHECK(use_list_.empty());
+    CHECK_LE(begin_, begin);
+    CHECK_LE(end_, begin);
+    CHECK(use_list_.empty());
     begin_ = begin;
     end_ = begin;
   }
@@ -117,7 +117,7 @@ class VRegLiveRange {
   int end() const { return end_; }
 
   void set_end(int end) {
-    DCHECK_LE(end_, end);
+    CHECK_LE(end_, end);
     end_ = end;
   }
 
@@ -127,7 +127,7 @@ class VRegLiveRange {
   VRegUseList& use_list() { return use_list_; }
 
   void AppendUse(const VRegUse& use) {
-    DCHECK_LE(begin_, use.begin());
+    CHECK_LE(begin_, use.begin());
     // It can happen that use overlaps previous use.
     // For example, if an insn 'FOO use_def, use' appears as 'FOO x, x',
     // then 'x' uses will come (ordered by begin) as [0, 2), [0, 1).
@@ -226,7 +226,7 @@ class VRegLifetime {
         move_hint_(nullptr) {}
 
   void StartLiveRange(int begin) {
-    DCHECK_LE(end(), begin);
+    CHECK_LE(end(), begin);
     range_list_.push_back(VRegLiveRange(arena_, begin));
   }
 
@@ -261,7 +261,7 @@ class VRegLifetime {
   int GetSpill() const { return spill_slot_; }
 
   void SetSpill(int slot) {
-    DCHECK_EQ(spill_slot_, -1);
+    CHECK_EQ(spill_slot_, -1);
     spill_slot_ = slot;
   }
 
@@ -292,22 +292,22 @@ class VRegLifetime {
   }
 
   int begin() const {
-    DCHECK(!range_list_.empty());
+    CHECK(!range_list_.empty());
     return range_list_.front().begin();
   }
 
   int LastLiveRangeBegin() const {
-    DCHECK(!range_list_.empty());
+    CHECK(!range_list_.empty());
     return range_list_.back().begin();
   }
 
   int end() const {
-    DCHECK(!range_list_.empty());
+    CHECK(!range_list_.empty());
     return range_list_.back().end();
   }
 
   void set_end(int end) {
-    DCHECK(!range_list_.empty());
+    CHECK(!range_list_.empty());
     range_list_.back().set_end(end);
   }
 
@@ -322,7 +322,7 @@ class VRegLifetime {
   }
 
   const MachineRegClass* GetRegClass() const {
-    DCHECK(reg_class_);
+    CHECK(reg_class_);
     return reg_class_;
   }
 

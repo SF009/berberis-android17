@@ -44,7 +44,7 @@ class Wrapping;
 template <typename T>
 constexpr bool IsPowerOf2(T x) {
   static_assert(std::is_integral_v<T>, "IsPowerOf2: T must be integral");
-  DCHECK(x != 0);
+  CHECK_NE(x, 0);
   return (x & (x - 1)) == 0;
 }
 
@@ -74,7 +74,7 @@ constexpr T AlignDown(T x) {
 template <typename T>
 constexpr T AlignDown(T x, size_t align) {
   static_assert(std::is_integral_v<T>, "AlignDown: T must be integral");
-  DCHECK(IsPowerOf2(align));
+  CHECK(IsPowerOf2(align));
   return x & ~(align - 1);
 }
 
