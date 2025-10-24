@@ -53,7 +53,7 @@ void VRegLifetimeAnalysis::TrySetMoveHint(const MachineInsn* insn) {
   }
 
   // Copy should have 2 vreg operands.
-  DCHECK_EQ(insn->NumRegOperands(), 2);
+  CHECK_EQ(insn->NumRegOperands(), 2);
   MachineReg dst = insn->RegAt(0);
   if (!dst.IsVReg()) {
     return;
