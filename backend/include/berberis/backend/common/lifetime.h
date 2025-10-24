@@ -81,6 +81,10 @@ class VRegAccess {
 
   bool IsUse() const { return pos_.insn()->RegKindAt(index_).IsUse(); }
 
+  // IsUse() is true for def-early-clobber, while IsInput() is true when some valid input must be
+  // provided.
+  bool IsInput() const { return pos_.insn()->RegKindAt(index_).IsInput(); }
+
   bool IsDef() const { return pos_.insn()->RegKindAt(index_).IsDef(); }
 
  private:

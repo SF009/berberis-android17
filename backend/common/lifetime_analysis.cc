@@ -22,7 +22,7 @@
 
 namespace berberis {
 
-VRegLifetime* VRegLifetimeAnalysis::GetVRegLifetime(MachineReg r, int begin) {
+VRegLifetime* VRegLifetimeAnalysis::GetVRegLifetime(MachineReg r, int begin, bool is_input) {
   VRegLifetime*& lifetime = vreg_lifetimes_.at(r.GetVRegIndex());
   if (lifetime) {
     // Ensure the lifetime has live range for current basic block.
@@ -31,9 +31,17 @@ VRegLifetime* VRegLifetimeAnalysis::GetVRegLifetime(MachineReg r, int begin) {
     // register lives into current basic block but yet has no accesses (so last
     // live range is [bb_tick_, bb_tick_)).
     if (lifetime->LastLiveRangeBegin() < bb_tick_) {
+      if (is_input) {
+        // The first access in a basic block must not require a prior definition.
+        return nullptr;
+      }
       lifetime->StartLiveRange(begin);
     }
   } else {
+    if (is_input) {
+      // The first access ever seen must not require a prior definition.
+      return nullptr;
+    }
     // Newly created lifetime last live range will start at 'begin'.
     lifetimes_->push_back(VRegLifetime(arena_, begin));
     lifetime = &lifetimes_->back();
@@ -42,7 +50,8 @@ VRegLifetime* VRegLifetimeAnalysis::GetVRegLifetime(MachineReg r, int begin) {
 }
 
 void VRegLifetimeAnalysis::AppendAccess(const VRegAccess& access) {
-  VRegLifetime* lifetime = GetVRegLifetime(access.GetVReg(), access.begin());
+  VRegLifetime* lifetime = GetVRegLifetime(access.GetVReg(), access.begin(), access.IsInput());
+  CHECK(lifetime);
   lifetime->AppendAccess(access);
 }
 

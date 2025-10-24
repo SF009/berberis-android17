@@ -40,7 +40,8 @@ class VRegLifetimeAnalysis {
   void SetLiveIn(MachineReg r) {
     // Ensure lifetime exists and includes current tick.
     CHECK_EQ(tick_, bb_tick_);
-    GetVRegLifetime(r, tick_);
+    auto* lifetime = GetVRegLifetime(r, tick_, /* is_input */ false);
+    CHECK(lifetime);
   }
 
   void SetLiveOut(MachineReg r) {
@@ -50,24 +51,34 @@ class VRegLifetimeAnalysis {
     lifetime->set_end(tick_);
   }
 
-  void EndBasicBlock() { bb_tick_ = tick_; }
+  void EndBasicBlock() {
+    // Basic block should at least have a control transfer instruction
+    // which should advance the clock.
+    CHECK_GT(tick_, bb_tick_);
+    bb_tick_ = tick_;
+  }
+
+  VRegLifetime* GetVRegLifetimeForTesting(MachineReg r, int begin, bool is_input) {
+    return GetVRegLifetime(r, begin, is_input);
+  }
+
+  void SetClockForTesting(int time) { tick_ = time; }
+  void TickForTesting() { tick_++; }
 
  private:
-  // Ensure lifetime exists and includes 'begin'.
-  VRegLifetime* GetVRegLifetime(MachineReg r, int begin);
+  // Ensures that lifetime exists and includes 'begin'.
+  // It also checks that we don't start a lifetime from an input-type access which requires a prior
+  // definition and returns nullptr on error.
+  VRegLifetime* GetVRegLifetime(MachineReg r, int begin, bool is_input);
 
   void AppendAccess(const VRegAccess& access);
 
   void TrySetMoveHint(const MachineInsn* insn);
 
   Arena* arena_;
-
   VRegLifetimeList* lifetimes_;
-
   int tick_;
-
   int bb_tick_;
-
   // Map vreg index -> lifetime.
   ArenaVector<VRegLifetime*> vreg_lifetimes_;
 };
