@@ -400,6 +400,10 @@ class MachineIR {
 
   [[nodiscard]] uint32_t ReserveBasicBlockId() { return num_bb_++; }
 
+  [[nodiscard]] MachineBasicBlock* NewBasicBlock() {
+    return NewInArena<MachineBasicBlock>(arena(), arena(), ReserveBasicBlockId());
+  }
+
   // Stack frame layout is:
   //     [arg slots][spill slots]
   //     ^--- stack pointer

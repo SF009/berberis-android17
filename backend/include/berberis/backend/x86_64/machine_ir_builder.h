@@ -33,12 +33,6 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
  public:
   explicit MachineIRBuilder(MachineIR* ir) : MachineIRBuilderBase(ir) {}
 
-  void StartBasicBlock(MachineBasicBlock* bb) {
-    CHECK(bb->insn_list().empty());
-    ir()->bb_list().push_back(bb);
-    bb_ = bb;
-  }
-
   template <typename InsnType, typename... Args>
   /*may_discard*/ InsnType* Gen(Args... args) {
     return MachineIRBuilderBase::Gen<InsnType, Args...>(args...);

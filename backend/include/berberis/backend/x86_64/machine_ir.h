@@ -1058,10 +1058,6 @@ class MachineIR : public berberis::MachineIR {
     return x86_insn->RegAt(0) == kCPUStatePointer;
   }
 
-  [[nodiscard]] MachineBasicBlock* NewBasicBlock() {
-    return NewInArena<MachineBasicBlock>(arena(), arena(), ReserveBasicBlockId());
-  }
-
   // Instruction iterators are preserved after splitting basic block and moving
   // instructions to the new basic block.
   [[nodiscard]] MachineBasicBlock* SplitBasicBlock(MachineBasicBlock* bb,
