@@ -31,9 +31,9 @@ namespace berberis {
 // One use of virtual register.
 // TODO(b/232598137): should probably go inside machine IR?
 // Or make it internal in VRegLifetime?
-class VRegUse {
+class VRegAccess {
  public:
-  VRegUse(const MachineInsnListPosition& pos, int index, int begin, int end)
+  VRegAccess(const MachineInsnListPosition& pos, int index, int begin, int end)
       : pos_(pos), index_(index), begin_(begin), end_(end) {}
 
   MachineReg GetVReg() const { return pos_.insn()->RegAt(index_); }
@@ -93,15 +93,15 @@ class VRegUse {
   int end_;
 };
 
-using VRegUseList = ArenaList<VRegUse>;
+using VRegAccessList = ArenaList<VRegAccess>;
 
 // Continuous live range of virtual register.
 class VRegLiveRange {
  public:
-  VRegLiveRange(Arena* arena, int begin) : begin_(begin), end_(begin), use_list_(arena) {}
+  VRegLiveRange(Arena* arena, int begin) : begin_(begin), end_(begin), access_list_(arena) {}
 
-  VRegLiveRange(Arena* arena, const VRegUse& use)
-      : begin_(use.begin()), end_(use.end()), use_list_(1, use, arena) {}
+  VRegLiveRange(Arena* arena, const VRegAccess& access)
+      : begin_(access.begin()), end_(access.end()), access_list_(1, access, arena) {}
 
   int begin() const { return begin_; }
 
@@ -109,7 +109,7 @@ class VRegLiveRange {
   void set_begin(int begin) {
     CHECK_LE(begin_, begin);
     CHECK_LE(end_, begin);
-    CHECK(use_list_.empty());
+    CHECK(access_list_.empty());
     begin_ = begin;
     end_ = begin;
   }
@@ -121,13 +121,13 @@ class VRegLiveRange {
     end_ = end;
   }
 
-  const VRegUseList& use_list() const { return use_list_; }
+  const VRegAccessList& access_list() const { return access_list_; }
 
   // Try to kill this!
-  VRegUseList& use_list() { return use_list_; }
+  VRegAccessList& access_list() { return access_list_; }
 
-  void AppendUse(const VRegUse& use) {
-    CHECK_LE(begin_, use.begin());
+  void AppendAccess(const VRegAccess& access) {
+    CHECK_LE(begin_, access.begin());
     // It can happen that use overlaps previous use.
     // For example, if an insn 'FOO use_def, use' appears as 'FOO x, x',
     // then 'x' uses will come (ordered by begin) as [0, 2), [0, 1).
@@ -136,16 +136,16 @@ class VRegLiveRange {
     // TODO(b/232598137): another option is to order uses as 'use, use_def, def'
     // in lifetime_analysis::AddInsn, so that uses with equal begin are sorted
     // by end.
-    use_list_.push_back(use);
-    if (end_ < use.end()) {
-      end_ = use.end();
+    access_list_.push_back(access);
+    if (end_ < access.end()) {
+      end_ = access.end();
     }
   }
 
   // Multiline
   std::string GetDebugString() const {
     std::string out(StringPrintf("[%d, %d) {\n", begin(), end()));
-    for (const auto& use : use_list_) {
+    for (const auto& use : access_list_) {
       out += "  ";
       out += use.GetDebugString();
       out += "\n";
@@ -159,7 +159,7 @@ class VRegLiveRange {
   int begin_;
   int end_;
   // Use list might be empty if register is live but not used :)
-  VRegUseList use_list_;
+  VRegAccessList access_list_;
 };
 
 using VRegLiveRangeList = ArenaList<VRegLiveRange>;
@@ -198,7 +198,7 @@ enum SplitKind { SPLIT_IMPOSSIBLE = 0, SPLIT_CONFLICT, SPLIT_OK };
 
 struct SplitPos {
   VRegLiveRangeList::iterator range_it;
-  VRegUseList::iterator use_it;
+  VRegAccessList::iterator access_it;
 };
 
 // Lifetime of virtual register.
@@ -216,10 +216,10 @@ class VRegLifetime {
         spill_weight_(0),
         move_hint_(nullptr) {}
 
-  VRegLifetime(Arena* arena, const VRegUse& use)
+  VRegLifetime(Arena* arena, const VRegAccess& access)
       : arena_(arena),
-        range_list_(1, VRegLiveRange(arena, use), arena),
-        reg_class_(use.GetRegClass()),
+        range_list_(1, VRegLiveRange(arena, access), arena),
+        reg_class_(access.GetRegClass()),
         hard_reg_(0),
         spill_slot_(-1),
         spill_weight_(1),
@@ -230,26 +230,26 @@ class VRegLifetime {
     range_list_.push_back(VRegLiveRange(arena_, begin));
   }
 
-  void AppendUse(const VRegUse& use) {
-    if (use.IsDef() && !use.IsUse() && end() < use.begin()) {
-      // This is write-only use and there is a gap between it and previous use.
+  void AppendAccess(const VRegAccess& access) {
+    if (access.IsDef() && !access.IsUse() && end() < access.begin()) {
+      // This is write-only access and there is a gap between it and previous access.
       // Can insert lifetime hole.
-      if (range_list_.back().use_list().empty()) {
+      if (range_list_.back().access_list().empty()) {
         // If current live range is still empty, this might be live-in
         // register that gets overwritten, so remove live-in.
-        range_list_.back().set_begin(use.begin());
+        range_list_.back().set_begin(access.begin());
       } else {
-        range_list_.push_back(VRegLiveRange(arena_, use.begin()));
+        range_list_.push_back(VRegLiveRange(arena_, access.begin()));
       }
     }
-    range_list_.back().AppendUse(use);
+    range_list_.back().AppendAccess(access);
     // We assume reg classes are either nested or unrelated (so have no
     // common registers).
     if (reg_class_) {
-      reg_class_ = reg_class_->GetIntersection(use.GetRegClass());
+      reg_class_ = reg_class_->GetIntersection(access.GetRegClass());
       CHECK(reg_class_);
     } else {
-      reg_class_ = use.GetRegClass();
+      reg_class_ = access.GetRegClass();
     }
     ++spill_weight_;
   }
@@ -350,14 +350,14 @@ class VRegLifetime {
         continue;
       }
 
-      for (auto use_it = range_it->use_list().begin(); use_it != range_it->use_list().end();
-           ++use_it) {
-        if (use_it->end() <= begin) {
+      for (auto access_it = range_it->access_list().begin(); access_it != range_it->access_list().end();
+           ++access_it) {
+        if (access_it->end() <= begin) {
           // Future tiny lifetime ends before 'begin'.
           continue;
         }
 
-        if (use_it->begin() < begin) {
+        if (access_it->begin() < begin) {
           // Future tiny lifetime starts before but ends after 'begin'.
           // Problematic case we don't allow.
           return SPLIT_IMPOSSIBLE;
@@ -365,12 +365,12 @@ class VRegLifetime {
 
         // Future tiny lifetime starts at or after 'begin'.
         pos->range_it = range_it;
-        pos->use_it = use_it;
-        return use_it->begin() == begin ? SPLIT_CONFLICT : SPLIT_OK;
+        pos->access_it = access_it;
+        return access_it->begin() == begin ? SPLIT_CONFLICT : SPLIT_OK;
       }
     }
 
-    // If we got here, lifetime spans after begin but has no uses there.
+    // If we got here, lifetime spans after begin but has no accesses there.
     // It can happen with live-out virtual registers.
     pos->range_it = range_list_.end();
     return SPLIT_OK;
@@ -383,33 +383,33 @@ class VRegLifetime {
     }
 
     // Create tiny lifetime from each use after split pos.
-    VRegUseList::iterator use_it = split_pos.use_it;
+    VRegAccessList::iterator access_it = split_pos.access_it;
     for (;;) {
-      for (; use_it != range_it->use_list().end(); ++use_it) {
-        out->push_back(VRegLifetime(arena_, *use_it));
+      for (; access_it != range_it->access_list().end(); ++access_it) {
+        out->push_back(VRegLifetime(arena_, *access_it));
         out->back().SetSpill(GetSpill());
       }
       if (++range_it == range_list_.end()) {
         break;
       }
-      use_it = range_it->use_list().begin();
+      access_it = range_it->access_list().begin();
     }
 
-    // Erase transferred uses (so they are not rewritten twice).
+    // Erase transferred accesses (so they are not rewritten twice).
     VRegLiveRangeList::iterator first_range_to_erase = split_pos.range_it;
-    if (split_pos.use_it != first_range_to_erase->use_list().begin()) {
+    if (split_pos.access_it != first_range_to_erase->access_list().begin()) {
       // Erase only tail of the first range.
-      split_pos.range_it->use_list().erase(split_pos.use_it, split_pos.range_it->use_list().end());
+      split_pos.range_it->access_list().erase(split_pos.access_it, split_pos.range_it->access_list().end());
       ++first_range_to_erase;
     }
     range_list_.erase(first_range_to_erase, range_list_.end());
   }
 
-  // Walk reg uses and replace vreg with assigned hard reg.
+  // Walk reg accesses and replace vreg with assigned hard reg.
   void Rewrite(MachineIR* machine_ir) {
     for (auto& range : range_list_) {
-      for (auto& use : range.use_list()) {
-        use.RewriteVReg(machine_ir, hard_reg_, spill_slot_);
+      for (auto& access : range.access_list()) {
+        access.RewriteVReg(machine_ir, hard_reg_, spill_slot_);
       }
     }
   }
@@ -419,7 +419,7 @@ class VRegLifetime {
   Arena* arena_;
   // List of live ranges, must be non-empty after lifetime is populated!
   VRegLiveRangeList range_list_;
-  // Register class that fits all uses.
+  // Register class that fits all accesses.
   const MachineRegClass* reg_class_;
   // Assigned hard register.
   MachineReg hard_reg_;
