@@ -16,7 +16,11 @@
 
 #include "berberis/backend/x86_64/rename_copy_uses.h"
 
+#include <list>
+
 #include "berberis/backend/x86_64/machine_ir.h"
+#include "berberis/base/algorithm.h"
+#include "berberis/base/checks.h"
 
 namespace berberis::x86_64 {
 
@@ -169,6 +173,18 @@ void ComputeDuplicateLiveOuts(MachineIR* machine_ir,
   }
 }
 
+void RemoveRedundantLiveOuts(MachineBasicBlock* bb) {
+  auto& live_out = bb->live_out();
+  std::erase_if(live_out, [&](MachineReg live_out_reg) {
+    for (auto* edge : bb->out_edges()) {
+      if (Contains(edge->dst()->live_in(), live_out_reg)) {
+        return false;
+      }
+    }
+    return true;
+  });
+}
+
 void RenameCopyUsesInBasicBlock(MachineBasicBlock* bb,
                                 RenameCopyUsesMap* rename_copy_uses_map,
                                 DuplicateLiveOutsMap* duplicate_live_outs_map) {
@@ -212,8 +228,14 @@ void RenameCopyUses(MachineIR* machine_ir) {
     if (!duplicate_live_outs_map.BasicBlockContainsDuplicateLiveOuts(prev_bb)) {
       continue;
     }
-    // TODO(b/448293427): Remove duplicate live-outs from prev_bb where possible.
     duplicate_live_outs_map.RenameAndRemoveDuplicateLiveIns(machine_ir, bb, prev_bb);
+  }
+
+  for (auto* bb : machine_ir->bb_list()) {
+    if (!duplicate_live_outs_map.BasicBlockContainsDuplicateLiveOuts(bb)) {
+      continue;
+    }
+    RemoveRedundantLiveOuts(bb);
   }
 }
 

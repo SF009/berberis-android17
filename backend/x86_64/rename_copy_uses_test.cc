@@ -424,6 +424,7 @@ TEST(MachineIRRenameCopyUsesTest, DuplicateLiveInsGetRenamed) {
   EXPECT_EQ(add_insn2->RegAt(1), vreg2);
 
   EXPECT_FALSE(Contains(bb2->live_in(), vreg1));
+  EXPECT_FALSE(Contains(bb1->live_out(), vreg1));
 }
 
 TEST(MachineIRRenameCopyUsesTest, ChainedDuplicateLiveInsGetRenamed) {
@@ -467,6 +468,8 @@ TEST(MachineIRRenameCopyUsesTest, ChainedDuplicateLiveInsGetRenamed) {
 
   EXPECT_FALSE(Contains(bb2->live_in(), vreg2));
   EXPECT_FALSE(Contains(bb2->live_in(), vreg3));
+  EXPECT_FALSE(Contains(bb1->live_out(), vreg2));
+  EXPECT_FALSE(Contains(bb1->live_out(), vreg3));
 }
 
 TEST(MachineIRRenameCopyUsesTest, DuplicateLiveInsToBBWithOutEdgesGetRenamed) {
@@ -511,6 +514,8 @@ TEST(MachineIRRenameCopyUsesTest, DuplicateLiveInsToBBWithOutEdgesGetRenamed) {
 
   EXPECT_FALSE(Contains(bb2->live_in(), vreg1));
   EXPECT_TRUE(Contains(bb2->live_in(), vreg2));
+  EXPECT_FALSE(Contains(bb1->live_out(), vreg1));
+  EXPECT_TRUE(Contains(bb1->live_out(), vreg2));
 }
 
 TEST(MachineIRRenameCopyUsesTest, DuplicateLiveInsDontGetRenamedWhenBBHasMultipleInEdges) {
@@ -557,6 +562,10 @@ TEST(MachineIRRenameCopyUsesTest, DuplicateLiveInsDontGetRenamedWhenBBHasMultipl
 
   EXPECT_TRUE(Contains(bb3->live_in(), vreg1));
   EXPECT_TRUE(Contains(bb3->live_in(), vreg2));
+  EXPECT_TRUE(Contains(bb1->live_out(), vreg1));
+  EXPECT_TRUE(Contains(bb1->live_out(), vreg2));
+  EXPECT_TRUE(Contains(bb2->live_out(), vreg1));
+  EXPECT_TRUE(Contains(bb2->live_out(), vreg2));
 }
 
 TEST(MachineIRRenameCopyUsesTest, DuplicateLiveInsWhichAreOverwrittenDoNotGetRenamed) {
@@ -595,6 +604,7 @@ TEST(MachineIRRenameCopyUsesTest, DuplicateLiveInsWhichAreOverwrittenDoNotGetRen
   EXPECT_EQ(bb2_add_insn->RegAt(1), vreg1);
 
   EXPECT_TRUE(Contains(bb2->live_in(), vreg1));
+  EXPECT_TRUE(Contains(bb1->live_out(), vreg1));
 }
 
 TEST(MachineIRRenameCopyUsesTest, DoNotRenameDuplicateRegisterWhichIsMappedToNonLiveIn) {
@@ -639,6 +649,10 @@ TEST(MachineIRRenameCopyUsesTest, DoNotRenameDuplicateRegisterWhichIsMappedToNon
 
   EXPECT_FALSE(Contains(bb2->live_in(), vreg1));
   EXPECT_TRUE(Contains(bb3->live_in(), vreg1));
+
+  // vreg1 wasn't removed as a live_in from all successors of bb1, so it should still exist as a
+  // live_out of bb1.
+  EXPECT_TRUE(Contains(bb1->live_out(), vreg1));
 }
 
 }  // namespace
