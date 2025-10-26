@@ -28,7 +28,7 @@ VRegLifetime* VRegLifetimeAnalysis::GetVRegLifetime(MachineReg r, int begin) {
     // Ensure the lifetime has live range for current basic block.
     // Use last live range begin to check that, as lifetime end might be equal
     // to bb_tick_ both when register lives out of prev basic block and when
-    // register lives into current basic block but yet has no uses (so last
+    // register lives into current basic block but yet has no accesses (so last
     // live range is [bb_tick_, bb_tick_)).
     if (lifetime->LastLiveRangeBegin() < bb_tick_) {
       lifetime->StartLiveRange(begin);
@@ -41,9 +41,9 @@ VRegLifetime* VRegLifetimeAnalysis::GetVRegLifetime(MachineReg r, int begin) {
   return lifetime;
 }
 
-void VRegLifetimeAnalysis::AppendUse(const VRegUse& use) {
-  VRegLifetime* lifetime = GetVRegLifetime(use.GetVReg(), use.begin());
-  lifetime->AppendUse(use);
+void VRegLifetimeAnalysis::AppendAccess(const VRegAccess& access) {
+  VRegLifetime* lifetime = GetVRegLifetime(access.GetVReg(), access.begin());
+  lifetime->AppendAccess(access);
 }
 
 // Set move hint for vreg to vreg move.
@@ -91,7 +91,7 @@ void VRegLifetimeAnalysis::AddInsn(const MachineInsnListPosition& pos) {
     int begin = tick_;
     int end = tick_ + (reg_kind.IsDef() ? 2 : 1);
 
-    AppendUse(VRegUse(pos, i, begin, end));
+    AppendAccess(VRegAccess(pos, i, begin, end));
   }
 
   // Walk def-only register operands.
@@ -112,8 +112,8 @@ void VRegLifetimeAnalysis::AddInsn(const MachineInsnListPosition& pos) {
     int begin = tick_ + 1;
     int end = tick_ + 2;
 
-    // Append use.
-    AppendUse(VRegUse(pos, i, begin, end));
+    // Append access.
+    AppendAccess(VRegAccess(pos, i, begin, end));
   }
 
   TrySetMoveHint(insn);

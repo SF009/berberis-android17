@@ -56,7 +56,7 @@ class VRegLifetimeAnalysis {
   // Ensure lifetime exists and includes 'begin'.
   VRegLifetime* GetVRegLifetime(MachineReg r, int begin);
 
-  void AppendUse(const VRegUse& use);
+  void AppendAccess(const VRegAccess& access);
 
   void TrySetMoveHint(const MachineInsn* insn);
 
