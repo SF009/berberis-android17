@@ -40,12 +40,12 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
 
   BERBERIS_DECLARE_MACHINE_INSN_ADAPTER(
       /*may_discard*/ auto Gen,
-      (),
       MachineInsnOperandsHelper,
       ConstructorArgsTuple,
       MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, kSSAMode>*,
       MachineIRBuilderBase::Gen,
-      ())
+      kSSAMode,
+      enum x86_64::SSAMode kSSAMode = x86_64::kNoSSA)
 
   void GenGet(MachineReg dst_reg, int32_t offset) {
     Gen<x86_64::MovqRegOp>(dst_reg, {.base = x86_64::kMachineRegRBP, .disp = offset});

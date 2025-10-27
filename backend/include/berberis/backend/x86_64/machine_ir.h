@@ -470,7 +470,11 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
     static_assert(kImmediateOperandsCount <= 1);
     constexpr int kMemoryOperandsCount = (device_arch_info::kIsMemoryOperand<Operands> + ... + 0);
     static_assert(kMemoryOperandsCount <= 2);
-    constexpr int kRegisterOperandsCount = (device_arch_info::kIsRegister<Operands> + ... + 0);
+    constexpr int kRegisterOperandsCount =
+        (device_arch_info::kIsRegister<Operands> + ... + 0) +
+        (kSSAMode == kSSA) * ((device_arch_info::kIsRegister<Operands> &&
+                               Operands::kUsage == device_arch_info::kUseDef) +
+                              ... + 0);
     // If we have only registers or only memory operands (but not both) then processing them in
     // ConstructorAutoArgs order is always correct, otherwise we pull the args into arrays to
     // process in ConstructorArgs order in the 2nd pass.
@@ -696,8 +700,10 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                     auto dst = MachineInsnX86_64::RegAt(reg_idx++);
                     kind_idx++;
                     auto src = MachineInsnX86_64::RegAt(reg_idx++);
-                    result.push_back(NewInArena<PseudoCopy>(
-                        arena, dst, src, kInfo.reg_kinds[kind_idx++].RegClass()->reg_size));
+                    if (dst != src) {
+                      result.push_back(NewInArena<PseudoCopy>(
+                          arena, dst, src, kInfo.reg_kinds[kind_idx++].RegClass()->reg_size));
+                    }
                     return std::tuple{dst};
                   } else {
                     kind_idx++;
@@ -1102,12 +1108,12 @@ class MachineIR : public berberis::MachineIR {
 
   BERBERIS_DECLARE_MACHINE_INSN_ADAPTER(
       [[nodiscard]] auto NewInsn,
-      (),
       MachineInsnOperandsHelper,
       ConstructorArgsTuple,
       MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, kSSAMode>*,
       NewInsn,
-      ())
+      kSSAMode,
+      enum x86_64::SSAMode kSSAMode = x86_64::kNoSSA)
 
  private:
   ABI abi_;
