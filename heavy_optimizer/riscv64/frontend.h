@@ -563,22 +563,21 @@ class HeavyOptimizerFrontend {
               if constexpr (std::is_same_v<std::remove_cvref_t<Arg>, MachineReg>) {
                 return std::tuple{};
               } else {
-                return std::tuple{arg};
+                return std::tuple<Arg>{arg};
               }
-            }(args)...));
+            }.template operator()<Args>(args)...));
     return output;
   }
 
   BERBERIS_DECLARE_MACHINE_INSN_ADAPTER(
       /*may_discard*/ auto Gen,
-      (),
       MachineInsn,
       InputArgsTuple,
       typename x86_64::MachineInsn<
           typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,
           x86_64::kSSA>::OutputArgsTuple,
       Gen,
-      ())
+      x86_64::kSSA)
 
   static x86_64::Assembler::Condition ToAssemblerCond(Decoder::BranchOpcode opcode);
 
