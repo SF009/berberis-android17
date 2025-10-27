@@ -59,23 +59,23 @@ enum TemplateTypeId : uint8_t {
 };
 
 constexpr TemplateTypeId TemplateTypeIdToFloat(TemplateTypeId value) {
-  DCHECK(value >= kUInt16T && value <= kInt64T);
+  CHECK(value >= kUInt16T && value <= kInt64T);
   return TemplateTypeId{static_cast<uint8_t>((value & 0x6) + 8)};
 }
 
 constexpr TemplateTypeId TemplateTypeIdToInt(TemplateTypeId value) {
-  DCHECK((value >= kFloat16 && value <= kFloat64) && !(value & 1));
+  CHECK((value >= kFloat16 && value <= kFloat64) && !(value & 1));
   return TemplateTypeId{static_cast<uint8_t>(value - 8)};
 }
 
 constexpr TemplateTypeId TemplateTypeIdToNarrow(TemplateTypeId value) {
-  DCHECK((value >= kUInt16T && value <= kInt64T) ||
-         ((value >= kFloat32 && value <= kFloat64) && !(value & 1)));
+  CHECK((value >= kUInt16T && value <= kInt64T) ||
+        ((value >= kFloat32 && value <= kFloat64) && !(value & 1)));
   return TemplateTypeId{static_cast<uint8_t>(value - 2)};
 }
 
 constexpr TemplateTypeId TemplateTypeIdToSigned(TemplateTypeId value) {
-  DCHECK(value <= kInt64T);
+  CHECK_LE(value, kInt64T);
   return TemplateTypeId{static_cast<uint8_t>(value | 1)};
 }
 
@@ -87,12 +87,12 @@ constexpr int TemplateTypeIdSizeOf(TemplateTypeId value) {
 }
 
 constexpr TemplateTypeId TemplateTypeIdToUnsigned(TemplateTypeId value) {
-  DCHECK(value <= kInt64T);
+  CHECK_LE(value, kInt64T);
   return TemplateTypeId{static_cast<uint8_t>(value & ~1)};
 }
 
 constexpr TemplateTypeId TemplateTypeIdToWide(TemplateTypeId value) {
-  DCHECK(value <= kInt32T || ((value >= kFloat16 && value <= kFloat32) && !(value & 1)));
+  CHECK(value <= kInt32T || ((value >= kFloat16 && value <= kFloat32) && !(value & 1)));
   return TemplateTypeId{static_cast<uint8_t>(value + 2)};
 }
 
@@ -139,8 +139,8 @@ template <typename Type>
 constexpr TemplateTypeId kIdFromType = IdFromType<Type>();
 
 constexpr TemplateTypeId IntSizeToTemplateTypeId(uint8_t size, bool is_signed = false) {
-  DCHECK(std::has_single_bit(size));
-  DCHECK(size < 16);
+  CHECK(std::has_single_bit(size));
+  CHECK_LT(size, 16);
   return static_cast<TemplateTypeId>((std::countr_zero(size) << 1) + is_signed);
 }
 

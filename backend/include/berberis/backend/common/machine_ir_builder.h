@@ -63,6 +63,12 @@ class MachineIRBuilderBase {
 
   [[nodiscard]] MachineBasicBlock* bb() const { return bb_; }
 
+  void StartBasicBlock(MachineBasicBlock* bb) {
+    CHECK(bb->insn_list().empty());
+    ir()->bb_list().push_back(bb);
+    bb_ = bb;
+  }
+
  private:
   MachineIRType* ir_;
 

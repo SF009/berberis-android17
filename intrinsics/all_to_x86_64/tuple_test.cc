@@ -169,7 +169,7 @@ TEST(LibCxxAbi, Tuple_UInt64) {
 }
 
 // Note: tuple is returned on registers when libc++ is used and on stack if libstdc++ is used.
-TEST(LibCxxAbi, DISABLED_Tuple_SIMDRegisterSIMDRegister) {
+TEST(LibCxxAbi, Tuple_SIMDRegisterSIMDRegister) {
   auto tuple_is_returned_on_registers =
       TupleIsReturnedOnRegisters<std::tuple<SIMD128Register, SIMD128Register>,
                                  AsmTupleTestSIMDRegisterSIMDRegister>(

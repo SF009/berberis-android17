@@ -355,12 +355,13 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
       static_assert(berberis::kDependentValueFalse<IntrinsicBindingInfo::kCPUIDRestriction>);
     }
 
-    std::apply(berberis::x86_64::MachineInsn<typename IntrinsicBindingInfo::DeviceInsnInfo>::
-                   template kGenFunc<x86_64::MachineIRBuilder>,
-               std::tuple_cat(std::tuple<x86_64::MachineIRBuilder&>{*builder_},
-                              UnwrapSimdReg(IntrinsicBindingInfo::template MakeTuplefromBindings<
-                                            TryBindingBasedInlineIntrinsicForHeavyOptimizer&>(
-                                  *this, asm_call_info))));
+    std::apply(
+        berberis::x86_64::MachineInsn<typename IntrinsicBindingInfo::DeviceInsnInfo,
+                                      x86_64::kSSA>::template kGenFunc<x86_64::MachineIRBuilder>,
+        std::tuple_cat(std::tuple<x86_64::MachineIRBuilder&>{*builder_},
+                       UnwrapSimdReg(IntrinsicBindingInfo::template MakeTuplefromBindings<
+                                     TryBindingBasedInlineIntrinsicForHeavyOptimizer&>(
+                           *this, asm_call_info))));
     ProcessBindingsResults<IntrinsicBindingInfo>(
         type_wrapper<typename IntrinsicBindingInfo::Bindings>(),
         type_wrapper<typename IntrinsicBindingInfo::Operands>());
@@ -407,20 +408,14 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
           static_assert(kDependentTypeFalse<ArgBinding>);
         } else {
           CHECK(xmm_result_reg_.IsInvalidReg());
-          xmm_result_reg_ = AllocVReg();
-          MovFromInput<RegisterClass>(
-              builder_, xmm_result_reg_, std::get<ArgBinding::kArgInfo.from>(input_args_));
-          return std::tuple{xmm_result_reg_};
+          return std::tuple{xmm_result_reg_ = AllocVReg(),
+                            std::get<ArgBinding::kArgInfo.from>(input_args_)};
         }
       } else if constexpr (kNumOut > 1) {
-        auto res = std::get<ArgBinding::kArgInfo.to>(result_);
-        MovFromInput<RegisterClass>(
-            builder_, res, std::get<ArgBinding::kArgInfo.from>(input_args_));
-        return std::tuple{res};
+        return std::tuple{std::get<ArgBinding::kArgInfo.to>(result_),
+                          std::get<ArgBinding::kArgInfo.from>(input_args_)};
       } else {
-        MovFromInput<RegisterClass>(
-            builder_, result_, std::get<ArgBinding::kArgInfo.from>(input_args_));
-        return std::tuple{result_};
+        return std::tuple{result_, std::get<ArgBinding::kArgInfo.from>(input_args_)};
       }
     } else if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::IN_OUT_TMP_ARG) {
       static_assert(!std::is_same_v<ResType, std::monostate>);
@@ -430,20 +425,20 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
         static_assert(kDependentTypeFalse<ArgBinding>);
       } else {
         CHECK(implicit_result_reg_.IsInvalidReg());
-        implicit_result_reg_ = AllocVReg();
-        MovFromInput<RegisterClass>(
-            builder_, implicit_result_reg_, std::get<ArgBinding::kArgInfo.from>(input_args_));
-        return std::tuple{implicit_result_reg_};
+        return std::tuple{implicit_result_reg_ = AllocVReg(),
+                          std::get<ArgBinding::kArgInfo.from>(input_args_)};
       }
     } else if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::IN_TMP_ARG) {
-      if constexpr (device_arch_info::kIsImplicitReg<OperandInfo>) {
+      if constexpr (kUsage == device_arch_info::kUseDef) {
+        return std::tuple{AllocVReg(), std::get<ArgBinding::kArgInfo.from>(input_args_)};
+      } else if constexpr (device_arch_info::kIsImplicitReg<OperandInfo>) {
+        static_assert(kUsage == device_arch_info::kUse);
         auto implicit_reg = AllocVReg();
         MovFromInput<RegisterClass>(
             builder_, implicit_reg, std::get<ArgBinding::kArgInfo.from>(input_args_));
         return std::tuple{implicit_reg};
       } else {
-        static_assert(kUsage == device_arch_info::kUseDef);
-        return std::tuple{std::get<ArgBinding::kArgInfo.from>(input_args_)};
+        static_assert(kDependentTypeFalse<ArgBinding>);
       }
     } else if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::OUT_TMP_ARG) {
       if constexpr (kNumOut > 1) {

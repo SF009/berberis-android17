@@ -79,7 +79,7 @@ void InitThreadState(ThreadState* state) {
   state->pending_signals_status.store(kPendingSignalsDisabled, std::memory_order_relaxed);
   state->residence = kOutsideGeneratedCode;
   state->instrument_data = nullptr;
-  state->is_optimized_inter_region_abi = IsConfigFlagSet(kOptimizedInterRegionABI);
+  state->is_optimized_inter_region_abi_enabled = false;
 }
 
 void InitializeNativeBridgeGuestStateHeader(NativeBridgeGuestStateHeader* guest_state_header,

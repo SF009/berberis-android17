@@ -247,7 +247,7 @@ class Enter final : public MachineInsnX86_64 {
   friend Enter* NewInArena<Enter, const Enter&>(Arena*, const Enter&);
   Enter(const Enter&) = default;
   MachineInsn* Clone(Arena* arena) const override;
-  std::array<MachineInsn*, kMaxLoweredInsns> Lower(Arena* arena) const override;
+  MachineInsnList Lower(Arena* arena) const override;
 };
 
 // Clobbered registers are described as DEF'ed.
@@ -283,7 +283,7 @@ class CallImm final : public MachineInsnX86_64 {
   friend CallImm* NewInArena<CallImm, const CallImm&>(Arena*, const CallImm&);
   CallImm(const CallImm&) = default;
   MachineInsn* Clone(Arena* arena) const override;
-  std::array<MachineInsn*, kMaxLoweredInsns> Lower(Arena* arena) const override;
+  MachineInsnList Lower(Arena* arena) const override;
 };
 
 // An auxiliary instruction to express data-flow for CallImm arguments.  It uses the same vreg as
@@ -303,7 +303,7 @@ class CallImmArg final : public MachineInsnX86_64 {
   friend CallImmArg* NewInArena<CallImmArg, const CallImmArg&>(Arena*, const CallImmArg&);
   CallImmArg(const CallImmArg&) = default;
   MachineInsn* Clone(Arena* arena) const override;
-  std::array<MachineInsn*, kMaxLoweredInsns> Lower(Arena* arena) const override;
+  MachineInsnList Lower(Arena* arena) const override;
 };
 
 enum SSAMode {
@@ -408,10 +408,6 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
   static constexpr std::array<MachineInsnInfo,
                               1 << (2 * (device_arch_info::kIsMemoryOperand<Operands> + ... + 0))>
   GenMachineInsnInfos();
-
-  static_assert(((device_arch_info::kIsRegister<Operands> &&
-                  Operands::kUsage == device_arch_info::kUseDef) +
-                 ... + 0) < kMaxLoweredInsns);
 
  public:
   // This static simplifies constructing this MachineInsn in intrinsic implementations.
@@ -616,6 +612,7 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                            }
                            operand.disp = static_cast<int32_t>(disp());
                          } else /* mem_idx == 2 */ {
+                           CHECK_EQ(mem_idx, 2);
                            if (has_index) {
                              operand.scale = scale2();
                            }
@@ -642,11 +639,77 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
   berberis::MachineInsn* Clone(Arena* arena) const override {
     return NewInArena<MachineInsn, const MachineInsn&>(arena, *this);
   }
-  std::array<berberis::MachineInsn*, kMaxLoweredInsns> Lower(Arena* arena) const override {
+  MachineInsnList Lower(Arena* arena) const override {
     if constexpr (kSSAMode == kSSA) {
-      FATAL("Not implemented yet:");
+      MachineInsnList result(arena);
+      // Code below assumes that we have at most two memory operands.
+      static_assert((device_arch_info::kIsMemoryOperand<Operands> + ... + 0) <= 2);
+      size_t kind_idx{}, reg_idx{}, mem_idx{};
+      result.push_back(std::apply(
+          NewInArena<MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
+                                                                  kMnemo,
+                                                                  kSideEffects,
+                                                                  GetOpcode,
+                                                                  CPUIDRestriction,
+                                                                  std::tuple<Operands...>>,
+                                 kNoSSA>,
+                     NoSSAConstructorArgs...>,
+          std::tuple_cat(
+              std::tuple{arena},
+              [&kind_idx, &reg_idx, &mem_idx, &result, arena, this]<typename Operand> {
+                // Suppress spurious warnings.
+                // See
+                // https://github.com/llvm/llvm-project/issues/34798#issuecomment-980989495
+                (void)kind_idx;
+                (void)reg_idx;
+                (void)mem_idx;
+                (void)result;
+                (void)arena;
+                if constexpr (device_arch_info::kIsCondition<Operands>) {
+                  return std::tuple{MachineInsnX86_64::cond()};
+                } else if constexpr (device_arch_info::kIsImmediate<Operands>) {
+                  return std::tuple{MachineInsnX86_64::imm()};
+                } else if constexpr (device_arch_info::kIsMemoryOperand<Operands>) {
+                  auto [has_base, has_index] = OpcodeHasMemoryBaseIndex(mem_idx++);
+                  MemoryOperand operand;
+                  if (has_base) {
+                    operand.base = MachineInsnX86_64::RegAt(reg_idx++);
+                  }
+                  if (has_index) {
+                    operand.index = MachineInsnX86_64::RegAt(reg_idx++);
+                  }
+                  if (mem_idx == 1) {
+                    if (has_index) {
+                      operand.scale = scale();
+                    }
+                    operand.disp = static_cast<int32_t>(disp());
+                  } else /* mem_idx == 2 */ {
+                    CHECK_EQ(mem_idx, 2);
+                    if (has_index) {
+                      operand.scale = scale2();
+                    }
+                    operand.disp = static_cast<int32_t>(disp2());
+                  }
+                  return std::tuple{operand};
+                } else if constexpr (device_arch_info::kIsRegister<Operand>) {
+                  if (Operand::kUsage == device_arch_info::kUseDef) {
+                    auto dst = MachineInsnX86_64::RegAt(reg_idx++);
+                    kind_idx++;
+                    auto src = MachineInsnX86_64::RegAt(reg_idx++);
+                    result.push_back(NewInArena<PseudoCopy>(
+                        arena, dst, src, kInfo.reg_kinds[kind_idx++].RegClass()->reg_size));
+                    return std::tuple{dst};
+                  } else {
+                    kind_idx++;
+                    return std::tuple{MachineInsnX86_64::RegAt(reg_idx++)};
+                  }
+                } else {
+                  static_assert(kDependentTypeFalse<Operand>);
+                }
+              }.template operator()<Operands>()...)));
+      return result;
     } else {
-      return {NewInArena<MachineInsn, const MachineInsn&>(arena, *this)};
+      return {1, NewInArena<MachineInsn, const MachineInsn&>(arena, *this), arena};
     }
   }
 
@@ -993,10 +1056,6 @@ class MachineIR : public berberis::MachineIR {
     }
 
     return x86_insn->RegAt(0) == kCPUStatePointer;
-  }
-
-  [[nodiscard]] MachineBasicBlock* NewBasicBlock() {
-    return NewInArena<MachineBasicBlock>(arena(), arena(), ReserveBasicBlockId());
   }
 
   // Instruction iterators are preserved after splitting basic block and moving

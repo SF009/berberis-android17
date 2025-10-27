@@ -217,7 +217,7 @@ TEST(MachineIRRenameCopyUsesTest, GracefullyIgnoreHardwareRegs) {
   EXPECT_EQ(add_insn->RegAt(1), kMachineRegRAX);
 }
 
-TEST(MachineIRRenameCopyUsesTest, RenameCopySourceIfResultIsLiveout) {
+TEST(MachineIRRenameCopyUsesTest, RenameCopySourceIfDstIsLiveoutAndSrcIsntLiveOut) {
   Arena arena;
   x86_64::MachineIR machine_ir(&arena);
 
@@ -245,6 +245,147 @@ TEST(MachineIRRenameCopyUsesTest, RenameCopySourceIfResultIsLiveout) {
   EXPECT_EQ(add_insn->RegAt(1), vreg1);
   // Should rename vreg2.
   EXPECT_EQ(sub_insn->RegAt(1), vreg1);
+}
+
+TEST(MachineIRRenameCopyUsesTest, RenameCopyDstIfDstAndSrcAreLiveOut) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  auto* bb = machine_ir.NewBasicBlock();
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  MachineReg vreg1 = machine_ir.AllocVReg();
+  MachineReg vreg2 = machine_ir.AllocVReg();
+  MachineReg vreg3 = machine_ir.AllocVReg();
+  MachineReg vreg4 = machine_ir.AllocVReg();
+
+  builder.StartBasicBlock(bb);
+  builder.Gen<PseudoCopy>(vreg1, vreg2, 8);
+  auto* add_insn = builder.Gen<x86_64::AddqRegReg>(vreg3, vreg1, kMachineRegFLAGS);
+  auto* sub_insn = builder.Gen<x86_64::SubqRegReg>(vreg4, vreg2, kMachineRegFLAGS);
+  builder.Gen<PseudoJump>(kNullGuestAddr);
+
+  ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
+
+  bb->live_out().push_back(vreg1);
+  bb->live_out().push_back(vreg2);
+
+  RenameCopyUses(&machine_ir);
+  // Should rename vreg1.
+  EXPECT_EQ(add_insn->RegAt(1), vreg2);
+  // Should not rename vreg2.
+  EXPECT_EQ(sub_insn->RegAt(1), vreg2);
+}
+
+TEST(MachineIRRenameCopyUsesTest, FindDuplicateLiveOuts) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  auto* bb1 = machine_ir.NewBasicBlock();
+  auto* bb2 = machine_ir.NewBasicBlock();
+  auto* bb3 = machine_ir.NewBasicBlock();
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  MachineReg vreg1 = machine_ir.AllocVReg();
+  MachineReg vreg2 = machine_ir.AllocVReg();
+  MachineReg vreg3 = machine_ir.AllocVReg();
+  MachineReg vreg4 = machine_ir.AllocVReg();
+
+  builder.StartBasicBlock(bb1);
+  builder.Gen<PseudoCopy>(vreg1, vreg2, 8);
+  builder.Gen<PseudoCopy>(vreg3, vreg4, 8);
+  builder.Gen<PseudoBranch>(bb2);
+  machine_ir.AddEdge(bb1, bb2);
+  bb1->live_out().push_back(vreg1);
+  bb1->live_out().push_back(vreg2);
+  bb1->live_out().push_back(vreg3);
+  bb1->live_out().push_back(vreg4);
+
+  builder.StartBasicBlock(bb2);
+  builder.Gen<PseudoCopy>(vreg1, vreg2, 8);
+  builder.Gen<PseudoCopy>(vreg3, vreg4, 8);
+  builder.Gen<PseudoBranch>(bb3);
+  machine_ir.AddEdge(bb2, bb3);
+  bb2->live_out().push_back(vreg1);
+  bb2->live_out().push_back(vreg2);
+  bb2->live_out().push_back(vreg1);  // test that repeating live outs are handled correctly.
+
+  builder.StartBasicBlock(bb3);
+  builder.Gen<PseudoJump>(kNullGuestAddr);
+  bb2->live_out().push_back(vreg1);
+  bb2->live_out().push_back(vreg2);
+
+  ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
+
+  RenameCopyUsesMap rename_copy_uses_map(&machine_ir);
+  DuplicateLiveOutsMap duplicate_live_outs_map(&machine_ir);
+
+  for (auto* bb : machine_ir.bb_list()) {
+    RenameCopyUsesInBasicBlock(bb, &rename_copy_uses_map);
+    ComputeDuplicateLiveOuts(&machine_ir, bb, &rename_copy_uses_map, &duplicate_live_outs_map);
+  }
+
+  auto CheckDuplicates =
+      [&](const berberis::MachineBasicBlock* bb, MachineReg vreg1, MachineReg vreg2) {
+        EXPECT_EQ(duplicate_live_outs_map.GetDuplicateForTesting(bb, vreg1), vreg2);
+      };
+
+  CheckDuplicates(bb1, vreg1, vreg2);
+  CheckDuplicates(bb1, vreg2, kInvalidMachineReg);
+  CheckDuplicates(bb1, vreg3, vreg4);
+  CheckDuplicates(bb1, vreg4, kInvalidMachineReg);
+  EXPECT_TRUE(duplicate_live_outs_map.BasicBlockContainsDuplicateLiveOuts(bb1));
+
+  CheckDuplicates(bb2, vreg1, vreg2);
+  CheckDuplicates(bb2, vreg2, kInvalidMachineReg);
+  CheckDuplicates(bb2, vreg3, kInvalidMachineReg);
+  CheckDuplicates(bb2, vreg4, kInvalidMachineReg);
+  EXPECT_TRUE(duplicate_live_outs_map.BasicBlockContainsDuplicateLiveOuts(bb2));
+
+  CheckDuplicates(bb3, vreg1, kInvalidMachineReg);
+  CheckDuplicates(bb3, vreg2, kInvalidMachineReg);
+  EXPECT_FALSE(duplicate_live_outs_map.BasicBlockContainsDuplicateLiveOuts(bb3));
+}
+
+TEST(MachineIRRenameCopyUsesTest, FindRegistersDefinedInBasicBlock) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  auto* bb = machine_ir.NewBasicBlock();
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  MachineReg vreg1 = machine_ir.AllocVReg();
+  MachineReg vreg2 = machine_ir.AllocVReg();
+  MachineReg vreg3 = machine_ir.AllocVReg();
+  MachineReg vreg4 = machine_ir.AllocVReg();
+
+  builder.StartBasicBlock(bb);
+  auto* insn_1 = builder.Gen<PseudoCopy>(vreg1, vreg2, 8);
+  auto* insn_2 = builder.Gen<PseudoCopy>(vreg3, vreg4, 8);
+
+  RenameCopyUsesMap rename_copy_uses_map(&machine_ir);
+  DuplicateLiveOutsMap duplicate_live_outs_map(&machine_ir);
+
+  auto CheckBasicBlockDefinesRegister =
+      [&](const berberis::MachineBasicBlock* bb, MachineReg vreg, bool expected) {
+        EXPECT_EQ(duplicate_live_outs_map.BasicBlockDefinesRegisterForTesting(bb, vreg), expected);
+      };
+
+  CheckBasicBlockDefinesRegister(bb, vreg1, false);
+  CheckBasicBlockDefinesRegister(bb, vreg2, false);
+  CheckBasicBlockDefinesRegister(bb, vreg3, false);
+  CheckBasicBlockDefinesRegister(bb, vreg4, false);
+
+  duplicate_live_outs_map.ProcessDef(bb, insn_1, 0);
+  duplicate_live_outs_map.ProcessDef(bb, insn_2, 0);
+
+  CheckBasicBlockDefinesRegister(bb, vreg1, true);
+  CheckBasicBlockDefinesRegister(bb, vreg2, false);
+  CheckBasicBlockDefinesRegister(bb, vreg3, true);
+  CheckBasicBlockDefinesRegister(bb, vreg4, false);
 }
 
 }  // namespace

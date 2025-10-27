@@ -192,7 +192,7 @@ int HardRegAllocation::ConsiderSpill(VRegLifetime* new_lifetime) {
       // Lifetimes interfere in such a way that spill is not possible.
       return kInfiniteSpillWeight;
     } else if (split_kind == SPLIT_CONFLICT) {
-      // A use within this lifetime conflicts with first use in 'new_lifetime'.
+      // An access within this lifetime conflicts with first access in 'new_lifetime'.
       // If we spill it, it will compete with 'new_lifetime' at reallocation,
       // and if it can only use register suitable for 'new_lifetime' as well,
       // 'new_lifetime' can be evicted back, resulting in double spill.
@@ -368,7 +368,7 @@ void VRegLifetimeAllocator::Allocate() {
 }
 
 void CollectLifetimes(const MachineIR* machine_ir, VRegLifetimeList* lifetimes) {
-  VRegLifetimeAnalysis lifetime_analysis(machine_ir->arena(), 2 * machine_ir->NumVReg(), lifetimes);
+  VRegLifetimeAnalysis lifetime_analysis(machine_ir->arena(), machine_ir->NumVReg(), lifetimes);
 
   // Not 'const' because we need pointer to modifiable bb->insn_list().
   for (auto* bb : machine_ir->bb_list()) {

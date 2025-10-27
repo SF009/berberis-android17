@@ -16,24 +16,32 @@
 
 #include "berberis/backend/common/lifetime_analysis.h"
 
+#include "berberis/backend/common/lifetime.h"
+#include "berberis/backend/common/machine_ir.h"
+#include "berberis/base/checks.h"
+
 namespace berberis {
 
-VRegLifetime* VRegLifetimeAnalysis::GetVRegLifetime(MachineReg r, int begin) {
-  uint32_t i = r.GetVRegIndex();
-  if (vreg_lifetimes_.size() < i + 1) {
-    vreg_lifetimes_.resize(i + 1, nullptr);
-  }
-  VRegLifetime*& lifetime = vreg_lifetimes_[i];
+VRegLifetime* VRegLifetimeAnalysis::GetVRegLifetime(MachineReg r, int begin, bool is_input) {
+  VRegLifetime*& lifetime = vreg_lifetimes_.at(r.GetVRegIndex());
   if (lifetime) {
     // Ensure the lifetime has live range for current basic block.
     // Use last live range begin to check that, as lifetime end might be equal
     // to bb_tick_ both when register lives out of prev basic block and when
-    // register lives into current basic block but yet has no uses (so last
+    // register lives into current basic block but yet has no accesses (so last
     // live range is [bb_tick_, bb_tick_)).
     if (lifetime->LastLiveRangeBegin() < bb_tick_) {
+      if (is_input) {
+        // The first access in a basic block must not require a prior definition.
+        return nullptr;
+      }
       lifetime->StartLiveRange(begin);
     }
   } else {
+    if (is_input) {
+      // The first access ever seen must not require a prior definition.
+      return nullptr;
+    }
     // Newly created lifetime last live range will start at 'begin'.
     lifetimes_->push_back(VRegLifetime(arena_, begin));
     lifetime = &lifetimes_->back();
@@ -41,9 +49,10 @@ VRegLifetime* VRegLifetimeAnalysis::GetVRegLifetime(MachineReg r, int begin) {
   return lifetime;
 }
 
-void VRegLifetimeAnalysis::AppendUse(const VRegUse& use) {
-  VRegLifetime* lifetime = GetVRegLifetime(use.GetVReg(), use.begin());
-  lifetime->AppendUse(use);
+void VRegLifetimeAnalysis::AppendAccess(const VRegAccess& access) {
+  VRegLifetime* lifetime = GetVRegLifetime(access.GetVReg(), access.begin(), access.IsInput());
+  CHECK(lifetime);
+  lifetime->AppendAccess(access);
 }
 
 // Set move hint for vreg to vreg move.
@@ -53,7 +62,7 @@ void VRegLifetimeAnalysis::TrySetMoveHint(const MachineInsn* insn) {
   }
 
   // Copy should have 2 vreg operands.
-  DCHECK_EQ(insn->NumRegOperands(), 2);
+  CHECK_EQ(insn->NumRegOperands(), 2);
   MachineReg dst = insn->RegAt(0);
   if (!dst.IsVReg()) {
     return;
@@ -91,7 +100,7 @@ void VRegLifetimeAnalysis::AddInsn(const MachineInsnListPosition& pos) {
     int begin = tick_;
     int end = tick_ + (reg_kind.IsDef() ? 2 : 1);
 
-    AppendUse(VRegUse(pos, i, begin, end));
+    AppendAccess(VRegAccess(pos, i, begin, end));
   }
 
   // Walk def-only register operands.
@@ -112,8 +121,8 @@ void VRegLifetimeAnalysis::AddInsn(const MachineInsnListPosition& pos) {
     int begin = tick_ + 1;
     int end = tick_ + 2;
 
-    // Append use.
-    AppendUse(VRegUse(pos, i, begin, end));
+    // Append access.
+    AppendAccess(VRegAccess(pos, i, begin, end));
   }
 
   TrySetMoveHint(insn);
