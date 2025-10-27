@@ -85,6 +85,10 @@ class DuplicateLiveOutsMap {
     return bb_contains_duplicates_map_.at(bb->id());
   }
 
+  void RenameAndRemoveDuplicateLiveIns(berberis::MachineIR* machine_ir,
+                                       berberis::MachineBasicBlock* bb,
+                                       const berberis::MachineBasicBlock* prev_bb);
+
  private:
   [[nodiscard]] MachineReg GetDuplicate(const berberis::MachineBasicBlock* bb,
                                         MachineReg reg) const {
@@ -117,7 +121,9 @@ void ComputeDuplicateLiveOuts(MachineIR* machine_ir,
                               const RenameCopyUsesMap* rename_copy_uses_map,
                               DuplicateLiveOutsMap* duplicate_live_outs_map);
 
-void RenameCopyUsesInBasicBlock(MachineBasicBlock* bb, RenameCopyUsesMap* rename_copy_uses_map);
+void RenameCopyUsesInBasicBlock(MachineBasicBlock* bb,
+                                RenameCopyUsesMap* rename_copy_uses_map,
+                                DuplicateLiveOutsMap* duplicate_live_outs_map);
 void RenameCopyUses(MachineIR* machine_ir);
 
 }  // namespace berberis::x86_64
