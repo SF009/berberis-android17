@@ -33,6 +33,8 @@ RegLifetimeMap CountRegLifetimeMap(MachineIR* machine_ir, MachineBasicBlock* bb)
     ret[reg] = RegLifetime{
         .start = LiveIn{},
         .end = bb->insn_list().front(),
+        .start_pos = -1,
+        .end_pos = 0,
         .reg_type = RegType::kUnknown,
     };
   }
@@ -45,7 +47,8 @@ RegLifetimeMap CountRegLifetimeMap(MachineIR* machine_ir, MachineBasicBlock* bb)
   //   ... # Here v1 can actually be discarded but our algorithm considers it alive.
   //   v1 = 5
   std::variant<LiveOut, berberis::MachineInsn*> next_insn;
-  for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end(); insn_it++) {
+  int pos = 0;
+  for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end(); insn_it++, pos++) {
     auto insn = *insn_it;
     if (std::next(insn_it) == bb->insn_list().end()) {
       next_insn.emplace<LiveOut>(LiveOut{});
@@ -62,10 +65,12 @@ RegLifetimeMap CountRegLifetimeMap(MachineIR* machine_ir, MachineBasicBlock* bb)
       if (!ret.contains(reg)) {
         ret[reg] = RegLifetime{
             .start = insn,
+            .start_pos = pos,
             .reg_type = RegType::kUnknown,
         };
       }
       ret[reg].end = next_insn;
+      ret[reg].end_pos = pos + 1;
       // Update RegType if still unknown. Note that it's also set to unknown
       // when LiveIn.
       if (ret[reg].reg_type == RegType::kUnknown) {
@@ -85,6 +90,7 @@ RegLifetimeMap CountRegLifetimeMap(MachineIR* machine_ir, MachineBasicBlock* bb)
   for (auto reg : bb->live_out()) {
     CHECK(ret.contains(reg));
     ret[reg].end = LiveOut{};
+    ret[reg].end_pos = pos;
   }
   return ret;
 }

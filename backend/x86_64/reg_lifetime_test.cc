@@ -120,22 +120,32 @@ TEST(MachineIRReadFlagsOptimizer, CountRegLifetimeMap) {
   auto lifetime_map = CountRegLifetimeMap(&machine_ir, bb);
   ASSERT_TRUE(std::holds_alternative<LiveIn>(lifetime_map[reg0].start));
   ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map[reg0].end), reg0_end);
+  ASSERT_EQ(lifetime_map[reg0].start_pos, -1);
+  ASSERT_EQ(lifetime_map[reg0].end_pos, 1);
   ASSERT_EQ(lifetime_map[reg0].reg_type, RegType::kGeneral);
 
   ASSERT_TRUE(std::holds_alternative<LiveIn>(lifetime_map[reg1].start));
   ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map[reg1].end), reg1_end);
+  ASSERT_EQ(lifetime_map[reg1].start_pos, -1);
+  ASSERT_EQ(lifetime_map[reg1].end_pos, 3);
   ASSERT_EQ(lifetime_map[reg1].reg_type, RegType::kGeneral);
 
   ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map[reg2].start), reg1_end);
   ASSERT_TRUE(std::holds_alternative<LiveOut>(lifetime_map[reg2].end));
+  ASSERT_EQ(lifetime_map[reg2].start_pos, 3);
+  ASSERT_EQ(lifetime_map[reg2].end_pos, 5);
   ASSERT_EQ(lifetime_map[reg2].reg_type, RegType::kXmm);
 
   ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map[reg3].start), reg3_start);
   ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map[reg3].end), reg1_end);
+  ASSERT_EQ(lifetime_map[reg3].start_pos, 2);
+  ASSERT_EQ(lifetime_map[reg3].end_pos, 3);
   ASSERT_EQ(lifetime_map[reg3].reg_type, RegType::kGeneral);
 
   ASSERT_TRUE(std::holds_alternative<LiveIn>(lifetime_map[reg4].start));
   ASSERT_TRUE(std::holds_alternative<LiveOut>(lifetime_map[reg4].end));
+  ASSERT_EQ(lifetime_map[reg4].start_pos, -1);
+  ASSERT_EQ(lifetime_map[reg4].end_pos, 5);
   ASSERT_EQ(lifetime_map[reg4].reg_type, RegType::kUnknown);
 }
 
