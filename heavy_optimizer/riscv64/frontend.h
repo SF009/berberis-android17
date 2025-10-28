@@ -521,32 +521,28 @@ class HeavyOptimizerFrontend {
     input_index = 0;
     int output_index = 0;
     std::array<MachineReg, InsnType::kInfo.num_reg_operands> gen_args;
+    // SSA instructions can only have use or def operands, never use+def ones.
+    static_assert(
+        [] {
+          for (int index = 0; index < InsnType::kInfo.num_reg_operands; index++) {
+            CHECK_NE(InsnType::kInfo.reg_kinds[index].IsDef(),
+                     InsnType::kInfo.reg_kinds[index].IsInput());
+          }
+          return true;
+        }(),
+        "SSA instruction couldn't have use+def operands");
     for (int index = 0; index < InsnType::kInfo.num_reg_operands; index++) {
       if (InsnType::kInfo.reg_kinds[index].IsDef()) {
-        if (InsnType::kInfo.reg_kinds[index].RegClass() == &x86_64::kFLAGS) {
-          output[output_index] = GetFlagsRegister();
-        } else {
-          if (!InsnType::kInfo.reg_kinds[index].IsInput()) {
-            output[output_index] = AllocTempReg();
-          } else {
-            output[output_index] = AllocTempReg();
-            if (InsnType::kInfo.reg_kinds[index].IsInput()) {
-              builder_.Gen<PseudoCopy>(output[output_index],
-                                       input[input_index++],
-                                       InsnType::kInfo.reg_kinds[index].RegClass()->reg_size);
-            }
-          }
-        }
-        gen_args[index] = output[output_index++];
+        gen_args[index] = output[output_index++] =
+            InsnType::kInfo.reg_kinds[index].RegClass() == &x86_64::kFLAGS ? GetFlagsRegister()
+                                                                           : AllocTempReg();
       } else {
-        CHECK(InsnType::kInfo.reg_kinds[index].IsInput());
         // If register is implicit we need to add extra PseudoCopy here even if it's pure input.
         // Othwise we may attempt to make the same register to belong to two different, incompatible
         // register classes if it's ALSO output of another instruction with a different implicit
         // class. E.g. if output of division is used as input for shift.
         if (InsnType::kInfo.reg_kinds[index].RegClass()->num_regs == 1 &&
             InsnType::kInfo.reg_kinds[index].RegClass() != &x86_64::kFLAGS) {
-          CHECK(InsnType::kInfo.reg_kinds[index].RegClass() != &x86_64::kFLAGS);
           gen_args[index] = AllocTempReg();
           builder_.Gen<PseudoCopy>(gen_args[index],
                                    input[input_index++],
