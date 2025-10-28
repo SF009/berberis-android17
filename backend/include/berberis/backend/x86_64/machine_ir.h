@@ -342,13 +342,6 @@ class MachineInsnOperandsHelper<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
       "Only instructions without kUseDef operands can be used without kSSAMode specification");
 
  public:
-  // We want to filter out any operands that are not used for Register args.
-  // Note: memory operands accept register and offset, thus they are included.
-  using RegOperandsTuple = decltype(std::tuple_cat(
-      std::declval<std::conditional_t<device_arch_info::kIsRegister<Operands> ||
-                                          device_arch_info::kIsMemoryOperand<Operands>,
-                                      std::tuple<Operands>,
-                                      std::tuple<>>>()...));
   // Note: immediates accept appropriate type, register operands includes only register while memory
   // operand needs both base register and offset.
   using ConstructorArgsTuple = decltype(std::tuple_cat(
@@ -383,7 +376,6 @@ template <
     // Note kSSAMode = false is default value and means instruction is natively SSA-compliant (== no
     // use_def operands). Only kSSA and kNoSSA should be specified explicitly.
     auto kSSAMode = false,
-    typename = typename MachineInsnOperandsHelper<IntrinsicBindingInfo, kSSAMode>::RegOperandsTuple,
     typename =
         typename MachineInsnOperandsHelper<IntrinsicBindingInfo, kSSAMode>::ConstructorArgsTuple,
     typename = typename MachineInsnOperandsHelper<IntrinsicBindingInfo,
@@ -399,7 +391,6 @@ template <auto kEmitInsnFunc,
           typename CPUIDRestriction,
           typename... Operands,
           auto kSSAMode,
-          typename... RegOperands,
           typename... ConstructorArgs,
           typename... ConstructorAutoArgs,
           typename... NoSSAConstructorArgs>
@@ -410,7 +401,6 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                                                    CPUIDRestriction,
                                                    std::tuple<Operands...>>,
                   kSSAMode,
-                  std::tuple<RegOperands...>,
                   std::tuple<ConstructorArgs...>,
                   std::tuple<ConstructorAutoArgs...>,
                   std::tuple<NoSSAConstructorArgs...>>
@@ -858,7 +848,6 @@ template <auto kEmitInsnFunc,
           typename CPUIDRestriction,
           typename... Operands,
           auto kSSAMode,
-          typename... RegOperands,
           typename... ConstructorArgs,
           typename... ConstructorAutoArgs,
           typename... NoSSAConstructorArgs>
@@ -870,7 +859,6 @@ constexpr MachineInsnInfo MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsn
                                                                        CPUIDRestriction,
                                                                        std::tuple<Operands...>>,
                                       kSSAMode,
-                                      std::tuple<RegOperands...>,
                                       std::tuple<ConstructorArgs...>,
                                       std::tuple<ConstructorAutoArgs...>,
                                       std::tuple<NoSSAConstructorArgs...>>::GenMachineInsnInfo() {
@@ -907,8 +895,7 @@ constexpr MachineInsnInfo MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsn
                 &kRegisterClass<typename Operand::Class>,
                 static_cast<MachineRegKind::StandardAccess>(Operand::kUsage)};
           }
-        } else {
-          static_assert(device_arch_info::kIsMemoryOperand<Operand>);
+        } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
           // Note: normally size of array should match number of memory operands, but that's not
           // true for kInfo where it's zero.
           // TODO(399130034): remove std::size when kInfo is removed.
@@ -927,7 +914,7 @@ constexpr MachineInsnInfo MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsn
           }
           mem_operand_bit_pos++;
         }
-      }.template operator()<RegOperands>(),
+      }.template operator()<Operands>(),
       ...);
   return result;
 }
@@ -939,7 +926,6 @@ template <auto kEmitInsnFunc,
           typename CPUIDRestriction,
           typename... Operands,
           auto kSSAMode,
-          typename... RegOperands,
           typename... ConstructorArgs,
           typename... ConstructorAutoArgs,
           typename... NoSSAConstructorArgs>
@@ -952,7 +938,6 @@ MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                                              CPUIDRestriction,
                                              std::tuple<Operands...>>,
             kSSAMode,
-            std::tuple<RegOperands...>,
             std::tuple<ConstructorArgs...>,
             std::tuple<ConstructorAutoArgs...>,
             std::tuple<NoSSAConstructorArgs...>>::GenMachineInsnInfos() {
