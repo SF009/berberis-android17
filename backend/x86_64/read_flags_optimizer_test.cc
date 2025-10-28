@@ -72,7 +72,8 @@ TestLoop BuildBasicLoop(MachineIR* machine_ir) {
   builder.Gen<PseudoBranch>(bb2);
 
   builder.StartBasicBlock(bb2);
-  builder.Gen<AddqRegReg>(machine_ir->AllocVReg(), machine_ir->AllocVReg(), kMachineRegFLAGS);
+  builder.Gen<AddqRegReg, kNoSSA>(
+      machine_ir->AllocVReg(), machine_ir->AllocVReg(), kMachineRegFLAGS);
   builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS);
   builder.Gen<PseudoCopy>(flags1, flags0, 8);
   builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, kMachineRegFLAGS);
@@ -162,7 +163,7 @@ TEST(MachineIRReadFlagsOptimizer, CheckPostLoopChecksRedefines) {
 
   bb0->live_in().push_back(flags);
   builder.StartBasicBlock(bb0);
-  builder.Gen<AddqRegReg>(flags, flags, kMachineRegFLAGS);
+  builder.Gen<AddqRegReg, kNoSSA>(flags, flags, kMachineRegFLAGS);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
   ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
@@ -189,7 +190,7 @@ TEST(MachineIRReadFlagsOptimizer, CheckPostLoopNodeLifetime) {
   builder.Gen<PseudoBranch>(bb1);
 
   builder.StartBasicBlock(bb1);
-  builder.Gen<AddqRegReg>(machine_ir.AllocVReg(), flags_copy, kMachineRegFLAGS);
+  builder.Gen<AddqRegReg, kNoSSA>(machine_ir.AllocVReg(), flags_copy, kMachineRegFLAGS);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
   ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
@@ -421,27 +422,29 @@ TEST(MachineIRReadFlagsOptimizer, GetInsnGen) {
   MachineIRBuilder builder(&machine_ir);
 
   TestCopiedInstruction(&machine_ir,
-                        machine_ir.NewInsn<AddqRegReg>(
+                        machine_ir.NewInsn<AddqRegReg, kNoSSA>(
                             machine_ir.AllocVReg(), machine_ir.AllocVReg(), kMachineRegFLAGS));
   TestCopiedInstruction(
       &machine_ir, machine_ir.NewInsn<CmplRegImm>(machine_ir.AllocVReg(), 123, kMachineRegFLAGS));
   TestCopiedInstruction(&machine_ir,
-                        machine_ir.NewInsn<CmplRegReg>(
+                        machine_ir.NewInsn<CmplRegReg, kNoSSA>(
                             machine_ir.AllocVReg(), machine_ir.AllocVReg(), kMachineRegFLAGS));
   TestCopiedInstruction(
       &machine_ir, machine_ir.NewInsn<CmpqRegImm>(machine_ir.AllocVReg(), 123, kMachineRegFLAGS));
   TestCopiedInstruction(&machine_ir,
-                        machine_ir.NewInsn<CmpqRegReg>(
+                        machine_ir.NewInsn<CmpqRegReg, kNoSSA>(
                             machine_ir.AllocVReg(), machine_ir.AllocVReg(), kMachineRegFLAGS));
   TestCopiedInstruction(
-      &machine_ir, machine_ir.NewInsn<SublRegImm>(machine_ir.AllocVReg(), 123, kMachineRegFLAGS));
+      &machine_ir,
+      machine_ir.NewInsn<SublRegImm, kNoSSA>(machine_ir.AllocVReg(), 123, kMachineRegFLAGS));
   TestCopiedInstruction(&machine_ir,
-                        machine_ir.NewInsn<SublRegReg>(
+                        machine_ir.NewInsn<SublRegReg, kNoSSA>(
                             machine_ir.AllocVReg(), machine_ir.AllocVReg(), kMachineRegFLAGS));
   TestCopiedInstruction(
-      &machine_ir, machine_ir.NewInsn<SubqRegImm>(machine_ir.AllocVReg(), 123, kMachineRegFLAGS));
+      &machine_ir,
+      machine_ir.NewInsn<SubqRegImm, kNoSSA>(machine_ir.AllocVReg(), 123, kMachineRegFLAGS));
   TestCopiedInstruction(&machine_ir,
-                        machine_ir.NewInsn<SubqRegReg>(
+                        machine_ir.NewInsn<SubqRegReg, kNoSSA>(
                             machine_ir.AllocVReg(), machine_ir.AllocVReg(), kMachineRegFLAGS));
 
   // Note PseudoReadFlags is a special case as it has its own member variables and
@@ -466,8 +469,8 @@ TEST(MachineIRReadFlagsOptimizer, InsertFlagGenInstructionsAddsCmc) {
   machine_ir.AddEdge(bb0, bb1);
 
   builder.StartBasicBlock(bb0);
-  builder.Gen<AddqRegReg>(input0, input1, kMachineRegFLAGS);
-  builder.Gen<Cmc>(kMachineRegFLAGS);
+  builder.Gen<AddqRegReg, kNoSSA>(input0, input1, kMachineRegFLAGS);
+  builder.Gen<Cmc, kNoSSA>(kMachineRegFLAGS);
   builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS);
   builder.Gen<PseudoBranch>(bb1);
 
@@ -656,7 +659,7 @@ TEST(MachineIRReadFlagsOptimizer, IsEligibleReadFlagReturnsSetter) {
   MachineIR machine_ir(&arena);
   auto testloop = BuildBasicLoop(&machine_ir);
   testloop.loop_exit->insn_list().push_front(
-      machine_ir.NewInsn<SubqRegImm>(machine_ir.AllocVReg(), 121, testloop.flags_reg));
+      machine_ir.NewInsn<SubqRegImm, kNoSSA>(machine_ir.AllocVReg(), 121, testloop.flags_reg));
 
   ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
   auto loop_tree = BuildLoopTree(&machine_ir);
@@ -682,9 +685,9 @@ TEST(MachineIRReadFlagsOptimizer, FindFlagSettingInsn) {
 
   auto bb = machine_ir.NewBasicBlock();
   builder.StartBasicBlock(bb);
-  builder.Gen<AddqRegReg>(reg0, reg1, flags0);
-  builder.Gen<SubqRegImm>(reg1, 1234, flags0);
-  builder.Gen<AddqRegReg>(reg1, reg0, flags1);
+  builder.Gen<AddqRegReg, kNoSSA>(reg0, reg1, flags0);
+  builder.Gen<SubqRegImm, kNoSSA>(reg1, 1234, flags0);
+  builder.Gen<AddqRegReg, kNoSSA>(reg1, reg0, flags1);
   builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, reg_with_flags0, flags0);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
@@ -712,8 +715,8 @@ TEST(MachineIRReadFlagsOptimizer, FindFlagSettingInsnSetsCmc) {
 
   auto bb = machine_ir.NewBasicBlock();
   builder.StartBasicBlock(bb);
-  builder.Gen<AddqRegReg>(machine_ir.AllocVReg(), machine_ir.AllocVReg(), kMachineRegFLAGS);
-  builder.Gen<Cmc>(kMachineRegFLAGS);
+  builder.Gen<AddqRegReg, kNoSSA>(machine_ir.AllocVReg(), machine_ir.AllocVReg(), kMachineRegFLAGS);
+  builder.Gen<Cmc, kNoSSA>(kMachineRegFLAGS);
   builder.Gen<PseudoReadFlags>(
       PseudoReadFlags::kWithOverflow, machine_ir.AllocVReg(), kMachineRegFLAGS);
   builder.Gen<PseudoJump>(kNullGuestAddr);
@@ -751,7 +754,7 @@ TEST(MachineIRReadFlagsOptimizer, NeedsToSaveFlags) {
   auto bb2 = machine_ir.NewBasicBlock();
   builder.StartBasicBlock(bb2);
   builder.Gen<MovqRegReg>(machine_ir.AllocVReg(), machine_ir.AllocVReg());
-  builder.Gen<SubqRegImm>(machine_ir.AllocVReg(), 1, kMachineRegFLAGS);
+  builder.Gen<SubqRegImm, kNoSSA>(machine_ir.AllocVReg(), 1, kMachineRegFLAGS);
   builder.Gen<PseudoReadFlags>(
       PseudoReadFlags::kWithOverflow, machine_ir.AllocVReg(), kMachineRegFLAGS);
   builder.Gen<PseudoJump>(kNullGuestAddr);
@@ -793,7 +796,7 @@ TEST(MachineIRReadFlagsOptimizer, RemoveEligibleReadFlagsInLoopTree) {
   builder.Gen<PseudoBranch>(bb1);
 
   builder.StartBasicBlock(bb1);
-  builder.Gen<AddqRegReg>(scratch, scratch, kMachineRegFLAGS);
+  builder.Gen<AddqRegReg, kNoSSA>(scratch, scratch, kMachineRegFLAGS);
   builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS);
   builder.Gen<PseudoCopy>(flags00, flags0, 8);
   builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb5, kMachineRegFLAGS);
@@ -803,19 +806,19 @@ TEST(MachineIRReadFlagsOptimizer, RemoveEligibleReadFlagsInLoopTree) {
   builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb1, bb3, kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb3);
-  builder.Gen<AddqRegReg>(scratch, scratch, kMachineRegFLAGS);
+  builder.Gen<AddqRegReg, kNoSSA>(scratch, scratch, kMachineRegFLAGS);
   builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, flags1, kMachineRegFLAGS);
   builder.Gen<PseudoCopy>(flags11, flags1, 8);
   builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb4, kMachineRegFLAGS);
   bb3->live_out().push_back(flags11);
 
   builder.StartBasicBlock(bb4);
-  builder.Gen<AddqRegReg>(machine_ir.AllocVReg(), flags11, kMachineRegFLAGS);
+  builder.Gen<AddqRegReg, kNoSSA>(machine_ir.AllocVReg(), flags11, kMachineRegFLAGS);
   builder.Gen<PseudoJump>(kNullGuestAddr);
   bb4->live_in().push_back(flags11);
 
   builder.StartBasicBlock(bb5);
-  builder.Gen<AddqRegReg>(machine_ir.AllocVReg(), flags00, kMachineRegFLAGS);
+  builder.Gen<AddqRegReg, kNoSSA>(machine_ir.AllocVReg(), flags00, kMachineRegFLAGS);
   builder.Gen<PseudoJump>(kNullGuestAddr);
   bb5->live_in().push_back(flags00);
 
@@ -883,7 +886,7 @@ TEST(MachineIRReadFlagsOptimizer, RemoveEligibleReadFlagsExitsToOuterLoop) {
   builder.Gen<PseudoBranch>(bb2);
 
   builder.StartBasicBlock(bb2);
-  builder.Gen<SubqRegReg>(scratch, scratch, kMachineRegFLAGS);
+  builder.Gen<SubqRegReg, kNoSSA>(scratch, scratch, kMachineRegFLAGS);
   builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS);
   builder.Gen<PseudoCopy>(flags00, flags0, 8);
   builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, kMachineRegFLAGS);
@@ -1027,7 +1030,7 @@ TEST(MachineIRReadFlagsOptimizer, RemoveReadFlags) {
   builder.Gen<PseudoBranch>(bb2);
 
   builder.StartBasicBlock(bb2);
-  builder.Gen<AddqRegReg>(input_flag0, input_flag1, kMachineRegFLAGS);
+  builder.Gen<AddqRegReg, kNoSSA>(input_flag0, input_flag1, kMachineRegFLAGS);
   auto* readflag_insn =
       builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS);
   builder.Gen<PseudoCopy>(flags00, flags0, 8);
@@ -1128,7 +1131,7 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersRecursesOnNeighbors) {
   machine_ir.AddEdge(bb2, bb0);
 
   builder.StartBasicBlock(bb0);
-  auto* flag_set_insn = builder.Gen<SubqRegImm>(input0, 12, kMachineRegFLAGS);
+  auto* flag_set_insn = builder.Gen<SubqRegImm, kNoSSA>(input0, 12, kMachineRegFLAGS);
   builder.Gen<PseudoCopy>(input00, input0, 8);
   builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb1, bb2, kMachineRegFLAGS);
 
@@ -1176,7 +1179,7 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersReplacesInstructions) {
   machine_ir.AddEdge(bb0, bb1);
 
   builder.StartBasicBlock(bb0);
-  auto* flag_set_insn = builder.Gen<SubqRegImm>(input0, 12, kMachineRegFLAGS);
+  auto* flag_set_insn = builder.Gen<SubqRegImm, kNoSSA>(input0, 12, kMachineRegFLAGS);
   builder.Gen<PseudoCopy>(input00, input0, 8);
   builder.Gen<PseudoBranch>(bb1);
 
@@ -1245,11 +1248,11 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersUpdatesLiveInOut) {
                               PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS)},
                           machine_ir.arena()}
               .begin(),
-          FlagSettingInsn{
-              MachineInsnList{{machine_ir.NewInsn<AddqRegReg>(input0, input1, kMachineRegFLAGS)},
-                              machine_ir.arena()}
-                  .begin(),
-              false},
+          FlagSettingInsn{MachineInsnList{{machine_ir.NewInsn<AddqRegReg, kNoSSA>(
+                                              input0, input1, kMachineRegFLAGS)},
+                                          machine_ir.arena()}
+                              .begin(),
+                          false},
       },
       bb0->insn_list().begin(),
       MachineRegVector({flags0}, machine_ir.arena()),
@@ -1289,11 +1292,11 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersDeletesCopies) {
                               PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS)},
                           machine_ir.arena()}
               .begin(),
-          FlagSettingInsn{
-              MachineInsnList{{machine_ir.NewInsn<AddqRegReg>(flags0, flags0, kMachineRegFLAGS)},
-                              machine_ir.arena()}
-                  .begin(),
-              false},
+          FlagSettingInsn{MachineInsnList{{machine_ir.NewInsn<AddqRegReg, kNoSSA>(
+                                              flags0, flags0, kMachineRegFLAGS)},
+                                          machine_ir.arena()}
+                              .begin(),
+                          false},
       },
       bb0->insn_list().begin(),
       MachineRegVector({flags0}, machine_ir.arena()),
@@ -1336,11 +1339,11 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersCopiesDefRegisters) {
                               PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS)},
                           machine_ir.arena()}
               .begin(),
-          FlagSettingInsn{
-              MachineInsnList{{machine_ir.NewInsn<AddqRegReg>(input0, input1, kMachineRegFLAGS)},
-                              machine_ir.arena()}
-                  .begin(),
-              false},
+          FlagSettingInsn{MachineInsnList{{machine_ir.NewInsn<AddqRegReg, kNoSSA>(
+                                              input0, input1, kMachineRegFLAGS)},
+                                          machine_ir.arena()}
+                              .begin(),
+                          false},
       },
       bb0->insn_list().begin(),
       MachineRegVector({flags0}, machine_ir.arena()),
@@ -1374,7 +1377,7 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersWithDuplicates) {
 
   auto bb0 = machine_ir.NewBasicBlock();
   builder.StartBasicBlock(bb0);
-  builder.Gen<SubqRegReg>(flags0, flags0, kMachineRegFLAGS);
+  builder.Gen<SubqRegReg, kNoSSA>(flags0, flags0, kMachineRegFLAGS);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
   ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
@@ -1387,11 +1390,11 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersWithDuplicates) {
                               PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS)},
                           machine_ir.arena()}
               .begin(),
-          FlagSettingInsn{
-              MachineInsnList{{machine_ir.NewInsn<AddqRegReg>(input0, input0, kMachineRegFLAGS)},
-                              machine_ir.arena()}
-                  .begin(),
-              false},
+          FlagSettingInsn{MachineInsnList{{machine_ir.NewInsn<AddqRegReg, kNoSSA>(
+                                              input0, input0, kMachineRegFLAGS)},
+                                          machine_ir.arena()}
+                              .begin(),
+                          false},
       },
       bb0->insn_list().begin(),
       MachineRegVector({flags0}, machine_ir.arena()),

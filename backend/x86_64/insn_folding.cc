@@ -151,68 +151,68 @@ berberis::MachineInsn* InsnFolding::NewImmInsnFromRegInsn(const berberis::Machin
   berberis::MachineInsn* folded_insn;
   switch (insn->opcode()) {
     case kMachineOpAddqRegReg:
-      folded_insn = machine_ir_->NewInsn<AddqRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
+      folded_insn = machine_ir_->NewInsn<AddqRegImm, kNoSSA>(insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpSubqRegReg:
-      folded_insn = machine_ir_->NewInsn<SubqRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
+      folded_insn = machine_ir_->NewInsn<SubqRegImm, kNoSSA>(insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpCmpqRegReg:
-      folded_insn = machine_ir_->NewInsn<CmpqRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
+      folded_insn = machine_ir_->NewInsn<CmpqRegImm, kNoSSA>(insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpOrqRegReg:
-      folded_insn = machine_ir_->NewInsn<OrqRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
+      folded_insn = machine_ir_->NewInsn<OrqRegImm, kNoSSA>(insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpXorqRegReg:
-      folded_insn = machine_ir_->NewInsn<XorqRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
+      folded_insn = machine_ir_->NewInsn<XorqRegImm, kNoSSA>(insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpAndqRegReg:
-      folded_insn = machine_ir_->NewInsn<AndqRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
+      folded_insn = machine_ir_->NewInsn<AndqRegImm, kNoSSA>(insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpTestqRegReg:
       folded_insn = machine_ir_->NewInsn<TestqRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpShlqRegReg:
-      folded_insn = machine_ir_->NewInsn<ShlqRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
+      folded_insn = machine_ir_->NewInsn<ShlqRegImm, kNoSSA>(insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpShrqRegReg:
-      folded_insn = machine_ir_->NewInsn<ShrqRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
+      folded_insn = machine_ir_->NewInsn<ShrqRegImm, kNoSSA>(insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpImulqRegReg:
-      folded_insn = machine_ir_->NewInsn<ImulqRegRegImm>(
+      folded_insn = machine_ir_->NewInsn<ImulqRegRegImm, kNoSSA>(
           insn->RegAt(0), insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpMovlRegReg:
-      folded_insn = machine_ir_->NewInsn<MovlRegImm>(insn->RegAt(0), imm32);
+      folded_insn = machine_ir_->NewInsn<MovlRegImm, kNoSSA>(insn->RegAt(0), imm32);
       break;
     case kMachineOpAddlRegReg:
-      folded_insn = machine_ir_->NewInsn<AddlRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
+      folded_insn = machine_ir_->NewInsn<AddlRegImm, kNoSSA>(insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpSublRegReg:
-      folded_insn = machine_ir_->NewInsn<SublRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
+      folded_insn = machine_ir_->NewInsn<SublRegImm, kNoSSA>(insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpCmplRegReg:
-      folded_insn = machine_ir_->NewInsn<CmplRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
+      folded_insn = machine_ir_->NewInsn<CmplRegImm, kNoSSA>(insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpOrlRegReg:
-      folded_insn = machine_ir_->NewInsn<OrlRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
+      folded_insn = machine_ir_->NewInsn<OrlRegImm, kNoSSA>(insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpXorlRegReg:
-      folded_insn = machine_ir_->NewInsn<XorlRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
+      folded_insn = machine_ir_->NewInsn<XorlRegImm, kNoSSA>(insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpAndlRegReg:
-      folded_insn = machine_ir_->NewInsn<AndlRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
+      folded_insn = machine_ir_->NewInsn<AndlRegImm, kNoSSA>(insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpTestlRegReg:
       folded_insn = machine_ir_->NewInsn<TestlRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpShllRegReg:
-      folded_insn = machine_ir_->NewInsn<ShllRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
+      folded_insn = machine_ir_->NewInsn<ShllRegImm, kNoSSA>(insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpShrlRegReg:
-      folded_insn = machine_ir_->NewInsn<ShrlRegImm>(insn->RegAt(0), imm32, insn->RegAt(2));
+      folded_insn = machine_ir_->NewInsn<ShrlRegImm, kNoSSA>(insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpImullRegReg:
-      folded_insn = machine_ir_->NewInsn<ImullRegRegImm>(
+      folded_insn = machine_ir_->NewInsn<ImullRegRegImm, kNoSSA>(
           insn->RegAt(0), insn->RegAt(0), imm32, insn->RegAt(2));
       break;
     case kMachineOpMovlMemBaseDispReg:
@@ -498,51 +498,51 @@ berberis::MachineInsn* InsnFolding::NewArithmeticInsnWithFoldedContextRead(
   const MemoryOperand mem_op = {.base = kCPUStatePointer, .disp = context_read_disp};
   switch (insn->opcode()) {
     case kMachineOpAddqRegReg:
-      return machine_ir_->NewInsn<AddqRegOp>(insn->RegAt(0), mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<AddqRegOp, kNoSSA>(insn->RegAt(0), mem_op, insn->RegAt(2));
     case kMachineOpAddlRegReg:
-      return machine_ir_->NewInsn<AddlRegOp>(insn->RegAt(0), mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<AddlRegOp, kNoSSA>(insn->RegAt(0), mem_op, insn->RegAt(2));
     case kMachineOpXorqRegReg:
-      return machine_ir_->NewInsn<XorqRegOp>(insn->RegAt(0), mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<XorqRegOp, kNoSSA>(insn->RegAt(0), mem_op, insn->RegAt(2));
     case kMachineOpXorlRegReg:
-      return machine_ir_->NewInsn<XorlRegOp>(insn->RegAt(0), mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<XorlRegOp, kNoSSA>(insn->RegAt(0), mem_op, insn->RegAt(2));
     case kMachineOpOrqRegReg:
-      return machine_ir_->NewInsn<OrqRegOp>(insn->RegAt(0), mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<OrqRegOp, kNoSSA>(insn->RegAt(0), mem_op, insn->RegAt(2));
     case kMachineOpOrlRegReg:
-      return machine_ir_->NewInsn<OrlRegOp>(insn->RegAt(0), mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<OrlRegOp, kNoSSA>(insn->RegAt(0), mem_op, insn->RegAt(2));
     case kMachineOpSubqRegReg:
-      return machine_ir_->NewInsn<SubqRegOp>(insn->RegAt(0), mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<SubqRegOp, kNoSSA>(insn->RegAt(0), mem_op, insn->RegAt(2));
     case kMachineOpSublRegReg:
-      return machine_ir_->NewInsn<SublRegOp>(insn->RegAt(0), mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<SublRegOp, kNoSSA>(insn->RegAt(0), mem_op, insn->RegAt(2));
     case kMachineOpCmpqRegReg: {
       if (mem_reg_pos == 0) {
-        return machine_ir_->NewInsn<CmpqOpReg>(mem_op, insn->RegAt(1), insn->RegAt(2));
+        return machine_ir_->NewInsn<CmpqOpReg, kNoSSA>(mem_op, insn->RegAt(1), insn->RegAt(2));
       }
-      return machine_ir_->NewInsn<CmpqRegOp>(insn->RegAt(0), mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<CmpqRegOp, kNoSSA>(insn->RegAt(0), mem_op, insn->RegAt(2));
     }
     case kMachineOpCmplRegReg: {
       if (mem_reg_pos == 0) {
-        return machine_ir_->NewInsn<CmplOpReg>(mem_op, insn->RegAt(1), insn->RegAt(2));
+        return machine_ir_->NewInsn<CmplOpReg, kNoSSA>(mem_op, insn->RegAt(1), insn->RegAt(2));
       }
-      return machine_ir_->NewInsn<CmplRegOp>(insn->RegAt(0), mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<CmplRegOp, kNoSSA>(insn->RegAt(0), mem_op, insn->RegAt(2));
     }
     case kMachineOpAndqRegReg:
-      return machine_ir_->NewInsn<AndqRegOp>(insn->RegAt(0), mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<AndqRegOp, kNoSSA>(insn->RegAt(0), mem_op, insn->RegAt(2));
     case kMachineOpAndlRegReg:
-      return machine_ir_->NewInsn<AndlRegOp>(insn->RegAt(0), mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<AndlRegOp, kNoSSA>(insn->RegAt(0), mem_op, insn->RegAt(2));
     case kMachineOpPandXRegXReg:
-      return machine_ir_->NewInsn<PandXRegOp>(insn->RegAt(0), mem_op);
+      return machine_ir_->NewInsn<PandXRegOp, kNoSSA>(insn->RegAt(0), mem_op);
     case kMachineOpPadddXRegXReg:
-      return machine_ir_->NewInsn<PadddXRegOp>(insn->RegAt(0), mem_op);
+      return machine_ir_->NewInsn<PadddXRegOp, kNoSSA>(insn->RegAt(0), mem_op);
     case kMachineOpPsubdXRegXReg:
-      return machine_ir_->NewInsn<PsubdXRegOp>(insn->RegAt(0), mem_op);
+      return machine_ir_->NewInsn<PsubdXRegOp, kNoSSA>(insn->RegAt(0), mem_op);
     case kMachineOpPorXRegXReg:
-      return machine_ir_->NewInsn<PorXRegOp>(insn->RegAt(0), mem_op);
+      return machine_ir_->NewInsn<PorXRegOp, kNoSSA>(insn->RegAt(0), mem_op);
     case kMachineOpPxorXRegXReg:
-      return machine_ir_->NewInsn<PxorXRegOp>(insn->RegAt(0), mem_op);
+      return machine_ir_->NewInsn<PxorXRegOp, kNoSSA>(insn->RegAt(0), mem_op);
     case kMachineOpBtqRegReg:
-      return machine_ir_->NewInsn<BtqOpReg>(mem_op, insn->RegAt(1), insn->RegAt(2));
+      return machine_ir_->NewInsn<BtqOpReg, kNoSSA>(mem_op, insn->RegAt(1), insn->RegAt(2));
     case kMachineOpBtlRegReg:
-      return machine_ir_->NewInsn<BtlOpReg>(mem_op, insn->RegAt(1), insn->RegAt(2));
+      return machine_ir_->NewInsn<BtlOpReg, kNoSSA>(mem_op, insn->RegAt(1), insn->RegAt(2));
     case kMachineOpTestqRegReg:
       // Test insn has TestMemReg version but no TestRegMem version. However, Test is commutative
       // and both operands are 'use'. Therefore we can safely swap the operands.
@@ -554,9 +554,9 @@ berberis::MachineInsn* InsnFolding::NewArithmeticInsnWithFoldedContextRead(
       return machine_ir_->NewInsn<TestlOpReg>(
           mem_op, insn->RegAt(mem_reg_pos == 0 ? 1 : 0), insn->RegAt(2));
     case kMachineOpImulqRegReg:
-      return machine_ir_->NewInsn<ImulqRegOp>(insn->RegAt(0), mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<ImulqRegOp, kNoSSA>(insn->RegAt(0), mem_op, insn->RegAt(2));
     case kMachineOpImullRegReg:
-      return machine_ir_->NewInsn<ImullRegOp>(insn->RegAt(0), mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<ImullRegOp, kNoSSA>(insn->RegAt(0), mem_op, insn->RegAt(2));
     case kMachineOpCmpqRegImm:
       return machine_ir_->NewInsn<CmpqOpImm>(
           mem_op, AsMachineInsnX86_64(insn)->imm(), insn->RegAt(1));
@@ -564,10 +564,10 @@ berberis::MachineInsn* InsnFolding::NewArithmeticInsnWithFoldedContextRead(
       return machine_ir_->NewInsn<CmplOpImm>(
           mem_op, AsMachineInsnX86_64(insn)->imm(), insn->RegAt(1));
     case kMachineOpBtqRegImm:
-      return machine_ir_->NewInsn<BtqOpImm>(
+      return machine_ir_->NewInsn<BtqOpImm, kNoSSA>(
           mem_op, AsMachineInsnX86_64(insn)->imm(), insn->RegAt(1));
     case kMachineOpBtlRegImm:
-      return machine_ir_->NewInsn<BtlOpImm>(
+      return machine_ir_->NewInsn<BtlOpImm, kNoSSA>(
           mem_op, AsMachineInsnX86_64(insn)->imm(), insn->RegAt(1));
     case kMachineOpTestqRegImm:
       return machine_ir_->NewInsn<TestqOpImm>(
@@ -633,25 +633,25 @@ berberis::MachineInsn* InsnFolding::NewArithmeticInsnWithSwappedOperands(
   const MemoryOperand mem_op = {.base = kCPUStatePointer, .disp = context_read_disp};
   switch (insn->opcode()) {
     case kMachineOpAddqRegReg:
-      return machine_ir_->NewInsn<AddqRegOp>(new_reg, mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<AddqRegOp, kNoSSA>(new_reg, mem_op, insn->RegAt(2));
     case kMachineOpAddlRegReg:
-      return machine_ir_->NewInsn<AddlRegOp>(new_reg, mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<AddlRegOp, kNoSSA>(new_reg, mem_op, insn->RegAt(2));
     case kMachineOpAndqRegReg:
-      return machine_ir_->NewInsn<AndqRegOp>(new_reg, mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<AndqRegOp, kNoSSA>(new_reg, mem_op, insn->RegAt(2));
     case kMachineOpAndlRegReg:
-      return machine_ir_->NewInsn<AndlRegOp>(new_reg, mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<AndlRegOp, kNoSSA>(new_reg, mem_op, insn->RegAt(2));
     case kMachineOpImulqRegReg:
-      return machine_ir_->NewInsn<ImulqRegOp>(new_reg, mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<ImulqRegOp, kNoSSA>(new_reg, mem_op, insn->RegAt(2));
     case kMachineOpImullRegReg:
-      return machine_ir_->NewInsn<ImullRegOp>(new_reg, mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<ImullRegOp, kNoSSA>(new_reg, mem_op, insn->RegAt(2));
     case kMachineOpOrqRegReg:
-      return machine_ir_->NewInsn<OrqRegOp>(new_reg, mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<OrqRegOp, kNoSSA>(new_reg, mem_op, insn->RegAt(2));
     case kMachineOpOrlRegReg:
-      return machine_ir_->NewInsn<OrlRegOp>(new_reg, mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<OrlRegOp, kNoSSA>(new_reg, mem_op, insn->RegAt(2));
     case kMachineOpXorqRegReg:
-      return machine_ir_->NewInsn<XorqRegOp>(new_reg, mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<XorqRegOp, kNoSSA>(new_reg, mem_op, insn->RegAt(2));
     case kMachineOpXorlRegReg:
-      return machine_ir_->NewInsn<XorlRegOp>(new_reg, mem_op, insn->RegAt(2));
+      return machine_ir_->NewInsn<XorlRegOp, kNoSSA>(new_reg, mem_op, insn->RegAt(2));
     default:
       FATAL("unexpected opcode");
       return nullptr;

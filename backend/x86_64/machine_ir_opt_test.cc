@@ -190,8 +190,8 @@ TEST(MachineIRRemoveDeadCodeTest, DefKilledBySecondResultOfAnotherDef) {
   MachineReg vreg3 = machine_ir.AllocVReg();
 
   builder.StartBasicBlock(bb);
-  builder.Gen<x86_64::AddbRegImm>(vreg1, 1, vreg3);
-  builder.Gen<x86_64::AddbRegImm>(vreg2, 2, vreg3);
+  builder.Gen<x86_64::AddbRegImm, x86_64::kNoSSA>(vreg1, 1, vreg3);
+  builder.Gen<x86_64::AddbRegImm, x86_64::kNoSSA>(vreg2, 2, vreg3);
   builder.Gen<PseudoBranch>(bb);
 
   bb->live_out().push_back(vreg2);
@@ -217,7 +217,7 @@ TEST(MachineIRRemoveDeadCodeTest, HardRegisterAccess) {
   x86_64::MachineIRBuilder builder(&machine_ir);
 
   builder.StartBasicBlock(bb);
-  builder.Gen<x86_64::AddbRegImm>(kMachineRegRAX, 3, x86_64::kMachineRegFLAGS);
+  builder.Gen<x86_64::AddbRegImm, x86_64::kNoSSA>(kMachineRegRAX, 3, x86_64::kMachineRegFLAGS);
   builder.Gen<PseudoBranch>(bb);
 
   x86_64::RemoveDeadCode(&machine_ir);

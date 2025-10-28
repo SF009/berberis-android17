@@ -58,13 +58,13 @@ TEST(MachineIRReadFlagsOptimizer, CountLifetimeCounts) {
   bb->live_out().push_back(unknown_reg);
   bb->live_out().push_back(reg2);
   builder.StartBasicBlock(bb);
-  builder.Gen<AddqRegImm>(reg0, 1, machine_ir.AllocVReg());
+  builder.Gen<AddqRegImm, kNoSSA>(reg0, 1, machine_ir.AllocVReg());
   builder.Gen<MovqRegImm>(reg1, 1);
   builder.Gen<MovqRegImm>(reg2, 1);
-  builder.Gen<PxorXRegXReg>(xreg0, xreg1);
-  builder.Gen<AddqRegReg>(reg0, reg1, machine_ir.AllocVReg());
-  builder.Gen<AddqRegReg>(reg1, reg2, machine_ir.AllocVReg());
-  builder.Gen<PxorXRegXReg>(xreg0, xreg1);
+  builder.Gen<PxorXRegXReg, kNoSSA>(xreg0, xreg1);
+  builder.Gen<AddqRegReg, kNoSSA>(reg0, reg1, machine_ir.AllocVReg());
+  builder.Gen<AddqRegReg, kNoSSA>(reg1, reg2, machine_ir.AllocVReg());
+  builder.Gen<PxorXRegXReg, kNoSSA>(xreg0, xreg1);
   builder.Gen<MovqRegReg>(reg3, reg2);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
@@ -111,10 +111,10 @@ TEST(MachineIRReadFlagsOptimizer, CountRegLifetimeMap) {
   bb->live_out().push_back(reg2);
   bb->live_out().push_back(reg4);
   builder.StartBasicBlock(bb);
-  builder.Gen<AddqRegReg>(reg0, reg1, machine_ir.AllocVReg());
-  auto reg0_end = builder.Gen<AddqRegReg>(reg1, reg1, machine_ir.AllocVReg());
+  builder.Gen<AddqRegReg, kNoSSA>(reg0, reg1, machine_ir.AllocVReg());
+  auto reg0_end = builder.Gen<AddqRegReg, kNoSSA>(reg1, reg1, machine_ir.AllocVReg());
   auto reg3_start = builder.Gen<MovqRegReg>(reg3, reg1);
-  auto reg1_end = builder.Gen<PxorXRegXReg>(reg2, reg2);
+  auto reg1_end = builder.Gen<PxorXRegXReg, kNoSSA>(reg2, reg2);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
   auto lifetime_map = CountRegLifetimeMap(&machine_ir, bb);

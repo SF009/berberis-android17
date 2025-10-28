@@ -49,7 +49,7 @@ TEST(MergeBasicBlocksTest, MergeBasicBlocks) {
   builder.Gen<PseudoBranch>(bb2);
 
   builder.StartBasicBlock(bb2);
-  auto bb2_insn1 = builder.Gen<AddqRegImm>(vreg, 10, flags);
+  auto bb2_insn1 = builder.Gen<AddqRegImm, kNoSSA>(vreg, 10, flags);
   auto bb2_insn2 = builder.Gen<PseudoCondBranch>(
       CodeEmitter::Condition::kZero, bb3, bb4, x86_64::kMachineRegFLAGS);
 
@@ -108,7 +108,7 @@ TEST(MergeBasicBlocksTest, MergeDoesNotOccurWhenPredecessorHasMultipleSuccessors
   builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb4, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb2);
-  builder.Gen<AddqRegImm>(vreg, 10, flags);
+  builder.Gen<AddqRegImm, kNoSSA>(vreg, 10, flags);
   builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb3);
@@ -272,7 +272,7 @@ TEST(MergeBasicBlocksTest, MergeBasicBlocksThrowsErrorIfTriesToMergeIRWithLiveOu
 
   builder.StartBasicBlock(bb2);
   bb2->live_in().push_back(vreg);
-  builder.Gen<AddqRegImm>(vreg, 10, flags);
+  builder.Gen<AddqRegImm, kNoSSA>(vreg, 10, flags);
   builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, x86_64::kMachineRegFLAGS);
   bb2->live_out().push_back(vreg);
 

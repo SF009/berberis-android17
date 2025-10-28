@@ -266,7 +266,7 @@ void InsertFlagGenInstructions(MachineIR* machine_ir,
   CHECK(!flag_reg.IsInvalidReg());
   context.bb->insn_list().insert(insn_it, insn);
   if (context.flag_set_insn.cmc) {
-    context.bb->insn_list().insert(insn_it, machine_ir->NewInsn<Cmc>(flag_reg));
+    context.bb->insn_list().insert(insn_it, machine_ir->NewInsn<Cmc, kNoSSA>(flag_reg));
   }
 
   // Now add readflags instruction.

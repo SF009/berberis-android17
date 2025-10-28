@@ -422,18 +422,18 @@ void TestRegAlloc() {
   builder.Gen<x86_64::MovqRegImm>(v0, 0);
   MachineReg vx0 = machine_ir.AllocVReg();
   builder.Gen<PseudoDefXReg>(vx0);
-  builder.Gen<x86_64::XorpdXRegXReg>(vx0, vx0);
+  builder.Gen<x86_64::XorpdXRegXReg, x86_64::kNoSSA>(vx0, vx0);
 
   for (int i = 0; i < N; ++i) {
     MachineReg vflags = machine_ir.AllocVReg();
-    builder.Gen<x86_64::XorqRegReg>(v0, vregs[i], vflags);
-    builder.Gen<x86_64::XorpdXRegXReg>(vx0, xmm_vregs[i]);
+    builder.Gen<x86_64::XorqRegReg, x86_64::kNoSSA>(v0, vregs[i], vflags);
+    builder.Gen<x86_64::XorpdXRegXReg, x86_64::kNoSSA>(vx0, xmm_vregs[i]);
   }
 
   MachineReg v1 = machine_ir.AllocVReg();
   builder.Gen<x86_64::MovqRegXReg>(v1, vx0);
   MachineReg vflags = machine_ir.AllocVReg();
-  builder.Gen<x86_64::AddqRegReg>(v1, v0, vflags);
+  builder.Gen<x86_64::AddqRegReg, x86_64::kNoSSA>(v1, v0, vflags);
   builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP, .disp = offsetof(Data, out)}, v1);
 
   AllocRegs(&machine_ir);
@@ -746,7 +746,8 @@ TEST(ExecMachineIR, RecoveryBlock) {
   x86_64::MachineIRBuilder builder(&machine_ir);
   builder.StartBasicBlock(main_bb);
   // Cause a SIGSEGV.
-  builder.Gen<x86_64::XorqRegReg>(kScratchReg, kScratchReg, x86_64::kMachineRegFLAGS);
+  builder.Gen<x86_64::XorqRegReg, x86_64::kNoSSA>(
+      kScratchReg, kScratchReg, x86_64::kMachineRegFLAGS);
   builder.Gen<x86_64::MovqOpReg>({.base = kScratchReg}, kScratchReg);
   builder.SetRecoveryPointAtLastInsn(recovery_bb);
   builder.Gen<PseudoJump>(21ULL);
@@ -776,7 +777,8 @@ TEST(ExecMachineIR, RecoveryWithGuestPC) {
   x86_64::MachineIRBuilder builder(&machine_ir);
   builder.StartBasicBlock(machine_ir.NewBasicBlock());
   // Cause a SIGSEGV.
-  builder.Gen<x86_64::XorqRegReg>(kScratchReg, kScratchReg, x86_64::kMachineRegFLAGS);
+  builder.Gen<x86_64::XorqRegReg, x86_64::kNoSSA>(
+      kScratchReg, kScratchReg, x86_64::kMachineRegFLAGS);
   builder.Gen<x86_64::MovqOpReg>({.base = kScratchReg}, kScratchReg);
   builder.SetRecoveryWithGuestPCAtLastInsn(42ULL);
 
@@ -807,9 +809,10 @@ TEST(ExecMachineIR, PseudoReadFlags) {
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&data));
   builder.Gen<x86_64::MovqRegOp>(kMachineRegRAX,
                                  {.base = kMachineRegRBP, .disp = offsetof(Data, x)});
-  builder.Gen<x86_64::AddqRegOp>(kMachineRegRAX,
-                                 {.base = kMachineRegRBP, .disp = offsetof(Data, y)},
-                                 x86_64::kMachineRegFLAGS);
+  builder.Gen<x86_64::AddqRegOp, x86_64::kNoSSA>(
+      kMachineRegRAX,
+      {.base = kMachineRegRBP, .disp = offsetof(Data, y)},
+      x86_64::kMachineRegFLAGS);
   builder.Gen<PseudoReadFlags>(
       PseudoReadFlags::kWithOverflow, kMachineRegRAX, x86_64::kMachineRegFLAGS);
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&res_flags));
@@ -851,9 +854,10 @@ TEST(ExecMachineIR, PseudoReadFlagsWithoutOverflow) {
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&data));
   builder.Gen<x86_64::MovqRegOp>(kMachineRegRAX,
                                  {.base = kMachineRegRBP, .disp = offsetof(Data, x)});
-  builder.Gen<x86_64::AddqRegOp>(kMachineRegRAX,
-                                 {.base = kMachineRegRBP, .disp = offsetof(Data, y)},
-                                 x86_64::kMachineRegFLAGS);
+  builder.Gen<x86_64::AddqRegOp, x86_64::kNoSSA>(
+      kMachineRegRAX,
+      {.base = kMachineRegRBP, .disp = offsetof(Data, y)},
+      x86_64::kMachineRegFLAGS);
   // ReadFlags must reset overflow to zero, even if it's set in RAX.
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRAX, MakeFlags(0b0001));
   builder.Gen<PseudoReadFlags>(
