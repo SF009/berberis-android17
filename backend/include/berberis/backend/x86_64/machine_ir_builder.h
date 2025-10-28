@@ -45,7 +45,7 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
       MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, kSSAMode>*,
       MachineIRBuilderBase::Gen,
       kSSAMode,
-      enum x86_64::SSAMode kSSAMode = x86_64::kNoSSA)
+      auto kSSAMode = false)
 
   void GenGet(MachineReg dst_reg, int32_t offset) {
     Gen<x86_64::MovqRegOp>(dst_reg, {.base = x86_64::kMachineRegRBP, .disp = offset});

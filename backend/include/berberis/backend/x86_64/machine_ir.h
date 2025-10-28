@@ -312,7 +312,7 @@ enum SSAMode {
   kSSA = 1,
 };
 
-template <typename IntrinsicBindingInfo, enum SSAMode kSSAMode>
+template <typename IntrinsicBindingInfo, auto kSSAMode>
 class MachineInsnOperandsHelper;
 
 template <auto kEmitInsnFunc,
@@ -321,7 +321,7 @@ template <auto kEmitInsnFunc,
           typename CPUIDRestriction,
           typename... Operands,
           bool kSideEffects,
-          enum SSAMode kSSAMode>
+          auto kSSAMode>
 class MachineInsnOperandsHelper<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                                                                  kMnemo,
                                                                  kSideEffects,
@@ -330,6 +330,17 @@ class MachineInsnOperandsHelper<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                                                                  std::tuple<Operands...>>,
                                 kSSAMode>
     final {
+  static_assert((std::is_same_v<decltype(kSSAMode), bool> && kSSAMode == false) ||
+                    (std::is_same_v<decltype(kSSAMode), enum SSAMode> && kSSAMode == kNoSSA) ||
+                    (std::is_same_v<decltype(kSSAMode), enum SSAMode> && kSSAMode == kSSA),
+                "Only kSSA and kNoSSA should be used as kSSAMode");
+  static_assert(
+      std::is_same_v<decltype(kSSAMode), enum SSAMode> ||
+          !((device_arch_info::kIsRegister<Operands> &&
+             Operands::kUsage == device_arch_info::kUseDef) ||
+            ...),
+      "Only instructions without kUseDef operands can be used without kSSAMode specification");
+
  public:
   // We want to filter out any operands that are not used for Register args.
   // Note: memory operands accept register and offset, thus they are included.
@@ -369,7 +380,9 @@ class MachineInsnOperandsHelper<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
 
 template <
     typename IntrinsicBindingInfo,
-    enum SSAMode kSSAMode = kNoSSA,
+    // Note kSSAMode = false is default value and means instruction is natively SSA-compliant (== no
+    // use_def operands). Only kSSA and kNoSSA should be specified explicitly.
+    auto kSSAMode = false,
     typename = typename MachineInsnOperandsHelper<IntrinsicBindingInfo, kSSAMode>::RegOperandsTuple,
     typename =
         typename MachineInsnOperandsHelper<IntrinsicBindingInfo, kSSAMode>::ConstructorArgsTuple,
@@ -385,7 +398,7 @@ template <auto kEmitInsnFunc,
           auto GetOpcode,
           typename CPUIDRestriction,
           typename... Operands,
-          enum SSAMode kSSAMode,
+          auto kSSAMode,
           typename... RegOperands,
           typename... ConstructorArgs,
           typename... ConstructorAutoArgs,
@@ -844,7 +857,7 @@ template <auto kEmitInsnFunc,
           auto GetOpcode,
           typename CPUIDRestriction,
           typename... Operands,
-          enum SSAMode kSSAMode,
+          auto kSSAMode,
           typename... RegOperands,
           typename... ConstructorArgs,
           typename... ConstructorAutoArgs,
@@ -925,7 +938,7 @@ template <auto kEmitInsnFunc,
           auto GetOpcode,
           typename CPUIDRestriction,
           typename... Operands,
-          enum SSAMode kSSAMode,
+          auto kSSAMode,
           typename... RegOperands,
           typename... ConstructorArgs,
           typename... ConstructorAutoArgs,
@@ -1113,7 +1126,7 @@ class MachineIR : public berberis::MachineIR {
       MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, kSSAMode>*,
       NewInsn,
       kSSAMode,
-      enum x86_64::SSAMode kSSAMode = x86_64::kNoSSA)
+      auto kSSAMode = false)
 
  private:
   ABI abi_;

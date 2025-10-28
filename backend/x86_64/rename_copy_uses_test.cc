@@ -412,8 +412,8 @@ TEST(MachineIRRenameCopyUsesTest, DuplicateLiveInsGetRenamed) {
   builder.StartBasicBlock(bb2);
   bb2->live_in().push_back(vreg1);
   bb2->live_in().push_back(vreg2);
-  auto* add_insn1 = builder.Gen<AddqRegReg>(vreg3, vreg2, flags);
-  auto* add_insn2 = builder.Gen<AddqRegReg>(vreg3, vreg1, flags);
+  auto* add_insn1 = builder.Gen<AddqRegReg, kNoSSA>(vreg3, vreg2, flags);
+  auto* add_insn2 = builder.Gen<AddqRegReg, kNoSSA>(vreg3, vreg1, flags);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
   ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
@@ -454,8 +454,8 @@ TEST(MachineIRRenameCopyUsesTest, ChainedDuplicateLiveInsGetRenamed) {
   bb2->live_in().push_back(vreg1);
   bb2->live_in().push_back(vreg2);
   bb2->live_in().push_back(vreg3);
-  auto* add_insn1 = builder.Gen<AddqRegReg>(vreg4, vreg3, flags);
-  auto* add_insn2 = builder.Gen<AddqRegReg>(vreg4, vreg2, flags);
+  auto* add_insn1 = builder.Gen<AddqRegReg, kNoSSA>(vreg4, vreg3, flags);
+  auto* add_insn2 = builder.Gen<AddqRegReg, kNoSSA>(vreg4, vreg2, flags);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
   ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
@@ -494,8 +494,8 @@ TEST(MachineIRRenameCopyUsesTest, DuplicateLiveInsDontGetRenamedWhenBBHasOutEdge
   builder.StartBasicBlock(bb2);
   bb2->live_in().push_back(vreg1);
   bb2->live_in().push_back(vreg2);
-  auto* add_insn1 = builder.Gen<AddqRegReg>(vreg3, vreg2, flags);
-  auto* add_insn2 = builder.Gen<AddqRegReg>(vreg3, vreg1, flags);
+  auto* add_insn1 = builder.Gen<AddqRegReg, kNoSSA>(vreg3, vreg2, flags);
+  auto* add_insn2 = builder.Gen<AddqRegReg, kNoSSA>(vreg3, vreg1, flags);
   builder.Gen<PseudoBranch>(bb3);
   machine_ir.AddEdge(bb2, bb3);
 
@@ -583,8 +583,8 @@ TEST(MachineIRRenameCopyUsesTest, DuplicateLiveInsWhichAreOverwrittenDoNotGetRen
   builder.StartBasicBlock(bb2);
   bb2->live_in().push_back(vreg1);
   bb2->live_in().push_back(vreg2);
-  builder.Gen<AddqRegReg>(vreg3, vreg2, flags);
-  auto* bb2_add_insn = builder.Gen<AddqRegReg>(vreg3, vreg1, flags);
+  builder.Gen<AddqRegReg, kNoSSA>(vreg3, vreg2, flags);
+  auto* bb2_add_insn = builder.Gen<AddqRegReg, kNoSSA>(vreg3, vreg1, flags);
   builder.Gen<MovqRegImm>(vreg2, 5);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
