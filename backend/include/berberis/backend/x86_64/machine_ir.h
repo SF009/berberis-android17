@@ -417,6 +417,18 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
   template <typename MachineIRBuilder>
   static constexpr MachineInsn* (MachineIRBuilder::*kGenFunc)(ConstructorArgs...) =
       &MachineIRBuilder::template Gen<MachineInsn>;
+  using OperandsTuple = std::conditional_t<
+      kSSAMode == kSSA,
+      decltype(std::tuple_cat(
+          std::declval<std::conditional_t<
+              device_arch_info::kIsRegister<Operands> &&
+                  Operands::kUsage == device_arch_info::kUseDef,
+              std::tuple<
+                  device_arch_info::OperandInfo<typename Operands::Class, device_arch_info::kDef>,
+                  device_arch_info::OperandInfo<typename Operands::Class, device_arch_info::kUse>>,
+              std::tuple<Operands>>>()...)),
+      std::tuple<Operands...>>;
+  using ConstructorArgsTuple = std::tuple<ConstructorArgs...>;
   template <typename MachineIRBuilder>
   static constexpr MachineInsn* (MachineIRBuilder::*kGenAutoFunc)(ConstructorAutoArgs...) =
       &MachineIRBuilder::template Gen<MachineInsn>;
@@ -563,6 +575,11 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
             } else {
               s += StringPrintf("[0x%x]", disp);
             }
+          } else if (kSSAMode == kSSA && device_arch_info::kIsImplicitReg<Operands> &&
+                     Operands::kUsage == device_arch_info::kUseDef) {
+            s += StringPrintf("(%s", GetRegOperandDebugString(this, reg_idx++).c_str());
+            s += "/";
+            s += StringPrintf("%s)", GetRegOperandDebugString(this, reg_idx++).c_str());
           } else if constexpr (device_arch_info::kIsImplicitReg<Operand>) {
             s += StringPrintf("(%s)", GetRegOperandDebugString(this, reg_idx++).c_str());
           } else if (kSSAMode == kSSA && device_arch_info::kIsRegister<Operands> &&
