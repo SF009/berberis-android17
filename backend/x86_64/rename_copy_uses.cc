@@ -203,10 +203,9 @@ void RenameCopyUses(MachineIR* machine_ir) {
   }
 
   for (auto* bb : machine_ir->bb_list()) {
-    // TODO(b/448293427): This is the initial, limited implementation of global RenameCopyUse.
-    // It only applies the optimization to basic blocks that are exit blocks
-    // (no successors) and have exactly one predecessor.
-    if (bb->out_edges().size() > 0 || bb->in_edges().size() != 1 || bb->live_in().size() < 2) {
+    // TODO(b/448293427): This implementation only applies the optimization to basic blocks which
+    // have exactly one predecessor. It should be expanded to optimize all basic blocks.
+    if (bb->in_edges().size() != 1 || bb->live_in().size() < 2) {
       continue;
     }
     auto prev_bb = bb->in_edges().at(0)->src();
