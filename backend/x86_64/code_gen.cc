@@ -70,8 +70,7 @@ void GenCode(MachineIR* machine_ir, MachineCode* machine_code, const GenCodePara
     RenameCopyUses(machine_ir);
     RemoveDeadCode(machine_ir);
     FoldWriteFlags(machine_ir);
-    // TODO(456174459): Reenable after fixing live_in issue.
-    // OptimizeReadFlags(machine_ir);
+    OptimizeReadFlags(machine_ir);
   }
 
   AllocRegs(machine_ir);

@@ -418,6 +418,7 @@ void RemoveReadFlags(MachineIR* machine_ir, ReadFlagsOptContext context) {
   }
 
   ArenaVector<MachineReg> reg_vec({flags_reg}, machine_ir->arena());
+  CHECK(std::next(context.flag_set_insn.insn) != context.bb->insn_list().begin());
   ReplaceFlagRegisters(
       machine_ir, context, std::next(context.flag_set_insn.insn), reg_vec, reg_map, insn);
 }
@@ -442,6 +443,22 @@ void ReplaceFlagRegisters(MachineIR* machine_ir,
                           const ArenaMap<MachineReg, MachineReg>& reg_map,
                           berberis::MachineInsn* insn) {
   ArenaSet<MachineReg> used_flags{machine_ir->arena()};
+
+  // Update live_ins if it's not the original block, which we start analysing from the middle.
+  if (insn_it == context.bb->insn_list().begin()) {
+    // Add copied registers to live_in if needed.
+    for (auto reg : context.bb->live_in()) {
+      if (Contains(flags_regs, reg)) {
+        for (auto mapping : reg_map) {
+          context.bb->live_in().push_back(mapping.second);
+        }
+        break;
+      }
+    }
+
+    RemoveRegs(context.bb->live_in(), flags_regs);
+  }
+
   while (insn_it != context.bb->insn_list().end()) {
     if (AsMachineInsnX86_64(*insn_it)->opcode() == kMachineOpPseudoCopy &&
         Contains(flags_regs, (*insn_it)->RegAt(1))) {
@@ -464,18 +481,6 @@ void ReplaceFlagRegisters(MachineIR* machine_ir,
     insn_it++;
   }
 
-  // Add copied registers to live_in if needed.
-  for (auto reg : context.bb->live_in()) {
-    if (Contains(flags_regs, reg)) {
-      for (auto mapping : reg_map) {
-        context.bb->live_in().push_back(mapping.second);
-      }
-      break;
-    }
-  }
-
-  // Remove flags_regs from live_in and live_out.
-  RemoveRegs(context.bb->live_in(), flags_regs);
   auto was_live_out = RemoveRegs(context.bb->live_out(), flags_regs);
   // Update live_out with our copied input registers if flags_regs was in
   // live_out.

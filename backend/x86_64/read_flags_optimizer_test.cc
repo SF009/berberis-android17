@@ -1365,6 +1365,50 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersCopiesDefRegisters) {
   ASSERT_NE((*insns)->RegAt(1), input1);
 }
 
+TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersKeepsLiveIns) {
+  Arena arena;
+  MachineIR machine_ir(&arena);
+  MachineIRBuilder builder(&machine_ir);
+
+  MachineReg flags0 = machine_ir.AllocVReg();
+  MachineReg flags00 = machine_ir.AllocVReg();
+  MachineReg input0 = machine_ir.AllocVReg();
+  MachineReg input00 = machine_ir.AllocVReg();
+  MachineReg input1 = machine_ir.AllocVReg();
+  MachineReg input11 = machine_ir.AllocVReg();
+
+  auto bb = machine_ir.NewBasicBlock();
+
+  builder.StartBasicBlock(bb);
+  // Have an extra copy here just so we can pass next(begin()) to
+  // ReplaceFlagRegisters but it could be any instruction.
+  builder.Gen<AddqRegReg, kNoSSA>(input0, input1, kMachineRegFLAGS);
+  builder.Gen<PseudoCopy>(flags00, flags0, 8);
+  builder.Gen<PseudoJump>(kNullGuestAddr);
+  bb->live_in().push_back(flags0);
+  bb->live_out().push_back(flags00);
+
+  ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
+
+  ReplaceFlagRegisters(
+      &machine_ir,
+      ReadFlagsOptContext{
+          bb,
+          MachineInsnList{{machine_ir.NewInsn<PseudoReadFlags>(
+                              PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS)},
+                          machine_ir.arena()}
+              .begin(),
+          FlagSettingInsn{bb->insn_list().begin()},
+      },
+      std::next(bb->insn_list().begin()),
+      MachineRegVector({flags0}, machine_ir.arena()),
+      ArenaMap<MachineReg, MachineReg>({{input0, input00}, {input1, input11}}, machine_ir.arena()),
+      nullptr);
+
+  ASSERT_EQ(bb->live_in().size(), 1UL);
+  ASSERT_TRUE(Contains(bb->live_in(), flags0));
+}
+
 // Test that ReplaceFlagRegisters won't insert instructions multiple times for
 // the same register.
 TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersWithDuplicates) {
