@@ -429,9 +429,6 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
               std::tuple<Operands>>>()...)),
       std::tuple<Operands...>>;
   using ConstructorArgsTuple = std::tuple<ConstructorArgs...>;
-  template <typename MachineIRBuilder>
-  static constexpr MachineInsn* (MachineIRBuilder::*kGenAutoFunc)(ConstructorAutoArgs...) =
-      &MachineIRBuilder::template Gen<MachineInsn>;
 
   using DeviceInsnInfo = device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                                                           kMnemo,
@@ -466,44 +463,6 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
     static_assert(kMemoryOperandsCount <= 2);
     size_t reg_idx = 0, mem_idx = 0;
     (ProcessConstructorArg<ConstructorArgs>(reg_idx, mem_idx, args), ...);
-  }
-
-  // Note: we ask for Extra arguments here, but only to postpone instantiation of constructor,
-  // Nothing is supposed to be passed besides ConstructorAutoArgs, but if we wouldn't add this
-  // bogus argument instantiation would happen too early.
-  template <
-      typename... Extra,
-      typename = std::enable_if_t<!std::is_same_v<std::tuple<ConstructorArgs..., Extra...>,
-                                                  std::tuple<ConstructorAutoArgs..., Extra...>>>>
-  explicit MachineInsn(ConstructorAutoArgs... args, Extra...)
-      : MachineInsnX86_64(&GenMachineInsnInfo<ConstructorAutoArgs...>(args...)) {
-    // Ensure that nothing is passed as Extra arguments.
-    static_assert(sizeof...(Extra) == 0);
-    constexpr int kConditionalsOperandsCount = (device_arch_info::kIsCondition<Operands> + ... + 0);
-    static_assert(kConditionalsOperandsCount <= 1);
-    constexpr int kImmediateOperandsCount = (device_arch_info::kIsImmediate<Operands> + ... + 0);
-    static_assert(kImmediateOperandsCount <= 1);
-    constexpr int kMemoryOperandsCount = (device_arch_info::kIsMemoryOperand<Operands> + ... + 0);
-    static_assert(kMemoryOperandsCount <= 2);
-    constexpr int kRegisterOperandsCount =
-        (device_arch_info::kIsRegister<Operands> + ... + 0) +
-        (kSSAMode == kSSA) * ((device_arch_info::kIsRegister<Operands> &&
-                               Operands::kUsage == device_arch_info::kUseDef) +
-                              ... + 0);
-    // If we have only registers or only memory operands (but not both) then processing them in
-    // ConstructorAutoArgs order is always correct, otherwise we pull the args into arrays to
-    // process in ConstructorArgs order in the 2nd pass.
-    if constexpr (kMemoryOperandsCount == 0 || kRegisterOperandsCount == 0) {
-      size_t reg_idx = 0, mem_idx = 0;
-      (ProcessConstructorArg<ConstructorAutoArgs>(reg_idx, mem_idx, args), ...);
-    } else {
-      MachineReg regs[kRegisterOperandsCount];
-      MemoryOperand ops[kMemoryOperandsCount];
-      size_t reg_idx = 0, mem_idx = 0;
-      (ProcessConstructorArg<ConstructorAutoArgs>(reg_idx, mem_idx, regs, ops, args), ...);
-      size_t reg_in = 0, reg_out = mem_idx = 0;
-      (ProcessConstructorArg<ConstructorArgs>(reg_in, reg_out, mem_idx, regs, ops), ...);
-    }
   }
 
   static constexpr std::array<MachineInsnInfo,
@@ -763,50 +722,6 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
       }
     } else {
       static_assert(kDependentTypeFalse<ConstructorArg>);
-    }
-  }
-
-  template <typename ConstructorArg>
-  void ProcessConstructorArg(size_t& reg_idx,
-                             size_t& mem_idx,
-                             MachineReg regs[],
-                             MemoryOperand ops[],
-                             ConstructorArg arg) {
-    if constexpr (std::is_same_v<ConstructorArg, Assembler::Condition>) {
-      MachineInsnX86_64::set_cond(arg);
-    } else if constexpr (std::is_integral_v<ConstructorArg>) {
-      MachineInsnX86_64::set_imm(arg);
-    } else if constexpr (std::is_same_v<ConstructorArg, MachineReg>) {
-      regs[reg_idx++] = arg;
-    } else if constexpr (std::is_same_v<ConstructorArg, const MemoryOperand&>) {
-      ops[mem_idx++] = arg;
-    } else {
-      static_assert(kDependentTypeFalse<ConstructorArg>);
-    }
-  }
-
-  template <typename ConstructorArg>
-  void ProcessConstructorArg(size_t& reg_in,
-                             size_t& reg_out,
-                             size_t& mem_idx,
-                             MachineReg regs[],
-                             MemoryOperand ops[]) {
-    if constexpr (std::is_same_v<ConstructorArg, MachineReg>) {
-      MachineInsnX86_64::SetRegAt(reg_out++, regs[reg_in++]);
-    } else if constexpr (std::is_same_v<ConstructorArg, const MemoryOperand&>) {
-      if (ops[mem_idx].base != kInvalidMachineReg) {
-        MachineInsnX86_64::SetRegAt(reg_out++, ops[mem_idx].base);
-      }
-      if (ops[mem_idx].index != kInvalidMachineReg) {
-        MachineInsnX86_64::SetRegAt(reg_out++, ops[mem_idx].index);
-      }
-      if (++mem_idx == 1) {
-        MachineInsnX86_64::set_disp(ops[0].disp);
-        MachineInsnX86_64::set_scale(ops[0].scale);
-      } else if (mem_idx == 2) {
-        MachineInsnX86_64::set_disp2(ops[1].disp);
-        MachineInsnX86_64::set_scale2(ops[1].scale);
-      }
     }
   }
 
