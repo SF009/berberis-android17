@@ -199,13 +199,51 @@ bool IsReservedSignal(int signal) {
   return false;
 }
 
+GuestSignalActionsTable* g_default_signal_actions;
+
+const GuestAddr kFatalGuestHandlerStub = ToGuestAddr(&kFatalGuestHandlerStub);
+
 }  // namespace
 
+void InitGuestSignalHandling() {
+  g_default_signal_actions = NewForever<GuestSignalActionsTable>();
+
+  // Let crash reporter memorize the original sigactions before we redefine them.
+  InitCrashReporter();
+
+  // For some signals we want to call HandleFatalSignal if there is no custom guest signal handler
+  // installed. But we also want HandleHostSignal to run first to try and restore consistent guest
+  // CPU state. This is because the host handler may read the guest state, e.g. guest stack
+  // unwinding in debuggerd. HandleHostSignal is designed to work with guest handlers, so we set up
+  // a guest handler stub, which we treat specially inside ProcessPendingSignalsImpl. Note that we
+  // intentionally do not wrap HandleFatalSignal into a callable guest handler because calling a
+  // guest handler clobbers the guest state. Hint: use berberis.flags=accurate-sigsegv to
+  // synchronize all the registers and not just PC. This should be the default on emulators.
+  Guest_sigaction guest_action{
+      .guest_sa_sigaction = kFatalGuestHandlerStub,
+      .sa_flags = SA_SIGINFO,
+  };
+
+  for (int signal : {SIGSEGV, SIGILL, SIGBUS, SIGFPE}) {
+    int error;
+    bool success = g_default_signal_actions->at(signal - 1)
+                       .Change(signal,
+                               &guest_action,
+                               HandleHostSignal,
+                               // Old actions are already memorized in InitCrashReporter().
+                               nullptr,
+                               &error);
+    if (!success) {
+      TRACE("Setting up fatal signal handler for signal=%d failed with error=%d", signal, error);
+    }
+  }
+}
+
 void GuestThread::SetDefaultSignalActionsTable() {
-  static auto* g_signal_actions = NewForever<GuestSignalActionsTable>();
+  CHECK(g_default_signal_actions);
   // We need to initialize shared_ptr, but we don't want to attempt to delete the default
   // signal actions when guest thread terminates. Hence we specify a void deleter.
-  signal_actions_ = std::shared_ptr<GuestSignalActionsTable>(g_signal_actions, [](auto) {});
+  signal_actions_ = std::shared_ptr<GuestSignalActionsTable>(g_default_signal_actions, [](auto) {});
 }
 
 void GuestThread::CloneSignalActionsTableFrom(GuestSignalActionsTable* from_table) {
@@ -214,10 +252,12 @@ void GuestThread::CloneSignalActionsTableFrom(GuestSignalActionsTable* from_tabl
   signal_actions_ = std::make_shared<GuestSignalActionsTable>(*from_table);
 }
 
-// Can be interrupted by another SetSignal!
+// Can be interrupted by another EnqueueSignalFromHost!
 void GuestThread::EnqueueSignalFromHost(const siginfo_t& host_info, const ucontext_t* ucontext) {
   siginfo_t* guest_info = pending_signals_.AllocSignal();
 
+  // TODO(b/456536516): Don't do this conversion for fatal signals which will be processed by host
+  // handlers.
   // Convert host siginfo to guest.
   *guest_info = host_info;
   switch (host_info.si_signo) {
@@ -346,7 +386,13 @@ void GuestThread::ProcessPendingSignalsImpl() {
   siginfo_t* signal_info;
   while ((signal_info = pending_signals_.DequeueSignalUnsafe())) {
     const Guest_sigaction* sa = FindSignalHandler(*signal_actions_.get(), signal_info->si_signo);
-    ProcessGuestSignal(this, sa, signal_info);
+    if (sa->guest_sa_sigaction == kFatalGuestHandlerStub) {
+      auto* host_ucontext = pending_signals_.GetUcontext(signal_info);
+      CHECK(host_ucontext->has_value());
+      HandleFatalSignal(signal_info->si_signo, signal_info, &host_ucontext->value());
+    } else {
+      ProcessGuestSignal(this, sa, signal_info);
+    }
     pending_signals_.FreeSignal(signal_info);
   }
 }
