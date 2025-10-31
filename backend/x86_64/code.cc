@@ -135,7 +135,11 @@ constexpr MachineRegKind kSSAPseudoWriteFlagsInfo[] = {{&kRAX, MachineRegKind::k
 
 }  // namespace
 
-Enter::Enter() : MachineInsnX86_64(&kEnterInfo) {}
+Enter::Enter() : MachineInsnX86_64(&kEnterInfo, x86_64_insn_info_.regs_) {}
+
+Enter::Enter(const Enter& other)
+    : MachineInsnX86_64(other, x86_64_insn_info_.regs_),
+      x86_64_insn_info_(other.x86_64_insn_info_) {}
 
 berberis::MachineInsn* Enter::Clone(Arena* arena) const {
   return NewInArena<Enter, const Enter&>(arena, *this);
@@ -145,9 +149,13 @@ MachineInsnList Enter::Lower(Arena* arena) const {
   return {1, NewInArena<Enter, const Enter&>(arena, *this), arena};
 }
 
-CallImm::CallImm(uint64_t imm) : MachineInsnX86_64(&kCallImmInfo) {
+CallImm::CallImm(uint64_t imm) : MachineInsnX86_64(&kCallImmInfo, x86_64_insn_info_.regs_) {
   set_imm(imm);
 }
+
+CallImm::CallImm(const CallImm& other)
+    : MachineInsnX86_64(other, x86_64_insn_info_.regs_),
+      x86_64_insn_info_(other.x86_64_insn_info_) {}
 
 berberis::MachineInsn* CallImm::Clone(Arena* arena) const {
   return NewInArena<CallImm, const CallImm&>(arena, *this);
@@ -212,10 +220,15 @@ MachineReg CallImm::XmmResultAt(int i) const {
 }
 
 CallImmArg::CallImmArg(MachineReg arg, CallImm::RegType reg_type)
-    : MachineInsnX86_64((reg_type == CallImm::kIntRegType) ? &kCallImmIntArgInfo
-                                                           : &kCallImmXmmArgInfo) {
+    : MachineInsnX86_64(
+          reg_type == CallImm::kIntRegType ? &kCallImmIntArgInfo : &kCallImmXmmArgInfo,
+          x86_64_insn_info_.regs_) {
   SetRegAt(0, arg);
 }
+
+CallImmArg::CallImmArg(const CallImmArg& other)
+    : MachineInsnX86_64(other, x86_64_insn_info_.regs_),
+      x86_64_insn_info_(other.x86_64_insn_info_) {}
 
 berberis::MachineInsn* CallImmArg::Clone(Arena* arena) const {
   return NewInArena<CallImmArg, const CallImmArg&>(arena, *this);
