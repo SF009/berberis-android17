@@ -607,7 +607,7 @@ TEST(MachineIRRenameCopyUsesTest, DuplicateLiveInsWhichAreOverwrittenDoNotGetRen
   EXPECT_TRUE(Contains(bb1->live_out(), vreg1));
 }
 
-TEST(MachineIRRenameCopyUsesTest, DoNotRenameDuplicateRegisterWhichIsMappedToNonLiveIn) {
+TEST(MachineIRRenameCopyUsesTest, RenameDuplicateRegisterWhichIsMappedToNonLiveInDuplicateLiveOut) {
   Arena arena;
   x86_64::MachineIR machine_ir(&arena);
 
@@ -645,14 +645,11 @@ TEST(MachineIRRenameCopyUsesTest, DoNotRenameDuplicateRegisterWhichIsMappedToNon
   ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
 
   EXPECT_EQ(bb2_insn_1->RegAt(1), vreg2);
-  EXPECT_EQ(bb3_insn_1->RegAt(1), vreg1);
+  EXPECT_EQ(bb3_insn_1->RegAt(1), vreg2);
 
   EXPECT_FALSE(Contains(bb2->live_in(), vreg1));
-  EXPECT_TRUE(Contains(bb3->live_in(), vreg1));
-
-  // vreg1 wasn't removed as a live_in from all successors of bb1, so it should still exist as a
-  // live_out of bb1.
-  EXPECT_TRUE(Contains(bb1->live_out(), vreg1));
+  EXPECT_FALSE(Contains(bb3->live_in(), vreg1));
+  EXPECT_FALSE(Contains(bb1->live_out(), vreg1));
 }
 
 }  // namespace

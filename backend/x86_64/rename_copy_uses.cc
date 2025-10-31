@@ -130,9 +130,10 @@ void DuplicateLiveOutsMap::RenameAndRemoveDuplicateLiveIns(
       }
       CHECK(live_ins_map.at(reg.GetVRegIndex()));
       // 'mapped_reg' may not live-in into this block and only be used in another successor of
-      // 'prev_bb'
+      // 'prev_bb'. In this case, we can introduce it as a new live_in register to replace reg.
       if (!live_ins_map.at(mapped_reg.GetVRegIndex())) {
-        continue;
+        bb->live_in().push_back(mapped_reg);
+        live_ins_map.at(mapped_reg.GetVRegIndex()) = true;
       }
       live_in_register_renaming_occurred = true;
       bb_renamed_live_in_registers_map.at(reg.GetVRegIndex()) = true;
@@ -221,7 +222,7 @@ void RenameCopyUses(MachineIR* machine_ir) {
   for (auto* bb : machine_ir->bb_list()) {
     // TODO(b/448293427): This implementation only applies the optimization to basic blocks which
     // have exactly one predecessor. It should be expanded to optimize all basic blocks.
-    if (bb->in_edges().size() != 1 || bb->live_in().size() < 2) {
+    if (bb->in_edges().size() != 1 || bb->live_in().size() < 1) {
       continue;
     }
     auto prev_bb = bb->in_edges().at(0)->src();
