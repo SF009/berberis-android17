@@ -205,19 +205,14 @@ class MachineInsnX86_64 : public MachineInsn {
   void set_imm(uint64_t imm) { x86_64_insn_info_.imm_ = imm; }
 
  protected:
-  explicit MachineInsnX86_64(const MachineInsnX86_64& other)
-      : MachineInsn(other, x86_64_insn_info_.regs_), x86_64_insn_info_(other.x86_64_insn_info_) {}
+  explicit MachineInsnX86_64(const MachineInsnX86_64& other, MachineReg* regs)
+      : MachineInsn(other, regs), x86_64_insn_info_(other.x86_64_insn_info_) {}
 
-  explicit MachineInsnX86_64(const MachineInsnInfo* info)
-      : MachineInsn(info->opcode,
-                    info->num_reg_operands,
-                    info->reg_kinds,
-                    x86_64_insn_info_.regs_,
-                    info->kind) {}
+  explicit MachineInsnX86_64(const MachineInsnInfo* info, MachineReg* regs)
+      : MachineInsn(info->opcode, info->num_reg_operands, info->reg_kinds, regs, info->kind) {}
 
  private:
   struct {
-    MachineReg regs_[kMaxMachineRegOperands];
     uint32_t disp_;
     Assembler::ScaleFactor scale_ = Assembler::kTimesOne;
     Assembler::ScaleFactor scale2_ = Assembler::kTimesOne;
@@ -244,8 +239,12 @@ class Enter final : public MachineInsnX86_64 {
   void Emit(CodeEmitter* as) const override;
 
  private:
+  struct {
+    MachineReg regs_[6];
+  } x86_64_insn_info_;
+
   friend Enter* NewInArena<Enter, const Enter&>(Arena*, const Enter&);
-  Enter(const Enter&) = default;
+  Enter(const Enter&);
   MachineInsn* Clone(Arena* arena) const override;
   MachineInsnList Lower(Arena* arena) const override;
 };
@@ -280,8 +279,12 @@ class CallImm final : public MachineInsnX86_64 {
   void Emit(CodeEmitter* as) const override;
 
  private:
+  struct {
+    MachineReg regs_[kMaxMachineRegOperands];
+  } x86_64_insn_info_;
+
   friend CallImm* NewInArena<CallImm, const CallImm&>(Arena*, const CallImm&);
-  CallImm(const CallImm&) = default;
+  CallImm(const CallImm&);
   MachineInsn* Clone(Arena* arena) const override;
   MachineInsnList Lower(Arena* arena) const override;
 };
@@ -300,8 +303,12 @@ class CallImmArg final : public MachineInsnX86_64 {
   };
 
  private:
+  struct {
+    MachineReg regs_[1];
+  } x86_64_insn_info_;
+
   friend CallImmArg* NewInArena<CallImmArg, const CallImmArg&>(Arena*, const CallImmArg&);
-  CallImmArg(const CallImmArg&) = default;
+  CallImmArg(const CallImmArg&);
   MachineInsn* Clone(Arena* arena) const override;
   MachineInsnList Lower(Arena* arena) const override;
 };
@@ -454,7 +461,8 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
   MachineInsn& operator=(const MachineInsn&) = delete;
 
   explicit MachineInsn(ConstructorArgs... args)
-      : MachineInsnX86_64(&GenMachineInsnInfo<ConstructorArgs...>(args...)) {
+      : MachineInsnX86_64(&GenMachineInsnInfo<ConstructorArgs...>(args...),
+                          x86_64_insn_info_.regs_) {
     constexpr int kConditionalsOperandsCount = (device_arch_info::kIsCondition<Operands> + ... + 0);
     static_assert(kConditionalsOperandsCount <= 1);
     constexpr int kImmediateOperandsCount = (device_arch_info::kIsImmediate<Operands> + ... + 0);
@@ -617,8 +625,18 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
   }
 
  private:
+  struct {
+    MachineReg regs_[(device_arch_info::kIsRegister<Operands> + ... + 0) +
+                     (kSSAMode == kSSA ? 1 : 0) * ((device_arch_info::kIsRegister<Operands> &&
+                                                    Operands::kUsage == device_arch_info::kUseDef) +
+                                                   ... + 0) +
+                     2 * (device_arch_info::kIsMemoryOperand<Operands> + ... + 0)];
+  } x86_64_insn_info_;
+
   friend MachineInsn* NewInArena<MachineInsn, const MachineInsn&>(Arena*, const MachineInsn&);
-  MachineInsn(const MachineInsn& insn) = default;
+  explicit MachineInsn(const MachineInsn& other)
+      : MachineInsnX86_64(other, x86_64_insn_info_.regs_),
+        x86_64_insn_info_(other.x86_64_insn_info_) {}
   berberis::MachineInsn* Clone(Arena* arena) const override {
     return NewInArena<MachineInsn, const MachineInsn&>(arena, *this);
   }
