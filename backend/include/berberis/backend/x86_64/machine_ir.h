@@ -118,12 +118,10 @@ inline bool IsXReg(MachineReg r) {
   return r.reg() >= MachineRegs::kXMM0.reg() && r.reg() <= MachineRegs::kXMM15.reg();
 }
 
-// rax, rdi, rsi, rdx, rcx, r8-r11, xmm0-xmm15, flags
-const int kMaxMachineRegOperands = 26;
-
 // Context loads and stores use rbp as base.
 inline constexpr auto kCPUStatePointer = MachineRegs::kRBP;
 
+template <size_t kMaxMachineRegOperands>
 struct MachineInsnInfo {
   MachineOpcode opcode;
   int num_reg_operands;
@@ -208,7 +206,8 @@ class MachineInsnX86_64 : public MachineInsn {
   explicit MachineInsnX86_64(const MachineInsnX86_64& other, MachineReg* regs)
       : MachineInsn(other, regs), x86_64_insn_info_(other.x86_64_insn_info_) {}
 
-  explicit MachineInsnX86_64(const MachineInsnInfo* info, MachineReg* regs)
+  template <size_t kMaxMachineRegOperands>
+  explicit MachineInsnX86_64(const MachineInsnInfo<kMaxMachineRegOperands>* info, MachineReg* regs)
       : MachineInsn(info->opcode, info->num_reg_operands, info->reg_kinds, regs, info->kind) {}
 
  private:
@@ -279,6 +278,8 @@ class CallImm final : public MachineInsnX86_64 {
   void Emit(CodeEmitter* as) const override;
 
  private:
+  // rax, rdi, rsi, rdx, rcx, r8-r11, xmm0-xmm15, flags
+  static constexpr int kMaxMachineRegOperands = 26;
   struct {
     MachineReg regs_[kMaxMachineRegOperands];
   } x86_64_insn_info_;
@@ -413,6 +414,13 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                   std::tuple<NoSSAConstructorArgs...>>
     final : public MachineInsnX86_64 {
  private:
+  using MachineInsnInfo =
+      x86_64::MachineInsnInfo<(device_arch_info::kIsRegister<Operands> + ... + 0) +
+                              (kSSAMode == kSSA ? 1 : 0) *
+                                  ((device_arch_info::kIsRegister<Operands> &&
+                                    Operands::kUsage == device_arch_info::kUseDef) +
+                                   ... + 0) +
+                              2 * (device_arch_info::kIsMemoryOperand<Operands> + ... + 0)>;
   template <auto>
   static constexpr MachineInsnInfo GenMachineInsnInfo();
   static constexpr std::array<MachineInsnInfo,
@@ -802,16 +810,17 @@ template <auto kEmitInsnFunc,
           typename... ConstructorAutoArgs,
           typename... NoSSAConstructorArgs>
 template <auto BaseIndexRegistersUsed>
-constexpr MachineInsnInfo MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
-                                                                       kMnemo,
-                                                                       kSideEffects,
-                                                                       GetOpcode,
-                                                                       CPUIDRestriction,
-                                                                       std::tuple<Operands...>>,
-                                      kSSAMode,
-                                      std::tuple<ConstructorArgs...>,
-                                      std::tuple<ConstructorAutoArgs...>,
-                                      std::tuple<NoSSAConstructorArgs...>>::GenMachineInsnInfo() {
+constexpr auto MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
+                                                            kMnemo,
+                                                            kSideEffects,
+                                                            GetOpcode,
+                                                            CPUIDRestriction,
+                                                            std::tuple<Operands...>>,
+                           kSSAMode,
+                           std::tuple<ConstructorArgs...>,
+                           std::tuple<ConstructorAutoArgs...>,
+                           std::tuple<NoSSAConstructorArgs...>>::GenMachineInsnInfo()
+    -> MachineInsn::MachineInsnInfo {
   MachineInsnInfo result = {.opcode = static_cast<MachineOpcode>(
                                 GetOpcode.template operator()<MachineOpcode>() |
                                 (kSSAMode && ((device_arch_info::kIsRegister<Operands> &&
@@ -879,18 +888,18 @@ template <auto kEmitInsnFunc,
           typename... ConstructorArgs,
           typename... ConstructorAutoArgs,
           typename... NoSSAConstructorArgs>
-constexpr std::array<MachineInsnInfo,
-                     1 << (2 * (device_arch_info::kIsMemoryOperand<Operands> + ... + 0))>
-MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
-                                             kMnemo,
-                                             kSideEffects,
-                                             GetOpcode,
-                                             CPUIDRestriction,
-                                             std::tuple<Operands...>>,
-            kSSAMode,
-            std::tuple<ConstructorArgs...>,
-            std::tuple<ConstructorAutoArgs...>,
-            std::tuple<NoSSAConstructorArgs...>>::GenMachineInsnInfos() {
+constexpr auto MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
+                                                            kMnemo,
+                                                            kSideEffects,
+                                                            GetOpcode,
+                                                            CPUIDRestriction,
+                                                            std::tuple<Operands...>>,
+                           kSSAMode,
+                           std::tuple<ConstructorArgs...>,
+                           std::tuple<ConstructorAutoArgs...>,
+                           std::tuple<NoSSAConstructorArgs...>>::GenMachineInsnInfos()
+    -> std::array<MachineInsn::MachineInsnInfo,
+                  1 << (2 * (device_arch_info::kIsMemoryOperand<Operands> + ... + 0))> {
   constexpr int kMemoryOperandsCount = (device_arch_info::kIsMemoryOperand<Operands> + ... + 0);
   if constexpr (kMemoryOperandsCount == 0) {
     return {GenMachineInsnInfo<std::array<bool, 0>{}>()};
