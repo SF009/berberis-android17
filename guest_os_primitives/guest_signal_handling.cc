@@ -199,6 +199,18 @@ bool IsReservedSignal(int signal) {
   return false;
 }
 
+void ConvertHostSiginfoToGuest(siginfo_t* signal_info, const ThreadState* state) {
+  switch (signal_info->si_signo) {
+    case SIGILL:
+    case SIGFPE:
+      signal_info->si_addr = ToHostAddr<void>(GetInsnAddr(GetCPUState(*state)));
+      break;
+    case SIGSYS:
+      signal_info->si_syscall = ToGuestSyscallNumber(signal_info->si_syscall);
+      break;
+  }
+}
+
 GuestSignalActionsTable* g_default_signal_actions;
 
 const GuestAddr kFatalGuestHandlerStub = ToGuestAddr(&kFatalGuestHandlerStub);
@@ -254,28 +266,15 @@ void GuestThread::CloneSignalActionsTableFrom(GuestSignalActionsTable* from_tabl
 
 // Can be interrupted by another EnqueueSignalFromHost!
 void GuestThread::EnqueueSignalFromHost(const siginfo_t& host_info, const ucontext_t* ucontext) {
-  siginfo_t* guest_info = pending_signals_.AllocSignal();
+  siginfo_t* allocated_info = pending_signals_.AllocSignal();
 
-  // TODO(b/456536516): Don't do this conversion for fatal signals which will be processed by host
-  // handlers.
   // Convert host siginfo to guest.
-  *guest_info = host_info;
-  switch (host_info.si_signo) {
-    case SIGILL:
-    case SIGFPE: {
-      guest_info->si_addr = ToHostAddr<void>(GetInsnAddr(GetCPUState(*state_)));
-      break;
-    }
-    case SIGSYS: {
-      guest_info->si_syscall = ToGuestSyscallNumber(host_info.si_syscall);
-      break;
-    }
-  }
+  *allocated_info = host_info;
 
   // This is never interrupted by code that clears queue or status,
   // so the order in which to set them is not important.
   // As an optimization do not memorize ucontext for non-fatal signals since it won't be used.
-  pending_signals_.EnqueueSignal(guest_info,
+  pending_signals_.EnqueueSignal(allocated_info,
                                  IsPotentiallyFatalSignal(host_info.si_signo) ? ucontext : nullptr);
 
   // Check that pending signals are not disabled and mark them as present.
@@ -391,6 +390,7 @@ void GuestThread::ProcessPendingSignalsImpl() {
       CHECK(host_ucontext->has_value());
       HandleFatalSignal(signal_info->si_signo, signal_info, &host_ucontext->value());
     } else {
+      ConvertHostSiginfoToGuest(signal_info, state_);
       ProcessGuestSignal(this, sa, signal_info);
     }
     pending_signals_.FreeSignal(signal_info);
