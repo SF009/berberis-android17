@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <ucontext.h>
+
 #include <atomic>
 #include <csignal>
 #include <cstring>
@@ -52,6 +54,17 @@ namespace berberis {
 
 namespace {
 
+bool IsPotentiallyFatalSignal(int signal) {
+  switch (signal) {
+    case SIGSEGV:
+    case SIGBUS:
+    case SIGILL:
+    case SIGFPE:
+      return true;
+    default:
+      return false;
+  }
+}
 // Execution cannot proceed until the next pending signals check for _kernel_ sent
 // synchronious signals: the faulty instruction will be executed again, leading
 // to the infinite recursion. So crash immediately to simplify debugging.
@@ -59,15 +72,7 @@ namespace {
 // Note that a _user_ sent signal which is typically synchronious, such as SIGSEGV,
 // can continue until pending signals check.
 bool IsPendingSignalWithoutRecoveryCodeFatal(siginfo_t* info) {
-  switch (info->si_signo) {
-    case SIGSEGV:
-    case SIGBUS:
-    case SIGILL:
-    case SIGFPE:
-      return SI_FROMKERNEL(info);
-    default:
-      return false;
-  }
+  return IsPotentiallyFatalSignal(info->si_signo) && SI_FROMKERNEL(info);
 }
 
 // Technically guest threads may work with different signal action tables, so it's possible to
@@ -130,7 +135,7 @@ void HandleHostSignal(int sig, siginfo_t* info, void* context) {
   // and for this signal now. While running the handlers, enable nested signals
   // to be pending.
   bool prev_pending_signals_enabled = thread->TestAndEnablePendingSignals();
-  thread->SetSignalFromHost(*info);
+  thread->EnqueueSignalFromHost(*info, ucontext);
   if (!prev_pending_signals_enabled) {
     CHECK_EQ(GetResidence(*thread->state()), kOutsideGeneratedCode);
     thread->ProcessAndDisablePendingSignals();
@@ -210,7 +215,7 @@ void GuestThread::CloneSignalActionsTableFrom(GuestSignalActionsTable* from_tabl
 }
 
 // Can be interrupted by another SetSignal!
-void GuestThread::SetSignalFromHost(const siginfo_t& host_info) {
+void GuestThread::EnqueueSignalFromHost(const siginfo_t& host_info, const ucontext_t* ucontext) {
   siginfo_t* guest_info = pending_signals_.AllocSignal();
 
   // Convert host siginfo to guest.
@@ -229,7 +234,10 @@ void GuestThread::SetSignalFromHost(const siginfo_t& host_info) {
 
   // This is never interrupted by code that clears queue or status,
   // so the order in which to set them is not important.
-  pending_signals_.EnqueueSignal(guest_info);
+  // As an optimization do not memorize ucontext for non-fatal signals since it won't be used.
+  pending_signals_.EnqueueSignal(guest_info,
+                                 IsPotentiallyFatalSignal(host_info.si_signo) ? ucontext : nullptr);
+
   // Check that pending signals are not disabled and mark them as present.
   uint8_t old_status = GetPendingSignalsStatusAtomic(*state_).exchange(kPendingSignalsPresent,
                                                                        std::memory_order_relaxed);
