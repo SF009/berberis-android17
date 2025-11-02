@@ -17,8 +17,10 @@
 #ifndef BERBERIS_BASE_TUPLE_PROCESSING_H_
 #define BERBERIS_BASE_TUPLE_PROCESSING_H_
 
+#include <cstddef>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 
 namespace berberis {
 
@@ -66,6 +68,58 @@ DEFINE_VALUE_OPERATOR(^)
 
 template <auto kValueParam>
 using Value = MetaValue<kValueParam>;
+
+// TupleTypes provides type-level metaprogramming utilities for std::tuple.
+// It uses template specializations to perform operations on the types within a tuple.
+template <typename... TupleTupеs>
+class TupleTypes;
+
+template <typename... Types>
+class TupleTypes<std::tuple<Types...>> {
+  template <std::size_t... Is>
+  static constexpr std::tuple<Value<Is>...> IndexedHelper(std::index_sequence<Is...>);
+
+ public:
+  using Indexes =
+      decltype(IndexedHelper(std::declval<std::make_index_sequence<sizeof...(Types)>>()));
+  using Enumerate = TupleTypes<Indexes, std::tuple<Types...>>::Zip;
+};
+
+template <typename... TypesLeft, typename... TypesRight>
+class TupleTypes<std::tuple<TypesLeft...>, std::tuple<TypesRight...>> {
+ public:
+  using Zip = std::tuple<std::tuple<TypesLeft, TypesRight>...>;
+};
+
+// TupleValues provides value-level functional-style operations on std::tuple instances or types.
+// These methods often take a lambda to apply to each element of the tuple.
+// Note: it's also possible to pass the type of tuple and get back values. In fact that's a common
+// way of using this class. The important part is that it generates values and not types.
+class TupleValues {
+ public:
+  template <typename... Types>
+  static constexpr TupleTypes<std::tuple<Types...>>::Enumerate Enumerate(
+      std::tuple<Types...> tuple) {
+    return Zip(typename TupleTypes<std::tuple<Types...>>::Indexes{}, tuple);
+  }
+  template <typename... TypesLeft, typename... TypesRight>
+  static constexpr TupleTypes<std::tuple<TypesLeft...>, std::tuple<TypesRight...>>::Zip Zip(
+      std::tuple<TypesLeft...> tuple_left,
+      std::tuple<TypesRight...> tuple_right) {
+    return ZipHelper(tuple_left, tuple_right, std::make_index_sequence<sizeof...(TypesLeft)>{});
+  }
+
+ private:
+  template <typename... TypesLeft, typename... TypesRight, std::size_t... Is>
+  static constexpr TupleTypes<std::tuple<TypesLeft...>, std::tuple<TypesRight...>>::Zip ZipHelper(
+      std::tuple<TypesLeft...> tuple_left,
+      std::tuple<TypesRight...> tuple_right,
+      std::index_sequence<Is...>) {
+    using ZipType = TupleTypes<std::tuple<TypesLeft...>, std::tuple<TypesRight...>>::Zip;
+    return ZipType{
+        std::tuple<TypesLeft, TypesRight>{std::get<Is>(tuple_left), std::get<Is>(tuple_right)}...};
+  }
+};
 
 }  // namespace berberis
 
