@@ -68,7 +68,7 @@ void HeavyOptimizerFrontend::BranchRegister(Register src, int16_t offset) {
     target = std::get<0>(Gen<x86_64::AndqRegImm>(target, ~int32_t{1}));
   } else {
     // TODO(b/232598137) Maybe move this to translation cache?
-    target = std::get<0>(Gen<x86_64::AddqRegImm>(src, offset));
+    target = std::get<0>(Gen<x86_64::AddqRegImm>(src, int32_t{offset}));
     target = std::get<0>(Gen<x86_64::AndqRegImm>(target, ~int32_t{1}));
   }
   ExitRegionIndirect(target);
@@ -91,7 +91,7 @@ x86_64::Assembler::Condition HeavyOptimizerFrontend::ToAssemblerCond(BranchOpcod
   }
 }
 
-Register HeavyOptimizerFrontend::GetImm(uint64_t imm) {
+Register HeavyOptimizerFrontend::GetImm(int64_t imm) {
   return std::get<0>(Gen<x86_64::MovqRegImm>(imm));
 }
 
@@ -316,7 +316,7 @@ Register HeavyOptimizerFrontend::Op(Decoder::OpOpcode opcode, Register arg1, Reg
     case OpOpcode::kMulhsu: {
       auto [low, high, mul_flags] = Gen<x86_64::MulqRegRegReg>(arg1, arg2);
       auto [adjust, imul_flags] =
-          Gen<x86_64::ImulqRegReg>(std::get<0>(Gen<x86_64::SarqRegImm>(arg1, 63)), arg2);
+          Gen<x86_64::ImulqRegReg>(std::get<0>(Gen<x86_64::SarqRegImm>(arg1, int8_t{63})), arg2);
       return std::get<0>(Gen<x86_64::AddqRegReg>(adjust, high));
     }
     case OpOpcode::kMulhu:
@@ -370,19 +370,19 @@ Register HeavyOptimizerFrontend::OpImm(Decoder::OpImmOpcode opcode, Register arg
   using Condition = x86_64::Assembler::Condition;
   switch (opcode) {
     case OpImmOpcode::kAddi:
-      return std::get<0>(Gen<x86_64::AddqRegImm>(arg, imm));
+      return std::get<0>(Gen<x86_64::AddqRegImm>(arg, int32_t{imm}));
     case OpImmOpcode::kSlti:
       return std::get<0>(Gen<x86_64::MovsxbqRegReg>(std::get<0>(Gen<x86_64::SetccReg>(
-          Condition::kLess, std::get<0>(Gen<x86_64::CmpqRegImm>(arg, imm))))));
+          Condition::kLess, std::get<0>(Gen<x86_64::CmpqRegImm>(arg, int32_t{imm}))))));
     case OpImmOpcode::kSltiu:
       return std::get<0>(Gen<x86_64::MovsxbqRegReg>(std::get<0>(Gen<x86_64::SetccReg>(
-          Condition::kBelow, std::get<0>(Gen<x86_64::CmpqRegImm>(arg, imm))))));
+          Condition::kBelow, std::get<0>(Gen<x86_64::CmpqRegImm>(arg, int32_t{imm}))))));
     case OpImmOpcode::kXori:
-      return std::get<0>(Gen<x86_64::XorqRegImm>(arg, imm));
+      return std::get<0>(Gen<x86_64::XorqRegImm>(arg, int32_t{imm}));
     case OpImmOpcode::kOri:
-      return std::get<0>(Gen<x86_64::OrqRegImm>(arg, imm));
+      return std::get<0>(Gen<x86_64::OrqRegImm>(arg, int32_t{imm}));
     case OpImmOpcode::kAndi:
-      return std::get<0>(Gen<x86_64::AndqRegImm>(arg, imm));
+      return std::get<0>(Gen<x86_64::AndqRegImm>(arg, int32_t{imm}));
     default:
       Undefined();
       return {};
@@ -393,7 +393,7 @@ Register HeavyOptimizerFrontend::OpImm32(Decoder::OpImm32Opcode opcode, Register
   switch (opcode) {
     case Decoder::OpImm32Opcode::kAddiw:
       return std::get<0>(
-          Gen<x86_64::MovsxlqRegReg>(std::get<0>(Gen<x86_64::AddlRegImm>(arg, imm))));
+          Gen<x86_64::MovsxlqRegReg>(std::get<0>(Gen<x86_64::AddlRegImm>(arg, int32_t{imm}))));
     default:
       Undefined();
       return {};
@@ -414,7 +414,7 @@ Register HeavyOptimizerFrontend::Srai(Register arg, int8_t imm) {
 
 Register HeavyOptimizerFrontend::ShiftImm32(Decoder::ShiftImm32Opcode opcode,
                                             Register arg,
-                                            uint16_t imm) {
+                                            int8_t imm) {
   using ShiftImm32Opcode = Decoder::ShiftImm32Opcode;
   switch (opcode) {
     case ShiftImm32Opcode::kSlliw:
@@ -441,7 +441,7 @@ Register HeavyOptimizerFrontend::Roriw(Register arg, int8_t shamt) {
 }
 
 Register HeavyOptimizerFrontend::Lui(int32_t imm) {
-  return std::get<0>(Gen<x86_64::MovqRegImm>(imm));
+  return std::get<0>(Gen<x86_64::MovqRegImm>(int64_t{imm}));
 }
 
 Register HeavyOptimizerFrontend::Auipc(int32_t imm) {
@@ -607,13 +607,15 @@ Register HeavyOptimizerFrontend::UpdateCsr(Decoder::CsrOpcode opcode, Register a
 }
 
 Register HeavyOptimizerFrontend::UpdateCsr(Decoder::CsrImmOpcode opcode, int8_t imm, Register csr) {
+  // Csr immediate value is 5bit field.
+  CHECK_EQ(imm & ~0b11111, 0);
   switch (opcode) {
     case Decoder::CsrImmOpcode::kCsrrwi:
-      return std::get<0>(Gen<x86_64::MovlRegImm>(imm));
+      return std::get<0>(Gen<x86_64::MovlRegImm>(int32_t{imm}));
     case Decoder::CsrImmOpcode::kCsrrsi:
-      return std::get<0>(Gen<x86_64::OrqRegReg>(std::get<0>(Gen<x86_64::MovlRegImm>(imm)), csr));
+      return std::get<0>(Gen<x86_64::OrqRegImm>(csr, int32_t{imm}));
     case Decoder::CsrImmOpcode::kCsrrci:
-      return std::get<0>(Gen<x86_64::AndqRegReg>(std::get<0>(Gen<x86_64::MovqRegImm>(~imm)), csr));
+      return std::get<0>(Gen<x86_64::AndqRegImm>(csr, int32_t{~imm}));
     default:
       Undefined();
       return {};

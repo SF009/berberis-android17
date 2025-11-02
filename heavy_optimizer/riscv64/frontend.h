@@ -82,7 +82,7 @@ class HeavyOptimizerFrontend {
   void Branch(int32_t offset);
   void BranchRegister(Register base, int16_t offset);
 
-  [[nodiscard]] Register GetImm(uint64_t imm);
+  [[nodiscard]] Register GetImm(int64_t imm);
   [[nodiscard]] Register Copy(Register value) {
     Register result = AllocTempReg();
     builder_.Gen<PseudoCopy>(result, value, 8);
@@ -104,7 +104,7 @@ class HeavyOptimizerFrontend {
   Register Slli(Register arg, int8_t imm);
   Register Srli(Register arg, int8_t imm);
   Register Srai(Register arg, int8_t imm);
-  Register ShiftImm32(Decoder::ShiftImm32Opcode opcode, Register arg, uint16_t imm);
+  Register ShiftImm32(Decoder::ShiftImm32Opcode opcode, Register arg, int8_t imm);
   Register Rori(Register arg, int8_t shamt);
   Register Roriw(Register arg, int8_t shamt);
   Register Lui(int32_t imm);
@@ -432,8 +432,14 @@ class HeavyOptimizerFrontend {
   template <CsrName kName>
   void SetCsr(Register arg) {
     if constexpr (sizeof(CsrFieldType<kName>) == 1) {
-      auto [tmp, and_flags] = Gen<x86_64::AndbRegImm>(arg, kCsrMask<kName>);
-      Gen<x86_64::MovbOpReg>({.base = x86_64::kMachineRegRBP, .disp = kCsrFieldOffset<kName>}, tmp);
+      if constexpr (kCsrMask<kName> == 0xff) {
+        Gen<x86_64::MovbOpReg>({.base = x86_64::kMachineRegRBP, .disp = kCsrFieldOffset<kName>},
+                               arg);
+      } else {
+        auto [tmp, and_flags] = Gen<x86_64::AndbRegImm>(arg, int8_t{kCsrMask<kName>});
+        Gen<x86_64::MovbOpReg>({.base = x86_64::kMachineRegRBP, .disp = kCsrFieldOffset<kName>},
+                               tmp);
+      }
     } else if constexpr (sizeof(CsrFieldType<kName>) == 8) {
       auto [tmp, and_flags] =
           Gen<x86_64::AndqRegOp>(arg, {.disp = constants_pool::kConst<uint64_t{kCsrMask<kName>}>});
@@ -650,7 +656,7 @@ HeavyOptimizerFrontend::GetCsr<CsrName::kFCsr>() {
       &builder_, tmp, GetFlagsRegister());
   auto [csr_reg] = Gen<x86_64::MovzxbqRegOp>(
       {.base = x86_64::kMachineRegRBP, .disp = kCsrFieldOffset<CsrName::kFrm>});
-  auto [shifted_reg, shl_flags] = Gen<x86_64::ShlbRegImm>(csr_reg, 5);
+  auto [shifted_reg, shl_flags] = Gen<x86_64::ShlbRegImm>(csr_reg, int8_t{5});
   auto [ored_reg, or_flags] = Gen<x86_64::OrbRegReg>(shifted_reg, tmp);
   return ored_reg;
 }
@@ -672,7 +678,7 @@ template <>
 HeavyOptimizerFrontend::GetCsr<CsrName::kVxrm>() {
   auto [reg] = Gen<x86_64::MovzxbqRegOp>(
       {.base = x86_64::kMachineRegRBP, .disp = kCsrFieldOffset<CsrName::kVcsr>});
-  auto [res, and_flags] = Gen<x86_64::AndbRegImm>(reg, 0b11);
+  auto [res, and_flags] = Gen<x86_64::AndbRegImm>(reg, int8_t{0b11});
   return res;
 }
 
@@ -681,7 +687,7 @@ template <>
 HeavyOptimizerFrontend::GetCsr<CsrName::kVxsat>() {
   auto [reg] = Gen<x86_64::MovzxbqRegOp>(
       {.base = x86_64::kMachineRegRBP, .disp = kCsrFieldOffset<CsrName::kVcsr>});
-  auto [res, shr_flags] = Gen<x86_64::ShrbRegImm>(reg, 2);
+  auto [res, shr_flags] = Gen<x86_64::ShrbRegImm>(reg, int8_t{2});
   return res;
 }
 
@@ -713,7 +719,7 @@ inline void HeavyOptimizerFrontend::SetCsr<CsrName::kFCsr>(Register arg) {
   auto [rounding_mode, shld_flags] =
       Gen<x86_64::ShldlRegRegImm>(undef_rounding, arg, int8_t{32 - 5});
   auto [cleaned_rounding, and_flаgs] =
-      Gen<x86_64::AndbRegImm>(rounding_mode, kCsrMask<CsrName::kFrm>);
+      Gen<x86_64::AndbRegImm>(rounding_mode, int8_t{kCsrMask<CsrName::kFrm>});
   Gen<x86_64::MovbOpReg>({.base = x86_64::kMachineRegRBP, .disp = kCsrFieldOffset<CsrName::kFrm>},
                          cleaned_rounding);
   InlineIntrinsicForHeavyOptimizerVoid<&intrinsics::FeSetExceptionsAndRound>(
@@ -740,7 +746,7 @@ inline void HeavyOptimizerFrontend::SetCsr<CsrName::kFrm>(uint8_t imm) {
 template <>
 inline void HeavyOptimizerFrontend::SetCsr<CsrName::kFrm>(Register arg) {
   // Use RCX as temporary register. We know it would be used by FeSetRound, too.
-  auto [tmp, and_flags] = Gen<x86_64::AndbRegImm>(arg, kCsrMask<CsrName::kFrm>);
+  auto [tmp, and_flags] = Gen<x86_64::AndbRegImm>(arg, int8_t{kCsrMask<CsrName::kFrm>});
   Gen<x86_64::MovbOpReg>({.base = x86_64::kMachineRegRBP, .disp = kCsrFieldOffset<CsrName::kFrm>},
                          tmp);
   FeSetRound(tmp);
@@ -763,7 +769,7 @@ template <>
 inline void HeavyOptimizerFrontend::SetCsr<CsrName::kVxrm>(Register arg) {
   Gen<x86_64::AndbOpImm>({.base = x86_64::kMachineRegRBP, .disp = kCsrFieldOffset<CsrName::kVcsr>},
                          0b100);
-  auto [tmp, and_flags] = Gen<x86_64::AndbRegImm>(arg, 0b11);
+  auto [tmp, and_flags] = Gen<x86_64::AndbRegImm>(arg, int8_t{0b11});
   Gen<x86_64::OrbOpReg>({x86_64::kMachineRegRBP, .disp = kCsrFieldOffset<CsrName::kVcsr>}, tmp);
 }
 
@@ -783,7 +789,7 @@ inline void HeavyOptimizerFrontend::SetCsr<CsrName::kVxsat>(Register arg) {
   using Condition = x86_64::Assembler::Condition;
   Gen<x86_64::AndbOpImm>({.base = x86_64::kMachineRegRBP, .disp = kCsrFieldOffset<CsrName::kVcsr>},
                          0b11);
-  auto [test_flags] = Gen<x86_64::TestbRegImm>(arg, 1);
+  auto [test_flags] = Gen<x86_64::TestbRegImm>(arg, int8_t{1});
   auto [tmp] = Gen<x86_64::SetccReg>(Condition::kNotZero, test_flags);
   auto [expanded] = Gen<x86_64::MovzxbqRegReg>(tmp);
   auto [res, shl_flags] = Gen<x86_64::ShlbRegImm>(expanded, int8_t{2});
