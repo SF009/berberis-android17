@@ -22,6 +22,7 @@
 #include "berberis/base/arena_map.h"
 #include "berberis/base/checks.h"
 #include "berberis/base/dependent_false.h"
+#include "berberis/base/tuple_processing.h"
 #include "berberis/decoder/riscv64/decoder.h"
 #include "berberis/decoder/riscv64/semantics_player.h"
 #include "berberis/guest_state/guest_addr.h"
@@ -542,66 +543,66 @@ class HeavyOptimizerFrontend {
       kImplicitInputRegister,
       kPassthroughOperand,  // Input register, immediate or memory operand
     };
-    constexpr static auto kOperands = []<typename... Operands>(std::tuple<Operands...>*) {
-      std::array<std::tuple<ProcessWay, int, int>, sizeof...(Operands)> result;
-      int opd_index = 0;
-      int arg_index = 0;
-      int reg_index = 0;
-      ((result[opd_index++] =
-            [&arg_index, &reg_index]<typename Operand> {
+    struct ProcessInfo {
+      ProcessWay process_way;
+      int arg_index;
+      int pseudo_copy_size;
+    };
+    constexpr static auto kOperands =
+        TypesToValues::MapWithTemporary<typename InsnType::OperandsTuple,
+                                        /* arg_index, reg_index = */ std::tuple<int, int>>(
+            []<typename Operand>(std::tuple<int, int>& indexes) -> decltype(auto) {
+              auto& [arg_index, reg_index] = indexes;
               if constexpr (device_arch_info::kIsRegister<Operand>) {
                 CHECK_NE(InsnType::kInfo.reg_kinds[reg_index].IsDef(),
                          InsnType::kInfo.reg_kinds[reg_index].IsInput());
                 if (InsnType::kInfo.reg_kinds[reg_index].IsDef()) {
-                  return std::tuple{
-                      InsnType::kInfo.reg_kinds[reg_index++].RegClass() == &x86_64::kFLAGS
-                          ? kFlagRegister
-                          : kOutputRegister,
-                      0,
-                      0};
+                  if (InsnType::kInfo.reg_kinds[reg_index++].RegClass() == &x86_64::kFLAGS) {
+                    return ProcessInfo{.process_way = kFlagRegister};
+                  } else {
+                    return ProcessInfo{.process_way = kOutputRegister};
+                  }
                 } else if (InsnType::kInfo.reg_kinds[reg_index].RegClass()->num_regs == 1 &&
                            InsnType::kInfo.reg_kinds[reg_index].RegClass() != &x86_64::kFLAGS) {
-                  return std::tuple{kImplicitInputRegister,
-                                    arg_index++,
-                                    InsnType::kInfo.reg_kinds[reg_index++].RegClass()->reg_size};
+                  return ProcessInfo{
+                      .process_way = kImplicitInputRegister,
+                      .arg_index = arg_index++,
+                      .pseudo_copy_size =
+                          InsnType::kInfo.reg_kinds[reg_index++].RegClass()->reg_size};
                 } else {
                   reg_index++;
                 }
               }
-              return std::tuple{kPassthroughOperand, arg_index++, 0};
-            }.template operator()<Operands>()),
-       ...);
-      return result;
-    }(static_cast<typename InsnType::OperandsTuple*>(nullptr));
+              return ProcessInfo{.process_way = kPassthroughOperand, .arg_index = arg_index++};
+            });
 
     std::array<MachineReg, InsnType::kInfo.OutputRegistersCount()> output;
-    std::size_t output_idx = 0;
-    [&args_tuple, &output_idx, &output, this]<std::size_t... kIndexes>(
-        std::integer_sequence<std::size_t, kIndexes...>) {
-      builder_.Gen<InsnType>(
-          std::tuple{[&args_tuple, &output_idx, &output, this]<std::size_t kIndex>()
-                         -> std::tuple_element_t<kIndex, typename InsnType::ConstructorArgsTuple> {
-            if constexpr (std::get<0>(kOperands[kIndex]) == kFlagRegister) {
-              return output[output_idx++] = GetFlagsRegister();
-            } else if constexpr (std::get<0>(kOperands[kIndex]) == kOutputRegister) {
-              return output[output_idx++] = AllocTempReg();
-            } else if constexpr (std::get<0>(kOperands[kIndexes]) == kImplicitInputRegister) {
-              // If register is implicit we need to add extra PseudoCopy here even if it's pure
-              // input. Otherwise we may attempt to make the same register to belong to two
-              // different, incompatible register classes if it's ALSO output of another instruction
-              // with a different implicit class. E.g. if output of division is used as input for
-              // shift.
-              auto dst = AllocTempReg();
-              auto src = std::get<std::get<1>(kOperands[kIndex])>(args_tuple);
-              auto reg_size = std::get<2>(kOperands[kIndex]);
-              builder_.Gen<PseudoCopy>(dst, src, reg_size);
-              return dst;
-            } else {
-              static_assert(std::get<0>(kOperands[kIndexes]) == kPassthroughOperand);
-              return std::get<std::get<1>(kOperands[kIndex])>(args_tuple);
-            }
-          }.template operator()<kIndexes>()...});
-    }(std::make_index_sequence<std::size(kOperands)>{});
+    builder_.Gen<InsnType>(
+        TypesToValues::MapWithTemporary<TypesToTypes::Zip<typename InsnType::ConstructorArgsTuple,
+                                                          ValuesToTypes::MetaValues<&kOperands>>,
+                                        /* output_idx = */ size_t>(
+            [&args_tuple, &output, this]<typename Operand>(
+                std::size_t& output_idx) -> std::tuple_element_t<0, Operand> {
+              constexpr ProcessInfo kOperand = std::tuple_element_t<1, Operand>{};
+              if constexpr (kOperand.process_way == kFlagRegister) {
+                return output[output_idx++] = GetFlagsRegister();
+              } else if constexpr (kOperand.process_way == kOutputRegister) {
+                return output[output_idx++] = AllocTempReg();
+              } else if constexpr (kOperand.process_way == kImplicitInputRegister) {
+                // If register is implicit we need to add extra PseudoCopy here even if it's pure
+                // input. Otherwise we may attempt to make the same register to belong to two
+                // different, incompatible register classes if it's ALSO output of another
+                // instruction with a different implicit class. E.g. if output of division is used
+                // as input for shift.
+                auto dst = AllocTempReg();
+                auto src = std::get<kOperand.arg_index>(args_tuple);
+                builder_.Gen<PseudoCopy>(dst, src, kOperand.pseudo_copy_size);
+                return dst;
+              } else {
+                static_assert(kOperand.process_way == kPassthroughOperand);
+                return std::get<kOperand.arg_index>(args_tuple);
+              }
+            }));
     return output;
   }
 
