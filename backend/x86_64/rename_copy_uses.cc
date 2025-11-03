@@ -220,8 +220,11 @@ void RenameCopyUses(MachineIR* machine_ir) {
   }
 
   for (auto* bb : machine_ir->bb_list()) {
-    // TODO(b/448293427): This implementation only applies the optimization to basic blocks which
-    // have exactly one predecessor. It should be expanded to optimize all basic blocks.
+    // This implementation only applies the optimization to basic blocks which have exactly one
+    // predecessor. This is because extending this optimization to handle basic blocks with
+    // multiple predecessors increases translation overhead, and we have never seen a case of a
+    // basic block with multiple predecessors which can be optimized this way.
+    // See b/448293427#comment16 for more details.
     if (bb->in_edges().size() != 1 || bb->live_in().size() < 1) {
       continue;
     }
