@@ -40,7 +40,6 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
 
   BERBERIS_DECLARE_MACHINE_INSN_ADAPTER(
       /*may_discard*/ auto Gen,
-      MachineInsnOperandsHelper,
       ConstructorArgsTuple,
       MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, kSSAMode>*,
       MachineIRBuilderBase::Gen,
