@@ -19,6 +19,7 @@
 #include "berberis/backend/common/lifetime.h"
 #include "berberis/backend/common/machine_ir.h"
 #include "berberis/base/checks.h"
+#include "berberis/base/tracing.h"
 
 namespace berberis {
 
@@ -32,14 +33,15 @@ VRegLifetime* VRegLifetimeAnalysis::GetVRegLifetime(MachineReg r, int begin, boo
     // live range is [bb_tick_, bb_tick_)).
     if (lifetime->LastLiveRangeBegin() < bb_tick_) {
       if (is_input) {
-        // The first access in a basic block must not require a prior definition.
+        TRACE("Error: first lifetime access in basic block must not be input : v%u",
+              r.GetVRegIndex());
         return nullptr;
       }
       lifetime->StartLiveRange(begin);
     }
   } else {
     if (is_input) {
-      // The first access ever seen must not require a prior definition.
+      TRACE("Error: first seen lifetime access must not be input : v%u", r.GetSpilledRegIndex());
       return nullptr;
     }
     // Newly created lifetime last live range will start at 'begin'.

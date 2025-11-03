@@ -118,12 +118,10 @@ inline bool IsXReg(MachineReg r) {
   return r.reg() >= MachineRegs::kXMM0.reg() && r.reg() <= MachineRegs::kXMM15.reg();
 }
 
-// rax, rdi, rsi, rdx, rcx, r8-r11, xmm0-xmm15, flags
-const int kMaxMachineRegOperands = 26;
-
 // Context loads and stores use rbp as base.
 inline constexpr auto kCPUStatePointer = MachineRegs::kRBP;
 
+template <size_t kMaxMachineRegOperands>
 struct MachineInsnInfo {
   MachineOpcode opcode;
   int num_reg_operands;
@@ -205,19 +203,15 @@ class MachineInsnX86_64 : public MachineInsn {
   void set_imm(uint64_t imm) { x86_64_insn_info_.imm_ = imm; }
 
  protected:
-  explicit MachineInsnX86_64(const MachineInsnX86_64& other)
-      : MachineInsn(other, x86_64_insn_info_.regs_), x86_64_insn_info_(other.x86_64_insn_info_) {}
+  explicit MachineInsnX86_64(const MachineInsnX86_64& other, MachineReg* regs)
+      : MachineInsn(other, regs), x86_64_insn_info_(other.x86_64_insn_info_) {}
 
-  explicit MachineInsnX86_64(const MachineInsnInfo* info)
-      : MachineInsn(info->opcode,
-                    info->num_reg_operands,
-                    info->reg_kinds,
-                    x86_64_insn_info_.regs_,
-                    info->kind) {}
+  template <size_t kMaxMachineRegOperands>
+  explicit MachineInsnX86_64(const MachineInsnInfo<kMaxMachineRegOperands>* info, MachineReg* regs)
+      : MachineInsn(info->opcode, info->num_reg_operands, info->reg_kinds, regs, info->kind) {}
 
  private:
   struct {
-    MachineReg regs_[kMaxMachineRegOperands];
     uint32_t disp_;
     Assembler::ScaleFactor scale_ = Assembler::kTimesOne;
     Assembler::ScaleFactor scale2_ = Assembler::kTimesOne;
@@ -244,8 +238,12 @@ class Enter final : public MachineInsnX86_64 {
   void Emit(CodeEmitter* as) const override;
 
  private:
+  struct {
+    MachineReg regs_[6];
+  } x86_64_insn_info_;
+
   friend Enter* NewInArena<Enter, const Enter&>(Arena*, const Enter&);
-  Enter(const Enter&) = default;
+  Enter(const Enter&);
   MachineInsn* Clone(Arena* arena) const override;
   MachineInsnList Lower(Arena* arena) const override;
 };
@@ -280,8 +278,14 @@ class CallImm final : public MachineInsnX86_64 {
   void Emit(CodeEmitter* as) const override;
 
  private:
+  // rax, rdi, rsi, rdx, rcx, r8-r11, xmm0-xmm15, flags
+  static constexpr int kMaxMachineRegOperands = 26;
+  struct {
+    MachineReg regs_[kMaxMachineRegOperands];
+  } x86_64_insn_info_;
+
   friend CallImm* NewInArena<CallImm, const CallImm&>(Arena*, const CallImm&);
-  CallImm(const CallImm&) = default;
+  CallImm(const CallImm&);
   MachineInsn* Clone(Arena* arena) const override;
   MachineInsnList Lower(Arena* arena) const override;
 };
@@ -300,8 +304,12 @@ class CallImmArg final : public MachineInsnX86_64 {
   };
 
  private:
+  struct {
+    MachineReg regs_[1];
+  } x86_64_insn_info_;
+
   friend CallImmArg* NewInArena<CallImmArg, const CallImmArg&>(Arena*, const CallImmArg&);
-  CallImmArg(const CallImmArg&) = default;
+  CallImmArg(const CallImmArg&);
   MachineInsn* Clone(Arena* arena) const override;
   MachineInsnList Lower(Arena* arena) const override;
 };
@@ -312,7 +320,7 @@ enum SSAMode {
   kSSA = 1,
 };
 
-template <typename IntrinsicBindingInfo, enum SSAMode kSSAMode>
+template <typename IntrinsicBindingInfo, auto kSSAMode>
 class MachineInsnOperandsHelper;
 
 template <auto kEmitInsnFunc,
@@ -321,7 +329,7 @@ template <auto kEmitInsnFunc,
           typename CPUIDRestriction,
           typename... Operands,
           bool kSideEffects,
-          enum SSAMode kSSAMode>
+          auto kSSAMode>
 class MachineInsnOperandsHelper<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                                                                  kMnemo,
                                                                  kSideEffects,
@@ -330,14 +338,18 @@ class MachineInsnOperandsHelper<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                                                                  std::tuple<Operands...>>,
                                 kSSAMode>
     final {
+  static_assert((std::is_same_v<decltype(kSSAMode), bool> && kSSAMode == false) ||
+                    (std::is_same_v<decltype(kSSAMode), enum SSAMode> && kSSAMode == kNoSSA) ||
+                    (std::is_same_v<decltype(kSSAMode), enum SSAMode> && kSSAMode == kSSA),
+                "Only kSSA and kNoSSA should be used as kSSAMode");
+  static_assert(
+      std::is_same_v<decltype(kSSAMode), enum SSAMode> ||
+          !((device_arch_info::kIsRegister<Operands> &&
+             Operands::kUsage == device_arch_info::kUseDef) ||
+            ...),
+      "Only instructions without kUseDef operands can be used without kSSAMode specification");
+
  public:
-  // We want to filter out any operands that are not used for Register args.
-  // Note: memory operands accept register and offset, thus they are included.
-  using RegOperandsTuple = decltype(std::tuple_cat(
-      std::declval<std::conditional_t<device_arch_info::kIsRegister<Operands> ||
-                                          device_arch_info::kIsMemoryOperand<Operands>,
-                                      std::tuple<Operands>,
-                                      std::tuple<>>>()...));
   // Note: immediates accept appropriate type, register operands includes only register while memory
   // operand needs both base register and offset.
   using ConstructorArgsTuple = decltype(std::tuple_cat(
@@ -369,8 +381,9 @@ class MachineInsnOperandsHelper<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
 
 template <
     typename IntrinsicBindingInfo,
-    enum SSAMode kSSAMode = kNoSSA,
-    typename = typename MachineInsnOperandsHelper<IntrinsicBindingInfo, kSSAMode>::RegOperandsTuple,
+    // Note kSSAMode = false is default value and means instruction is natively SSA-compliant (== no
+    // use_def operands). Only kSSA and kNoSSA should be specified explicitly.
+    auto kSSAMode = false,
     typename =
         typename MachineInsnOperandsHelper<IntrinsicBindingInfo, kSSAMode>::ConstructorArgsTuple,
     typename = typename MachineInsnOperandsHelper<IntrinsicBindingInfo,
@@ -385,8 +398,7 @@ template <auto kEmitInsnFunc,
           auto GetOpcode,
           typename CPUIDRestriction,
           typename... Operands,
-          enum SSAMode kSSAMode,
-          typename... RegOperands,
+          auto kSSAMode,
           typename... ConstructorArgs,
           typename... ConstructorAutoArgs,
           typename... NoSSAConstructorArgs>
@@ -397,12 +409,18 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                                                    CPUIDRestriction,
                                                    std::tuple<Operands...>>,
                   kSSAMode,
-                  std::tuple<RegOperands...>,
                   std::tuple<ConstructorArgs...>,
                   std::tuple<ConstructorAutoArgs...>,
                   std::tuple<NoSSAConstructorArgs...>>
     final : public MachineInsnX86_64 {
  private:
+  using MachineInsnInfo =
+      x86_64::MachineInsnInfo<(device_arch_info::kIsRegister<Operands> + ... + 0) +
+                              (kSSAMode == kSSA ? 1 : 0) *
+                                  ((device_arch_info::kIsRegister<Operands> &&
+                                    Operands::kUsage == device_arch_info::kUseDef) +
+                                   ... + 0) +
+                              2 * (device_arch_info::kIsMemoryOperand<Operands> + ... + 0)>;
   template <auto>
   static constexpr MachineInsnInfo GenMachineInsnInfo();
   static constexpr std::array<MachineInsnInfo,
@@ -414,9 +432,18 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
   template <typename MachineIRBuilder>
   static constexpr MachineInsn* (MachineIRBuilder::*kGenFunc)(ConstructorArgs...) =
       &MachineIRBuilder::template Gen<MachineInsn>;
-  template <typename MachineIRBuilder>
-  static constexpr MachineInsn* (MachineIRBuilder::*kGenAutoFunc)(ConstructorAutoArgs...) =
-      &MachineIRBuilder::template Gen<MachineInsn>;
+  using OperandsTuple = std::conditional_t<
+      kSSAMode == kSSA,
+      decltype(std::tuple_cat(
+          std::declval<std::conditional_t<
+              device_arch_info::kIsRegister<Operands> &&
+                  Operands::kUsage == device_arch_info::kUseDef,
+              std::tuple<
+                  device_arch_info::OperandInfo<typename Operands::Class, device_arch_info::kDef>,
+                  device_arch_info::OperandInfo<typename Operands::Class, device_arch_info::kUse>>,
+              std::tuple<Operands>>>()...)),
+      std::tuple<Operands...>>;
+  using ConstructorArgsTuple = std::tuple<ConstructorArgs...>;
 
   using DeviceInsnInfo = device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                                                           kMnemo,
@@ -442,7 +469,8 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
   MachineInsn& operator=(const MachineInsn&) = delete;
 
   explicit MachineInsn(ConstructorArgs... args)
-      : MachineInsnX86_64(&GenMachineInsnInfo<ConstructorArgs...>(args...)) {
+      : MachineInsnX86_64(&GenMachineInsnInfo<ConstructorArgs...>(args...),
+                          x86_64_insn_info_.regs_) {
     constexpr int kConditionalsOperandsCount = (device_arch_info::kIsCondition<Operands> + ... + 0);
     static_assert(kConditionalsOperandsCount <= 1);
     constexpr int kImmediateOperandsCount = (device_arch_info::kIsImmediate<Operands> + ... + 0);
@@ -451,40 +479,6 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
     static_assert(kMemoryOperandsCount <= 2);
     size_t reg_idx = 0, mem_idx = 0;
     (ProcessConstructorArg<ConstructorArgs>(reg_idx, mem_idx, args), ...);
-  }
-
-  // Note: we ask for Extra arguments here, but only to postpone instantiation of constructor,
-  // Nothing is supposed to be passed besides ConstructorAutoArgs, but if we wouldn't add this
-  // bogus argument instantiation would happen too early.
-  template <
-      typename... Extra,
-      typename = std::enable_if_t<!std::is_same_v<std::tuple<ConstructorArgs..., Extra...>,
-                                                  std::tuple<ConstructorAutoArgs..., Extra...>>>>
-  explicit MachineInsn(ConstructorAutoArgs... args, Extra...)
-      : MachineInsnX86_64(&GenMachineInsnInfo<ConstructorAutoArgs...>(args...)) {
-    // Ensure that nothing is passed as Extra arguments.
-    static_assert(sizeof...(Extra) == 0);
-    constexpr int kConditionalsOperandsCount = (device_arch_info::kIsCondition<Operands> + ... + 0);
-    static_assert(kConditionalsOperandsCount <= 1);
-    constexpr int kImmediateOperandsCount = (device_arch_info::kIsImmediate<Operands> + ... + 0);
-    static_assert(kImmediateOperandsCount <= 1);
-    constexpr int kMemoryOperandsCount = (device_arch_info::kIsMemoryOperand<Operands> + ... + 0);
-    static_assert(kMemoryOperandsCount <= 2);
-    constexpr int kRegisterOperandsCount = (device_arch_info::kIsRegister<Operands> + ... + 0);
-    // If we have only registers or only memory operands (but not both) then processing them in
-    // ConstructorAutoArgs order is always correct, otherwise we pull the args into arrays to
-    // process in ConstructorArgs order in the 2nd pass.
-    if constexpr (kMemoryOperandsCount == 0 || kRegisterOperandsCount == 0) {
-      size_t reg_idx = 0, mem_idx = 0;
-      (ProcessConstructorArg<ConstructorAutoArgs>(reg_idx, mem_idx, args), ...);
-    } else {
-      MachineReg regs[kRegisterOperandsCount];
-      MemoryOperand ops[kMemoryOperandsCount];
-      size_t reg_idx = 0, mem_idx = 0;
-      (ProcessConstructorArg<ConstructorAutoArgs>(reg_idx, mem_idx, regs, ops, args), ...);
-      size_t reg_in = 0, reg_out = mem_idx = 0;
-      (ProcessConstructorArg<ConstructorArgs>(reg_in, reg_out, mem_idx, regs, ops), ...);
-    }
   }
 
   static constexpr std::array<MachineInsnInfo,
@@ -556,6 +550,11 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
             } else {
               s += StringPrintf("[0x%x]", disp);
             }
+          } else if (kSSAMode == kSSA && device_arch_info::kIsImplicitReg<Operands> &&
+                     Operands::kUsage == device_arch_info::kUseDef) {
+            s += StringPrintf("(%s", GetRegOperandDebugString(this, reg_idx++).c_str());
+            s += "/";
+            s += StringPrintf("%s)", GetRegOperandDebugString(this, reg_idx++).c_str());
           } else if constexpr (device_arch_info::kIsImplicitReg<Operand>) {
             s += StringPrintf("(%s)", GetRegOperandDebugString(this, reg_idx++).c_str());
           } else if (kSSAMode == kSSA && device_arch_info::kIsRegister<Operands> &&
@@ -634,8 +633,18 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
   }
 
  private:
+  struct {
+    MachineReg regs_[(device_arch_info::kIsRegister<Operands> + ... + 0) +
+                     (kSSAMode == kSSA ? 1 : 0) * ((device_arch_info::kIsRegister<Operands> &&
+                                                    Operands::kUsage == device_arch_info::kUseDef) +
+                                                   ... + 0) +
+                     2 * (device_arch_info::kIsMemoryOperand<Operands> + ... + 0)];
+  } x86_64_insn_info_;
+
   friend MachineInsn* NewInArena<MachineInsn, const MachineInsn&>(Arena*, const MachineInsn&);
-  MachineInsn(const MachineInsn& insn) = default;
+  explicit MachineInsn(const MachineInsn& other)
+      : MachineInsnX86_64(other, x86_64_insn_info_.regs_),
+        x86_64_insn_info_(other.x86_64_insn_info_) {}
   berberis::MachineInsn* Clone(Arena* arena) const override {
     return NewInArena<MachineInsn, const MachineInsn&>(arena, *this);
   }
@@ -696,8 +705,10 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                     auto dst = MachineInsnX86_64::RegAt(reg_idx++);
                     kind_idx++;
                     auto src = MachineInsnX86_64::RegAt(reg_idx++);
-                    result.push_back(NewInArena<PseudoCopy>(
-                        arena, dst, src, kInfo.reg_kinds[kind_idx++].RegClass()->reg_size));
+                    if (dst != src) {
+                      result.push_back(NewInArena<PseudoCopy>(
+                          arena, dst, src, kInfo.reg_kinds[kind_idx++].RegClass()->reg_size));
+                    }
                     return std::tuple{dst};
                   } else {
                     kind_idx++;
@@ -737,50 +748,6 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
       }
     } else {
       static_assert(kDependentTypeFalse<ConstructorArg>);
-    }
-  }
-
-  template <typename ConstructorArg>
-  void ProcessConstructorArg(size_t& reg_idx,
-                             size_t& mem_idx,
-                             MachineReg regs[],
-                             MemoryOperand ops[],
-                             ConstructorArg arg) {
-    if constexpr (std::is_same_v<ConstructorArg, Assembler::Condition>) {
-      MachineInsnX86_64::set_cond(arg);
-    } else if constexpr (std::is_integral_v<ConstructorArg>) {
-      MachineInsnX86_64::set_imm(arg);
-    } else if constexpr (std::is_same_v<ConstructorArg, MachineReg>) {
-      regs[reg_idx++] = arg;
-    } else if constexpr (std::is_same_v<ConstructorArg, const MemoryOperand&>) {
-      ops[mem_idx++] = arg;
-    } else {
-      static_assert(kDependentTypeFalse<ConstructorArg>);
-    }
-  }
-
-  template <typename ConstructorArg>
-  void ProcessConstructorArg(size_t& reg_in,
-                             size_t& reg_out,
-                             size_t& mem_idx,
-                             MachineReg regs[],
-                             MemoryOperand ops[]) {
-    if constexpr (std::is_same_v<ConstructorArg, MachineReg>) {
-      MachineInsnX86_64::SetRegAt(reg_out++, regs[reg_in++]);
-    } else if constexpr (std::is_same_v<ConstructorArg, const MemoryOperand&>) {
-      if (ops[mem_idx].base != kInvalidMachineReg) {
-        MachineInsnX86_64::SetRegAt(reg_out++, ops[mem_idx].base);
-      }
-      if (ops[mem_idx].index != kInvalidMachineReg) {
-        MachineInsnX86_64::SetRegAt(reg_out++, ops[mem_idx].index);
-      }
-      if (++mem_idx == 1) {
-        MachineInsnX86_64::set_disp(ops[0].disp);
-        MachineInsnX86_64::set_scale(ops[0].scale);
-      } else if (mem_idx == 2) {
-        MachineInsnX86_64::set_disp2(ops[1].disp);
-        MachineInsnX86_64::set_scale2(ops[1].scale);
-      }
     }
   }
 
@@ -838,23 +805,22 @@ template <auto kEmitInsnFunc,
           auto GetOpcode,
           typename CPUIDRestriction,
           typename... Operands,
-          enum SSAMode kSSAMode,
-          typename... RegOperands,
+          auto kSSAMode,
           typename... ConstructorArgs,
           typename... ConstructorAutoArgs,
           typename... NoSSAConstructorArgs>
 template <auto BaseIndexRegistersUsed>
-constexpr MachineInsnInfo MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
-                                                                       kMnemo,
-                                                                       kSideEffects,
-                                                                       GetOpcode,
-                                                                       CPUIDRestriction,
-                                                                       std::tuple<Operands...>>,
-                                      kSSAMode,
-                                      std::tuple<RegOperands...>,
-                                      std::tuple<ConstructorArgs...>,
-                                      std::tuple<ConstructorAutoArgs...>,
-                                      std::tuple<NoSSAConstructorArgs...>>::GenMachineInsnInfo() {
+constexpr auto MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
+                                                            kMnemo,
+                                                            kSideEffects,
+                                                            GetOpcode,
+                                                            CPUIDRestriction,
+                                                            std::tuple<Operands...>>,
+                           kSSAMode,
+                           std::tuple<ConstructorArgs...>,
+                           std::tuple<ConstructorAutoArgs...>,
+                           std::tuple<NoSSAConstructorArgs...>>::GenMachineInsnInfo()
+    -> MachineInsn::MachineInsnInfo {
   MachineInsnInfo result = {.opcode = static_cast<MachineOpcode>(
                                 GetOpcode.template operator()<MachineOpcode>() |
                                 (kSSAMode && ((device_arch_info::kIsRegister<Operands> &&
@@ -888,8 +854,7 @@ constexpr MachineInsnInfo MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsn
                 &kRegisterClass<typename Operand::Class>,
                 static_cast<MachineRegKind::StandardAccess>(Operand::kUsage)};
           }
-        } else {
-          static_assert(device_arch_info::kIsMemoryOperand<Operand>);
+        } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
           // Note: normally size of array should match number of memory operands, but that's not
           // true for kInfo where it's zero.
           // TODO(399130034): remove std::size when kInfo is removed.
@@ -908,7 +873,7 @@ constexpr MachineInsnInfo MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsn
           }
           mem_operand_bit_pos++;
         }
-      }.template operator()<RegOperands>(),
+      }.template operator()<Operands>(),
       ...);
   return result;
 }
@@ -919,24 +884,22 @@ template <auto kEmitInsnFunc,
           auto GetOpcode,
           typename CPUIDRestriction,
           typename... Operands,
-          enum SSAMode kSSAMode,
-          typename... RegOperands,
+          auto kSSAMode,
           typename... ConstructorArgs,
           typename... ConstructorAutoArgs,
           typename... NoSSAConstructorArgs>
-constexpr std::array<MachineInsnInfo,
-                     1 << (2 * (device_arch_info::kIsMemoryOperand<Operands> + ... + 0))>
-MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
-                                             kMnemo,
-                                             kSideEffects,
-                                             GetOpcode,
-                                             CPUIDRestriction,
-                                             std::tuple<Operands...>>,
-            kSSAMode,
-            std::tuple<RegOperands...>,
-            std::tuple<ConstructorArgs...>,
-            std::tuple<ConstructorAutoArgs...>,
-            std::tuple<NoSSAConstructorArgs...>>::GenMachineInsnInfos() {
+constexpr auto MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
+                                                            kMnemo,
+                                                            kSideEffects,
+                                                            GetOpcode,
+                                                            CPUIDRestriction,
+                                                            std::tuple<Operands...>>,
+                           kSSAMode,
+                           std::tuple<ConstructorArgs...>,
+                           std::tuple<ConstructorAutoArgs...>,
+                           std::tuple<NoSSAConstructorArgs...>>::GenMachineInsnInfos()
+    -> std::array<MachineInsn::MachineInsnInfo,
+                  1 << (2 * (device_arch_info::kIsMemoryOperand<Operands> + ... + 0))> {
   constexpr int kMemoryOperandsCount = (device_arch_info::kIsMemoryOperand<Operands> + ... + 0);
   if constexpr (kMemoryOperandsCount == 0) {
     return {GenMachineInsnInfo<std::array<bool, 0>{}>()};
@@ -1102,12 +1065,12 @@ class MachineIR : public berberis::MachineIR {
 
   BERBERIS_DECLARE_MACHINE_INSN_ADAPTER(
       [[nodiscard]] auto NewInsn,
-      (),
       MachineInsnOperandsHelper,
       ConstructorArgsTuple,
       MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, kSSAMode>*,
       NewInsn,
-      ())
+      kSSAMode,
+      auto kSSAMode = false)
 
  private:
   ABI abi_;

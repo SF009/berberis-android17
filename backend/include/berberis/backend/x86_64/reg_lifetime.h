@@ -41,6 +41,10 @@ struct LiveOut {};
 struct RegLifetime {
   std::variant<LiveIn, berberis::MachineInsn*> start;
   std::variant<LiveOut, berberis::MachineInsn*> end;
+  // Positions where the corresponding start/end instruction is found in insn_list
+  // with -1 used for LiveIn. and one past last instruction for LiveOut.
+  int start_pos;
+  int end_pos;
   RegType reg_type;
 };
 

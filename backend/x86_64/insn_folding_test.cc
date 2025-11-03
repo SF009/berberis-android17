@@ -36,7 +36,7 @@ constexpr auto kMachineRegRDI = MachineRegs::kRDI;
 
 template <template <typename> typename InsnType>
 using MachineInsnType =
-    MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>;
+    MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, kNoSSA>;
 
 MachineInsnList::iterator FoldInsnsAndGetLastInsnIt(MachineIR* machine_ir, MachineBasicBlock* bb) {
   FoldInsns(machine_ir);
@@ -65,7 +65,7 @@ void TryRegRegInsnFolding(bool is_64bit_mov_imm, uint64_t imm = 0x7777'ffffULL) 
   } else {
     builder.Gen<MovlRegImm>(vreg1, imm);
   }
-  builder.Gen<InsnTypeRegReg>(vreg2, vreg1, flags);
+  builder.Gen<InsnTypeRegReg, kNoSSA>(vreg2, vreg1, flags);
 
   berberis::MachineInsn* folded_insn = *FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   if (!kExpectSuccess) {
@@ -105,7 +105,7 @@ void TryRegRegInsnFoldingExtraPseudoCopy(bool is_64bit_mov_imm, uint64_t imm = 0
     builder.Gen<MovlRegImm>(vreg1, imm);
   }
   builder.Gen<PseudoCopy>(vreg2, vreg1, 8);
-  builder.Gen<InsnTypeRegReg>(vreg3, vreg2, flags);
+  builder.Gen<InsnTypeRegReg, kNoSSA>(vreg3, vreg2, flags);
 
   MachineInsnList::iterator folded_insn_it = FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   berberis::MachineInsn* folded_insn = *folded_insn_it;
@@ -179,7 +179,7 @@ void TryTwoImmediatesRegImmInsnFolding(uint64_t imm1, int32_t imm2, uint64_t exp
     builder.Gen<MovlRegImm>(vreg1, static_cast<uint32_t>(imm1));
   }
   builder.Gen<PseudoCopy>(vreg2, vreg1, 8);
-  builder.Gen<InsnTypeRegImm>(vreg2, imm2, flags);
+  builder.Gen<InsnTypeRegImm, kNoSSA>(vreg2, imm2, flags);
 
   MachineInsnList::iterator insn_it = FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   berberis::MachineInsn* insn = *insn_it;
@@ -217,7 +217,7 @@ void TryTwoImmediatesRegRegInsnFolding(uint64_t imm1, uint64_t imm2, uint64_t ex
     builder.Gen<MovlRegImm>(vreg1, static_cast<uint32_t>(imm1));
     builder.Gen<MovlRegImm>(vreg2, static_cast<uint32_t>(imm2));
   }
-  builder.Gen<InsnTypeRegReg>(vreg1, vreg2, flags);
+  builder.Gen<InsnTypeRegReg, kNoSSA>(vreg1, vreg2, flags);
 
   MachineInsnList::iterator insn_it = FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   berberis::MachineInsn* insn = *insn_it;
@@ -252,9 +252,9 @@ void TryFoldContextReadIntoRegMemArithmetic() {
   builder.StartBasicBlock(bb);
   builder.Gen<MovqRegOp>(vreg1, {.base = kCPUStatePointer, .disp = 4});
   if constexpr (kArithmeticInsnUsesXMMRegs) {
-    builder.Gen<InsnTypeRegReg>(vreg2, vreg1);
+    builder.Gen<InsnTypeRegReg, kNoSSA>(vreg2, vreg1);
   } else {
-    builder.Gen<InsnTypeRegReg>(vreg2, vreg1, flags);
+    builder.Gen<InsnTypeRegReg, kNoSSA>(vreg2, vreg1, flags);
   }
 
   auto* folded_insn = *FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
@@ -292,7 +292,7 @@ void TryFoldContextReadIntoMemRegArithmetic() {
   builder.StartBasicBlock(bb);
   builder.Gen<MovqRegOp>(vreg1, {.base = kCPUStatePointer, .disp = 4});
 
-  builder.Gen<InsnTypeRegReg>(vreg1, vreg2, flags);
+  builder.Gen<InsnTypeRegReg, kNoSSA>(vreg1, vreg2, flags);
 
   auto* folded_insn = *FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   ASSERT_EQ(MachineOpInsnTypeRegMemBaseDisp, folded_insn->opcode());
@@ -318,7 +318,7 @@ void TryFoldContextReadIntoMemImmArithmetic() {
   builder.StartBasicBlock(bb);
   builder.Gen<MovqRegOp>(vreg1, {.base = kCPUStatePointer, .disp = 4});
 
-  builder.Gen<InsnTypeRegImm>(vreg1, 5, flags);
+  builder.Gen<InsnTypeRegImm, kNoSSA>(vreg1, 5, flags);
 
   berberis::MachineInsn* folded_insn = *FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   ASSERT_EQ(MachineOpInsnTypeMemBaseDispImm, folded_insn->opcode());
@@ -373,7 +373,7 @@ void TrySwapRegOperandsAndFoldContextReadArithmetic() {
 
   builder.StartBasicBlock(bb);
   builder.Gen<MovqRegOp>(vreg1, {.base = kCPUStatePointer, .disp = 4});
-  builder.Gen<InsnTypeRegReg>(vreg1, vreg2, flags);
+  builder.Gen<InsnTypeRegReg, kNoSSA>(vreg1, vreg2, flags);
 
   auto final_folded_insn_it = FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   berberis::MachineInsn* second_folded_pseudo_copy = *final_folded_insn_it;
@@ -410,7 +410,7 @@ TEST(InsnFoldingTest, DefMapGetsLatestDef) {
   builder.StartBasicBlock(bb);
   builder.Gen<MovqRegImm>(vreg1, 0);
   builder.Gen<MovqRegImm>(vreg2, 0);
-  builder.Gen<AddqRegReg>(vreg2, vreg1, flags);
+  builder.Gen<AddqRegReg, kNoSSA>(vreg2, vreg1, flags);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
   bb->live_out().push_back(vreg1);
@@ -451,8 +451,8 @@ TEST(InsnFoldingTest, DefMapReturnsNoDefIfVRegIsOverwrittenByInsn) {
   builder.StartBasicBlock(bb);
   builder.Gen<MovqRegImm>(vreg1, 0);
   builder.Gen<MovqRegImm>(vreg2, 0);
-  builder.Gen<AddqRegReg>(vreg1, vreg2, flags);
-  builder.Gen<AddqRegReg>(vreg2, vreg1, flags);
+  builder.Gen<AddqRegReg, kNoSSA>(vreg1, vreg2, flags);
+  builder.Gen<AddqRegReg, kNoSSA>(vreg2, vreg1, flags);
 
   DefMap def_map(&machine_ir);
   for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end(); ++insn_it) {
@@ -481,7 +481,7 @@ TEST(InsnFoldingTest, DefMapReturnsCorrectRegisterPosition) {
   MachineReg flags = machine_ir.AllocVReg();
 
   builder.StartBasicBlock(bb);
-  builder.Gen<AddqRegReg>(vreg1, vreg2, flags);
+  builder.Gen<AddqRegReg, kNoSSA>(vreg1, vreg2, flags);
 
   DefMap def_map(&machine_ir);
   for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end(); ++insn_it) {
@@ -507,7 +507,7 @@ TEST(InsnFoldingTest, DefMapHandlesNewlyAllocatedVreg) {
   DefMap def_map(&machine_ir);
 
   MachineReg vreg2 = machine_ir.AllocVReg();
-  builder.Gen<SubqRegReg>(vreg2, vreg1, flags);
+  builder.Gen<SubqRegReg, kNoSSA>(vreg2, vreg1, flags);
   auto failed_get_def_it = std::get<0>(def_map.SafeGetForTesting(vreg2));
   ASSERT_EQ(std::nullopt, failed_get_def_it);
 
@@ -600,7 +600,7 @@ TEST(InsnFoldingTest, RedundantMovlFolding) {
   MachineReg flags = machine_ir.AllocVReg();
 
   builder.StartBasicBlock(bb);
-  builder.Gen<AddlRegReg>(vreg2, vreg3, flags);
+  builder.Gen<AddlRegReg, kNoSSA>(vreg2, vreg3, flags);
   builder.Gen<MovlRegReg>(vreg1, vreg2);
 
   berberis::MachineInsn* folded_insn = *FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
@@ -624,7 +624,7 @@ TEST(InsnFoldingTest, RedundantMovlFoldingExtraPseudoCopy) {
   MachineReg flags = machine_ir.AllocVReg();
 
   builder.StartBasicBlock(bb);
-  builder.Gen<XorlRegReg>(vreg3, vreg4, flags);
+  builder.Gen<XorlRegReg, kNoSSA>(vreg3, vreg4, flags);
   builder.Gen<PseudoCopy>(vreg2, vreg3, 8);
   builder.Gen<MovlRegReg>(vreg1, vreg2);
 
@@ -771,7 +771,7 @@ TEST(InsnFoldingTest, HardRegsAreSafe) {
   MachineIRBuilder builder(&machine_ir);
 
   builder.StartBasicBlock(bb);
-  builder.Gen<AddqRegReg>(kMachineRegRAX, kMachineRegRDI, kMachineRegFLAGS);
+  builder.Gen<AddqRegReg, kNoSSA>(kMachineRegRAX, kMachineRegRDI, kMachineRegFLAGS);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
   FoldInsns(&machine_ir);
@@ -794,7 +794,7 @@ TEST(InsnFoldingTest, PseudoWriteFlagsErased) {
   MachineReg vreg5 = machine_ir.AllocVReg();
 
   builder.StartBasicBlock(bb);
-  builder.Gen<AddqRegReg>(vreg4, vreg5, flag);
+  builder.Gen<AddqRegReg, kNoSSA>(vreg4, vreg5, flag);
   builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, vreg2, flag);
   builder.Gen<PseudoCopy>(vreg3, vreg2, 8);
   builder.Gen<PseudoWriteFlags>(vreg3, flag);
@@ -828,7 +828,7 @@ TEST(InsnFoldingTest, FlagModifiedAfterPseudoRead) {
   builder.StartBasicBlock(bb);
   builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, vreg2, flag);
   builder.Gen<PseudoCopy>(vreg3, vreg2, 8);
-  builder.Gen<AddqRegReg>(vreg4, vreg5, flag);
+  builder.Gen<AddqRegReg, kNoSSA>(vreg4, vreg5, flag);
   builder.Gen<PseudoWriteFlags>(vreg3, flag);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
@@ -875,7 +875,7 @@ TEST(InsnFoldingTest, FoldInsnsSmoke) {
 
   builder.StartBasicBlock(bb);
   builder.Gen<MovqRegImm>(vreg1, 2);
-  builder.Gen<AddqRegReg>(vreg2, vreg1, flags);
+  builder.Gen<AddqRegReg, kNoSSA>(vreg2, vreg1, flags);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
   bb->live_out().push_back(vreg2);
@@ -946,7 +946,7 @@ void TryFoldScaleIntoMemWrite(int shift_amount, Assembler::ScaleFactor expected_
   builder.StartBasicBlock(bb);
   builder.Gen<PseudoCopy>(vreg1, vreg4, 8);
   builder.Gen<PseudoCopy>(vreg2, vreg1, 8);
-  builder.Gen<ShlqRegImm>(vreg2, shift_amount, flags);
+  builder.Gen<ShlqRegImm, kNoSSA>(vreg2, shift_amount, flags);
   builder.Gen<MemoryAccessInsn>({.base = vreg3, .index = vreg2, .disp = 12}, vreg4);
   builder.SetRecoveryPointAtLastInsn(recovery_bb);
   builder.SetRecoveryWithGuestPCAtLastInsn(42);
@@ -984,7 +984,7 @@ void TryFoldScaleIntoMemRead(int shift_amount, Assembler::ScaleFactor expected_s
   builder.StartBasicBlock(bb);
   builder.Gen<PseudoCopy>(vreg1, vreg4, 8);
   builder.Gen<PseudoCopy>(vreg2, vreg1, 8);
-  builder.Gen<ShlqRegImm>(vreg2, shift_amount, flags);
+  builder.Gen<ShlqRegImm, kNoSSA>(vreg2, shift_amount, flags);
   builder.Gen<MemoryAccessInsn>(vreg4, {.base = vreg3, .index = vreg2, .disp = 12});
   builder.SetRecoveryPointAtLastInsn(recovery_bb);
   builder.SetRecoveryWithGuestPCAtLastInsn(42);
@@ -1032,7 +1032,7 @@ TEST(InsnFoldingTest, CountTrailingZeroesFolding64) {
   builder.StartBasicBlock(bb);
   builder.Gen<MovqRegImm>(vreg1, 3);
   builder.Gen<PseudoCopy>(vreg2, vreg1, 8);
-  builder.Gen<ReverseBitsU64>(vreg3, vreg2, vreg4, flags);
+  builder.Gen<ReverseBitsU64, kNoSSA>(vreg3, vreg2, vreg4, flags);
   builder.Gen<PseudoCopy>(vreg5, vreg3, 8);
   builder.Gen<CountLeadingZerosU64>(vreg6, vreg5, flags);
 
@@ -1061,7 +1061,7 @@ TEST(InsnFoldingTest, CountTrailingZeroesFolding64MBI) {
   builder.StartBasicBlock(bb);
   builder.Gen<MovqRegImm>(vreg1, 3);
   builder.Gen<PseudoCopy>(vreg2, vreg1, 8);
-  builder.Gen<ReverseBitsU64>(vreg3, vreg2, vreg4, flags);
+  builder.Gen<ReverseBitsU64, kNoSSA>(vreg3, vreg2, vreg4, flags);
   builder.Gen<PseudoCopy>(vreg5, vreg3, 8);
   builder.Gen<LzcntqRegReg>(vreg6, vreg5, flags);
 
@@ -1089,7 +1089,7 @@ TEST(InsnFoldingTest, CountTrailingZeroesFolding32) {
   builder.StartBasicBlock(bb);
   builder.Gen<MovqRegImm>(vreg1, 3);
   builder.Gen<PseudoCopy>(vreg2, vreg1, 8);
-  builder.Gen<ReverseBitsU32>(vreg3, vreg2, flags);
+  builder.Gen<ReverseBitsU32, kNoSSA>(vreg3, vreg2, flags);
   builder.Gen<PseudoCopy>(vreg4, vreg3, 8);
   builder.Gen<CountLeadingZerosU32>(vreg5, vreg4, flags);
 
@@ -1117,7 +1117,7 @@ TEST(InsnFoldingTest, CountTrailingZeroesFolding32BMI) {
   builder.StartBasicBlock(bb);
   builder.Gen<MovqRegImm>(vreg1, 3);
   builder.Gen<PseudoCopy>(vreg2, vreg1, 8);
-  builder.Gen<ReverseBitsU32>(vreg3, vreg2, flags);
+  builder.Gen<ReverseBitsU32, kNoSSA>(vreg3, vreg2, flags);
   builder.Gen<PseudoCopy>(vreg4, vreg3, 8);
   builder.Gen<LzcntlRegReg>(vreg5, vreg4, flags);
 
@@ -1146,7 +1146,7 @@ TEST(InsnFoldingTest, CountTrailingZeroesFoldingCancelledIfArgNotAlive) {
   builder.StartBasicBlock(bb);
   builder.Gen<MovqRegImm>(vreg1, 3);
   builder.Gen<PseudoCopy>(vreg2, vreg1, 8);
-  builder.Gen<ReverseBitsU64>(vreg3, vreg2, vreg4, flags);
+  builder.Gen<ReverseBitsU64, kNoSSA>(vreg3, vreg2, vreg4, flags);
   builder.Gen<MovqRegImm>(vreg1, 4);  // invalidates vreg1
   builder.Gen<PseudoCopy>(vreg5, vreg3, 8);
   builder.Gen<LzcntqRegReg>(vreg6, vreg5, flags);
@@ -1229,16 +1229,16 @@ TEST(InsnFoldingTest, ContextAccessInfoGetsCorrectContextReadUsageValue) {
 
   builder.StartBasicBlock(bb);
   builder.Gen<MovqRegOp>(vreg1, {.base = kCPUStatePointer, .disp = 4});
-  builder.Gen<AddqRegReg>(vreg2, vreg1, flags);
+  builder.Gen<AddqRegReg, kNoSSA>(vreg2, vreg1, flags);
 
   builder.Gen<PseudoCopy>(vreg3, vreg1, 8);
-  builder.Gen<AddqRegReg>(vreg3, vreg4, flags);
+  builder.Gen<AddqRegReg, kNoSSA>(vreg3, vreg4, flags);
 
   builder.Gen<MovqRegImm>(vreg1, 5);
-  builder.Gen<AddqRegReg>(vreg4, vreg1, flags);
+  builder.Gen<AddqRegReg, kNoSSA>(vreg4, vreg1, flags);
 
   builder.Gen<MovqRegOp>(vreg5, {.base = kMachineRegRAX, .disp = 6});
-  builder.Gen<AddqRegReg>(vreg6, vreg5, flags);
+  builder.Gen<AddqRegReg, kNoSSA>(vreg6, vreg5, flags);
 
   ContextAccessInfo context_access_info(&machine_ir);
   context_access_info.Initialize(bb->insn_list());
@@ -1314,7 +1314,7 @@ TEST(InsnFoldingTest, ReadContextFoldingCancelledIfIncreasesMemoryAccesses) {
 
   builder.StartBasicBlock(bb);
   builder.Gen<MovqRegOp>(vreg1, {.base = kCPUStatePointer, .disp = 4});
-  builder.Gen<AddqRegReg>(vreg2, vreg1, flags);
+  builder.Gen<AddqRegReg, kNoSSA>(vreg2, vreg1, flags);
 
   ContextAccessInfo context_access_info(&machine_ir);
   DefMap def_map(&machine_ir);
@@ -1328,7 +1328,7 @@ TEST(InsnFoldingTest, ReadContextFoldingCancelledIfIncreasesMemoryAccesses) {
   ASSERT_EQ(folding_type, FoldingType::kReplaceInsn);
 
   builder.Gen<PseudoCopy>(vreg3, vreg1, 8);
-  builder.Gen<AddqRegReg>(vreg4, vreg3, flags);
+  builder.Gen<AddqRegReg, kNoSSA>(vreg4, vreg3, flags);
 
   context_access_info.Initialize(bb->insn_list());
   std::tie(folding_type, insn) = insn_folder.TryFoldContextReadForTesting(*insn_to_fold_it, 1);
@@ -1353,8 +1353,8 @@ TEST(InsnFoldingTest, ReadContextFoldingWorksWithNonContextWriteInsnBetweenConte
 
   builder.StartBasicBlock(bb);
   builder.Gen<MovqRegOp>(vreg1, {.base = kCPUStatePointer, .disp = 4});
-  builder.Gen<AddqRegReg>(vreg3, vreg2, flags);
-  builder.Gen<AddqRegReg>(vreg4, vreg1, flags);
+  builder.Gen<AddqRegReg, kNoSSA>(vreg3, vreg2, flags);
+  builder.Gen<AddqRegReg, kNoSSA>(vreg4, vreg1, flags);
 
   berberis::MachineInsn* folded_insn = *FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   EXPECT_EQ(kMachineOpAddqRegMemBaseDisp, folded_insn->opcode());
@@ -1381,7 +1381,7 @@ TEST(InsnFoldingTest,
   builder.StartBasicBlock(bb);
   builder.Gen<MovqRegOp>(vreg1, {.base = kCPUStatePointer, .disp = 4});
   builder.Gen<MovqOpReg>({.base = kCPUStatePointer, .disp = 12}, vreg2);
-  builder.Gen<AddqRegReg>(vreg3, vreg1, flags);
+  builder.Gen<AddqRegReg, kNoSSA>(vreg3, vreg1, flags);
 
   MachineInsnList::iterator folded_insn_it = FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   berberis::MachineInsn* folded_insn = *folded_insn_it;
@@ -1464,10 +1464,10 @@ TEST(InsnFoldingTest, SwapRegOperandsAndFoldContextReadTwiceWithDifferentTempReg
 
   builder.StartBasicBlock(bb);
   builder.Gen<MovqRegOp>(vreg1, {.base = kCPUStatePointer, .disp = 4});
-  builder.Gen<AddqRegReg>(vreg1, vreg2, flags);
+  builder.Gen<AddqRegReg, kNoSSA>(vreg1, vreg2, flags);
 
   builder.Gen<MovqRegOp>(vreg3, {.base = kCPUStatePointer, .disp = 8});
-  builder.Gen<AndqRegReg>(vreg3, vreg4, flags);
+  builder.Gen<AndqRegReg, kNoSSA>(vreg3, vreg4, flags);
 
   auto final_folded_insn_it = FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   berberis::MachineInsn* fourth_folded_pseudo_copy = *final_folded_insn_it;
@@ -1573,7 +1573,7 @@ TEST(InsnFoldingTest, FoldScaleIntoMemAccessCancelledIfShiftTooLarge) {
   builder.StartBasicBlock(bb);
   builder.Gen<PseudoCopy>(vreg1, vreg4, 8);
   builder.Gen<PseudoCopy>(vreg2, vreg1, 8);
-  builder.Gen<ShlqRegImm>(vreg2, 4, flags);
+  builder.Gen<ShlqRegImm, kNoSSA>(vreg2, 4, flags);
   builder.Gen<MovqOpReg>({.base = vreg3, .index = vreg2, .disp = 12}, vreg4);
   builder.SetRecoveryPointAtLastInsn(recovery_bb);
   builder.SetRecoveryWithGuestPCAtLastInsn(42);

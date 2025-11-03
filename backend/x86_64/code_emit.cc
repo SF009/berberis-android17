@@ -150,6 +150,8 @@ void EmitRecoveryLabels(CodeEmitter* as, const RecoveryLabels& labels) {
 
   as->Bind(exit_label);
 
+  EmitFreeStackFrame(as, as->frame_size());
+
   if (as->exit_label_for_testing()) {
     as->Jmp(*as->exit_label_for_testing());
     return;
