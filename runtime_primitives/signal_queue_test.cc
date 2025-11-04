@@ -16,7 +16,10 @@
 
 #include "gtest/gtest.h"
 
+#include <ucontext.h>
+
 #include <array>
+#include <cstring>
 #include <thread>
 
 #include "berberis/runtime_primitives/signal_queue.h"
@@ -28,18 +31,24 @@ namespace {
 TEST(SignalQueue, EnqueueDequeue) {
   SignalQueue q;
   siginfo_t* p;
+  ucontext_t ucontext;
+  memset(&ucontext, 42, sizeof(ucontext));
 
   EXPECT_EQ(nullptr, q.DequeueSignalUnsafe());
 
   p = q.AllocSignal();
   p->si_signo = 11;
   p->si_value.sival_int = 1;
-  q.EnqueueSignal(p);
+  EXPECT_FALSE(q.GetUcontext(p)->has_value());
+  q.EnqueueSignal(p, &ucontext);
+  ASSERT_TRUE(q.GetUcontext(p)->has_value());
 
   p = q.DequeueSignalUnsafe();
   ASSERT_TRUE(p);
   EXPECT_EQ(11, p->si_signo);
   EXPECT_EQ(1, p->si_value.sival_int);
+  ASSERT_TRUE(q.GetUcontext(p)->has_value());
+  EXPECT_EQ(0, memcmp(&q.GetUcontext(p)->value(), &ucontext, sizeof(ucontext)));
   q.FreeSignal(p);
 
   EXPECT_EQ(nullptr, q.DequeueSignalUnsafe());
@@ -53,16 +62,19 @@ TEST(SignalQueue, FIFO) {
   p->si_signo = 11;
   p->si_value.sival_int = 1;
   q.EnqueueSignal(p);
+  EXPECT_FALSE(q.GetUcontext(p)->has_value());
 
   p = q.AllocSignal();
   p->si_signo = 11;
   p->si_value.sival_int = 2;
   q.EnqueueSignal(p);
+  EXPECT_FALSE(q.GetUcontext(p)->has_value());
 
   p = q.AllocSignal();
   p->si_signo = 11;
   p->si_value.sival_int = 3;
   q.EnqueueSignal(p);
+  EXPECT_FALSE(q.GetUcontext(p)->has_value());
 
   p = q.DequeueSignalUnsafe();
   ASSERT_TRUE(p);

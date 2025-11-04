@@ -28,8 +28,19 @@ siginfo_t* SignalQueue::AllocSignal() {
   return &node->info;
 }
 
-void SignalQueue::EnqueueSignal(siginfo_t* info) {
+std::optional<ucontext_t>* SignalQueue::GetUcontext(siginfo_t* info) {
   Node* node = bit_cast<Node*>(info);
+  return &(node->ucontext);
+}
+
+void SignalQueue::EnqueueSignal(siginfo_t* info, const ucontext_t* ucontext) {
+  Node* node = bit_cast<Node*>(info);
+  if (ucontext) {
+    node->ucontext = *ucontext;
+  } else {
+    // Nodes are reallocated from the pool, so we need to explicitly reset std::optional.
+    node->ucontext.reset();
+  }
   Node* produced = produced_.load(std::memory_order_relaxed);
   do {
     node->next = produced;
