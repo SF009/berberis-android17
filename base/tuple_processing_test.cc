@@ -197,6 +197,158 @@ constexpr bool TestFunc() {
                                std::tuple<std::tuple<MetaValue<std::size_t{0}>, char>,
                                           std::tuple<MetaValue<std::size_t{1}>, int>>>);
 
+  // Test Generate from types.
+  constexpr auto GenerateResult1 =
+      TupleValues::Generate<TupleTypes<std::tuple<char, const int&>>::Enumerate,
+                            std::array<char, 2>>(
+          []<typename T>(
+              std::array<char, 2>& result, const int& kExtraArg1, const int& kExtraArg2) {
+            CHECK_EQ(&kExtraArg1, &kApplyInt1);
+            CHECK_EQ(&kExtraArg2, &kApplyInt2);
+            constexpr std::size_t kid = std::tuple_element_t<0, T>{};
+            if constexpr (std::is_same_v<std::tuple_element_t<1, T>, const int&>) {
+              result[kid] = 42;
+            } else {
+              result[kid] = 'X';
+            }
+          },
+          kApplyInt1,
+          kApplyInt2);
+  static_assert(GenerateResult1 == std::array<char, 2>{'X', 42});
+  // Test Generate from types with explicitly initialized output.
+  constexpr auto GenerateResult2 =
+      TupleValues::Generate<TupleTypes<std::tuple<char, const int&>>::Enumerate>(
+          /* result = */ std::array<char, 2>{1, 2},
+          []<typename T>(
+              std::array<char, 2>& result, const int& kExtraArg1, const int& kExtraArg2) {
+            CHECK_EQ(&kExtraArg1, &kApplyInt1);
+            CHECK_EQ(&kExtraArg2, &kApplyInt2);
+            constexpr std::size_t kid = std::tuple_element_t<0, T>{};
+            if constexpr (std::is_same_v<std::tuple_element_t<1, T>, const int&>) {
+              result[kid] += 42;
+            } else {
+              result[kid] += 'X';
+            }
+          },
+          kApplyInt1,
+          kApplyInt2);
+  static_assert(GenerateResult2 == std::array<char, 2>{'Y', 44});
+  // Test Generate from types with a temporary.
+  constexpr auto GenerateResult3 =
+      TupleValues::GenerateWithTemporary<TupleTypes<std::tuple<char, const int&>>::Enumerate,
+                                         std::array<char, 2>,
+                                         int>(
+          []<typename T>(
+              std::array<char, 2>& result, int& idx, const int& kExtraArg1, const int& kExtraArg2) {
+            CHECK_EQ(&kExtraArg1, &kApplyInt1);
+            CHECK_EQ(&kExtraArg2, &kApplyInt2);
+            constexpr std::size_t kid = std::tuple_element_t<0, T>{};
+            if constexpr (std::is_same_v<std::tuple_element_t<1, T>, const int&>) {
+              result[kid] = 42 + idx;
+            } else {
+              result[kid] = 'X' + idx++;
+            }
+          },
+          kApplyInt1,
+          kApplyInt2);
+  static_assert(GenerateResult3 == std::array<char, 2>{'X', 43});
+  // Test Generate from types with an explicitly initialized output and temporary.
+  constexpr auto GenerateResult4 =
+      TupleValues::GenerateWithTemporary<TupleTypes<std::tuple<char, const int&>>::Enumerate>(
+          /* result = */ std::array<char, 2>{1, 2},
+          /* idx = */ 42,
+          []<typename T>(
+              std::array<char, 2>& result, int& idx, const int& kExtraArg1, const int& kExtraArg2) {
+            CHECK_EQ(&kExtraArg1, &kApplyInt1);
+            CHECK_EQ(&kExtraArg2, &kApplyInt2);
+            constexpr std::size_t kid = std::tuple_element_t<0, T>{};
+            if constexpr (std::is_same_v<std::tuple_element_t<1, T>, const int&>) {
+              result[kid] += 42 + idx;
+            } else {
+              result[kid] += 'A' + idx++;
+            }
+          },
+          kApplyInt1,
+          kApplyInt2);
+  static_assert(GenerateResult4 == std::array<char, 2>{'l', 87});
+  // Test Generate from values.
+  constexpr auto GenerateResult5 = TupleValues::Generate<std::array<char, 2>>(
+      TupleValues::Enumerate(kApplyTupleIn),
+      []<typename T>(
+          T t, std::array<char, 2>& result, const int& kExtraArg1, const int& kExtraArg2) {
+        CHECK_EQ(&kExtraArg1, &kApplyInt1);
+        CHECK_EQ(&kExtraArg2, &kApplyInt2);
+        auto [id, elem] = t;
+        if constexpr (std::is_same_v<decltype(elem), const int&>) {
+          result[id] = 42;
+        } else {
+          result[id] = elem;
+        }
+      },
+      kApplyInt1,
+      kApplyInt2);
+  static_assert(GenerateResult5 == std::array<char, 2>{42, 'A'});
+  // Test Generate from values.
+  constexpr auto GenerateResult6 = TupleValues::Generate(
+      TupleValues::Enumerate(kApplyTupleIn),
+      /* result = */ std::array<char, 2>{1, 2},
+      []<typename T>(
+          T t, std::array<char, 2>& result, const int& kExtraArg1, const int& kExtraArg2) {
+        CHECK_EQ(&kExtraArg1, &kApplyInt1);
+        CHECK_EQ(&kExtraArg2, &kApplyInt2);
+        auto [id, elem] = t;
+        if constexpr (std::is_same_v<decltype(elem), const int&>) {
+          result[id] += 42;
+        } else {
+          result[id] += elem;
+        }
+      },
+      kApplyInt1,
+      kApplyInt2);
+  static_assert(GenerateResult6 == std::array<char, 2>{43, 'C'});
+  // Test Generate from values with a temporary.
+  constexpr auto GenerateResult7 = TupleValues::GenerateWithTemporary<std::array<char, 2>, int>(
+      TupleValues::Enumerate(kApplyTupleIn),
+      []<typename T>(T t,
+                     std::array<char, 2>& result,
+                     int& idx,
+                     const int& kExtraArg1,
+                     const int& kExtraArg2) {
+        CHECK_EQ(&kExtraArg1, &kApplyInt1);
+        CHECK_EQ(&kExtraArg2, &kApplyInt2);
+        auto [id, elem] = t;
+        if constexpr (std::is_same_v<decltype(elem), const int&>) {
+          result[id] = 42 + idx++;
+        } else {
+          result[id] = elem + idx;
+        }
+      },
+      kApplyInt1,
+      kApplyInt2);
+  static_assert(GenerateResult7 == std::array<char, 2>{42, 'B'});
+  // Test Generate from values with an explicitly initialized output and temporary.
+  constexpr auto GenerateResult8 = TupleValues::GenerateWithTemporary(
+      TupleValues::Enumerate(kApplyTupleIn),
+      /* result = */ std::array<char, 2>{1, 2},
+      /* int = */ 42,
+      []<typename T>(T t,
+                     std::array<char, 2>& result,
+                     int& idx,
+                     const int& kExtraArg1,
+                     const int& kExtraArg2) {
+        CHECK_EQ(&kExtraArg1, &kApplyInt1);
+        CHECK_EQ(&kExtraArg2, &kApplyInt2);
+        auto [id, elem] = t;
+        if constexpr (std::is_same_v<decltype(elem), const int&>) {
+          result[id] += 42 + idx++;
+        } else {
+          result[id] += elem + idx;
+        }
+      },
+      kApplyInt1,
+      kApplyInt2);
+  static_assert(GenerateResult8 == std::array<char, 2>{85, 'n'});
+
   // Test Map types to values.
   constexpr std::tuple<const int&, float> kMapTupleOut1{kApplyInt2, float{42.42}};
   constexpr auto MapResult1 = TupleValues::Map<std::tuple<const int&, char>>(
