@@ -533,23 +533,13 @@ def _get_expectations_for_variant(variant):
   return expectations
 
 
-def _get_semantics_player_hook_template_switch(name, intr, demultiplexer_id):
-  variables = list(_get_template_spec_arguments(intr.get('variants')))
-  yield '#ifdef BERBERIS_DEMULTIPLEXER_USE_TRIVIAL_DEMULTIPLEXER'
+def _get_semantics_player_hook_template_switch(name, intr):
+  variables = _get_template_spec_arguments(intr.get('variants'))
   yield 'switch (intrinsics::TrivialDemultiplexer(%s)) {' % ', '.join(variables)
-  yield '#else'
-  yield 'switch (kDemultiplexer%d(%s)) {' % (
-    demultiplexer_id, ', '.join(variables))
-  yield '#endif'
   for variant in intr.get('variants'):
     expectations =  _get_expectations_for_variant(variant)
-    yield '#ifdef BERBERIS_DEMULTIPLEXER_USE_TRIVIAL_DEMULTIPLEXER'
     yield '%scase intrinsics::TrivialDemultiplexer(%s):' % (
       INDENT, ', '.join(expectations))
-    yield '#else'
-    yield '%scase kDemultiplexer%d(%s):' % (
-      INDENT, demultiplexer_id, ', '.join(expectations))
-    yield '%s#endif' % INDENT
     for expectation, variable in zip(expectations, variables):
       yield 2 * INDENT + 'CHECK_EQ(%s, %s);' % (expectation, variable)
     yield 2 * INDENT + 'return %s(%s);' % (
@@ -562,48 +552,15 @@ def _get_semantics_player_hook_template_switch(name, intr, demultiplexer_id):
   yield '}'
 
 
-def _gen_demultiplexer_hook(f, name, intr, demultiplexers):
-  demultiplexer = _gen_template_parameters_demultiplexer(name, intr)
-  if not demultiplexer in demultiplexers:
-    demultiplexer_id = len(demultiplexers)
-    demultiplexers[demultiplexer] = demultiplexer_id
-    print('#if %d %% BERBERIS_INTRINSICS_HOOKS_SHARDS_COUNT == '
-          'BERBERIS_INTRINSICS_HOOKS_SHARD' % demultiplexer_id, file=f)
-    print('#ifndef BERBERIS_DEMULTIPLEXER_USE_TRIVIAL_DEMULTIPLEXER', file=f)
-    print(demultiplexer % (INDENT, demultiplexer_id, 3 * INDENT), file=f)
-    print('#endif', file=f)
-  else:
-    demultiplexer_id = demultiplexers[demultiplexer]
-    print('#if %d %% BERBERIS_INTRINSICS_HOOKS_SHARDS_COUNT == '
-          'BERBERIS_INTRINSICS_HOOKS_SHARD' % demultiplexer_id, file=f)
+def _gen_demultiplexer_hook(f, name, intr):
   print('%s BERBERIS_INTRINSICS_HOOKS_CONST {' % _get_semantics_player_hook_proto(
       name, intr, listener=' BERBERIS_INTRINSICS_HOOKS_LISTENER '), file=f)
-  lines = _get_semantics_player_hook_template_switch(name, intr, demultiplexer_id)
+  lines = _get_semantics_player_hook_template_switch(name, intr)
 
   lines = [INDENT + l for l in lines]
   print('\n'.join(lines), file=f)
 
   print('}\n', file=f)
-  print('#endif\n', file=f)
-
-
-def _gen_template_parameters_demultiplexer(f, intr):
-  return (
-      '%%sstatic constexpr auto& kDemultiplexer%%d = '
-          'intrinsics::kDemultiplexerInfo<\n'
-      '%%sintrinsics::GenerateDemultiplexerCoefficients({%s})>;' % (
-    ', '.join(
-      '{%s}' % ', '.join(
-        param.strip()
-          if param.strip() in ['true', 'false'] + _ROUNDING_MODES or
-             not re.search('[_a-zA-Z]', param) else
-        'intrinsics::k%s' % param.strip()
-          if param.strip() in ['Float16', 'Float32', 'Float64'] else
-        f'intrinsics::kIdFromType<{param}>'
-        for param in variant.split(','))
-     for variant in intr.get('variants'))))
-
-
 
 
 def _gen_mock_semantics_listener_hook(f, name, intr):
@@ -908,10 +865,14 @@ def _gen_demultiplexer_intrinsics_hooks_impl_inl_h(f, intrs):
 #define BERBERIS_INTRINSICS_HOOKS_SHARD 0
 #endif
 """, file=f)
-  demultiplexers = {}
+  counter = 0
   for name, intr in intrs:
     if intr.get('class') == 'template':
-      _gen_demultiplexer_hook(f, name, intr, demultiplexers)
+      print('#if %d %% BERBERIS_INTRINSICS_HOOKS_SHARDS_COUNT == '
+            'BERBERIS_INTRINSICS_HOOKS_SHARD' % counter, file=f)
+      _gen_demultiplexer_hook(f, name, intr)
+      print('#endif', file=f)
+      counter += 1
 
 
 def _gen_mock_semantics_listener_intrinsics_hooks_impl_inl_h(f, intrs):

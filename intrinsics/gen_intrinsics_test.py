@@ -443,49 +443,27 @@ class GenIntrinsicsTests(unittest.TestCase):
             "out": [ "Type0" ]
         }
     out = io.StringIO()
-    self.maxDiff = None
-    gen_intrinsics._gen_demultiplexer_hook(out, "Foo", intrinsic, {})
+    gen_intrinsics._gen_demultiplexer_hook(out, "Foo", intrinsic)
     self.assertSequenceEqual(out.getvalue(),
-                             "#if 0 % BERBERIS_INTRINSICS_HOOKS_SHARDS_COUNT == "
-                             "BERBERIS_INTRINSICS_HOOKS_SHARD\n"
-                             "#ifndef BERBERIS_DEMULTIPLEXER_USE_TRIVIAL_DEMULTIPLEXER\n"
-                             "  static constexpr auto& kDemultiplexer0 = intrinsics::kDemultiplexerInfo<\n"
-                             "      "
-                             "intrinsics::GenerateDemultiplexerCoefficients({{intrinsics::kIdFromType<int32_t>}, "
-                             "{intrinsics::kIdFromType<int64_t>}})>;\n"
-                             "#endif\n"
                              " BERBERIS_INTRINSICS_HOOKS_LISTENER Register  "
                              "BERBERIS_INTRINSICS_HOOKS_LISTENER Foo( BERBERIS_INTRINSICS_HOOKS_LISTENER "
                              "Register arg0,  BERBERIS_INTRINSICS_HOOKS_LISTENER Register arg1, "
                              "intrinsics::TemplateTypeId Type0) BERBERIS_INTRINSICS_HOOKS_CONST {\n"
-                             "  #ifdef BERBERIS_DEMULTIPLEXER_USE_TRIVIAL_DEMULTIPLEXER\n"
                              "  switch (intrinsics::TrivialDemultiplexer(Type0)) {\n"
-                             "  #else\n"
-                             "  switch (kDemultiplexer0(Type0)) {\n"
-                             "  #endif\n"
-                             "  #ifdef BERBERIS_DEMULTIPLEXER_USE_TRIVIAL_DEMULTIPLEXER\n"
                              "    case "
                              "intrinsics::TrivialDemultiplexer(intrinsics::kIdFromType<int32_t>):\n"
-                             "  #else\n"
-                             "    case kDemultiplexer0(intrinsics::kIdFromType<int32_t>):\n"
-                             "    #endif\n"
                              "      CHECK_EQ(intrinsics::kIdFromType<int32_t>, Type0);\n"
                              "      return "
                              "Foo(arg0,arg1,Value<intrinsics::kIdFromType<int32_t>>{});\n"
-                             "  #ifdef BERBERIS_DEMULTIPLEXER_USE_TRIVIAL_DEMULTIPLEXER\n"
                              "    case "
                              "intrinsics::TrivialDemultiplexer(intrinsics::kIdFromType<int64_t>):\n"
-                             "  #else\n"
-                             "    case kDemultiplexer0(intrinsics::kIdFromType<int64_t>):\n"
-                             "    #endif\n"
                              "      CHECK_EQ(intrinsics::kIdFromType<int64_t>, Type0);\n"
                              "      return "
                              "Foo(arg0,arg1,Value<intrinsics::kIdFromType<int64_t>>{});\n"
                              "    default:\n"
                              "      FATAL(\"Unsupported size\");\n"
                              "  }\n"
-                             "}\n\n"
-                             "#endif\n\n") # pyformat: disable
+                             "}\n\n") # pyformat: disable
 
 
   def test_gen_demultiplexer_hook_multiple_types(self):
@@ -496,47 +474,23 @@ class GenIntrinsicsTests(unittest.TestCase):
             "out": [ "Type0" ]
         }
     out = io.StringIO()
-    self.maxDiff = None
-    gen_intrinsics._gen_demultiplexer_hook(out, "Foo", intrinsic, {})
+    gen_intrinsics._gen_demultiplexer_hook(out, "Foo", intrinsic)
     self.assertSequenceEqual(out.getvalue(),
-                             "#if 0 % BERBERIS_INTRINSICS_HOOKS_SHARDS_COUNT == "
-                             "BERBERIS_INTRINSICS_HOOKS_SHARD\n"
-                             "#ifndef BERBERIS_DEMULTIPLEXER_USE_TRIVIAL_DEMULTIPLEXER\n"
-                             "  static constexpr auto& kDemultiplexer0 = intrinsics::kDemultiplexerInfo<\n"
-                             "      "
-                             "intrinsics::GenerateDemultiplexerCoefficients({{intrinsics::kIdFromType<int32_t>, "
-                             "intrinsics::kFloat32}, {intrinsics::kIdFromType<int64_t>, "
-                             "intrinsics::kFloat64}})>;\n"
-                             "#endif\n"
                              " BERBERIS_INTRINSICS_HOOKS_LISTENER Register  "
                              "BERBERIS_INTRINSICS_HOOKS_LISTENER Foo( BERBERIS_INTRINSICS_HOOKS_LISTENER "
                              "Register arg0,  BERBERIS_INTRINSICS_HOOKS_LISTENER Register arg1, "
                              "intrinsics::TemplateTypeId Type0, intrinsics::TemplateTypeId Type1) "
                              "BERBERIS_INTRINSICS_HOOKS_CONST {\n"
-                             "  #ifdef BERBERIS_DEMULTIPLEXER_USE_TRIVIAL_DEMULTIPLEXER\n"
                              "  switch (intrinsics::TrivialDemultiplexer(Type0, Type1)) {\n"
-                             "  #else\n"
-                             "  switch (kDemultiplexer0(Type0, Type1)) {\n"
-                             "  #endif\n"
-                             "  #ifdef BERBERIS_DEMULTIPLEXER_USE_TRIVIAL_DEMULTIPLEXER\n"
                              "    case intrinsics::TrivialDemultiplexer(intrinsics::kIdFromType<int32_t>, "
                              "intrinsics::kIdFromType<Float32>):\n"
-                             "  #else\n"
-                             "    case kDemultiplexer0(intrinsics::kIdFromType<int32_t>, "
-                             "intrinsics::kIdFromType<Float32>):\n"
-                             "    #endif\n"
                              "      CHECK_EQ(intrinsics::kIdFromType<int32_t>, Type0);\n"
                              "      CHECK_EQ(intrinsics::kIdFromType<Float32>, Type1);\n"
                              "      return "
                              "Foo(arg0,arg1,Value<intrinsics::kIdFromType<int32_t>>{},"
                              "Value<intrinsics::kIdFromType<Float32>>{});\n"
-                             "  #ifdef BERBERIS_DEMULTIPLEXER_USE_TRIVIAL_DEMULTIPLEXER\n"
                              "    case intrinsics::TrivialDemultiplexer(intrinsics::kIdFromType<int64_t>, "
                              "intrinsics::kIdFromType<Float64>):\n"
-                             "  #else\n"
-                             "    case kDemultiplexer0(intrinsics::kIdFromType<int64_t>, "
-                             "intrinsics::kIdFromType<Float64>):\n"
-                             "    #endif\n"
                              "      CHECK_EQ(intrinsics::kIdFromType<int64_t>, Type0);\n"
                              "      CHECK_EQ(intrinsics::kIdFromType<Float64>, Type1);\n"
                              "      return "
@@ -545,8 +499,7 @@ class GenIntrinsicsTests(unittest.TestCase):
                              "    default:\n"
                              "      FATAL(\"Unsupported size\");\n"
                              "  }\n"
-                             "}\n\n"
-                             "#endif\n\n") # pyformat: disable
+                             "}\n\n") # pyformat: disable
 
 
 if __name__ == "__main__":
