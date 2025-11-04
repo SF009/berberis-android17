@@ -17,11 +17,13 @@
 #ifndef BERBERIS_INTRINSICS_COMMON_INTRINSICS_H_
 #define BERBERIS_INTRINSICS_COMMON_INTRINSICS_H_
 
+#include <bit>
 #include <cstdint>
 #include <type_traits>
 
 #include "berberis/base/checks.h"
 #include "berberis/base/dependent_false.h"
+#include "berberis/base/tuple_processing.h"
 #include "berberis/intrinsics/common/intrinsics_float.h"  // Float16/Float32/Float64
 
 namespace berberis {
@@ -29,19 +31,6 @@ namespace berberis {
 class SIMD128Register;
 
 namespace intrinsics {
-
-// Value that's passed as argument of function or lambda couldn't be constexpr, but if it's
-// passed as part of argument type then it's different.
-// Class Value is empty, but carries the required information in its type.
-// It can also be automatically converted into value of the specified type when needed.
-// That way we can pass argument into a template as normal, non-template argument.
-template <auto ValueParam>
-class Value {
- public:
-  using ValueType = std::remove_cvref_t<decltype(ValueParam)>;
-  static constexpr auto kValue = ValueParam;
-  constexpr operator ValueType() const { return kValue; }
-};
 
 enum TemplateTypeId : uint8_t {
   kInt8T = 1,
@@ -185,19 +174,6 @@ using TypeFromId = TypeFromIdHelper<kEnumValue>::Type;
 template <enum TemplateTypeId kEnumValue>
 using WrappedTypeFromId = WrappedTypeFromIdHelper<kEnumValue>::Type;
 
-// If we carry TemplateTypeId then we can do the exact same manipulations wuth it as with
-// normal value, but also can get actual type from it and do appropriate operations:
-// make signed, make unsigned, widen, narrow, etc.
-template <TemplateTypeId ValueParam>
-class Value<ValueParam> {
- public:
-  using Type = TypeFromId<ValueParam>;
-  using WrappedType = WrappedTypeFromId<ValueParam>;
-  using ValueType = TemplateTypeId;
-  static constexpr auto kValue = ValueParam;
-  constexpr operator TemplateTypeId() const { return kValue; }
-};
-
 #pragma push_macro("DEFINE_VALUE_FUNCTION")
 #undef DEFINE_VALUE_FUNCTION
 #define DEFINE_VALUE_FUNCTION(FunctionName)                                   \
@@ -216,32 +192,6 @@ DEFINE_VALUE_FUNCTION(TemplateTypeIdToWide)
 
 #pragma pop_macro("DEFINE_VALUE_FUNCTION")
 
-#pragma push_macro("DEFINE_VALUE_OPERATOR")
-#undef DEFINE_VALUE_OPERATOR
-#define DEFINE_VALUE_OPERATOR(operator_name)                                       \
-  template <auto ValueParam1, auto ValueParam2>                                    \
-  constexpr Value<(ValueParam1 operator_name ValueParam2)> operator operator_name( \
-      Value<ValueParam1>, Value<ValueParam2>) {                                    \
-    return {};                                                                     \
-  }
-
-DEFINE_VALUE_OPERATOR(+)
-DEFINE_VALUE_OPERATOR(-)
-DEFINE_VALUE_OPERATOR(*)
-DEFINE_VALUE_OPERATOR(/)
-DEFINE_VALUE_OPERATOR(<<)
-DEFINE_VALUE_OPERATOR(>>)
-DEFINE_VALUE_OPERATOR(==)
-DEFINE_VALUE_OPERATOR(!=)
-DEFINE_VALUE_OPERATOR(>)
-DEFINE_VALUE_OPERATOR(<)
-DEFINE_VALUE_OPERATOR(<=)
-DEFINE_VALUE_OPERATOR(>=)
-DEFINE_VALUE_OPERATOR(&&)
-DEFINE_VALUE_OPERATOR(||)
-
-#pragma pop_macro("DEFINE_VALUE_OPERATOR")
-
 // Note: this is very simple demultiplexer and it's NOT guaranteed to always work (especially if
 // someone would use it with more than 8 parameters), but it would start producing collisions then
 // we wouldn't really have any runtime issues because we use these values in a switch – and in C++
@@ -252,6 +202,229 @@ constexpr int TrivialDemultiplexer(Param... param) {
   int index = 0;
   ((variant_index ^= param << index, index += 4), ...);
   return variant_index;
+}
+
+constexpr int8_t kDemultiplexerInfoIgnore = -128;
+constexpr int8_t kDemultiplexerInfoCountRZero = 32;
+
+template <size_t kVariantSize>
+struct DemultiplexerInfoData {
+  int data_bits;
+  // kDemultiplexerInfoIgnore, kDemultiplexerInfoCountRZero or shift: positive means left shift,
+  // negative for right shift.
+  int8_t bitop[kVariantSize];
+  constexpr int operator()(const int array[kVariantSize]) const {
+    int variant_index = 0;
+    for (size_t index = 0; index < kVariantSize; ++index) {
+      variant_index ^= bitop[index] == kDemultiplexerInfoIgnore ? 0
+                       : bitop[index] == kDemultiplexerInfoCountRZero
+                           ? std::countr_zero(static_cast<unsigned>(array[index]))
+                       : bitop[index] >= 0 ? array[index] << bitop[index]
+                                           : array[index] >> -bitop[index];
+    }
+    return variant_index & ((1 << data_bits) - 1);
+  }
+};
+
+template <auto kDemultiplexerInfoData>
+class DemultiplexerInfo;
+
+template <size_t kVariantSize, const DemultiplexerInfoData<kVariantSize> kDemultiplexerInfoData>
+class DemultiplexerInfo<kDemultiplexerInfoData> {
+ public:
+  template <typename... Param>
+  constexpr int operator()(Param... param) const {
+    int array[kVariantSize] = {param...};
+    return kDemultiplexerInfoData(array);
+  }
+};
+
+template <auto kDemultiplexerInfoData>
+inline constexpr DemultiplexerInfo<kDemultiplexerInfoData> kDemultiplexerInfo{};
+
+// Generates DemultipxexerInfoData for the given variants.
+//
+// The variants are given as a 2D array of integers, where the first dimension represents the
+// variants and the second dimension represents the unique variants possibilities. The function
+// will generate a DemultipxexerInfoData that can be used to  demultiplex the variants into a single
+// value.
+//
+// The function will try to generate the smallest possible DemultipxexerInfoData that can
+// distinguish all the variants. The function will also try to minimize  the number of bits used in
+// the DemultipxexerInfoData.
+//
+// The function will return a DemultipxexerInfoData that can distinguish all the variants, or it
+// will print an error message if it is not possible to distinguish all the variants.
+//
+// An attempt to print an arror message in a constexpr context (which is the typical use of that
+// function) is a compile-time error.
+//
+// Example:
+//
+//   constexpr int variants[][3] = {
+//     { 1, 1, 1 },
+//     { 1, 2, 2 },
+//     { 1, 1, 4 },
+//     { 1, 2, 8 },
+//     { 2, 1, 1 },
+//     { 2, 2, 2 },
+//     { 2, 1, 4 },
+//     { 2, 2, 8 },
+//   };
+//
+//   constexpr DemultiplexerInfoData data = GenerateDemultiplexerCoefficients(variants);
+//
+//   data.data_bits == 3
+//   data.bitop[0] == 1
+//   data.bitop[1] == kDemultiplexerInfoIgnore
+//   data.bitop[2] == kDemultiplexerInfoCountRZero
+//
+// This DemultipxexerInfoData can be used to demultiplex the variants into a
+// single value. For example:
+//
+//   int value = kDemultiplexerInfo<data>(1, 2, 8);
+//
+// This will set value to 1.
+
+// A helper function that returns the maximum bucket size for the given index. The maximum bucket
+// size is the number of variants where different possible values (at a given index) are merged
+// into the same “demultiplexed” value.
+//
+// Out goal is to ensure that maximum bucket size is one: that means that we have a perfect hash.
+template <size_t kVariantsCount, size_t kVariantSize>
+constexpr size_t GenerateDemultiplexerCoefficients_GetMaxBucketSize(
+    const DemultiplexerInfoData<kVariantSize>& result,
+    const int (&kVariants)[kVariantsCount][kVariantSize],
+    size_t index) {
+  // A helper struct that stores information about a bucket of values.
+  struct BucketInfo {
+    size_t count;
+    int values[kVariantsCount];
+  };
+
+  // The maximum number of bits that can be used in a DemultipxexerInfoData.
+  constexpr int8_t kMaxDataBits = 8;
+
+  size_t max_bucket_size = 0;
+  BucketInfo buckets_info[1 << kMaxDataBits]{};
+  bool power_of_two = true;
+  for (auto& kVariant : kVariants) {
+    int bucket = result(kVariant);
+    size_t count = buckets_info[bucket].count;
+    int scan_value = kVariant[index];
+    size_t id;
+    for (id = 0; id < count; ++id) {
+      if (buckets_info[bucket].values[id] == scan_value) {
+        break;
+      }
+    }
+    if (id == count) {
+      buckets_info[bucket].values[count++] = scan_value;
+      if (scan_value == 0 || ((scan_value & (scan_value - 1)) != 0)) {
+        power_of_two = false;
+      }
+      if (buckets_info[bucket].count = count; count > max_bucket_size) {
+        max_bucket_size = count;
+      }
+    }
+  }
+  // Power of two values would take this much if we wouldn't use countr_zero
+  if (power_of_two) {
+    return (1 << max_bucket_size) - 1;
+  }
+  return max_bucket_size;
+}
+
+template <size_t kVariantsCount, size_t kVariantSize>
+constexpr std::optional<size_t> GenerateDemultiplexerCoefficients_GetIndexToSplitIfNotPerfectHash(
+    const DemultiplexerInfoData<kVariantSize>& result,
+    const int (&kVariants)[kVariantsCount][kVariantSize]) {
+  size_t max_bucket_size = 1;
+  size_t max_bucket_index = 0;
+  for (size_t index = 0; index < kVariantSize; ++index) {
+    if (result.bitop[index] != kDemultiplexerInfoIgnore) {
+      continue;
+    }
+    size_t bucket_size =
+        GenerateDemultiplexerCoefficients_GetMaxBucketSize(result, kVariants, index);
+    if (bucket_size > max_bucket_size) {
+      max_bucket_size = bucket_size;
+      max_bucket_index = index;
+    }
+  }
+  if (max_bucket_size == 1) {
+    return {};
+  }
+  return max_bucket_index;
+}
+
+template <size_t kVariantsCount, size_t kVariantSize>
+constexpr std::optional<int8_t> GenerateDemultiplexerCoefficients_GetBitOperationForPerfectHash(
+    DemultiplexerInfoData<kVariantSize> result,
+    const int (&kVariants)[kVariantsCount][kVariantSize],
+    size_t index) {
+  int8_t bitop;
+  // Start with no shift, then try positive ones.
+  for (bitop = 0; bitop < 32; ++bitop) {
+    result.bitop[index] = bitop;
+    if (GenerateDemultiplexerCoefficients_GetMaxBucketSize(result, kVariants, index) == 1) {
+      return bitop;
+    }
+  }
+
+  // Positive bitop haven't worked.
+  for (bitop = -1; bitop > -32; --bitop) {
+    result.bitop[index] = bitop;
+    if (GenerateDemultiplexerCoefficients_GetMaxBucketSize(result, kVariants, index) == 1) {
+      return bitop;
+    }
+  }
+
+  // Last resort. Try countr_zero.
+  result.bitop[index] = kDemultiplexerInfoCountRZero;
+  if (GenerateDemultiplexerCoefficients_GetMaxBucketSize(result, kVariants, index) == 1) {
+    return kDemultiplexerInfoCountRZero;
+  }
+  return {};
+}
+
+template <size_t kVariantsCount, size_t kVariantSize>
+constexpr DemultiplexerInfoData<kVariantSize> GenerateDemultiplexerCoefficients(
+    const int (&kVariants)[kVariantsCount][kVariantSize]) {
+  // Initialize the DemultipxexerInfoData with all bitop set to
+  // kDemultipxexerInfoIgnore.
+  DemultiplexerInfoData<kVariantSize> result;
+  result.data_bits = 0;
+  for (size_t index = 0; index < kVariantSize; ++index) {
+    result.bitop[index] = kDemultiplexerInfoIgnore;
+  }
+
+  // The maximum number of bits that can be used in a DemultipxexerInfoData.
+  constexpr int8_t kMaxDataBits = 8;
+
+  for (result.data_bits = 0; result.data_bits <= kMaxDataBits; result.data_bits++) {
+    bool perfect_hash = false;
+    for (;;) {
+      std::optional<size_t> index_to_split =
+          GenerateDemultiplexerCoefficients_GetIndexToSplitIfNotPerfectHash(result, kVariants);
+      if (!index_to_split.has_value()) {
+        perfect_hash = true;
+        break;
+      }
+      std::optional<int8_t> bitop = GenerateDemultiplexerCoefficients_GetBitOperationForPerfectHash(
+          result, kVariants, *index_to_split);
+      if (!bitop.has_value()) {
+        break;
+      }
+      result.bitop[*index_to_split] = *bitop;
+    }
+    if (perfect_hash) {
+      return result;
+    }
+  }
+  printf("Couldn't find strategy without unsing more than %d bits.", kMaxDataBits);
+  // Note: that code is never actually executed.
+  return result;
 }
 
 // A solution for the inability to call generic implementation from specialization.
@@ -274,6 +447,19 @@ enum PreferredIntrinsicsImplementation {
 };
 
 }  // namespace intrinsics
+
+// If we carry TemplateTypeId then we can do the exact same manipulations with it as with
+// the normal value, but also can get the actual type from it and do the appropriate operations:
+// make signed, make unsigned, widen, narrow, etc.
+template <intrinsics::TemplateTypeId ValueParam>
+class MetaValue<ValueParam> {
+ public:
+  using Type = intrinsics::TypeFromId<ValueParam>;
+  using WrappedType = intrinsics::WrappedTypeFromId<ValueParam>;
+  using ValueType = intrinsics::TemplateTypeId;
+  static constexpr auto kValue = ValueParam;
+  constexpr operator ValueType() const { return kValue; }
+};
 
 }  // namespace berberis
 

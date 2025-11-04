@@ -991,31 +991,31 @@ class SemanticsPlayer {
 
   template <typename ValueType>
   static constexpr auto ToFloat(ValueType value) {
-    return TemplateTypeIdToFloat(value);
+    return SemanticsListener::ToFloat(value);
   }
   template <typename ValueType>
   static constexpr auto ToInt(ValueType value) {
-    return TemplateTypeIdToInt(value);
+    return SemanticsListener::ToInt(value);
   }
   template <typename ValueType>
   static constexpr auto ToNarrow(ValueType value) {
-    return TemplateTypeIdToNarrow(value);
+    return SemanticsListener::ToNarrow(value);
   }
   template <typename ValueType>
   static constexpr auto ToSigned(ValueType value) {
-    return TemplateTypeIdToSigned(value);
+    return SemanticsListener::ToSigned(value);
   }
   template <typename ValueType>
   static constexpr auto SizeOf(ValueType value) {
-    return TemplateTypeIdSizeOf(value);
+    return SemanticsListener::SizeOf(value);
   }
   template <typename ValueType>
   static constexpr auto ToUnsigned(ValueType value) {
-    return TemplateTypeIdToUnsigned(value);
+    return SemanticsListener::ToUnsigned(value);
   }
   template <typename ValueType>
   static constexpr auto ToWide(ValueType value) {
-    return TemplateTypeIdToWide(value);
+    return SemanticsListener::ToWide(value);
   }
 
  private:

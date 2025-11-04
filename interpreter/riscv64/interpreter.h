@@ -79,7 +79,7 @@ class Interpreter {
   template <typename Type>
   static constexpr auto kIdFromType = intrinsics::kIdFromType<Type>;
   template <typename TypeName>
-  using Type = intrinsics::Value<kIdFromType<TypeName>>;
+  using Type = Value<kIdFromType<TypeName>>;
   // Syntax sugar to eliminate {} from type conversion.
   template <typename TypeName>
   static constexpr Type<TypeName> kType{};
@@ -88,10 +88,39 @@ class Interpreter {
   template <auto kEnumValue>
   using WrappedTypeFromId = intrinsics::WrappedTypeFromId<kEnumValue>;
   template <auto ValueParam>
-  using Value = intrinsics::Value<ValueParam>;
+  using Value = Value<ValueParam>;
   // Syntax sugar to eliminate {} from value conversion.
   template <auto ValueParam>
   static constexpr Value<ValueParam> kValue{};
+
+  template <typename ValueType>
+  static constexpr auto ToFloat(ValueType value) {
+    return intrinsics::TemplateTypeIdToFloat(value);
+  }
+  template <typename ValueType>
+  static constexpr auto ToInt(ValueType value) {
+    return intrinsics::TemplateTypeIdToInt(value);
+  }
+  template <typename ValueType>
+  static constexpr auto ToNarrow(ValueType value) {
+    return intrinsics::TemplateTypeIdToNarrow(value);
+  }
+  template <typename ValueType>
+  static constexpr auto ToSigned(ValueType value) {
+    return intrinsics::TemplateTypeIdToSigned(value);
+  }
+  template <typename ValueType>
+  static constexpr auto SizeOf(ValueType value) {
+    return intrinsics::TemplateTypeIdSizeOf(value);
+  }
+  template <typename ValueType>
+  static constexpr auto ToUnsigned(ValueType value) {
+    return intrinsics::TemplateTypeIdToUnsigned(value);
+  }
+  template <typename ValueType>
+  static constexpr auto ToWide(ValueType value) {
+    return intrinsics::TemplateTypeIdToWide(value);
+  }
   static constexpr TemplateTypeId IntSizeToTemplateTypeId(uint8_t size, bool is_signed = false) {
     return intrinsics::IntSizeToTemplateTypeId(size, is_signed);
   }
@@ -5107,69 +5136,6 @@ class Interpreter {
           }
         }(args),
         ...);
-  }
-
-  static constexpr TemplateTypeId ToFloat(TemplateTypeId value) {
-    return TemplateTypeIdToFloat(value);
-  }
-
-  template <TemplateTypeId ValueParam>
-  static constexpr Value<ToFloat(ValueParam)> ToFloat(Value<ValueParam>) {
-    return {};
-  }
-
-  static constexpr TemplateTypeId ToInt(TemplateTypeId value) {
-    return TemplateTypeIdToInt(value);
-  }
-
-  template <TemplateTypeId ValueParam>
-  static constexpr Value<ToInt(ValueParam)> ToInt(Value<ValueParam>) {
-    return {};
-  }
-
-  static constexpr TemplateTypeId ToNarrow(TemplateTypeId value) {
-    return TemplateTypeIdToNarrow(value);
-  }
-
-  template <TemplateTypeId ValueParam>
-  static constexpr Value<ToNarrow(ValueParam)> ToNarrow(Value<ValueParam>) {
-    return {};
-  }
-
-  static constexpr TemplateTypeId ToSigned(TemplateTypeId value) {
-    return TemplateTypeIdToSigned(value);
-  }
-
-  template <TemplateTypeId ValueParam>
-  static constexpr Value<ToSigned(ValueParam)> ToSigned(Value<ValueParam>) {
-    return {};
-  }
-
-  static constexpr size_t SizeOf(TemplateTypeId value) {
-    return TemplateTypeIdSizeOf(value);
-  }
-
-  template <TemplateTypeId ValueParam>
-  static constexpr Value<SizeOf(ValueParam)> SizeOf(Value<ValueParam>) {
-    return {};
-  }
-
-  static constexpr TemplateTypeId ToUnsigned(TemplateTypeId value) {
-    return TemplateTypeIdToUnsigned(value);
-  }
-
-  template <TemplateTypeId ValueParam>
-  static constexpr Value<ToUnsigned(ValueParam)> ToUnsigned(Value<ValueParam>) {
-    return {};
-  }
-
-  static constexpr TemplateTypeId ToWide(TemplateTypeId value) {
-    return TemplateTypeIdToWide(value);
-  }
-
-  template <TemplateTypeId ValueParam>
-  static constexpr Value<ToWide(ValueParam)> ToWide(Value<ValueParam>) {
-    return {};
   }
 
   ThreadState* state_;
