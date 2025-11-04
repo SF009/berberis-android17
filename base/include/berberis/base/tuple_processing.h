@@ -85,6 +85,25 @@ class TupleTypes<std::tuple<Types...>> {
   using Enumerate = TupleTypes<Indexes, std::tuple<Types...>>::Zip;
 };
 
+template <typename... Types, auto Lambda>
+class TupleTypes<std::tuple<Types...>, Value<Lambda>> {
+ public:
+  // The lambda is required to return a pointer to a tuple. This is a workaround to allow passing
+  // type information through a value template parameter (Lambda). The type we are interested in is
+  // the first element of the tuple pointed to by the lambda's return value. That way we may return
+  // types like non-const references (that would be otherwise impossible to return from the lambda
+  // in constant context).
+  using Map = std::tuple<std::tuple_element_t<
+      0,
+      std::remove_pointer_t<decltype((Lambda.template operator()<Types>()))>>...>;
+};
+
+template <typename... Types, auto Lambda>
+class TupleTypes<std::tuple<Types...>, Value<Lambda>, void> {
+ public:
+  using Map = std::tuple<decltype(Lambda.template operator()<Types>(std::declval<Types>()))...>;
+};
+
 template <typename... TypesLeft, typename... TypesRight>
 class TupleTypes<std::tuple<TypesLeft...>, std::tuple<TypesRight...>> {
  public:
@@ -97,11 +116,99 @@ class TupleTypes<std::tuple<TypesLeft...>, std::tuple<TypesRight...>> {
 // way of using this class. The important part is that it generates values and not types.
 class TupleValues {
  public:
+  template <typename TupleType, typename... ExtraLambdaArgTypes, typename Lambda>
+  static constexpr decltype(auto) Map(Lambda&& lambda, ExtraLambdaArgTypes&&... extra_types) {
+    return MapHelper<ExtraLambdaArgTypes...>(std::forward<Lambda>(lambda),
+                                             static_cast<TupleType*>(nullptr),
+                                             std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+  template <typename TupleType,
+            typename TemporaryType,
+            typename... ExtraLambdaArgTypes,
+            typename Lambda>
+  static constexpr decltype(auto) MapWithTemporary(Lambda&& lambda,
+                                                   ExtraLambdaArgTypes&&... extra_types) {
+    TemporaryType tmp{};
+    return MapHelper<TemporaryType&, ExtraLambdaArgTypes...>(
+        std::forward<Lambda>(lambda),
+        static_cast<TupleType*>(nullptr),
+        tmp,
+        std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+  template <typename TupleType,
+            typename TemporaryType,
+            typename... ExtraLambdaArgTypes,
+            typename Lambda>
+  static constexpr decltype(auto) MapWithTemporary(TemporaryType tmp,
+                                                   Lambda&& lambda,
+                                                   ExtraLambdaArgTypes&&... extra_types) {
+    return MapHelper<TemporaryType&, ExtraLambdaArgTypes...>(
+        std::forward<Lambda>(lambda),
+        static_cast<TupleType*>(nullptr),
+        tmp,
+        std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+
+ private:
+  template <typename... ExtraLambdaArgTypes, typename... Types, typename Lambda>
+  static constexpr decltype(auto) MapHelper(Lambda&& lambda,
+                                            std::tuple<Types...>*,
+                                            ExtraLambdaArgTypes&&... extra_types) {
+    // Note: we need to specify the type of tuple here explicitly, because otherwise type deduction
+    // would produce `int` where we want `const int&`.
+    return std::tuple<decltype(lambda.template operator()<Types>(
+        std::forward<ExtraLambdaArgTypes>(extra_types)...))...> {
+      lambda.template operator()<Types>(std::forward<ExtraLambdaArgTypes>(extra_types)...)...
+    };
+  }
+
+ public:
   template <typename... Types>
   static constexpr TupleTypes<std::tuple<Types...>>::Enumerate Enumerate(
       std::tuple<Types...> tuple) {
     return Zip(typename TupleTypes<std::tuple<Types...>>::Indexes{}, tuple);
   }
+
+  template <typename... ExtraLambdaArgTypes, typename... Types, typename Lambda>
+  static constexpr decltype(auto) Map(std::tuple<Types...> tuple,
+                                      Lambda&& lambda,
+                                      ExtraLambdaArgTypes&&... extra_types) {
+    return MapHelper<ExtraLambdaArgTypes...>(tuple,
+                                             std::forward<Lambda>(lambda),
+                                             std::make_index_sequence<sizeof...(Types)>{},
+                                             std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+  template <typename TemporaryType,
+            typename... ExtraLambdaArgTypes,
+            typename... Types,
+            typename Lambda>
+  static constexpr decltype(auto) MapWithTemporary(std::tuple<Types...> tuple,
+                                                   Lambda&& lambda,
+                                                   ExtraLambdaArgTypes&&... extra_types) {
+    TemporaryType tmp{};
+    return MapHelper<TemporaryType&, ExtraLambdaArgTypes...>(
+        tuple,
+        std::forward<Lambda>(lambda),
+        std::make_index_sequence<sizeof...(Types)>{},
+        tmp,
+        std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+  template <typename TemporaryType,
+            typename... ExtraLambdaArgTypes,
+            typename... Types,
+            typename Lambda>
+  static constexpr decltype(auto) MapWithTemporary(std::tuple<Types...> tuple,
+                                                   TemporaryType tmp,
+                                                   Lambda&& lambda,
+                                                   ExtraLambdaArgTypes&&... extra_types) {
+    return MapHelper<TemporaryType&, ExtraLambdaArgTypes...>(
+        tuple,
+        std::forward<Lambda>(lambda),
+        std::make_index_sequence<sizeof...(Types)>{},
+        tmp,
+        std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+
   template <typename... TypesLeft, typename... TypesRight>
   static constexpr TupleTypes<std::tuple<TypesLeft...>, std::tuple<TypesRight...>>::Zip Zip(
       std::tuple<TypesLeft...> tuple_left,
@@ -110,6 +217,20 @@ class TupleValues {
   }
 
  private:
+  template <typename... ExtraLambdaArgTypes, typename... Types, std::size_t... Is, typename Lambda>
+  static constexpr decltype(auto) MapHelper(std::tuple<Types...> tuple,
+                                            Lambda&& lambda,
+                                            std::index_sequence<Is...>,
+                                            ExtraLambdaArgTypes&&... extra_types) {
+    // Note: we need to specify the type of tuple here explicitly, because otherwise type deduction
+    // would produce `int` where we want `const int&`.
+    return std::tuple<decltype(lambda.template operator()<Types>(
+        std::get<Is>(tuple), std::forward<ExtraLambdaArgTypes>(extra_types)...))...> {
+      lambda.template operator()<Types>(std::get<Is>(tuple),
+                                        std::forward<ExtraLambdaArgTypes>(extra_types)...)...
+    };
+  }
+
   template <typename... TypesLeft, typename... TypesRight, std::size_t... Is>
   static constexpr TupleTypes<std::tuple<TypesLeft...>, std::tuple<TypesRight...>>::Zip ZipHelper(
       std::tuple<TypesLeft...> tuple_left,
