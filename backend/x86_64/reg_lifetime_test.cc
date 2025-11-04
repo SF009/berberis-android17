@@ -68,7 +68,9 @@ TEST(MachineIRReadFlagsOptimizer, CountLifetimeCounts) {
   builder.Gen<MovqRegReg>(reg3, reg2);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
-  auto counts = CountRegLifetimes(&machine_ir, bb);
+  RegLifetimeCounter counter(&machine_ir);
+  counter.Count(bb);
+  auto& counts = counter.GetCounts();
   auto insn_it = bb->insn_list().begin();
 
   ASSERT_THAT(counts,
@@ -117,7 +119,9 @@ TEST(MachineIRReadFlagsOptimizer, CountRegLifetimeMap) {
   auto reg1_end = builder.Gen<PxorXRegXReg, kNoSSA>(reg2, reg2);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
-  auto lifetime_map = CountRegLifetimeMap(&machine_ir, bb);
+  RegLifetimeCounter counter(&machine_ir);
+  counter.Count(bb);
+  auto& lifetime_map = counter.GetMap();
   ASSERT_TRUE(std::holds_alternative<LiveIn>(lifetime_map[reg0].start));
   ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map[reg0].end), reg0_end);
   ASSERT_EQ(lifetime_map[reg0].start_pos, -1);

@@ -59,8 +59,26 @@ struct RegLifetimeCount {
 using RegLifetimeMap = ArenaMap<MachineReg, RegLifetime>;
 using RegLifetimeCounts = ArenaMap<berberis::MachineInsn*, RegLifetimeCount>;
 
-RegLifetimeMap CountRegLifetimeMap(MachineIR* machine_ir, MachineBasicBlock* bb);
-RegLifetimeCounts CountRegLifetimes(MachineIR* machine_ir, MachineBasicBlock* bb);
+class RegLifetimeCounter {
+ public:
+  RegLifetimeCounter(MachineIR* machine_ir)
+      : machine_ir_(machine_ir),
+        lifetime_map_(machine_ir->arena()),
+        lifetime_counts_(machine_ir->arena()) {}
+
+  void Count(MachineBasicBlock* bb);
+
+  RegLifetimeMap& GetMap() { return lifetime_map_; }
+  RegLifetimeCounts& GetCounts() { return lifetime_counts_; }
+
+ private:
+  void CountRegLifetimeMap(MachineBasicBlock* bb);
+  void CountRegLifetimes(MachineBasicBlock* bb);
+
+  MachineIR* machine_ir_;
+  RegLifetimeMap lifetime_map_;
+  RegLifetimeCounts lifetime_counts_;
+};
 
 }  // namespace berberis::x86_64
 
