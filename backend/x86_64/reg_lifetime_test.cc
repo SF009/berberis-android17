@@ -71,28 +71,27 @@ TEST(MachineIRReadFlagsOptimizer, CountLifetimeCounts) {
   RegLifetimeCounter counter(&machine_ir);
   counter.Count(bb);
   auto& counts = counter.GetCounts();
-  auto insn_it = bb->insn_list().begin();
 
   ASSERT_THAT(counts,
               testing::ElementsAre(
                   // reg0 and xreg0.
-                  testing::Pair(*insn_it++, RegLifetimeCount{.general = 1, .xmm = 1}),
+                  RegLifetimeCount{.general = 1, .xmm = 1},
                   // reg0, reg1, and xreg0
-                  testing::Pair(*insn_it++, RegLifetimeCount{.general = 2, .xmm = 1}),
+                  RegLifetimeCount{.general = 2, .xmm = 1},
                   // reg0, reg1, reg2, and xreg0
-                  testing::Pair(*insn_it++, RegLifetimeCount{.general = 3, .xmm = 1}),
+                  RegLifetimeCount{.general = 3, .xmm = 1},
                   // reg0, reg1, reg2, xreg0, and xreg1
-                  testing::Pair(*insn_it++, RegLifetimeCount{.general = 3, .xmm = 2}),
+                  RegLifetimeCount{.general = 3, .xmm = 2},
                   // reg0, reg1, reg2, xreg0, and xreg1
-                  testing::Pair(*insn_it++, RegLifetimeCount{.general = 3, .xmm = 2}),
+                  RegLifetimeCount{.general = 3, .xmm = 2},
                   // reg1, reg2, xreg0, and xreg1
-                  testing::Pair(*insn_it++, RegLifetimeCount{.general = 2, .xmm = 2}),
+                  RegLifetimeCount{.general = 2, .xmm = 2},
                   // reg2, xreg0, and xreg1
-                  testing::Pair(*insn_it++, RegLifetimeCount{.general = 1, .xmm = 2}),
+                  RegLifetimeCount{.general = 1, .xmm = 2},
                   // reg2 and reg3
-                  testing::Pair(*insn_it++, RegLifetimeCount{.general = 2, .xmm = 0}),
+                  RegLifetimeCount{.general = 2, .xmm = 0},
                   // reg2
-                  testing::Pair(*insn_it++, RegLifetimeCount{.general = 1, .xmm = 0})));
+                  RegLifetimeCount{.general = 1, .xmm = 0}));
 }
 
 TEST(MachineIRReadFlagsOptimizer, CountRegLifetimeMap) {
@@ -124,13 +123,13 @@ TEST(MachineIRReadFlagsOptimizer, CountRegLifetimeMap) {
   auto& lifetime_map = counter.GetMap();
   ASSERT_TRUE(std::holds_alternative<LiveIn>(lifetime_map[reg0].start));
   ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map[reg0].end), reg0_end);
-  ASSERT_EQ(lifetime_map[reg0].start_pos, -1);
+  ASSERT_EQ(lifetime_map[reg0].start_pos, 0);
   ASSERT_EQ(lifetime_map[reg0].end_pos, 1);
   ASSERT_EQ(lifetime_map[reg0].reg_type, RegType::kGeneral);
 
   ASSERT_TRUE(std::holds_alternative<LiveIn>(lifetime_map[reg1].start));
   ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map[reg1].end), reg1_end);
-  ASSERT_EQ(lifetime_map[reg1].start_pos, -1);
+  ASSERT_EQ(lifetime_map[reg1].start_pos, 0);
   ASSERT_EQ(lifetime_map[reg1].end_pos, 3);
   ASSERT_EQ(lifetime_map[reg1].reg_type, RegType::kGeneral);
 
@@ -148,7 +147,7 @@ TEST(MachineIRReadFlagsOptimizer, CountRegLifetimeMap) {
 
   ASSERT_TRUE(std::holds_alternative<LiveIn>(lifetime_map[reg4].start));
   ASSERT_TRUE(std::holds_alternative<LiveOut>(lifetime_map[reg4].end));
-  ASSERT_EQ(lifetime_map[reg4].start_pos, -1);
+  ASSERT_EQ(lifetime_map[reg4].start_pos, 0);
   ASSERT_EQ(lifetime_map[reg4].end_pos, 5);
   ASSERT_EQ(lifetime_map[reg4].reg_type, RegType::kUnknown);
 }

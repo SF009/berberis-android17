@@ -37,7 +37,7 @@ void RegLifetimeCounter::CountRegLifetimeMap(MachineBasicBlock* bb) {
     lifetime_map_[reg] = RegLifetime{
         .start = LiveIn{},
         .end = bb->insn_list().front(),
-        .start_pos = -1,
+        .start_pos = 0,
         .end_pos = 0,
         .reg_type = RegType::kUnknown,
     };
@@ -127,41 +127,34 @@ void RegLifetimeCount::Increment(RegType reg_type) {
 
 void RegLifetimeCounter::CountRegLifetimes(MachineBasicBlock* bb) {
   CHECK(!bb->insn_list().empty());
-  auto first_insn = bb->insn_list().front();
-  // TODO(452696539): Use ArenaVector here?
-  ArenaMap<berberis::MachineInsn*, RegLifetimeCount> increment_map(machine_ir_->arena());
-  for (auto insn : bb->insn_list()) {
-    increment_map[insn] = RegLifetimeCount{
-        .general = 0,
-        .xmm = 0,
-    };
-  }
+  lifetime_counts_.resize(bb->insn_list().size());
+  ArenaVector<RegLifetimeCount> increment_map(
+      // size+1 to make handling live_outs simpler.
+      bb->insn_list().size() + 1,
+      RegLifetimeCount{
+          .general = 0,
+          .xmm = 0,
+      },
+      machine_ir_->arena());
 
   // This is more complicated than just going through insn_list and checking for
   // start/ends but that would require O(insns * regs) time to loop over regs while
   // this is O(insns) + O(regs) at the expense of using more memory.
   for (auto [_, lifetime] : lifetime_map_) {
-    if (std::holds_alternative<LiveIn>(lifetime.start)) {
-      increment_map[first_insn].Increment(lifetime.reg_type);
-    } else {
-      auto* insn = std::get<berberis::MachineInsn*>(lifetime.start);
-      increment_map[insn].Increment(lifetime.reg_type);
-    }
-
-    if (std::holds_alternative<berberis::MachineInsn*>(lifetime.end)) {
-      auto* insn = std::get<berberis::MachineInsn*>(lifetime.end);
-      increment_map[insn].Decrement(lifetime.reg_type);
-    }
+    increment_map[lifetime.start_pos].Increment(lifetime.reg_type);
+    increment_map[lifetime.end_pos].Decrement(lifetime.reg_type);
   }
 
   RegLifetimeCount current_count = {
       .general = 0,
       .xmm = 0,
   };
-  for (auto* insn : bb->insn_list()) {
-    current_count.general += increment_map[insn].general;
-    current_count.xmm += increment_map[insn].xmm;
-    lifetime_counts_[insn] = current_count;
+  int pos = 0;
+  for (auto* _ : bb->insn_list()) {
+    current_count.general += increment_map[pos].general;
+    current_count.xmm += increment_map[pos].xmm;
+    lifetime_counts_[pos] = current_count;
+    pos++;
   }
 }
 

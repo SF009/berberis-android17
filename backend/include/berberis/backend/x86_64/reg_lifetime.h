@@ -22,6 +22,7 @@
 #include "berberis/backend/common/machine_ir.h"
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/base/arena_map.h"
+#include "berberis/base/arena_vector.h"
 
 namespace berberis::x86_64 {
 
@@ -57,7 +58,7 @@ struct RegLifetimeCount {
 };
 
 using RegLifetimeMap = ArenaMap<MachineReg, RegLifetime>;
-using RegLifetimeCounts = ArenaMap<berberis::MachineInsn*, RegLifetimeCount>;
+using RegLifetimeCounts = ArenaVector<RegLifetimeCount>;
 
 class RegLifetimeCounter {
  public:
