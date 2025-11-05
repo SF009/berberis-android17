@@ -122,28 +122,24 @@ void RemoveForwarderBlocks(MachineIR* machine_ir) {
   });
 }
 
-// Reorder basic blocks so that recovery basic blocks come at the end
+// Reorder basic blocks so that cold basic blocks come at the end
 // of the basic block chain.
 //
-// By moving recovery basic blocks to the end of the basic block
+// By moving cold basic blocks to the end of the basic block
 // chain, we solve two problems -- improving cache locality while
-// avoiding unconditional jumps around recovery basic blocks.  In
-// future, we might generalize this function to handle other cold
-// blocks and such.
+// avoiding unconditional jumps around cold/recovery basic blocks.
 //
 // Moving exit blocks to the end doesn't break MachineIR::BasicBlocksOrder::kReversePostOrder
 // properties we are interested in. So we intentionally keep this order valid if it was set.
 void MoveColdBlocksToEnd(MachineIR* machine_ir) {
-  // Since the first bb is region entry, we must keep it in
-  // place. Fortunately, a recovery block cannot be the first one,
-  // since it must follow a faulty instruction.
-  CHECK(!machine_ir->bb_list().front()->is_recovery());
+  // Since the first bb is region entry, we must keep it in place.
+  CHECK(!machine_ir->bb_list().front()->is_cold());
 
-  // We are going to partition bb_list() into normal and recovery
+  // We are going to partition bb_list() into normal and cold
   // basic blocks. We preserve the order of normal basic blocks so
   // that they will more likely fall through (that is, without
-  // unconditional jumps around recovery basic blocks). We do not
-  // preserve the order of recovery basic blocks.
+  // unconditional jumps around cold basic blocks). We do not
+  // preserve the order of cold basic blocks.
   //
   // We've chosen not to use std::stable_partition because we don't
   // like the fact that it allocates a temporary buffer in the regular
@@ -151,7 +147,7 @@ void MoveColdBlocksToEnd(MachineIR* machine_ir) {
   auto* bb_list = &(machine_ir->bb_list());
   auto normal_it = bb_list->begin();
   for (auto*& bb : *bb_list) {
-    if (!bb->is_recovery()) {
+    if (!bb->is_cold()) {
       std::swap(*normal_it++, bb);  // can be the same
     }
   }
