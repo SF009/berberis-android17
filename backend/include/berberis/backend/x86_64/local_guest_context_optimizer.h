@@ -26,6 +26,28 @@ struct OptimizeLocalParams {
   size_t simd_reg_limit = 12;
 };
 
+class LocalGuestContextOptimizer {
+ public:
+  explicit LocalGuestContextOptimizer(x86_64::MachineIR* machine_ir)
+      : machine_ir_(machine_ir),
+        mem_reg_map_(sizeof(CPUState), std::nullopt, machine_ir->arena()) {}
+
+  void RemoveLocalGuestContextAccesses(const OptimizeLocalParams& params);
+
+ private:
+  using MappedValue = std::variant<MachineReg, uint64_t>;
+  struct MappedRegUsage {
+    MappedValue value;
+    std::optional<MachineInsnList::iterator> last_store;
+  };
+
+  void ReplaceGetAndUpdateMap(const MachineInsnList::iterator insn_it);
+  void ReplacePutAndUpdateMap(MachineInsnList& insn_list, const MachineInsnList::iterator insn_it);
+
+  MachineIR* machine_ir_;
+  ArenaVector<std::optional<MappedRegUsage>> mem_reg_map_;
+};
+
 void RemoveLocalGuestContextAccesses(x86_64::MachineIR* machine_ir,
                                      const OptimizeLocalParams& params = OptimizeLocalParams());
 

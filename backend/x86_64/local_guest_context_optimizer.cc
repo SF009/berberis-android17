@@ -23,31 +23,7 @@
 
 namespace berberis::x86_64 {
 
-namespace {
-
 using OffsetCounterMap = ArenaVector<std::pair<size_t, int>>;
-
-class LocalGuestContextOptimizer {
- public:
-  explicit LocalGuestContextOptimizer(x86_64::MachineIR* machine_ir)
-      : machine_ir_(machine_ir),
-        mem_reg_map_(sizeof(CPUState), std::nullopt, machine_ir->arena()) {}
-
-  void RemoveLocalGuestContextAccesses(const OptimizeLocalParams& params);
-
- private:
-  using MappedValue = std::variant<MachineReg, uint64_t>;
-  struct MappedRegUsage {
-    MappedValue value;
-    std::optional<MachineInsnList::iterator> last_store;
-  };
-
-  void ReplaceGetAndUpdateMap(const MachineInsnList::iterator insn_it);
-  void ReplacePutAndUpdateMap(MachineInsnList& insn_list, const MachineInsnList::iterator insn_it);
-
-  MachineIR* machine_ir_;
-  ArenaVector<std::optional<MappedRegUsage>> mem_reg_map_;
-};
 
 ArenaVector<int> CountGuestRegAccesses(const MachineIR* ir, MachineBasicBlock* bb) {
   ArenaVector<int> guest_access_count(sizeof(CPUState), 0, ir->arena());
@@ -164,8 +140,6 @@ void LocalGuestContextOptimizer::ReplacePutAndUpdateMap(MachineInsnList& insn_li
   }
   mem_reg_map_[disp] = {new_value, {insn_it}};
 }
-
-}  // namespace
 
 void RemoveLocalGuestContextAccesses(x86_64::MachineIR* machine_ir,
                                      const OptimizeLocalParams& params) {
