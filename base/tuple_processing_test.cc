@@ -36,7 +36,6 @@ namespace {
 
 constexpr int kApplyInt1 = 1;
 constexpr int kApplyInt2 = 2;
-constexpr std::tuple<const int&, char> kApplyTupleIn{kApplyInt1, 'A'};
 
 template <template <typename, typename> typename TupleType>
 constexpr bool TestFunc() {
@@ -71,10 +70,12 @@ constexpr bool TestFunc() {
   static_assert(std::is_same_v<TypesToTypes::Zip<TupleType<char, int&>, std::array<long, 2>>,
                                std::tuple<std::tuple<char, long>, std::tuple<int&, long>>>);
 
+  constexpr std::tuple<const int&, char> kApplyTupleIn{kApplyInt1, 'A'};
+
   // Test Apply to types.
   constexpr auto ApplyResult1 = [] {
     std::array<char, 2> result;
-    TypesToValues::Apply<TypesToTypes::Enumerate<std::tuple<const int&, char>>>(
+    TypesToValues::Apply<TypesToTypes::Enumerate<TupleType<const int&, char>>>(
         [&result]<typename T>(const int& kExtraArg1, const int& kExtraArg2) {
           CHECK_EQ(&kExtraArg1, &kApplyInt1);
           CHECK_EQ(&kExtraArg2, &kApplyInt2);
@@ -93,7 +94,7 @@ constexpr bool TestFunc() {
   // Test Apply to types with a temporary.
   constexpr auto ApplyResult2 = [] {
     std::array<char, 2> result;
-    TypesToValues::ApplyWithTemporary<TypesToTypes::Enumerate<std::tuple<const int&, char>>, int>(
+    TypesToValues::ApplyWithTemporary<TypesToTypes::Enumerate<TupleType<const int&, char>>, int>(
         [&result]<typename T>(int& idx, const int& kExtraArg1, const int& kExtraArg2) {
           CHECK_EQ(&kExtraArg1, &kApplyInt1);
           CHECK_EQ(&kExtraArg2, &kApplyInt2);
@@ -112,7 +113,7 @@ constexpr bool TestFunc() {
   // Test Apply to types with an explicitly initialized temporary.
   constexpr auto ApplyResult3 = [] {
     std::array<char, 2> result;
-    TypesToValues::ApplyWithTemporary<TypesToTypes::Enumerate<std::tuple<const int&, char>>>(
+    TypesToValues::ApplyWithTemporary<TypesToTypes::Enumerate<TupleType<const int&, char>>>(
         /* idx = */ 42,
         [&result]<typename T>(int& idx, const int& kExtraArg1, const int& kExtraArg2) {
           CHECK_EQ(&kExtraArg1, &kApplyInt1);
@@ -130,7 +131,7 @@ constexpr bool TestFunc() {
   }();
   static_assert(ApplyResult3 == std::array<char, 2>{84, 'l'});
   // Test Apply to values.
-  constexpr auto ApplyResult4 = [] {
+  constexpr auto ApplyResult4 = [&kApplyTupleIn] {
     std::array<char, 2> result;
     ValuesToValues::Apply(
         ValuesToValues::Enumerate(kApplyTupleIn),
@@ -150,7 +151,7 @@ constexpr bool TestFunc() {
   }();
   static_assert(ApplyResult4 == std::array<char, 2>{42, 'A'});
   // Test Apply to values with a temporary.
-  constexpr auto ApplyResult5 = [] {
+  constexpr auto ApplyResult5 = [&kApplyTupleIn] {
     std::array<char, 2> result;
     ValuesToValues::ApplyWithTemporary<int>(
         ValuesToValues::Enumerate(kApplyTupleIn),
@@ -170,7 +171,7 @@ constexpr bool TestFunc() {
   }();
   static_assert(ApplyResult5 == std::array<char, 2>{42, 'B'});
   // Test Apply to values with an explicitly initialized temporary.
-  constexpr auto ApplyResult6 = [] {
+  constexpr auto ApplyResult6 = [&kApplyTupleIn] {
     std::array<char, 2> result;
     ValuesToValues::ApplyWithTemporary(
         ValuesToValues::Enumerate(kApplyTupleIn),
@@ -191,15 +192,15 @@ constexpr bool TestFunc() {
   }();
   static_assert(ApplyResult6 == std::array<char, 2>{84, 'l'});
 
-  static_assert(ValuesToValues::Enumerate(std::tuple{'a', 42}) ==
+  static_assert(ValuesToValues::Enumerate(TupleType{'a', 42}) ==
                 std::tuple{std::tuple{MetaValue<0>{}, 'a'}, std::tuple{MetaValue<1>{}, 42}});
-  static_assert(std::is_same_v<decltype(ValuesToValues::Enumerate(std::tuple{'a', 42})),
+  static_assert(std::is_same_v<decltype(ValuesToValues::Enumerate(TupleType{'a', 42})),
                                std::tuple<std::tuple<MetaValue<std::size_t{0}>, char>,
                                           std::tuple<MetaValue<std::size_t{1}>, int>>>);
 
   // Test Generate from types.
   constexpr auto GenerateResult1 =
-      TypesToValues::Generate<TypesToTypes::Enumerate<std::tuple<char, const int&>>,
+      TypesToValues::Generate<TypesToTypes::Enumerate<TupleType<char, const int&>>,
                               std::array<char, 2>>(
           []<typename T>(
               std::array<char, 2>& result, const int& kExtraArg1, const int& kExtraArg2) {
@@ -217,7 +218,7 @@ constexpr bool TestFunc() {
   static_assert(GenerateResult1 == std::array<char, 2>{'X', 42});
   // Test Generate from types with explicitly initialized output.
   constexpr auto GenerateResult2 =
-      TypesToValues::Generate<TypesToTypes::Enumerate<std::tuple<char, const int&>>>(
+      TypesToValues::Generate<TypesToTypes::Enumerate<TupleType<char, const int&>>>(
           /* result = */ std::array<char, 2>{1, 2},
           []<typename T>(
               std::array<char, 2>& result, const int& kExtraArg1, const int& kExtraArg2) {
@@ -235,7 +236,7 @@ constexpr bool TestFunc() {
   static_assert(GenerateResult2 == std::array<char, 2>{'Y', 44});
   // Test Generate from types with a temporary.
   constexpr auto GenerateResult3 =
-      TypesToValues::GenerateWithTemporary<TypesToTypes::Enumerate<std::tuple<char, const int&>>,
+      TypesToValues::GenerateWithTemporary<TypesToTypes::Enumerate<TupleType<char, const int&>>,
                                            std::array<char, 2>,
                                            int>(
           []<typename T>(
@@ -254,7 +255,7 @@ constexpr bool TestFunc() {
   static_assert(GenerateResult3 == std::array<char, 2>{'X', 43});
   // Test Generate from types with an explicitly initialized output and temporary.
   constexpr auto GenerateResult4 =
-      TypesToValues::GenerateWithTemporary<TypesToTypes::Enumerate<std::tuple<char, const int&>>>(
+      TypesToValues::GenerateWithTemporary<TypesToTypes::Enumerate<TupleType<char, const int&>>>(
           /* result = */ std::array<char, 2>{1, 2},
           /* idx = */ 42,
           []<typename T>(
@@ -351,7 +352,7 @@ constexpr bool TestFunc() {
 
   // Test Map types to values.
   constexpr std::tuple<const int&, float> kMapTupleOut1{kApplyInt2, float{42.42}};
-  constexpr auto MapResult1 = TypesToValues::Map<std::tuple<const int&, char>>(
+  constexpr auto MapResult1 = TypesToValues::Map<TupleType<const int&, char>>(
       []<typename T>(const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
         CHECK_EQ(&kExtraArg1, &kApplyInt1);
         CHECK_EQ(&kExtraArg2, &kApplyInt2);
@@ -367,7 +368,7 @@ constexpr bool TestFunc() {
   static_assert(std::is_same_v<decltype(MapResult1), const std::tuple<const int&, float>>);
   // Test Map types to values with a temporary.
   constexpr std::tuple<const int&, float> kMapTupleOut2{kApplyInt2, float{43.42}};
-  constexpr auto MapResult2 = TypesToValues::MapWithTemporary<std::tuple<const int&, char>, int>(
+  constexpr auto MapResult2 = TypesToValues::MapWithTemporary<TupleType<const int&, char>, int>(
       []<typename T>(int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
         CHECK_EQ(&kExtraArg1, &kApplyInt1);
         CHECK_EQ(&kExtraArg2, &kApplyInt2);
@@ -384,7 +385,7 @@ constexpr bool TestFunc() {
   static_assert(std::is_same_v<decltype(MapResult2), const std::tuple<const int&, float>>);
   // Test Map types to values with an explicitly initialized temporary.
   constexpr std::tuple<const int&, float> kMapTupleOut3{kApplyInt2, float{85.42}};
-  constexpr auto MapResult3 = TypesToValues::MapWithTemporary<std::tuple<const int&, char>>(
+  constexpr auto MapResult3 = TypesToValues::MapWithTemporary<TupleType<const int&, char>>(
       /* idx = */ 42,
       []<typename T>(int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
         CHECK_EQ(&kExtraArg1, &kApplyInt1);
@@ -457,8 +458,8 @@ constexpr bool TestFunc() {
   static_assert(MapResult6 == kMapTupleOut6);
   static_assert(std::is_same_v<decltype(MapResult6), const std::tuple<const int&, float>>);
 
-  static_assert(ValuesToValues::Zip(std::tuple{'a', 42}, std::tuple{1ULL, 3.00}) ==
-                std::tuple{std::tuple{'a', 1ULL}, std::tuple{42, 3.00}});
+  static_assert(ValuesToValues::Zip(std::array{2, 42}, TupleType{'a', 3.00}) ==
+                std::tuple{std::tuple{2, 'a'}, std::tuple{42, 3.00}});
 
   return true;
 }
