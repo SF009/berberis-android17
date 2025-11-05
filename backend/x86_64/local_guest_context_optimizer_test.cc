@@ -16,6 +16,9 @@
 
 #include "gtest/gtest.h"
 
+#include <cstddef>
+#include <variant>
+
 #include "berberis/backend/x86_64/local_guest_context_optimizer.h"
 
 #include "berberis/backend/x86_64/machine_ir.h"
@@ -28,6 +31,46 @@
 namespace berberis {
 
 namespace {
+
+bool IsOffsetMappedToReg(size_t offset,
+                         const x86_64::MemRegUsageMap& mem_reg_map,
+                         const MachineReg& reg) {
+  return mem_reg_map[offset].has_value() &&
+         std::holds_alternative<MachineReg>(mem_reg_map.at(offset).value().value) &&
+         (std::get<MachineReg>(mem_reg_map.at(offset).value().value) == reg);
+}
+
+TEST(MachineIRLocalGuestContextOptimizer, UnmapOlderThan) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  auto* bb = machine_ir.NewBasicBlock();
+  auto reg1 = machine_ir.AllocVReg();
+  auto reg2 = machine_ir.AllocVReg();
+
+  builder.StartBasicBlock(bb);
+  builder.Gen<x86_64::MovqRegImm>(machine_ir.AllocVReg(), 0);
+  builder.GenPut(GetThreadStateRegOffset(0), reg1);
+  builder.GenGet(reg2, GetThreadStateRegOffset(0));
+  builder.Gen<Jump>(kNullGuestAddr);
+
+  auto optimizer = x86_64::LocalGuestContextOptimizer(&machine_ir);
+  optimizer.RemoveLocalGuestContextAccesses(x86_64::OptimizeLocalParams());
+  ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+
+  auto& mem_reg_map = optimizer.GetMemRegUsageMapForTesting();
+  auto& lifetime_map = optimizer.GetLifetimeCounterForTesting().GetMap();
+  ASSERT_TRUE(lifetime_map.contains(reg1));
+  ASSERT_TRUE(IsOffsetMappedToReg(GetThreadStateRegOffset(0), mem_reg_map, reg1));
+
+  // Try clearing an older pos which should do nothing.
+  optimizer.UnmapOlderThan(0, x86_64::RegType::kGeneral);
+  ASSERT_TRUE(IsOffsetMappedToReg(GetThreadStateRegOffset(0), mem_reg_map, reg1));
+
+  optimizer.UnmapOlderThan(2, x86_64::RegType::kGeneral);
+  EXPECT_FALSE(mem_reg_map[GetThreadStateRegOffset(0)].has_value());
+}
 
 TEST(MachineIRLocalGuestContextOptimizer, RemoveReadAfterWrite) {
   Arena arena;
