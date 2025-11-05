@@ -25,12 +25,16 @@
 
 namespace berberis::x86_64 {
 
-RegLifetimeMap CountRegLifetimeMap(MachineIR* machine_ir, MachineBasicBlock* bb) {
-  RegLifetimeMap ret(machine_ir->arena());
+void RegLifetimeCounter::Count(MachineBasicBlock* bb) {
+  CountRegLifetimeMap(bb);
+  CountRegLifetimes(bb);
+}
+
+void RegLifetimeCounter::CountRegLifetimeMap(MachineBasicBlock* bb) {
   CHECK(!bb->insn_list().empty());
   // First get all live_ins.
   for (auto reg : bb->live_in()) {
-    ret[reg] = RegLifetime{
+    lifetime_map_[reg] = RegLifetime{
         .start = LiveIn{},
         .end = bb->insn_list().front(),
         .start_pos = -1,
@@ -62,25 +66,25 @@ RegLifetimeMap CountRegLifetimeMap(MachineIR* machine_ir, MachineBasicBlock* bb)
       }
       // If this is the first time we are seeing this register set start.
       auto reg = insn->RegAt(i);
-      if (!ret.contains(reg)) {
-        ret[reg] = RegLifetime{
+      if (!lifetime_map_.contains(reg)) {
+        lifetime_map_[reg] = RegLifetime{
             .start = insn,
             .start_pos = pos,
             .reg_type = RegType::kUnknown,
         };
       }
-      ret[reg].end = next_insn;
-      ret[reg].end_pos = pos + 1;
+      lifetime_map_[reg].end = next_insn;
+      lifetime_map_[reg].end_pos = pos + 1;
       // Update RegType if still unknown. Note that it's also set to unknown
       // when LiveIn.
-      if (ret[reg].reg_type == RegType::kUnknown) {
+      if (lifetime_map_[reg].reg_type == RegType::kUnknown) {
         // Note not all instructions will explicitly require GP or XMM so it
         // might still be unknown.
         if (insn->RegKindAt(i).RegClass()->IsSubsetOf(&kXmmReg)) {
-          ret[reg].reg_type = RegType::kXmm;
+          lifetime_map_[reg].reg_type = RegType::kXmm;
         } else if (insn->RegKindAt(i).RegClass()->IsSubsetOf(&kGeneralReg32) ||
                    insn->RegKindAt(i).RegClass()->IsSubsetOf(&kGeneralReg64)) {
-          ret[reg].reg_type = RegType::kGeneral;
+          lifetime_map_[reg].reg_type = RegType::kGeneral;
         }
       }
     }
@@ -88,11 +92,10 @@ RegLifetimeMap CountRegLifetimeMap(MachineIR* machine_ir, MachineBasicBlock* bb)
 
   // Finally check live_outs.
   for (auto reg : bb->live_out()) {
-    CHECK(ret.contains(reg));
-    ret[reg].end = LiveOut{};
-    ret[reg].end_pos = pos;
+    CHECK(lifetime_map_.contains(reg));
+    lifetime_map_[reg].end = LiveOut{};
+    lifetime_map_[reg].end_pos = pos;
   }
-  return ret;
 }
 
 // Increment count in inc_map based on whether lifetime reg_type.
@@ -122,13 +125,11 @@ void RegLifetimeCount::Increment(RegType reg_type) {
   IncrementBy(this, reg_type, 1);
 }
 
-RegLifetimeCounts CountRegLifetimes(MachineIR* machine_ir, MachineBasicBlock* bb) {
-  RegLifetimeCounts ret(machine_ir->arena());
+void RegLifetimeCounter::CountRegLifetimes(MachineBasicBlock* bb) {
   CHECK(!bb->insn_list().empty());
-  auto lifetime_map = CountRegLifetimeMap(machine_ir, bb);
   auto first_insn = bb->insn_list().front();
   // TODO(452696539): Use ArenaVector here?
-  ArenaMap<berberis::MachineInsn*, RegLifetimeCount> increment_map(machine_ir->arena());
+  ArenaMap<berberis::MachineInsn*, RegLifetimeCount> increment_map(machine_ir_->arena());
   for (auto insn : bb->insn_list()) {
     increment_map[insn] = RegLifetimeCount{
         .general = 0,
@@ -139,7 +140,7 @@ RegLifetimeCounts CountRegLifetimes(MachineIR* machine_ir, MachineBasicBlock* bb
   // This is more complicated than just going through insn_list and checking for
   // start/ends but that would require O(insns * regs) time to loop over regs while
   // this is O(insns) + O(regs) at the expense of using more memory.
-  for (auto [_, lifetime] : lifetime_map) {
+  for (auto [_, lifetime] : lifetime_map_) {
     if (std::holds_alternative<LiveIn>(lifetime.start)) {
       increment_map[first_insn].Increment(lifetime.reg_type);
     } else {
@@ -160,10 +161,8 @@ RegLifetimeCounts CountRegLifetimes(MachineIR* machine_ir, MachineBasicBlock* bb
   for (auto* insn : bb->insn_list()) {
     current_count.general += increment_map[insn].general;
     current_count.xmm += increment_map[insn].xmm;
-    ret[insn] = current_count;
+    lifetime_counts_[insn] = current_count;
   }
-
-  return ret;
 }
 
 }  // namespace berberis::x86_64
