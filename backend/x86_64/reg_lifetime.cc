@@ -30,6 +30,26 @@ void RegLifetimeCounter::Count(MachineBasicBlock* bb) {
   CountRegLifetimes(bb);
 }
 
+void RegLifetimeCounter::UpdateLastUse(MachineReg reg, berberis::MachineInsn* end, int end_pos) {
+  CHECK(lifetime_map_.contains(reg));
+  CHECK_LE(static_cast<size_t>(end_pos), lifetime_counts_.size());
+
+  auto& lifetime = lifetime_map_[reg];
+  int old_end_pos = lifetime.end_pos;
+
+  // Don't do anything if this doesn't extend lifetime.
+  if (end_pos <= old_end_pos) {
+    return;
+  }
+
+  for (int i = old_end_pos; i < end_pos; i++) {
+    lifetime_counts_[i].Increment(lifetime.reg_type);
+  }
+
+  lifetime.end = end;
+  lifetime.end_pos = end_pos;
+}
+
 void RegLifetimeCounter::CountRegLifetimeMap(MachineBasicBlock* bb) {
   CHECK(!bb->insn_list().empty());
   // First get all live_ins.

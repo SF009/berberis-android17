@@ -50,7 +50,7 @@ TEST(MachineIRReadFlagsOptimizer, CountLifetimeCounts) {
   MachineReg xreg0 = machine_ir.AllocVReg();
   MachineReg xreg1 = machine_ir.AllocVReg();
 
-  auto bb = machine_ir.NewBasicBlock();
+  auto* bb = machine_ir.NewBasicBlock();
   bb->live_in().push_back(unused_reg);
   bb->live_in().push_back(reg0);
   bb->live_in().push_back(unknown_reg);
@@ -105,7 +105,7 @@ TEST(MachineIRReadFlagsOptimizer, CountRegLifetimeMap) {
   MachineReg reg3 = machine_ir.AllocVReg();
   MachineReg reg4 = machine_ir.AllocVReg();
 
-  auto bb = machine_ir.NewBasicBlock();
+  auto* bb = machine_ir.NewBasicBlock();
   bb->live_in().push_back(reg0);
   bb->live_in().push_back(reg1);
   bb->live_in().push_back(reg4);
@@ -113,9 +113,9 @@ TEST(MachineIRReadFlagsOptimizer, CountRegLifetimeMap) {
   bb->live_out().push_back(reg4);
   builder.StartBasicBlock(bb);
   builder.Gen<AddqRegReg, kNoSSA>(reg0, reg1, machine_ir.AllocVReg());
-  auto reg0_end = builder.Gen<AddqRegReg, kNoSSA>(reg1, reg1, machine_ir.AllocVReg());
-  auto reg3_start = builder.Gen<MovqRegReg>(reg3, reg1);
-  auto reg1_end = builder.Gen<PxorXRegXReg, kNoSSA>(reg2, reg2);
+  auto* reg0_end = builder.Gen<AddqRegReg, kNoSSA>(reg1, reg1, machine_ir.AllocVReg());
+  auto* reg3_start = builder.Gen<MovqRegReg>(reg3, reg1);
+  auto* reg1_end = builder.Gen<PxorXRegXReg, kNoSSA>(reg2, reg2);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
   RegLifetimeCounter counter(&machine_ir);
@@ -150,6 +150,41 @@ TEST(MachineIRReadFlagsOptimizer, CountRegLifetimeMap) {
   ASSERT_EQ(lifetime_map[reg4].start_pos, 0);
   ASSERT_EQ(lifetime_map[reg4].end_pos, 5);
   ASSERT_EQ(lifetime_map[reg4].reg_type, RegType::kUnknown);
+}
+
+TEST(MachineIRReadFlagsOptimizer, UpdateLastUse) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  MachineReg reg0 = machine_ir.AllocVReg();
+  MachineReg reg1 = machine_ir.AllocVReg();
+  MachineReg reg2 = machine_ir.AllocVReg();
+
+  auto* bb = machine_ir.NewBasicBlock();
+  builder.StartBasicBlock(bb);
+  builder.Gen<MovqRegImm>(reg0, 0);
+  builder.Gen<MovqRegImm>(reg1, 1);
+  builder.Gen<AddqRegReg, kNoSSA>(reg0, reg1, kMachineRegFLAGS);
+  builder.Gen<MovqRegImm>(reg2, 2);
+  builder.Gen<AddqRegReg, kNoSSA>(reg0, reg2, kMachineRegFLAGS);
+  auto* new_end = builder.Gen<PseudoJump>(kNullGuestAddr);
+
+  RegLifetimeCounter counter(&machine_ir);
+  counter.Count(bb);
+  auto& counts = counter.GetCounts();
+
+  ASSERT_EQ(counts.size(), 6UL);
+  EXPECT_EQ(counts[2].general, 2);
+  EXPECT_EQ(counts[3].general, 2);
+  EXPECT_EQ(counts[4].general, 2);
+  EXPECT_EQ(counts[5].general, 0);
+
+  counter.UpdateLastUse(reg1, new_end, 5);
+  EXPECT_EQ(counts[2].general, 2);
+  EXPECT_EQ(counts[3].general, 3);
+  EXPECT_EQ(counts[4].general, 3);
+  EXPECT_EQ(counts[5].general, 0);
 }
 
 }  // namespace

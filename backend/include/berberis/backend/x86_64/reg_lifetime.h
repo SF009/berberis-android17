@@ -68,6 +68,8 @@ class RegLifetimeCounter {
         lifetime_counts_(machine_ir->arena()) {}
 
   void Count(MachineBasicBlock* bb);
+  // Sets last use of reg to end and end_pos, updating both the map and counts.
+  void UpdateLastUse(MachineReg reg, berberis::MachineInsn* end, int end_pos);
 
   RegLifetimeMap& GetMap() { return lifetime_map_; }
   RegLifetimeCounts& GetCounts() { return lifetime_counts_; }
