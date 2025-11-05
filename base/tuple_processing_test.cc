@@ -470,6 +470,18 @@ constexpr bool TestFunc() {
 static_assert(TestFunc<std::pair>());
 static_assert(TestFunc<std::tuple>());
 
+constexpr auto kMetaValuesInput1 = std::array{1, 2};
+static_assert(std::is_same_v<ValuesToTypes::MetaValues<&kMetaValuesInput1>,
+                             std::tuple<MetaValue<1>, MetaValue<2>>>);
+
+constexpr auto kMetaValuesInput2 = std::pair{1, 2};
+static_assert(std::is_same_v<ValuesToTypes::MetaValues<&kMetaValuesInput2>,
+                             std::tuple<MetaValue<1>, MetaValue<2>>>);
+
+constexpr auto kMetaValuesInput3 = std::tuple{1, 2};
+static_assert(std::is_same_v<ValuesToTypes::MetaValues<&kMetaValuesInput3>,
+                             std::tuple<MetaValue<1>, MetaValue<2>>>);
+
 }  // namespace
 
 }  // namespace berberis
