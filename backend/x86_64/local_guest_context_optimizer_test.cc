@@ -52,7 +52,7 @@ TEST(MachineIRLocalGuestContextOptimizer, UnmapOlderThan) {
   builder.StartBasicBlock(bb);
   builder.Gen<x86_64::MovqRegImm>(machine_ir.AllocVReg(), 0);
   builder.GenPut(GetThreadStateRegOffset(0), reg1);
-  builder.GenGet(reg2, GetThreadStateRegOffset(0));
+  builder.GenGet(reg2, GetThreadStateRegOffset(1));
   builder.Gen<Jump>(kNullGuestAddr);
 
   auto optimizer = x86_64::LocalGuestContextOptimizer(&machine_ir);
@@ -70,6 +70,7 @@ TEST(MachineIRLocalGuestContextOptimizer, UnmapOlderThan) {
 
   optimizer.UnmapOlderThan(2, x86_64::RegType::kGeneral);
   EXPECT_FALSE(mem_reg_map[GetThreadStateRegOffset(0)].has_value());
+  EXPECT_TRUE(mem_reg_map[GetThreadStateRegOffset(1)].has_value());
 }
 
 TEST(MachineIRLocalGuestContextOptimizer, RemoveReadAfterWrite) {
@@ -289,59 +290,101 @@ TEST(MachineIRLocalGuestContextOptimizer, LimitRegisters) {
   x86_64::MachineIRBuilder builder(&machine_ir);
 
   auto bb = machine_ir.NewBasicBlock();
+  auto reg0 = machine_ir.AllocVReg();
+  auto reg1 = machine_ir.AllocVReg();
+  auto xreg0 = machine_ir.AllocVReg();
+  auto xreg1 = machine_ir.AllocVReg();
+
   builder.StartBasicBlock(bb);
   builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(1));
   builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(1));
-  builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(0));
-  builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(0));
-  builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(0));
+  builder.Gen<x86_64::MovqRegImm>(reg0, 0);
+  builder.Gen<x86_64::MovqRegImm>(reg1, 0);
+  builder.Gen<x86_64::AddqRegReg, x86_64::kNoSSA>(reg0, reg1, x86_64::kMachineRegFLAGS);
+  builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(1));
 
   if (DoesCpuStateHaveDedicatedSimdRegs()) {
     builder.GenGet(machine_ir.AllocVReg(), GetThreadStateSimdRegOffset(5));
     builder.GenGet(machine_ir.AllocVReg(), GetThreadStateSimdRegOffset(2));
     builder.GenGet(machine_ir.AllocVReg(), GetThreadStateSimdRegOffset(5));
     builder.GenGet(machine_ir.AllocVReg(), GetThreadStateSimdRegOffset(2));
+    builder.Gen<x86_64::PxorXRegXReg, x86_64::kNoSSA>(xreg0, xreg0);
+    builder.Gen<x86_64::PxorXRegXReg, x86_64::kNoSSA>(xreg1, xreg1);
     builder.GenGet(machine_ir.AllocVReg(), GetThreadStateSimdRegOffset(0));
     builder.GenGet(machine_ir.AllocVReg(), GetThreadStateSimdRegOffset(5));
+    builder.Gen<x86_64::PxorXRegXReg, x86_64::kNoSSA>(xreg0, xreg1);
   }
   builder.Gen<Jump>(kNullGuestAddr);
 
   x86_64::RemoveLocalGuestContextAccesses(&machine_ir,
                                           x86_64::OptimizeLocalParams{
-                                              .general_reg_limit = 1,
+                                              .general_reg_limit = 3,
                                               .simd_reg_limit = 2,
                                           });
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
 
   // Check instructions with general regs replaced.
   auto insn_it = bb->insn_list().begin();
-  ASSERT_EQ((*insn_it)->opcode(), kMachineOpMovqRegMemBaseDisp);
-  insn_it++;
-  ASSERT_EQ((*insn_it)->opcode(), kMachineOpMovqRegMemBaseDisp);
-  insn_it++;
-  ASSERT_EQ((*insn_it)->opcode(), kMachineOpMovqRegMemBaseDisp);
-  insn_it++;
-  ASSERT_EQ((*insn_it)->opcode(), kMachineOpCopy);
-  insn_it++;
-  ASSERT_EQ((*insn_it)->opcode(), kMachineOpCopy);
-  insn_it++;
+  ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegMemBaseDisp);
+  ASSERT_EQ((*insn_it++)->opcode(), kMachineOpCopy);
+  // Last Get shouldn't get replaced because we go over the reg limit.
+  insn_it = std::next(insn_it, 3);
+  ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegMemBaseDisp);
 
   // Check instructions with simd regs replaced.
   if (DoesCpuStateHaveDedicatedSimdRegs()) {
-    ASSERT_EQ((*insn_it)->opcode(), kMachineOpMovqRegMemBaseDisp);
-    insn_it++;
-    ASSERT_EQ((*insn_it)->opcode(), kMachineOpMovqRegMemBaseDisp);
-    insn_it++;
-    ASSERT_EQ((*insn_it)->opcode(), kMachineOpCopy);
-    insn_it++;
-    ASSERT_EQ((*insn_it)->opcode(), kMachineOpCopy);
-    insn_it++;
-    ASSERT_EQ((*insn_it)->opcode(), kMachineOpMovqRegMemBaseDisp);
-    insn_it++;
-    ASSERT_EQ((*insn_it)->opcode(), kMachineOpCopy);
+    ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegMemBaseDisp);
+    ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegMemBaseDisp);
+    ASSERT_EQ((*insn_it++)->opcode(), kMachineOpCopy);
+    ASSERT_EQ((*insn_it++)->opcode(), kMachineOpCopy);
+    insn_it = std::next(insn_it, 2);
+    // Should not be replaced since we would be over register limit.
+    ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegMemBaseDisp);
+    ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegMemBaseDisp);
+
     insn_it++;
     ASSERT_EQ((*insn_it)->opcode(), kMachineOpJump);
   }
+}
+
+// Test that we correctly clear mapping when the optimization pushes us over reg
+// limit.
+TEST(MachineIRLocalGuestContextOptimizer, LimitRegistersAfterOptimizing) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  auto bb = machine_ir.NewBasicBlock();
+  auto reg0 = machine_ir.AllocVReg();
+  auto reg1 = machine_ir.AllocVReg();
+  auto reg2 = machine_ir.AllocVReg();
+
+  builder.StartBasicBlock(bb);
+  builder.GenGet(reg0, GetThreadStateRegOffset(1));
+  builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(2));
+  builder.Gen<x86_64::AddqRegReg, x86_64::kNoSSA>(reg1, reg2, x86_64::kMachineRegFLAGS);
+  builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(1));
+  builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(2));
+  builder.Gen<Jump>(kNullGuestAddr);
+
+  x86_64::RemoveLocalGuestContextAccesses(&machine_ir,
+                                          x86_64::OptimizeLocalParams{
+                                              .general_reg_limit = 4,
+                                              .simd_reg_limit = 2,
+                                          });
+  ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+
+  // Check instructions with general regs replaced.
+  auto insn_it = bb->insn_list().begin();
+  ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegMemBaseDisp);
+  ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegMemBaseDisp);
+  insn_it++;
+  ASSERT_EQ((*insn_it++)->opcode(), kMachineOpCopy);
+  // This shouldn't be optimized as we should have hit the limit after the
+  // previous optimization with reg0, reg1, reg2, and rbp.
+  ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegMemBaseDisp);
+  ASSERT_EQ((*insn_it)->opcode(), kMachineOpJump);
 }
 
 TEST(MachineIRLocalGuestContextOptimizer, LimitRegistersWithOptimizedABI) {
@@ -351,23 +394,26 @@ TEST(MachineIRLocalGuestContextOptimizer, LimitRegistersWithOptimizedABI) {
   x86_64::MachineIRBuilder builder(&machine_ir);
 
   auto bb = machine_ir.NewBasicBlock();
+  auto reg0 = machine_ir.AllocVReg();
+  auto reg1 = machine_ir.AllocVReg();
+
   builder.StartBasicBlock(bb);
   builder.Gen<x86_64::Enter>();
-
-  // Access 8 different general purpose registers twice.
-  // With OptimizedABI, general_reg_count starts at 6.
-  // With a limit of 10, only 4 registers should be optimized.
-  for (int i = 0; i < 8; ++i) {
-    builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(i));
-    builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(i));
-  }
+  builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(0));
+  builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(0));
+  builder.Gen<x86_64::MovqRegImm>(reg0, 0);
+  builder.Gen<x86_64::MovqRegImm>(reg1, 0);
+  builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(0));
+  builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(0));
+  builder.Gen<x86_64::XorqRegReg, x86_64::kNoSSA>(reg0, reg1, x86_64::kMachineRegFLAGS);
   builder.Gen<Jump>(kNullGuestAddr);
 
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
 
+  // We subtract reg_limit by 6 when using OptimizedABI.
   x86_64::RemoveLocalGuestContextAccesses(&machine_ir,
                                           x86_64::OptimizeLocalParams{
-                                              .general_reg_limit = 10,
+                                              .general_reg_limit = 9,
                                               .simd_reg_limit = 0,
                                           });
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
@@ -375,27 +421,14 @@ TEST(MachineIRLocalGuestContextOptimizer, LimitRegistersWithOptimizedABI) {
   auto insn_it = bb->insn_list().begin();
 
   ASSERT_EQ((*insn_it++)->opcode(), kMachineOpEnter);
-  // First 4 registers should be optimized.
-  // The first access is a load, the second is a copy.
-  for (int i = 0; i < 4; ++i) {
-    ASSERT_EQ((*insn_it)->opcode(), kMachineOpMovqRegMemBaseDisp);
-    ASSERT_EQ(x86_64::AsMachineInsnX86_64(*insn_it)->disp(), GetThreadStateRegOffset(i));
-    insn_it++;
-    ASSERT_EQ((*insn_it)->opcode(), kMachineOpCopy);
-    insn_it++;
-  }
-
-  // Next 4 registers should not be optimized.
-  // Both accesses should remain loads.
-  for (int i = 4; i < 8; ++i) {
-    ASSERT_EQ((*insn_it)->opcode(), kMachineOpMovqRegMemBaseDisp);
-    ASSERT_EQ(x86_64::AsMachineInsnX86_64(*insn_it)->disp(), GetThreadStateRegOffset(i));
-    insn_it++;
-    ASSERT_EQ((*insn_it)->opcode(), kMachineOpMovqRegMemBaseDisp);
-    ASSERT_EQ(x86_64::AsMachineInsnX86_64(*insn_it)->disp(), GetThreadStateRegOffset(i));
-    insn_it++;
-  }
-
+  ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegMemBaseDisp);
+  ASSERT_EQ((*insn_it++)->opcode(), kMachineOpCopy);
+  ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegImm);
+  ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegImm);
+  // Nothing else should be optimized as we hit reg limit with rbp, reg0, and reg1.
+  ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegMemBaseDisp);
+  ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegMemBaseDisp);
+  ASSERT_EQ((*insn_it++)->opcode(), kMachineOpXorqRegReg);
   ASSERT_EQ((*insn_it)->opcode(), kMachineOpJump);
 }
 

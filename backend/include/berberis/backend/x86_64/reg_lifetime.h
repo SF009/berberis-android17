@@ -42,16 +42,16 @@ struct LiveOut {};
 struct RegLifetime {
   std::variant<LiveIn, berberis::MachineInsn*> start;
   std::variant<LiveOut, berberis::MachineInsn*> end;
-  // Positions where the corresponding start/end instruction is found in insn_list
-  // with -1 used for LiveIn. and one past last instruction for LiveOut.
-  int start_pos;
-  int end_pos;
+  // start_pos is first instruction where lifetime begins.
+  size_t start_pos;
+  // end_pos is one past last instruction where lifetime ends.
+  size_t end_pos;
   RegType reg_type;
 };
 
 struct RegLifetimeCount {
-  int general;
-  int xmm;
+  size_t general;
+  size_t xmm;
   void Increment(RegType reg_type);
   void Decrement(RegType reg_type);
   bool operator==(const RegLifetimeCount&) const = default;
@@ -68,6 +68,8 @@ class RegLifetimeCounter {
         lifetime_counts_(machine_ir->arena()) {}
 
   void Count(MachineBasicBlock* bb);
+  const RegLifetime& LifetimeAt(const MachineReg& reg) const { return GetMap().at(reg); }
+  size_t RegCountAt(size_t pos, RegType reg_type) const;
   // Sets last use of reg to end and end_pos, updating both the map and counts.
   void UpdateLastUse(MachineReg reg, berberis::MachineInsn* end, int end_pos);
 
