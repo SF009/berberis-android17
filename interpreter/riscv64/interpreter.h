@@ -60,8 +60,8 @@ inline constexpr std::memory_order AqRlToStdMemoryOrder(bool aq, bool rl) {
 template <typename ConcreteType, template <auto> typename TemplateType>
 inline constexpr bool IsTypeTemplateOf = false;
 
-template <template <auto> typename TemplateType, auto Value>
-inline constexpr bool IsTypeTemplateOf<TemplateType<Value>, TemplateType> = true;
+template <template <auto> typename TemplateType, auto kValue>
+inline constexpr bool IsTypeTemplateOf<TemplateType<kValue>, TemplateType> = true;
 
 class Interpreter {
  public:
