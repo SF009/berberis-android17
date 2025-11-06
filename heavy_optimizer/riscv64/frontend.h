@@ -56,7 +56,7 @@ class HeavyOptimizerFrontend {
   template <auto kEnumValue>
   using TypeFromId = intrinsics::TypeFromId<kEnumValue>;
   template <auto ValueParam>
-  using Value = Value<ValueParam>;
+  using MetaValue = MetaValue<ValueParam>;
 
   template <typename ValueType>
   static constexpr auto ToFloat(ValueType value) {
@@ -214,7 +214,7 @@ class HeavyOptimizerFrontend {
   //
 
   template <intrinsics::TemplateTypeId IntType, bool aq, bool rl>
-  Register Lr(Register addr, Value<IntType>, Value<aq>, Value<rl>) {
+  Register Lr(Register addr, MetaValue<IntType>, MetaValue<aq>, MetaValue<rl>) {
     // The immediate is sign extended to 64-bit.
     auto [aligned_addr, and_flags] =
         Gen<x86_64::AndqRegImm>(addr, ~int32_t{sizeof(Reservation) - 1});
@@ -231,7 +231,7 @@ class HeavyOptimizerFrontend {
   }
 
   template <intrinsics::TemplateTypeId IntType, bool aq, bool rl>
-  Register Sc(Register addr, Register data, Value<IntType>, Value<aq>, Value<rl>) {
+  Register Sc(Register addr, Register data, MetaValue<IntType>, MetaValue<aq>, MetaValue<rl>) {
     // Compute aligned_addr.
     // The immediate is sign extended to 64-bit.
     auto [aligned_addr, and_flags] =

@@ -66,9 +66,6 @@ DEFINE_VALUE_OPERATOR(^)
 
 #pragma pop_macro("DEFINE_VALUE_OPERATOR")
 
-template <auto kValueParam>
-using Value = MetaValue<kValueParam>;
-
 // TypesToTypes provides type-level metaprogramming utilities for std::tuple (with support for
 // std::array if <array> include is present). It uses template specializations to perform operations
 // on the types within a tuple.

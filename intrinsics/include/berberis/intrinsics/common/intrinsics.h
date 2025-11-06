@@ -175,10 +175,10 @@ using WrappedTypeFromId = WrappedTypeFromIdHelper<kEnumValue>::Type;
 
 #pragma push_macro("DEFINE_VALUE_FUNCTION")
 #undef DEFINE_VALUE_FUNCTION
-#define DEFINE_VALUE_FUNCTION(FunctionName)                                   \
-  template <TemplateTypeId ValueParam>                                        \
-  constexpr Value<FunctionName(ValueParam)> FunctionName(Value<ValueParam>) { \
-    return {};                                                                \
+#define DEFINE_VALUE_FUNCTION(FunctionName)                                           \
+  template <TemplateTypeId ValueParam>                                                \
+  constexpr MetaValue<FunctionName(ValueParam)> FunctionName(MetaValue<ValueParam>) { \
+    return {};                                                                        \
   }
 
 DEFINE_VALUE_FUNCTION(TemplateTypeIdToFloat)
