@@ -79,7 +79,7 @@ class Interpreter {
   template <typename Type>
   static constexpr auto kIdFromType = intrinsics::kIdFromType<Type>;
   template <typename TypeName>
-  using Type = Value<kIdFromType<TypeName>>;
+  using Type = MetaValue<kIdFromType<TypeName>>;
   // Syntax sugar to eliminate {} from type conversion.
   template <typename TypeName>
   static constexpr Type<TypeName> kType{};
@@ -88,10 +88,10 @@ class Interpreter {
   template <auto kEnumValue>
   using WrappedTypeFromId = intrinsics::WrappedTypeFromId<kEnumValue>;
   template <auto ValueParam>
-  using Value = Value<ValueParam>;
+  using MetaValue = MetaValue<ValueParam>;
   // Syntax sugar to eliminate {} from value conversion.
   template <auto ValueParam>
-  static constexpr Value<ValueParam> kValue{};
+  static constexpr MetaValue<ValueParam> kValue{};
 
   template <typename ValueType>
   static constexpr auto ToFloat(ValueType value) {
@@ -220,7 +220,7 @@ class Interpreter {
 #endif
 
   template <TemplateTypeId IntType, bool aq, bool rl>
-  Register Lr(int64_t addr, Value<IntType>, Value<aq>, Value<rl>) {
+  Register Lr(int64_t addr, MetaValue<IntType>, MetaValue<aq>, MetaValue<rl>) {
     static_assert(std::is_integral_v<TypeFromId<IntType>>, "Lr: IntType must be integral");
     static_assert(std::is_signed_v<TypeFromId<IntType>>, "Lr: IntType must be signed");
     CHECK(!exception_raised_);
@@ -231,7 +231,11 @@ class Interpreter {
   }
 
   template <TemplateTypeId IntType, bool aq, bool rl>
-  Register Sc(int64_t addr, TypeFromId<IntType> val, Value<IntType>, Value<aq>, Value<rl>) {
+  Register Sc(int64_t addr,
+              TypeFromId<IntType> val,
+              MetaValue<IntType>,
+              MetaValue<aq>,
+              MetaValue<rl>) {
     static_assert(std::is_integral_v<TypeFromId<IntType>>, "Sc: IntType must be integral");
     static_assert(std::is_signed_v<TypeFromId<IntType>>, "Sc: IntType must be signed");
     CHECK(!exception_raised_);
@@ -574,7 +578,7 @@ class Interpreter {
   }
 
   template <VectorRegisterGroupMultiplier vlmul>
-  static constexpr auto NumberOfRegistersInvolved(Value<vlmul>) {
+  static constexpr auto NumberOfRegistersInvolved(MetaValue<vlmul>) {
     return kValue<NumberOfRegistersInvolved(vlmul)>;
   }
 
@@ -592,7 +596,7 @@ class Interpreter {
   }
 
   template <VectorRegisterGroupMultiplier vlmul>
-  static constexpr auto NumRegistersInvolvedForWideOperand(Value<vlmul>) {
+  static constexpr auto NumRegistersInvolvedForWideOperand(MetaValue<vlmul>) {
     return kValue<NumRegistersInvolvedForWideOperand(vlmul)>;
   }
 
@@ -1297,7 +1301,7 @@ class Interpreter {
             [kSegmentSize](size_t index) { return kSegmentSize * sizeof(ElementType) * index; });
       case Decoder::VLUmOpOpcode::kVlm:
         if constexpr (std::is_same_v<decltype(kVma),
-                                     const Value<intrinsics::NoInactiveProcessing{}>>) {
+                                     const MetaValue<intrinsics::NoInactiveProcessing{}>>) {
           if (kSegmentSize == kValue<1>) {
             return OpVectorLoad<Decoder::VLUmOpOpcode::kVlm>(args.dst,
                                                              src,
@@ -1349,8 +1353,8 @@ class Interpreter {
                     const auto kElementType,
                     const size_t kSegmentSize,
                     const size_t kNumRegistersInGroup,
-                    const Value<kVta>,
-                    const Value<kVma>,
+                    const MetaValue<kVta>,
+                    const MetaValue<kVma>,
                     auto GetElementOffset) {
     using ElementType = WrappedTypeFromId<kElementType>;
     using MaskType = std::conditional_t<sizeof(ElementType) == sizeof(Int8), UInt16, UInt8>;
@@ -1527,8 +1531,8 @@ class Interpreter {
                       uint8_t src1,
                       const auto kElementType,
                       const auto kVlmul,
-                      const Value<kVta>,
-                      const Value<kVma>,
+                      const MetaValue<kVta>,
+                      const MetaValue<kVma>,
                       auto GetElementIndex) {
     using ElementType = WrappedTypeFromId<kElementType>;
     const size_t kRegistersInvolved = NumberOfRegistersInvolved(kVlmul);
@@ -1585,8 +1589,8 @@ class Interpreter {
   void OpVectorWithElementTypeVlmulVtaAndVma(const Decoder::VOpFVfArgs& args,
                                              const auto kElementType,
                                              const auto vlmul,
-                                             const Value<kVta>,
-                                             const Value<kVma>,
+                                             const MetaValue<kVta>,
+                                             const MetaValue<kVma>,
                                              WrappedTypeFromId<kElementType> arg2) {
     using ElementType = WrappedTypeFromId<kElementType>;
     using SignedType = Wrapping<std::make_signed_t<typename TypeTraits<ElementType>::Int>>;
@@ -1828,8 +1832,8 @@ class Interpreter {
   void OpVectorWithElementTypeVlmulVtaAndVma(const Decoder::VOpFVvArgs& args,
                                              const auto kElementType,
                                              const auto vlmul,
-                                             const Value<kVta>,
-                                             const Value<kVma>) {
+                                             const MetaValue<kVta>,
+                                             const MetaValue<kVma>) {
     using ElementType = WrappedTypeFromId<kElementType>;
     using SignedType = Wrapping<std::make_signed_t<typename TypeTraits<ElementType>::Int>>;
     using UnsignedType = Wrapping<std::make_unsigned_t<typename TypeTraits<ElementType>::Int>>;
@@ -2387,8 +2391,8 @@ class Interpreter {
   void OpVectorWithElementTypeVlmulVtaAndVma(const Decoder::VOpIViArgs& args,
                                              const auto kElementType,
                                              const auto vlmul,
-                                             const Value<kVta>,
-                                             const Value<kVma>) {
+                                             const MetaValue<kVta>,
+                                             const MetaValue<kVma>) {
     using ElementType = WrappedTypeFromId<kElementType>;
     using SignedType = berberis::SignedType<ElementType>;
     using UnsignedType = berberis::UnsignedType<ElementType>;
@@ -2557,8 +2561,8 @@ class Interpreter {
   void OpVectorWithElementTypeVlmulVtaAndVma(const Decoder::VOpIVvArgs& args,
                                              const auto kElementType,
                                              const auto vlmul,
-                                             const Value<kVta>,
-                                             const Value<kVma>) {
+                                             const MetaValue<kVta>,
+                                             const MetaValue<kVma>) {
     using ElementType = WrappedTypeFromId<kElementType>;
     using SignedType = berberis::SignedType<ElementType>;
     using UnsignedType = berberis::UnsignedType<ElementType>;
@@ -2738,8 +2742,8 @@ class Interpreter {
   void OpVectorWithElementTypeVlmulVtaAndVma(const Decoder::VOpIVxArgs& args,
                                              const auto kElementType,
                                              const auto vlmul,
-                                             const Value<kVta>,
-                                             const Value<kVma>,
+                                             const MetaValue<kVta>,
+                                             const MetaValue<kVma>,
                                              Register arg2) {
     using ElementType = WrappedTypeFromId<kElementType>;
     using SignedType = berberis::SignedType<ElementType>;
@@ -2912,8 +2916,8 @@ class Interpreter {
   void OpVectorWithElementTypeVlmulVtaAndVma(const Decoder::VOpMVvArgs& args,
                                              const auto kElementType,
                                              const auto vlmul,
-                                             const Value<kVta>,
-                                             const Value<kVma>) {
+                                             const MetaValue<kVta>,
+                                             const MetaValue<kVma>) {
     using ElementType = WrappedTypeFromId<kElementType>;
     using SignedType = berberis::SignedType<ElementType>;
     using UnsignedType = berberis::UnsignedType<ElementType>;
@@ -3195,8 +3199,8 @@ class Interpreter {
   void OpVectorWithElementTypeVlmulVtaAndVma(const Decoder::VOpMVxArgs& args,
                                              const auto kElementType,
                                              const auto vlmul,
-                                             const Value<kVta>,
-                                             const Value<kVma>,
+                                             const MetaValue<kVta>,
+                                             const MetaValue<kVma>,
                                              Register arg2) {
     using ElementType = WrappedTypeFromId<kElementType>;
     using SignedType = berberis::SignedType<ElementType>;
@@ -3340,8 +3344,8 @@ class Interpreter {
       const auto kIndexElementType,
       const auto kSegmentSize,
       const auto kIndexRegistersInvolved,
-      const Value<kVta>,
-      const Value<kVma>,
+      const MetaValue<kVta>,
+      const MetaValue<kVma>,
       Register src) {
     return OpVectorWithElementTypeSegmentSizeDataRegistersCountIndexTypeIndexRegistersCountAndUseMasking(
         args,
@@ -3386,8 +3390,8 @@ class Interpreter {
                                                         const auto kElementType,
                                                         const auto kSegmentSize,
                                                         const auto kVlmul,
-                                                        const Value<kVta>,
-                                                        const Value<kVma>,
+                                                        const MetaValue<kVta>,
+                                                        const MetaValue<kVma>,
                                                         Register src,
                                                         Register stride) {
     return OpVectorStore(args.data,
@@ -3404,8 +3408,8 @@ class Interpreter {
                                                         const auto kElementType,
                                                         const auto kSegmentSize,
                                                         const auto kVlmul,
-                                                        const Value<kVta>,
-                                                        const Value<kVma>,
+                                                        const MetaValue<kVta>,
+                                                        const MetaValue<kVma>,
                                                         Register src) {
     using ElementType = WrappedTypeFromId<kElementType>;
     switch (args.opcode) {
@@ -3779,7 +3783,7 @@ class Interpreter {
   void OpVectorToMask(uint8_t dst,
                       const auto kElementType,
                       const auto kRegistersInvolved,
-                      const Value<kVma>,
+                      const MetaValue<kVma>,
                       auto... args) {
     // All args, except dst must be aligned at kRegistersInvolved amount. We'll merge them
     // together and then do a combined check for all of them at once.
@@ -4304,8 +4308,8 @@ class Interpreter {
   void OpVectorSameWidth(uint8_t dst,
                          const auto kElementType,
                          const auto kRegistersInvolved,
-                         const Value<kVta>,
-                         const Value<kVma>,
+                         const MetaValue<kVta>,
+                         const MetaValue<kVma>,
                          auto... args) {
     using ElementType = WrappedTypeFromId<kElementType>;
     // All args must be aligned at kRegistersInvolved amount. We'll merge them
@@ -5231,7 +5235,7 @@ template <>
 #else
   CheckFpRegIsValid(reg);
   FpRegister value = state_->cpu.f[reg];
-  return UnboxNan(value, Value<intrinsics::kFloat32>{});
+  return UnboxNan(value, MetaValue<intrinsics::kFloat32>{});
 #endif
 }
 
@@ -5255,7 +5259,7 @@ void inline Interpreter::NanBoxAndSetFpReg<Interpreter::Float32>(uint8_t reg, Fp
     return;
   }
   CheckFpRegIsValid(reg);
-  state_->cpu.f[reg] = NanBox(value, Value<intrinsics::kFloat32>{});
+  state_->cpu.f[reg] = NanBox(value, MetaValue<intrinsics::kFloat32>{});
 }
 
 template <>

@@ -65,7 +65,7 @@ class LiteTranslator {
   template <auto kEnumValue>
   using TypeFromId = intrinsics::TypeFromId<kEnumValue>;
   template <auto ValueParam>
-  using Value = Value<ValueParam>;
+  using MetaValue = MetaValue<ValueParam>;
   static constexpr TemplateTypeId IntSizeToTemplateTypeId(uint8_t size, bool is_signed = false) {
     return intrinsics::IntSizeToTemplateTypeId(size, is_signed);
   }
@@ -425,13 +425,13 @@ class LiteTranslator {
   };
 
   template <intrinsics::TemplateTypeId IntType, bool aq, bool rl>
-  Register Lr(Register, Value<IntType>, Value<aq>, Value<rl>) {
+  Register Lr(Register, MetaValue<IntType>, MetaValue<aq>, MetaValue<rl>) {
     Undefined();
     return Assembler::no_register;
   }
 
   template <intrinsics::TemplateTypeId IntType, bool aq, bool rl>
-  Register Sc(Register, Register, Value<IntType>, Value<aq>, Value<rl>) {
+  Register Sc(Register, Register, MetaValue<IntType>, MetaValue<aq>, MetaValue<rl>) {
     Undefined();
     return Assembler::no_register;
   }

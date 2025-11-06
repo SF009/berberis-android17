@@ -40,19 +40,20 @@ class SemanticsPlayer {
   // and Low demultiplexer approach.  More info on go/berberis-intrinsic-demultiplexing
   using TemplateTypeId = SemanticsListener::TemplateTypeId;
   template <typename TypeName>
-  using Type = SemanticsListener::template Value<SemanticsListener::template kIdFromType<TypeName>>;
+  using Type =
+      SemanticsListener::template MetaValue<SemanticsListener::template kIdFromType<TypeName>>;
   // Syntax sugar to eliminate {} from type conversion.
   template <typename TypeName>
   static constexpr Type<TypeName> kType{};
   template <auto kEnumValue>
   using TypeFromId = SemanticsListener::template TypeFromId<kEnumValue>;
   template <auto ValueParam>
-  using Value = SemanticsListener::template Value<ValueParam>;
+  using MetaValue = SemanticsListener::template MetaValue<ValueParam>;
   // Syntax sugar to eliminate {} from value conversion.
   template <auto ValueParam>
-  static constexpr Value<ValueParam> kValue{};
+  static constexpr MetaValue<ValueParam> kValue{};
   template <typename TypeName>
-  static constexpr Value<static_cast<int>(sizeof(TypeName))> kSize{};
+  static constexpr MetaValue<static_cast<int>(sizeof(TypeName))> kSize{};
 
   explicit SemanticsPlayer(SemanticsListener* listener) : listener_(listener) {}
 
