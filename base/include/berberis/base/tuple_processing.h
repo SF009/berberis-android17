@@ -327,6 +327,30 @@ class TypesToValues {
   }
 };
 
+// ValuesToTypes provides type-level metaprogramming utilities for std::tuple (with support for
+// std::array if <array> include is present). It uses template specializations to perform operations
+// on the types within a tuple.
+class ValuesToTypes {
+ private:
+  template <auto kValues>
+  class MetaValuesHelper;
+
+ public:
+  template <auto kValues>
+  using MetaValues = decltype(MetaValuesHelper<kValues>::MetaValues(
+      std::declval<
+          std::make_index_sequence<std::tuple_size_v<std::remove_cvref_t<decltype(*kValues)>>>>()));
+
+ private:
+  template <auto kValues>
+  class MetaValuesHelper {
+   public:
+    template <std::size_t... Is>
+    static constexpr std::tuple<MetaValue<std::get<Is>(*kValues)>...> MetaValues(
+        std::index_sequence<Is...>);
+  };
+};
+
 // ValuesToValues provides value-level functional-style operations on std::tuple values. It also
 // supports std::array if <array> header is included. These methods often take a lambda to apply to
 // each element of the tuple.
