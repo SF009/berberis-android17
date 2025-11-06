@@ -40,8 +40,8 @@ constexpr int kApplyInt2 = 2;
 template <template <typename, typename> typename TupleType>
 constexpr bool TestFunc() {
   static_assert(std::is_same_v<TypesToTypes::Enumerate<TupleType<char, int&>>,
-                               std::tuple<std::tuple<MetaValue<std::size_t{0}>, char>,
-                                          std::tuple<MetaValue<std::size_t{1}>, int&>>>);
+                               std::tuple<std::pair<MetaValue<std::size_t{0}>, char>,
+                                          std::pair<MetaValue<std::size_t{1}>, int&>>>);
 
   // Test mapping by type.
   static_assert(
@@ -68,7 +68,7 @@ constexpr bool TestFunc() {
                                std::tuple<float, const int&>>);
 
   static_assert(std::is_same_v<TypesToTypes::Zip<TupleType<char, int&>, std::array<long, 2>>,
-                               std::tuple<std::tuple<char, long>, std::tuple<int&, long>>>);
+                               std::tuple<std::pair<char, long>, std::pair<int&, long>>>);
 
   constexpr std::tuple<const int&, char> kApplyTupleIn{kApplyInt1, 'A'};
 
@@ -193,10 +193,10 @@ constexpr bool TestFunc() {
   static_assert(ApplyResult6 == std::array<char, 2>{84, 'l'});
 
   static_assert(ValuesToValues::Enumerate(TupleType{'a', 42}) ==
-                std::tuple{std::tuple{MetaValue<0>{}, 'a'}, std::tuple{MetaValue<1>{}, 42}});
+                std::tuple{std::pair{MetaValue<0>{}, 'a'}, std::pair{MetaValue<1>{}, 42}});
   static_assert(std::is_same_v<decltype(ValuesToValues::Enumerate(TupleType{'a', 42})),
-                               std::tuple<std::tuple<MetaValue<std::size_t{0}>, char>,
-                                          std::tuple<MetaValue<std::size_t{1}>, int>>>);
+                               std::tuple<std::pair<MetaValue<std::size_t{0}>, char>,
+                                          std::pair<MetaValue<std::size_t{1}>, int>>>);
 
   // Test Generate from types.
   constexpr auto GenerateResult1 =
@@ -459,7 +459,7 @@ constexpr bool TestFunc() {
   static_assert(std::is_same_v<decltype(MapResult6), const std::tuple<const int&, float>>);
 
   static_assert(ValuesToValues::Zip(std::array{2, 42}, TupleType{'a', 3.00}) ==
-                std::tuple{std::tuple{2, 'a'}, std::tuple{42, 3.00}});
+                std::tuple{std::pair{2, 'a'}, std::pair{42, 3.00}});
 
   return true;
 }

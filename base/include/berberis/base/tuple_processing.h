@@ -157,7 +157,7 @@ class TypesToTypes {
   template <typename... TypesLeft, typename... TypesRight>
   class ZipHelper<std::tuple<TypesLeft...>, std::tuple<TypesRight...>> {
    public:
-    using Result = std::tuple<std::tuple<TypesLeft, TypesRight>...>;
+    using Result = std::tuple<std::pair<TypesLeft, TypesRight>...>;
   };
   template <typename TypeLeft, typename TypeRight>
   class ZipHelper {
@@ -534,8 +534,8 @@ class ValuesToValues {
   static constexpr TypesToTypes::Zip<TupleTypeLeft, TupleTypeRight>
   ZipHelper(TupleTypeLeft tuple_left, TupleTypeRight tuple_right, std::index_sequence<Is...>) {
     using ZipType = TypesToTypes::Zip<TupleTypeLeft, TupleTypeRight>;
-    return ZipType{std::tuple<std::tuple_element_t<Is, TupleTypeLeft>,
-                              std::tuple_element_t<Is, TupleTypeRight>>{
+    return ZipType{std::pair<std::tuple_element_t<Is, TupleTypeLeft>,
+                             std::tuple_element_t<Is, TupleTypeRight>>{
         std::get<Is>(tuple_left), std::get<Is>(tuple_right)}...};
   }
 };
