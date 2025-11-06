@@ -33,27 +33,28 @@ using ConstPoolAddrType = intptr_t;
 #endif
 
 // Vector constants, that is: constants are repeated to fill 128bit SIMD register.
-template <auto Value, typename = void>
+template <auto kValue_, typename = void>
 struct VectorConst {};
 
-template <auto Value>
-inline const int32_t& kVectorConst = VectorConst<Value>::kValue;
+template <auto kValue_>
+inline const int32_t& kVectorConst = VectorConst<kValue_>::kValue;
 
-template <auto Value>
-struct VectorConst<Value,
-                   std::enable_if_t<std::is_unsigned_v<std::remove_cvref_t<decltype(Value)>>>> {
+template <auto kValue_>
+struct VectorConst<kValue_,
+                   std::enable_if_t<std::is_unsigned_v<std::remove_cvref_t<decltype(kValue_)>>>> {
   static constexpr const ConstPoolAddrType& kValue =
-      kVectorConst<static_cast<std::make_signed_t<std::remove_cvref_t<decltype(Value)>>>(Value)>;
+      kVectorConst<static_cast<std::make_signed_t<std::remove_cvref_t<decltype(kValue_)>>>(
+          kValue_)>;
 };
 
-template <float Value>
-struct VectorConst<Value> {
-  static constexpr const ConstPoolAddrType& kValue = kVectorConst<std::bit_cast<int32_t>(Value)>;
+template <float kValue_>
+struct VectorConst<kValue_> {
+  static constexpr const ConstPoolAddrType& kValue = kVectorConst<std::bit_cast<int32_t>(kValue_)>;
 };
 
-template <double Value>
-struct VectorConst<Value> {
-  static constexpr const ConstPoolAddrType& kValue = kVectorConst<std::bit_cast<int64_t>(Value)>;
+template <double kValue_>
+struct VectorConst<kValue_> {
+  static constexpr const ConstPoolAddrType& kValue = kVectorConst<std::bit_cast<int64_t>(kValue_)>;
 };
 
 }  // namespace constants_pool
@@ -65,38 +66,38 @@ namespace constants_offsets {
 // assembly functions.
 using ConstPoolAddrType = constants_pool::ConstPoolAddrType;
 
-template <const int32_t* constant_addr>
+template <const int32_t* kConstantAddr>
 class ConstantAccessor {
  public:
   constexpr operator ConstPoolAddrType() const {
     if (std::is_constant_evaluated()) {
       return 0;
     } else {
-      return *constant_addr;
+      return *kConstantAddr;
     }
   }
 };
 
-template <const auto Value>
+template <const auto kValue_>
 class TypeConstantAccessor {
  public:
   constexpr operator ConstPoolAddrType() const {
     if (std::is_constant_evaluated()) {
       return 0;
     } else {
-      return *Value;
+      return *kValue_;
     }
   }
 };
 
-template <const auto Value>
+template <const auto kValue_>
 class VectorConstantAccessor {
  public:
   constexpr operator ConstPoolAddrType() const {
     if (std::is_constant_evaluated()) {
       return 0;
     } else {
-      return constants_pool::VectorConst<Value>::kValue;
+      return constants_pool::VectorConst<kValue_>::kValue;
     }
   }
 };
