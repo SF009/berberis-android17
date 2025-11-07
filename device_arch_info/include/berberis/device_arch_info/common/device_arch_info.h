@@ -20,6 +20,7 @@
 #include <cstdint>
 
 #include "berberis/base/string_literal.h"
+#include "berberis/base/tuple_processing.h"
 
 namespace berberis::device_arch_info {
 
@@ -50,36 +51,102 @@ class Mem64 {
 template <typename OperandClass, typename = void>
 inline constexpr bool kIsCondition = false;
 
+template <typename OperandClassesTuple>
+inline constexpr size_t kCountConditions =
+    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
+      return kIsCondition<OperandClass>;
+    }>>;
+
 template <typename OperandClass, typename = void>
 inline constexpr bool kIsEAX = false;
+
+template <typename OperandClassesTuple>
+inline constexpr size_t kCountEAX =
+    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
+      return kIsEAX<OperandClass>;
+    }>>;
 
 template <typename OperandClass, typename = void>
 inline constexpr bool kIsEBX = false;
 
+template <typename OperandClassesTuple>
+inline constexpr size_t kCountEBX =
+    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
+      return kIsEBX<OperandClass>;
+    }>>;
+
 template <typename OperandClass, typename = void>
 inline constexpr bool kIsECX = false;
+
+template <typename OperandClassesTuple>
+inline constexpr size_t kCountECX =
+    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
+      return kIsECX<OperandClass>;
+    }>>;
 
 template <typename OperandClass, typename = void>
 inline constexpr bool kIsEDX = false;
 
+template <typename OperandClassesTuple>
+inline constexpr size_t kCountEDX =
+    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
+      return kIsEDX<OperandClass>;
+    }>>;
+
 template <typename OperandClass, typename = void>
 inline constexpr bool kIsFLAGS = false;
+
+template <typename OperandClassesTuple>
+inline constexpr size_t kCountFLAGS =
+    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
+      return kIsFLAGS<OperandClass>;
+    }>>;
 
 template <typename OperandClass, typename = void>
 inline constexpr bool kIsGeneralReg32 = false;
 
+template <typename OperandClassesTuple>
+inline constexpr size_t kCountGeneralReg32 =
+    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
+      return kIsGeneralReg32<OperandClass>;
+    }>>;
+
 template <typename OperandClass, typename = void>
 inline constexpr bool kIsImmediate = false;
 
+template <typename OperandClassesTuple>
+inline constexpr size_t kCountImmediates =
+    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
+      return kIsImmediate<OperandClass>;
+    }>>;
+
+template <typename OperandClass, typename = void>
+inline constexpr bool kIsImplicitReg = false;
+
+template <typename OperandClassesTuple>
+inline constexpr size_t kImplicitRegs =
+    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
+      return kIsImplicitReg<OperandClass>;
+    }>>;
+
 template <typename OperandClass, typename = void>
 inline constexpr bool kIsMemoryOperand = false;
+
+template <typename OperandClassesTuple>
+inline constexpr size_t kCountMemoryOperands =
+    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
+      return kIsMemoryOperand<OperandClass>;
+    }>>;
 
 template <typename OperandClass, typename = void>
 inline constexpr bool kIsRegister =
     !kIsCondition<OperandClass> && !kIsImmediate<OperandClass> && !kIsMemoryOperand<OperandClass>;
 
-template <typename OperandClass, typename = void>
-inline constexpr bool kIsImplicitReg = false;
+template <typename OperandClassesTuple>
+inline constexpr size_t kCountRegisters =
+    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
+      return kIsRegister<OperandClass>;
+    }>>;
 
 template <typename OperandClass>
 inline constexpr bool

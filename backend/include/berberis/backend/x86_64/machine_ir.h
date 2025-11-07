@@ -345,6 +345,20 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                                                    std::tuple<Operands...>>,
                   kSSAMode>
     final : public MachineInsnX86_64 {
+ public:
+  // This static simplifies constructing this MachineInsn in intrinsic implementations.
+  using OperandsTuple = std::conditional_t<
+      kSSAMode == kSSA,
+      decltype(std::tuple_cat(
+          std::declval<std::conditional_t<
+              device_arch_info::kIsRegister<Operands> &&
+                  Operands::kUsage == device_arch_info::kUseDef,
+              std::tuple<
+                  device_arch_info::OperandInfo<typename Operands::Class, device_arch_info::kDef>,
+                  device_arch_info::OperandInfo<typename Operands::Class, device_arch_info::kUse>>,
+              std::tuple<Operands>>>()...)),
+      std::tuple<Operands...>>;
+
  private:
   static_assert((std::is_same_v<decltype(kSSAMode), bool> && kSSAMode == false) ||
                     (std::is_same_v<decltype(kSSAMode), enum SSAMode> && kSSAMode == kNoSSA) ||
@@ -367,22 +381,10 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
   template <auto>
   static constexpr MachineInsnInfo GenMachineInsnInfo();
   static constexpr std::array<MachineInsnInfo,
-                              1 << (2 * (device_arch_info::kIsMemoryOperand<Operands> + ... + 0))>
+                              1 << (2 * device_arch_info::kCountMemoryOperands<OperandsTuple>)>
   GenMachineInsnInfos();
 
  public:
-  // This static simplifies constructing this MachineInsn in intrinsic implementations.
-  using OperandsTuple = std::conditional_t<
-      kSSAMode == kSSA,
-      decltype(std::tuple_cat(
-          std::declval<std::conditional_t<
-              device_arch_info::kIsRegister<Operands> &&
-                  Operands::kUsage == device_arch_info::kUseDef,
-              std::tuple<
-                  device_arch_info::OperandInfo<typename Operands::Class, device_arch_info::kDef>,
-                  device_arch_info::OperandInfo<typename Operands::Class, device_arch_info::kUse>>,
-              std::tuple<Operands>>>()...)),
-      std::tuple<Operands...>>;
   // Note: immediates accept appropriate type, register operands includes only register while memory
   // operand needs both base register and offset.
   using ConstructorArgsTuple = decltype(std::tuple_cat(
@@ -422,13 +424,9 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
   explicit MachineInsn(ConstructorArgsTuple args)
       : MachineInsnX86_64(&GenMachineInsnInfo(args), x86_64_insn_info_.regs_) {
     if constexpr (std::tuple_size_v<ConstructorArgsTuple> > 0) {
-      constexpr int kConditionalsOperandsCount =
-          (device_arch_info::kIsCondition<Operands> + ... + 0);
-      static_assert(kConditionalsOperandsCount <= 1);
-      constexpr int kImmediateOperandsCount = (device_arch_info::kIsImmediate<Operands> + ... + 0);
-      static_assert(kImmediateOperandsCount <= 1);
-      constexpr int kMemoryOperandsCount = (device_arch_info::kIsMemoryOperand<Operands> + ... + 0);
-      static_assert(kMemoryOperandsCount <= 2);
+      static_assert(device_arch_info::kCountConditions<OperandsTuple> <= 1);
+      static_assert(device_arch_info::kCountImmediates<OperandsTuple> <= 1);
+      static_assert(device_arch_info::kCountMemoryOperands<OperandsTuple> <= 2);
       std::apply(
           [this]<typename... ConstructorArgs>(ConstructorArgs... args) {
             // Suppress spurious warnings.
@@ -443,7 +441,7 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
   }
 
   static constexpr std::array<MachineInsnInfo,
-                              1 << (2 * (device_arch_info::kIsMemoryOperand<Operands> + ... + 0))>
+                              1 << (2 * device_arch_info::kCountMemoryOperands<OperandsTuple>)>
       kInfos = GenMachineInsnInfos();
   // Note: kInfo has well-defined meaning – it's information about intrinsic with all MemoryOperand
   // types ignored.
@@ -453,24 +451,17 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
   static constexpr const MachineInsnInfo& kInfo = kInfos[0];
 
   int NumRegOperands() {
-    constexpr int kMemoryOperandsCount = (device_arch_info::kIsMemoryOperand<Operands> + ... + 0);
-    if constexpr (kMemoryOperandsCount == 0) {
+    if constexpr (device_arch_info::kCountMemoryOperands<OperandsTuple> == 0) {
       return kInfo.num_reg_operands;
     } else {
       return kInfo.num_reg_operands + std::popcount(opcode() >> kLowMachineOpcodeBits);
     }
   }
 
-  const MachineRegKind& RegKindAt(int i) {
-    constexpr int kMemoryOperandsCount = (device_arch_info::kIsMemoryOperand<Operands> + ... + 0);
-    constexpr int kMemoryOperandsCountMask = (1 << (2 * kMemoryOperandsCount)) - 1;
-    return kInfos[(opcode() >> kLowMachineOpcodeBits) & kMemoryOperandsCountMask].reg_kinds[i];
-  }
-
   std::string GetDebugString() const override {
     std::string s(kMnemo);
     // Code below assumes that we have at most two memory operands.
-    static_assert((device_arch_info::kIsMemoryOperand<Operands> + ... + 0) <= 2);
+    static_assert(device_arch_info::kCountMemoryOperands<OperandsTuple> <= 2);
     size_t arg_idx{}, reg_idx{}, mem_idx{};
     (
         [&s, &arg_idx, &reg_idx, &mem_idx, this]<typename Operand> {
@@ -543,7 +534,7 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
       FATAL("Attempt to emit SSA pseudo-instruction");
     } else {
       // Code below assumes that we have at most two memory operands.
-      static_assert((device_arch_info::kIsMemoryOperand<Operands> + ... + 0) <= 2);
+      static_assert(device_arch_info::kCountMemoryOperands<OperandsTuple> <= 2);
       size_t reg_idx{}, mem_idx{};
       std::apply(kEmitInsnFunc,
                  std::tuple_cat(
@@ -613,7 +604,7 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
     if constexpr (kSSAMode == kSSA) {
       MachineInsnList result(arena);
       // Code below assumes that we have at most two memory operands.
-      static_assert((device_arch_info::kIsMemoryOperand<Operands> + ... + 0) <= 2);
+      static_assert(device_arch_info::kCountMemoryOperands<OperandsTuple> <= 2);
       size_t kind_idx{}, reg_idx{}, mem_idx{};
       result.push_back(
           NewInArena<MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
@@ -732,10 +723,9 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
 
   template <typename... ConstructorArgs>
   static const MachineInsnInfo& GenMachineInsnInfo(std::tuple<ConstructorArgs...> args) {
-    constexpr int kMemoryOperandsCount =
-        (std::is_same_v<ConstructorArgs, const MemoryOperand&> + ... + 0);
-    static_assert(kMemoryOperandsCount <= 2);
-    if constexpr (kMemoryOperandsCount == 0) {
+    // Code below assumes that we have at most two memory operands.
+    static_assert(device_arch_info::kCountMemoryOperands<OperandsTuple> <= 2);
+    if constexpr (device_arch_info::kCountMemoryOperands<OperandsTuple> == 0) {
       return kInfos[0];
     } else {
       return std::apply(
@@ -850,7 +840,7 @@ constexpr auto MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                                                             std::tuple<Operands...>>,
                            kSSAMode>::GenMachineInsnInfos()
     -> std::array<MachineInsn::MachineInsnInfo,
-                  1 << (2 * (device_arch_info::kIsMemoryOperand<Operands> + ... + 0))> {
+                  1 << (2 * device_arch_info::kCountMemoryOperands<OperandsTuple>)> {
   constexpr int kMemoryOperandsCount = (device_arch_info::kIsMemoryOperand<Operands> + ... + 0);
   if constexpr (kMemoryOperandsCount == 0) {
     return {GenMachineInsnInfo<std::array<bool, 0>{}>()};
