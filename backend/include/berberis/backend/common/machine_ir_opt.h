@@ -21,7 +21,6 @@ namespace berberis {
 
 class MachineIR;
 
-void RemoveNopPseudoCopy(MachineIR* machine_ir);
 void RemoveForwarderBlocks(MachineIR* machine_ir);
 void MoveColdBlocksToEnd(MachineIR* machine_ir);
 
