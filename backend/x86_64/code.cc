@@ -26,26 +26,26 @@ namespace x86_64 {
 
 namespace {
 
-constexpr MachineInsnInfo kEnterInfo = {
+constexpr MachineInsnInfo<6> kEnterInfo = {
     kMachineOpEnter,
     6,
-    {
+    {{
         {&kRegisterClass<device_arch_info::R8>, MachineRegKind::kDef},
         {&kRegisterClass<device_arch_info::R9>, MachineRegKind::kDef},
         {&kRegisterClass<device_arch_info::R10>, MachineRegKind::kDef},
         {&kRegisterClass<device_arch_info::R11>, MachineRegKind::kDef},
         {&kRegisterClass<device_arch_info::R12>, MachineRegKind::kDef},
         {&kRegisterClass<device_arch_info::R13>, MachineRegKind::kDef},
-    },
+    }},
     // If all guest ABI registers are overwritten without a use in the region
     // Enter may became dead and can be removed.
     // TODO(b/363608817): Try removing side effects declaration.
     kMachineInsnSideEffects};
 
-constexpr MachineInsnInfo kCallImmInfo = {
+constexpr MachineInsnInfo<26> kCallImmInfo = {
     kMachineOpCallImm,
     26,
-    {
+    {{
         {&kRegisterClass<device_arch_info::RAX>, MachineRegKind::kDef},
         {&kRegisterClass<device_arch_info::RDI>, MachineRegKind::kDef},
         {&kRegisterClass<device_arch_info::RSI>, MachineRegKind::kDef},
@@ -72,20 +72,20 @@ constexpr MachineInsnInfo kCallImmInfo = {
         {&kRegisterClass<device_arch_info::XMM14>, MachineRegKind::kDef},
         {&kRegisterClass<device_arch_info::XMM15>, MachineRegKind::kDef},
         {&kRegisterClass<device_arch_info::FLAGS>, MachineRegKind::kDef},
-    },
+    }},
     kMachineInsnSideEffects};
 
-constexpr MachineInsnInfo kCallImmIntArgInfo = {kMachineOpCallImmArg,
-                                                1,
-                                                {{&kReg64, MachineRegKind::kUse}},
-                                                // Is implicitly part of CallImm.
-                                                kMachineInsnSideEffects};
+constexpr MachineInsnInfo<1> kCallImmIntArgInfo = {kMachineOpCallImmArg,
+                                                   1,
+                                                   {{{&kReg64, MachineRegKind::kUse}}},
+                                                   // Is implicitly part of CallImm.
+                                                   kMachineInsnSideEffects};
 
-constexpr MachineInsnInfo kCallImmXmmArgInfo = {kMachineOpCallImmArg,
-                                                1,
-                                                {{&kXmmReg, MachineRegKind::kUse}},
-                                                // Is implicitly part of CallImm.
-                                                kMachineInsnSideEffects};
+constexpr MachineInsnInfo<1> kCallImmXmmArgInfo = {kMachineOpCallImmArg,
+                                                   1,
+                                                   {{{&kXmmReg, MachineRegKind::kUse}}},
+                                                   // Is implicitly part of CallImm.
+                                                   kMachineInsnSideEffects};
 
 constexpr MachineRegKind kPseudoCondBranchInfo[] = {{&kFLAGS, MachineRegKind::kUse}};
 

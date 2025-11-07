@@ -125,7 +125,7 @@ template <size_t kMaxMachineRegOperands>
 struct MachineInsnInfo {
   MachineOpcode opcode;
   int num_reg_operands;
-  MachineRegKind reg_kinds[kMaxMachineRegOperands];
+  std::array<MachineRegKind, kMaxMachineRegOperands> reg_kinds;
   MachineInsnKind kind;
   constexpr int InputRegistersCount() const {
     int result = 0;
@@ -208,7 +208,11 @@ class MachineInsnX86_64 : public MachineInsn {
 
   template <size_t kMaxMachineRegOperands>
   explicit MachineInsnX86_64(const MachineInsnInfo<kMaxMachineRegOperands>* info, MachineReg* regs)
-      : MachineInsn(info->opcode, info->num_reg_operands, info->reg_kinds, regs, info->kind) {}
+      : MachineInsn(info->opcode,
+                    info->num_reg_operands,
+                    std::begin(info->reg_kinds),
+                    regs,
+                    info->kind) {}
 
  private:
   struct {
