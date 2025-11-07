@@ -55,7 +55,7 @@ void ExecuteGuest(ThreadState* state) {
     }
 
     if (config::kTraceGeneratedCode) {
-      TRACE("RunGeneratedCode @ 0x%zx", pc);
+      TRACE("RunGeneratedCode @ 0x%zx (code=0x%zx)", pc, static_cast<uintptr_t>(code));
     }
 
     // ATTENTION: this should be the only place to run translated code!
