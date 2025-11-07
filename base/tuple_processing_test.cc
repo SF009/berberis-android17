@@ -70,6 +70,13 @@ constexpr bool TestFunc() {
   static_assert(std::is_same_v<TypesToTypes::Zip<TupleType<char, int&>, std::array<long, 2>>,
                                std::tuple<std::pair<char, long>, std::pair<int&, long>>>);
 
+  // Enumerate for values.
+  static_assert(ValuesToValues::Enumerate(TupleType{'a', 42}) ==
+                std::tuple{std::pair{MetaValue<0>{}, 'a'}, std::pair{MetaValue<1>{}, 42}});
+  static_assert(std::is_same_v<decltype(ValuesToValues::Enumerate(TupleType{'a', 42})),
+                               std::tuple<std::pair<MetaValue<std::size_t{0}>, char>,
+                                          std::pair<MetaValue<std::size_t{1}>, int>>>);
+
   constexpr std::tuple<const int&, char> kForEachTupleIn{kForEachInt1, 'A'};
 
   // Test ForEach to types.
@@ -192,11 +199,113 @@ constexpr bool TestFunc() {
   }();
   static_assert(kForEachResult6 == std::array<char, 2>{84, 'l'});
 
-  static_assert(ValuesToValues::Enumerate(TupleType{'a', 42}) ==
-                std::tuple{std::pair{MetaValue<0>{}, 'a'}, std::pair{MetaValue<1>{}, 42}});
-  static_assert(std::is_same_v<decltype(ValuesToValues::Enumerate(TupleType{'a', 42})),
-                               std::tuple<std::pair<MetaValue<std::size_t{0}>, char>,
-                                          std::pair<MetaValue<std::size_t{1}>, int>>>);
+  // Test Map types to values.
+  constexpr std::tuple<const int&, float> kMapTupleOut1{kForEachInt2, float{42.42}};
+  constexpr auto kMapResult1 = TypesToValues::Map<TupleType<const int&, char>>(
+      []<typename T>(const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
+        CHECK_EQ(&kExtraArg1, &kForEachInt1);
+        CHECK_EQ(&kExtraArg2, &kForEachInt2);
+        if constexpr (std::is_same_v<T, char>) {
+          return float{42.42};
+        } else {
+          return std::forward<T>(kForEachInt2);
+        }
+      },
+      kForEachInt1,
+      kForEachInt2);
+  static_assert(kMapResult1 == kMapTupleOut1);
+  static_assert(std::is_same_v<decltype(kMapResult1), const std::tuple<const int&, float>>);
+  // Test Map types to values with a temporary.
+  constexpr std::tuple<const int&, float> kMapTupleOut2{kForEachInt2, float{43.42}};
+  constexpr auto kMapResult2 = TypesToValues::MapWithTemporary<TupleType<const int&, char>, int>(
+      []<typename T>(int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
+        CHECK_EQ(&kExtraArg1, &kForEachInt1);
+        CHECK_EQ(&kExtraArg2, &kForEachInt2);
+        if constexpr (std::is_same_v<T, char>) {
+          return static_cast<float>(42.42 + idx);
+        } else {
+          idx++;
+          return std::forward<T>(kForEachInt2);
+        }
+      },
+      kForEachInt1,
+      kForEachInt2);
+  static_assert(kMapResult2 == kMapTupleOut2);
+  static_assert(std::is_same_v<decltype(kMapResult2), const std::tuple<const int&, float>>);
+  // Test Map types to values with an explicitly initialized temporary.
+  constexpr std::tuple<const int&, float> kMapTupleOut3{kForEachInt2, float{85.42}};
+  constexpr auto kMapResult3 = TypesToValues::MapWithTemporary<TupleType<const int&, char>>(
+      /* idx = */ 42,
+      []<typename T>(int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
+        CHECK_EQ(&kExtraArg1, &kForEachInt1);
+        CHECK_EQ(&kExtraArg2, &kForEachInt2);
+        if constexpr (std::is_same_v<T, char>) {
+          return static_cast<float>(42.42 + idx);
+        } else {
+          idx++;
+          return std::forward<T>(kForEachInt2);
+        }
+      },
+      kForEachInt1,
+      kForEachInt2);
+  static_assert(kMapResult3 == kMapTupleOut3);
+  static_assert(std::is_same_v<decltype(kMapResult3), const std::tuple<const int&, float>>);
+  // Test Map values to values.
+  constexpr std::tuple<const int&, float> kMapTupleOut4{kForEachInt1, float{42.42}};
+  constexpr auto kMapResult4 = ValuesToValues::Map(
+      kForEachTupleIn,
+      []<typename T>(T t, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
+        CHECK_EQ(&kExtraArg1, &kForEachInt1);
+        CHECK_EQ(&kExtraArg2, &kForEachInt2);
+        if constexpr (std::is_same_v<T, char>) {
+          return float{42.42};
+        } else {
+          return std::forward<T>(t);
+        }
+      },
+      kForEachInt1,
+      kForEachInt2);
+  static_assert(kMapResult4 == kMapTupleOut4);
+  static_assert(std::is_same_v<decltype(kMapResult4), const std::tuple<const int&, float>>);
+  // Test Map values to values with a temporary.
+  constexpr std::tuple<const int&, float> kMapTupleOut5{kForEachInt1, float{43.42}};
+  constexpr auto kMapResult5 = ValuesToValues::MapWithTemporary<int>(
+      kForEachTupleIn,
+      []<typename T>(
+          T t, int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
+        CHECK_EQ(&kExtraArg1, &kForEachInt1);
+        CHECK_EQ(&kExtraArg2, &kForEachInt2);
+        if constexpr (std::is_same_v<T, char>) {
+          return static_cast<float>(42.42 + idx);
+        } else {
+          idx++;
+          return std::forward<T>(t);
+        }
+      },
+      kForEachInt1,
+      kForEachInt2);
+  static_assert(kMapResult5 == kMapTupleOut5);
+  static_assert(std::is_same_v<decltype(kMapResult5), const std::tuple<const int&, float>>);
+  // Test Map values to values with an explicitly initialized temporary.
+  constexpr std::tuple<const int&, float> kMapTupleOut6{kForEachInt1, float{85.42}};
+  constexpr auto kMapResult6 = ValuesToValues::MapWithTemporary(
+      kForEachTupleIn,
+      /* idx = */ 42,
+      []<typename T>(
+          T t, int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
+        CHECK_EQ(&kExtraArg1, &kForEachInt1);
+        CHECK_EQ(&kExtraArg2, &kForEachInt2);
+        if constexpr (std::is_same_v<T, char>) {
+          return static_cast<float>(42.42 + idx);
+        } else {
+          idx++;
+          return std::forward<T>(t);
+        }
+      },
+      kForEachInt1,
+      kForEachInt2);
+  static_assert(kMapResult6 == kMapTupleOut6);
+  static_assert(std::is_same_v<decltype(kMapResult6), const std::tuple<const int&, float>>);
 
   // Test Produce from types.
   constexpr auto kProduceResult1 =
@@ -349,114 +458,6 @@ constexpr bool TestFunc() {
       kForEachInt1,
       kForEachInt2);
   static_assert(kProduceResult8 == std::array<char, 2>{85, 'n'});
-
-  // Test Map types to values.
-  constexpr std::tuple<const int&, float> kMapTupleOut1{kForEachInt2, float{42.42}};
-  constexpr auto kMapResult1 = TypesToValues::Map<TupleType<const int&, char>>(
-      []<typename T>(const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
-        CHECK_EQ(&kExtraArg1, &kForEachInt1);
-        CHECK_EQ(&kExtraArg2, &kForEachInt2);
-        if constexpr (std::is_same_v<T, char>) {
-          return float{42.42};
-        } else {
-          return std::forward<T>(kForEachInt2);
-        }
-      },
-      kForEachInt1,
-      kForEachInt2);
-  static_assert(kMapResult1 == kMapTupleOut1);
-  static_assert(std::is_same_v<decltype(kMapResult1), const std::tuple<const int&, float>>);
-  // Test Map types to values with a temporary.
-  constexpr std::tuple<const int&, float> kMapTupleOut2{kForEachInt2, float{43.42}};
-  constexpr auto kMapResult2 = TypesToValues::MapWithTemporary<TupleType<const int&, char>, int>(
-      []<typename T>(int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
-        CHECK_EQ(&kExtraArg1, &kForEachInt1);
-        CHECK_EQ(&kExtraArg2, &kForEachInt2);
-        if constexpr (std::is_same_v<T, char>) {
-          return static_cast<float>(42.42 + idx);
-        } else {
-          idx++;
-          return std::forward<T>(kForEachInt2);
-        }
-      },
-      kForEachInt1,
-      kForEachInt2);
-  static_assert(kMapResult2 == kMapTupleOut2);
-  static_assert(std::is_same_v<decltype(kMapResult2), const std::tuple<const int&, float>>);
-  // Test Map types to values with an explicitly initialized temporary.
-  constexpr std::tuple<const int&, float> kMapTupleOut3{kForEachInt2, float{85.42}};
-  constexpr auto kMapResult3 = TypesToValues::MapWithTemporary<TupleType<const int&, char>>(
-      /* idx = */ 42,
-      []<typename T>(int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
-        CHECK_EQ(&kExtraArg1, &kForEachInt1);
-        CHECK_EQ(&kExtraArg2, &kForEachInt2);
-        if constexpr (std::is_same_v<T, char>) {
-          return static_cast<float>(42.42 + idx);
-        } else {
-          idx++;
-          return std::forward<T>(kForEachInt2);
-        }
-      },
-      kForEachInt1,
-      kForEachInt2);
-  static_assert(kMapResult3 == kMapTupleOut3);
-  static_assert(std::is_same_v<decltype(kMapResult3), const std::tuple<const int&, float>>);
-  // Test Map values to values.
-  constexpr std::tuple<const int&, float> kMapTupleOut4{kForEachInt1, float{42.42}};
-  constexpr auto kMapResult4 = ValuesToValues::Map(
-      kForEachTupleIn,
-      []<typename T>(T t, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
-        CHECK_EQ(&kExtraArg1, &kForEachInt1);
-        CHECK_EQ(&kExtraArg2, &kForEachInt2);
-        if constexpr (std::is_same_v<T, char>) {
-          return float{42.42};
-        } else {
-          return std::forward<T>(t);
-        }
-      },
-      kForEachInt1,
-      kForEachInt2);
-  static_assert(kMapResult4 == kMapTupleOut4);
-  static_assert(std::is_same_v<decltype(kMapResult4), const std::tuple<const int&, float>>);
-  // Test Map values to values with a temporary.
-  constexpr std::tuple<const int&, float> kMapTupleOut5{kForEachInt1, float{43.42}};
-  constexpr auto kMapResult5 = ValuesToValues::MapWithTemporary<int>(
-      kForEachTupleIn,
-      []<typename T>(
-          T t, int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
-        CHECK_EQ(&kExtraArg1, &kForEachInt1);
-        CHECK_EQ(&kExtraArg2, &kForEachInt2);
-        if constexpr (std::is_same_v<T, char>) {
-          return static_cast<float>(42.42 + idx);
-        } else {
-          idx++;
-          return std::forward<T>(t);
-        }
-      },
-      kForEachInt1,
-      kForEachInt2);
-  static_assert(kMapResult5 == kMapTupleOut5);
-  static_assert(std::is_same_v<decltype(kMapResult5), const std::tuple<const int&, float>>);
-  // Test Map values to values with an explicitly initialized temporary.
-  constexpr std::tuple<const int&, float> kMapTupleOut6{kForEachInt1, float{85.42}};
-  constexpr auto kMapResult6 = ValuesToValues::MapWithTemporary(
-      kForEachTupleIn,
-      /* idx = */ 42,
-      []<typename T>(
-          T t, int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
-        CHECK_EQ(&kExtraArg1, &kForEachInt1);
-        CHECK_EQ(&kExtraArg2, &kForEachInt2);
-        if constexpr (std::is_same_v<T, char>) {
-          return static_cast<float>(42.42 + idx);
-        } else {
-          idx++;
-          return std::forward<T>(t);
-        }
-      },
-      kForEachInt1,
-      kForEachInt2);
-  static_assert(kMapResult6 == kMapTupleOut6);
-  static_assert(std::is_same_v<decltype(kMapResult6), const std::tuple<const int&, float>>);
 
   static_assert(ValuesToValues::Zip(std::array{2, 42}, TupleType{'a', 3.00}) ==
                 std::tuple{std::pair{2, 'a'}, std::pair{42, 3.00}});
