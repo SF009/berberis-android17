@@ -32,6 +32,7 @@
 #include "berberis/base/arena_alloc.h"
 #include "berberis/base/config_globals.h"
 #include "berberis/base/stringprintf.h"
+#include "berberis/base/tuple_processing.h"
 #include "berberis/device_arch_info/x86_64/device_arch_info.h"
 #include "berberis/guest_state/guest_state_arch.h"
 
@@ -427,16 +428,36 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
       static_assert(device_arch_info::kCountConditions<OperandsTuple> <= 1);
       static_assert(device_arch_info::kCountImmediates<OperandsTuple> <= 1);
       static_assert(device_arch_info::kCountMemoryOperands<OperandsTuple> <= 2);
-      std::apply(
-          [this]<typename... ConstructorArgs>(ConstructorArgs... args) {
-            // Suppress spurious warnings.
-            // See
-            // https://github.com/llvm/llvm-project/issues/34798#issuecomment-980989495
-            (void)this;
-            size_t reg_idx = 0, mem_idx = 0;
-            (ProcessConstructorArg<ConstructorArgs>(reg_idx, mem_idx, args), ...);
-          },
-          args);
+      ValuesToValues::ForEachWithTemporary(
+          args,
+          /* reg_idx, mem_idx = */ std::tuple{size_t{0}, size_t{0}},
+          [this]<typename ConstructorArg>(ConstructorArg arg, std::tuple<size_t, size_t>& indexes) {
+            if constexpr (std::is_same_v<ConstructorArg, Assembler::Condition>) {
+              MachineInsnX86_64::set_cond(arg);
+            } else if constexpr (std::is_integral_v<ConstructorArg>) {
+              MachineInsnX86_64::set_imm(arg);
+            } else if constexpr (std::is_same_v<ConstructorArg, MachineReg>) {
+              auto& [reg_idx, mem_idx] = indexes;
+              MachineInsnX86_64::SetRegAt(reg_idx++, arg);
+            } else if constexpr (std::is_same_v<ConstructorArg, const MemoryOperand&>) {
+              auto& [reg_idx, mem_idx] = indexes;
+              if (arg.base != kInvalidMachineReg) {
+                MachineInsnX86_64::SetRegAt(reg_idx++, arg.base);
+              }
+              if (arg.index != kInvalidMachineReg) {
+                MachineInsnX86_64::SetRegAt(reg_idx++, arg.index);
+              }
+              if (++mem_idx == 1) {
+                MachineInsnX86_64::set_disp(arg.disp);
+                MachineInsnX86_64::set_scale(arg.scale);
+              } else if (mem_idx == 2) {
+                MachineInsnX86_64::set_disp2(arg.disp);
+                MachineInsnX86_64::set_scale2(arg.scale);
+              }
+            } else {
+              static_assert(kDependentTypeFalse<ConstructorArg>);
+            }
+          });
     }
   }
 
@@ -459,12 +480,13 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
   }
 
   std::string GetDebugString() const override {
-    std::string s(kMnemo);
     // Code below assumes that we have at most two memory operands.
     static_assert(device_arch_info::kCountMemoryOperands<OperandsTuple> <= 2);
-    size_t arg_idx{}, reg_idx{}, mem_idx{};
-    (
-        [&s, &arg_idx, &reg_idx, &mem_idx, this]<typename Operand> {
+    std::string s = TypesToValues::ProduceWithTemporary<std::tuple<Operands...>>(
+        /* s = */ std::string{kMnemo},
+        /* arg_idx, reg_idx, mem_idx = */ std::tuple{size_t{0}, size_t{0}, size_t{0}},
+        [this]<typename Operand>(std::string& s, std::tuple<size_t, size_t, size_t>& indexes) {
+          auto& [arg_idx, reg_idx, mem_idx] = indexes;
           if (arg_idx == 0) {
             s += " ";
           } else {
@@ -502,15 +524,15 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
             } else {
               s += StringPrintf("[0x%x]", disp);
             }
-          } else if (kSSAMode == kSSA && device_arch_info::kIsImplicitReg<Operands> &&
-                     Operands::kUsage == device_arch_info::kUseDef) {
+          } else if (kSSAMode == kSSA && device_arch_info::kIsImplicitReg<Operand> &&
+                     Operand::kUsage == device_arch_info::kUseDef) {
             s += StringPrintf("(%s", GetRegOperandDebugString(this, reg_idx++).c_str());
             s += "/";
             s += StringPrintf("%s)", GetRegOperandDebugString(this, reg_idx++).c_str());
           } else if constexpr (device_arch_info::kIsImplicitReg<Operand>) {
             s += StringPrintf("(%s)", GetRegOperandDebugString(this, reg_idx++).c_str());
-          } else if (kSSAMode == kSSA && device_arch_info::kIsRegister<Operands> &&
-                     Operands::kUsage == device_arch_info::kUseDef) {
+          } else if (kSSAMode == kSSA && device_arch_info::kIsRegister<Operand> &&
+                     Operand::kUsage == device_arch_info::kUseDef) {
             s += GetRegOperandDebugString(this, reg_idx++);
             s += "/";
             s += GetRegOperandDebugString(this, reg_idx++);
@@ -518,9 +540,7 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
             s += GetRegOperandDebugString(this, reg_idx++);
           }
           arg_idx++;
-        }.template operator()<Operands>(),
-        ...);
-
+        });
     if (MachineInsnX86_64::recovery_pc() && !IsConfigFlagSet(kDeterministicTracing)) {
       s += StringPrintf(" <0x%" PRIxPTR ">", MachineInsnX86_64::recovery_pc());
     }
@@ -535,52 +555,52 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
     } else {
       // Code below assumes that we have at most two memory operands.
       static_assert(device_arch_info::kCountMemoryOperands<OperandsTuple> <= 2);
-      size_t reg_idx{}, mem_idx{};
-      std::apply(kEmitInsnFunc,
-                 std::tuple_cat(
-                     std::tuple<CodeEmitter&>{*as}, [&reg_idx, &mem_idx, this]<typename Operand> {
-                       // Suppress spurious warnings.
-                       // See
-                       // https://github.com/llvm/llvm-project/issues/34798#issuecomment-980989495
-                       (void)reg_idx;
-                       (void)mem_idx;
-                       if constexpr (device_arch_info::kIsCondition<Operands>) {
-                         return std::tuple{MachineInsnX86_64::cond()};
-                       } else if constexpr (device_arch_info::kIsImmediate<Operands>) {
-                         return std::tuple{MachineInsnX86_64::imm()};
-                       } else if constexpr (device_arch_info::kIsMemoryOperand<Operands>) {
-                         auto [has_base, has_index] = OpcodeHasMemoryBaseIndex(mem_idx++);
-                         Assembler::Operand operand;
-                         if (has_base) {
-                           operand.base = GetGReg(MachineInsnX86_64::RegAt(reg_idx++));
-                         }
-                         if (has_index) {
-                           operand.index = GetGReg(MachineInsnX86_64::RegAt(reg_idx++));
-                         }
-                         if (mem_idx == 1) {
-                           if (has_index) {
-                             operand.scale = scale();
-                           }
-                           operand.disp = static_cast<int32_t>(disp());
-                         } else /* mem_idx == 2 */ {
-                           CHECK_EQ(mem_idx, 2);
-                           if (has_index) {
-                             operand.scale = scale2();
-                           }
-                           operand.disp = static_cast<int32_t>(disp2());
-                         }
-                         return std::tuple{operand};
-                       } else if constexpr (device_arch_info::kIsImplicitReg<Operand>) {
-                         return reg_idx++, std::tuple{};
-                       } else if constexpr (Operand::Class::kAsRegister == 'x') {
-                         return std::tuple{GetXReg(MachineInsnX86_64::RegAt(reg_idx++))};
-                       } else if constexpr (Operand::Class::kAsRegister == 'r' ||
-                                            Operand::Class::kAsRegister == 'q') {
-                         return std::tuple{GetGReg(MachineInsnX86_64::RegAt(reg_idx++))};
-                       } else {
-                         static_assert(kDependentTypeFalse<Operand>);
-                       }
-                     }.template operator()<Operands>()...));
+      std::apply(
+          kEmitInsnFunc,
+          std::tuple_cat(
+              std::tuple<CodeEmitter&>{*as},
+              TypesToValues::FlatMapWithTemporary<
+                  std::tuple<Operands...>,
+                  /* reg_idx, mem_idx = */ std::tuple<size_t, size_t>>(
+                  [this]<typename Operand>([[maybe_unused]] std::tuple<size_t, size_t>& indexes) {
+                    auto& [reg_idx, mem_idx] = indexes;
+                    if constexpr (device_arch_info::kIsCondition<Operand>) {
+                      return std::tuple{MachineInsnX86_64::cond()};
+                    } else if constexpr (device_arch_info::kIsImmediate<Operand>) {
+                      return std::tuple{MachineInsnX86_64::imm()};
+                    } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
+                      auto [has_base, has_index] = OpcodeHasMemoryBaseIndex(mem_idx++);
+                      Assembler::Operand operand;
+                      if (has_base) {
+                        operand.base = GetGReg(MachineInsnX86_64::RegAt(reg_idx++));
+                      }
+                      if (has_index) {
+                        operand.index = GetGReg(MachineInsnX86_64::RegAt(reg_idx++));
+                      }
+                      if (mem_idx == 1) {
+                        if (has_index) {
+                          operand.scale = scale();
+                        }
+                        operand.disp = static_cast<int32_t>(disp());
+                      } else /* mem_idx == 2 */ {
+                        CHECK_EQ(mem_idx, 2);
+                        if (has_index) {
+                          operand.scale = scale2();
+                        }
+                        operand.disp = static_cast<int32_t>(disp2());
+                      }
+                      return std::tuple{operand};
+                    } else if constexpr (device_arch_info::kIsImplicitReg<Operand>) {
+                      return reg_idx++, std::tuple{};
+                    } else if constexpr (Operand::Class::kAsRegister == 'x') {
+                      return std::tuple{GetXReg(MachineInsnX86_64::RegAt(reg_idx++))};
+                    } else if constexpr (Operand::Class::kAsRegister == 'r' ||
+                                         Operand::Class::kAsRegister == 'q') {
+                      return std::tuple{GetGReg(MachineInsnX86_64::RegAt(reg_idx++))};
+                    } else {
+                      static_assert(kDependentTypeFalse<Operand>);
+                    }
+                  })));
     }
   }
 
@@ -605,7 +625,6 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
       MachineInsnList result(arena);
       // Code below assumes that we have at most two memory operands.
       static_assert(device_arch_info::kCountMemoryOperands<OperandsTuple> <= 2);
-      size_t kind_idx{}, reg_idx{}, mem_idx{};
       result.push_back(
           NewInArena<MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                                                                   kMnemo,
@@ -615,21 +634,17 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                                                                   std::tuple<Operands...>>,
                                  kNoSSA>>(
               arena,
-              std::tuple_cat(
-                  [&kind_idx, &reg_idx, &mem_idx, &result, arena, this]<typename Operand> {
-                    // Suppress spurious warnings.
-                    // See
-                    // https://github.com/llvm/llvm-project/issues/34798#issuecomment-980989495
-                    (void)kind_idx;
-                    (void)reg_idx;
-                    (void)mem_idx;
-                    (void)result;
-                    (void)arena;
-                    if constexpr (device_arch_info::kIsCondition<Operands>) {
-                      return std::tuple{MachineInsnX86_64::cond()};
-                    } else if constexpr (device_arch_info::kIsImmediate<Operands>) {
-                      return std::tuple{MachineInsnX86_64::imm()};
-                    } else if constexpr (device_arch_info::kIsMemoryOperand<Operands>) {
+              TypesToValues::MapWithTemporary<
+                  std::tuple<Operands...>,
+                  /* kind_idx, reg_idx, mem_idx = */ std::tuple<size_t, size_t, size_t>>(
+                  [&result, arena, this]<typename Operand>(
+                      [[maybe_unused]] std::tuple<size_t, size_t, size_t>& indexes) {
+                    auto& [kind_idx, reg_idx, mem_idx] = indexes;
+                    if constexpr (device_arch_info::kIsCondition<Operand>) {
+                      return MachineInsnX86_64::cond();
+                    } else if constexpr (device_arch_info::kIsImmediate<Operand>) {
+                      return MachineInsnX86_64::imm();
+                    } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
                       auto [has_base, has_index] = OpcodeHasMemoryBaseIndex(mem_idx++);
                       MemoryOperand operand;
                       if (has_base) {
@@ -650,7 +665,7 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                         }
                         operand.disp = static_cast<int32_t>(disp2());
                       }
-                      return std::tuple{operand};
+                      return operand;
                     } else if constexpr (device_arch_info::kIsRegister<Operand>) {
                       if (Operand::kUsage == device_arch_info::kUseDef) {
                         auto dst = MachineInsnX86_64::RegAt(reg_idx++);
@@ -660,45 +675,18 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                           result.push_back(NewInArena<PseudoCopy>(
                               arena, dst, src, kInfo.reg_kinds[kind_idx++].RegClass()->reg_size));
                         }
-                        return std::tuple{dst};
+                        return dst;
                       } else {
                         kind_idx++;
-                        return std::tuple{MachineInsnX86_64::RegAt(reg_idx++)};
+                        return MachineInsnX86_64::RegAt(reg_idx++);
                       }
                     } else {
                       static_assert(kDependentTypeFalse<Operand>);
                     }
-                  }.template operator()<Operands>()...)));
+                  })));
       return result;
     } else {
       return {1, NewInArena<MachineInsn, const MachineInsn&>(arena, *this), arena};
-    }
-  }
-
-  template <typename ConstructorArg>
-  void ProcessConstructorArg(size_t& reg_idx, size_t& mem_idx, ConstructorArg arg) {
-    if constexpr (std::is_same_v<ConstructorArg, Assembler::Condition>) {
-      MachineInsnX86_64::set_cond(arg);
-    } else if constexpr (std::is_integral_v<ConstructorArg>) {
-      MachineInsnX86_64::set_imm(arg);
-    } else if constexpr (std::is_same_v<ConstructorArg, MachineReg>) {
-      MachineInsnX86_64::SetRegAt(reg_idx++, arg);
-    } else if constexpr (std::is_same_v<ConstructorArg, MemoryOperand>) {
-      if (arg.base != kInvalidMachineReg) {
-        MachineInsnX86_64::SetRegAt(reg_idx++, arg.base);
-      }
-      if (arg.index != kInvalidMachineReg) {
-        MachineInsnX86_64::SetRegAt(reg_idx++, arg.index);
-      }
-      if (++mem_idx == 1) {
-        MachineInsnX86_64::set_disp(arg.disp);
-        MachineInsnX86_64::set_scale(arg.scale);
-      } else if (mem_idx == 2) {
-        MachineInsnX86_64::set_disp2(arg.disp);
-        MachineInsnX86_64::set_scale2(arg.scale);
-      }
-    } else {
-      static_assert(kDependentTypeFalse<ConstructorArg>);
     }
   }
 
@@ -721,34 +709,31 @@ class MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
     return {base_index_info & 1, base_index_info & 2};
   }
 
-  template <typename... ConstructorArgs>
-  static const MachineInsnInfo& GenMachineInsnInfo(std::tuple<ConstructorArgs...> args) {
+  static const MachineInsnInfo& GenMachineInsnInfo(ConstructorArgsTuple args) {
     // Code below assumes that we have at most two memory operands.
     static_assert(device_arch_info::kCountMemoryOperands<OperandsTuple> <= 2);
     if constexpr (device_arch_info::kCountMemoryOperands<OperandsTuple> == 0) {
       return kInfos[0];
     } else {
-      return std::apply(
-          [](ConstructorArgs... args) -> const MachineInsnInfo& {
-            size_t index = 0;
-            size_t current_bit = 1;
-            (
-                [&index, &current_bit]<typename Arg>(Arg arg) {
-                  if constexpr (std::is_same_v<Arg, const MemoryOperand&>) {
-                    if (arg.base != kInvalidMachineReg) {
-                      index |= current_bit;
-                    }
-                    current_bit <<= 1;
-                    if (arg.index != kInvalidMachineReg) {
-                      index |= current_bit;
-                    }
-                    current_bit <<= 1;
-                  }
-                }.template operator()<const ConstructorArgs&>(args),
-                ...);
-            return kInfos[index];
-          },
-          args);
+      return kInfos[ValuesToValues::ProduceWithTemporary(
+          args,
+          /* index = */ size_t{0},
+          /* current_bit = */ size_t{1},
+          []<typename Arg>(Arg arg, size_t& index, size_t& current_bit) {
+            if constexpr (std::is_same_v<Arg, const MemoryOperand&>) {
+              if (arg.base != kInvalidMachineReg) {
+                index |= current_bit;
+              }
+              current_bit <<= 1;
+              if (arg.index != kInvalidMachineReg) {
+                index |= current_bit;
+              }
+              current_bit <<= 1;
+            } else {
+              static_assert(std::is_same_v<Arg, Assembler::Condition> || std::is_integral_v<Arg> ||
+                            std::is_same_v<Arg, MachineReg>);
+            }
+          })];
     }
   }
 };
@@ -760,7 +745,7 @@ template <auto kEmitInsnFunc,
           typename CPUIDRestriction,
           typename... Operands,
           auto kSSAMode>
-template <auto BaseIndexRegistersUsed>
+template <auto kBaseIndexRegistersUsed>
 constexpr auto MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                                                             kMnemo,
                                                             kSideEffects,
@@ -775,12 +760,10 @@ constexpr auto MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                                               ...))
                                     << kSSAOpcodeBit),
                             .kind = GetInsnKind()};
-  size_t mem_operand_bit_pos = 0;
-  (
+  TypesToValues::ForEachWithTemporary<std::tuple<Operands...>, /* mem_operand_bit_pos = */ size_t>(
       [&opcode = result.opcode,
-       &mem_operand_bit_pos,
        &num_reg_operands = result.num_reg_operands,
-       &reg_kinds = result.reg_kinds]<typename Operand> {
+       &reg_kinds = result.reg_kinds]<typename Operand>(size_t& mem_operand_bit_pos) {
         if constexpr (device_arch_info::kIsRegister<Operand>) {
           static_assert(MachineRegKind::kDef ==
                         static_cast<MachineRegKind::StandardAccess>(device_arch_info::kDef));
@@ -805,25 +788,38 @@ constexpr auto MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
           // Note: normally size of array should match number of memory operands, but that's not
           // true for kInfo where it's zero.
           // TODO(399130034): remove std::size when kInfo is removed.
-          if (std::size(BaseIndexRegistersUsed) > mem_operand_bit_pos &&
-              BaseIndexRegistersUsed[mem_operand_bit_pos]) {
+          if (kBaseIndexRegistersUsed[mem_operand_bit_pos]) {
             reg_kinds[num_reg_operands++] = {&kGeneralReg64, MachineRegKind::kUse};
             opcode = static_cast<MachineOpcode>(
                 opcode | (1 << (kLowMachineOpcodeBits + mem_operand_bit_pos)));
           }
           mem_operand_bit_pos++;
-          if (std::size(BaseIndexRegistersUsed) > mem_operand_bit_pos &&
-              BaseIndexRegistersUsed[mem_operand_bit_pos]) {
+          if (kBaseIndexRegistersUsed[mem_operand_bit_pos]) {
             reg_kinds[num_reg_operands++] = {&kGeneralReg64, MachineRegKind::kUse};
             opcode = static_cast<MachineOpcode>(
                 opcode | (1 << (kLowMachineOpcodeBits + mem_operand_bit_pos)));
           }
           mem_operand_bit_pos++;
         }
-      }.template operator()<Operands>(),
-      ...);
+      });
   return result;
 }
+
+// Array that represents all possible values of memory operands Base+Index settings; eg it goes from
+// {false, false, false, false} to {true, true, true, true} for two memory operands.
+template <size_t kMemoryOperandsCount>
+inline constexpr auto kBaseIndexRegistersUsed =
+    ToArray(TypesToValues::Map<
+            TypesToTypes::Indexes<std::array<std::monostate, 1 << (2 * kMemoryOperandsCount)>>>(
+        []<typename InfoIndex>() {
+          constexpr size_t kInfoIndex = InfoIndex{};
+          std::array<bool, 2 * kMemoryOperandsCount> result;
+          for (size_t index = 0, current_bit = 1; index < 2 * kMemoryOperandsCount;
+               ++index, current_bit <<= 1) {
+            result[index] = kInfoIndex & current_bit;
+          }
+          return result;
+        }));
 
 template <auto kEmitInsnFunc,
           auto kMnemo,
@@ -841,33 +837,17 @@ constexpr auto MachineInsn<device_arch_info::DeviceInsnInfo<kEmitInsnFunc,
                            kSSAMode>::GenMachineInsnInfos()
     -> std::array<MachineInsn::MachineInsnInfo,
                   1 << (2 * device_arch_info::kCountMemoryOperands<OperandsTuple>)> {
-  constexpr int kMemoryOperandsCount = (device_arch_info::kIsMemoryOperand<Operands> + ... + 0);
-  if constexpr (kMemoryOperandsCount == 0) {
+  if constexpr (device_arch_info::kCountMemoryOperands<OperandsTuple> == 0) {
+    // If memory operands count is zero then attempt to convert from std::tuple<> to array fails,
+    // because we don't have a type to deduce array elements types!
     return {GenMachineInsnInfo<std::array<bool, 0>{}>()};
-  } else if constexpr (kMemoryOperandsCount == 1) {
-    return {GenMachineInsnInfo<std::array{false, false}>(),
-            GenMachineInsnInfo<std::array{true, false}>(),
-            GenMachineInsnInfo<std::array{false, true}>(),
-            GenMachineInsnInfo<std::array{true, true}>()};
-  } else if constexpr (kMemoryOperandsCount == 2) {
-    return {GenMachineInsnInfo<std::array{false, false, false, false}>(),
-            GenMachineInsnInfo<std::array{true, false, false, false}>(),
-            GenMachineInsnInfo<std::array{false, true, false, false}>(),
-            GenMachineInsnInfo<std::array{true, true, false, false}>(),
-            GenMachineInsnInfo<std::array{false, false, true, false}>(),
-            GenMachineInsnInfo<std::array{true, false, true, false}>(),
-            GenMachineInsnInfo<std::array{false, true, true, false}>(),
-            GenMachineInsnInfo<std::array{true, true, true, false}>(),
-            GenMachineInsnInfo<std::array{false, false, false, true}>(),
-            GenMachineInsnInfo<std::array{true, false, false, true}>(),
-            GenMachineInsnInfo<std::array{false, true, false, true}>(),
-            GenMachineInsnInfo<std::array{true, true, false, true}>(),
-            GenMachineInsnInfo<std::array{false, false, true, true}>(),
-            GenMachineInsnInfo<std::array{true, false, true, true}>(),
-            GenMachineInsnInfo<std::array{false, true, true, true}>(),
-            GenMachineInsnInfo<std::array{true, true, true, true}>()};
   } else {
-    static_assert(kDependentTypeFalse<std::tuple<Operands...>>);
+    return ToArray(
+        TypesToValues::Map<ValuesToTypes::MetaValues<
+            &kBaseIndexRegistersUsed<device_arch_info::kCountMemoryOperands<OperandsTuple>>>>(
+            []<typename BaseIndexRegistersUsed> {
+              return GenMachineInsnInfo<BaseIndexRegistersUsed::kValue>();
+            }));
   }
 }
 
