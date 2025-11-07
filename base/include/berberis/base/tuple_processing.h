@@ -92,6 +92,16 @@ class TypesToTypes {
   template <typename Type>
   using Enumerate = Zip<Indexes<Type>, Type>;
 
+  template <typename TupleType, auto kLambda>
+  using Filter = FlatMapHelper<TupleType, []<typename Type>() {
+    constexpr bool kAccepted = kLambda.template operator()<Type>();
+    if constexpr (kAccepted) {
+      return static_cast<std::tuple<Type>*>(nullptr);
+    } else {
+      return static_cast<std::tuple<>*>(nullptr);
+    }
+  }>::Result;
+
   // Applies a type-level lambda to each type in the input |Type| tuple.
   // The lambda is expected to return a tuple-like type for each input type.
   // All the resulting tuples are then concatenated ("flattened") into a single tuple.
@@ -403,6 +413,47 @@ class ValuesToValues {
   }
 
   template <typename... ExtraLambdaArgTypes, typename TupleType, typename Lambda>
+  static constexpr decltype(auto) Filter(TupleType tuple,
+                                         Lambda&& lambda,
+                                         ExtraLambdaArgTypes&&... extra_types) {
+    return FilterHelper<ExtraLambdaArgTypes...>(
+        tuple,
+        std::forward<Lambda>(lambda),
+        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+  template <typename TemporaryType,
+            typename... ExtraLambdaArgTypes,
+            typename TupleType,
+            typename Lambda>
+  static constexpr decltype(auto) FilterWithTemporary(TupleType tuple,
+                                                      Lambda&& lambda,
+                                                      ExtraLambdaArgTypes&&... extra_types) {
+    TemporaryType tmp{};
+    return FilterHelper<TemporaryType&, ExtraLambdaArgTypes...>(
+        tuple,
+        std::forward<Lambda>(lambda),
+        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        tmp,
+        std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+  template <typename TemporaryType,
+            typename... ExtraLambdaArgTypes,
+            typename TupleType,
+            typename Lambda>
+  static constexpr decltype(auto) FilterWithTemporary(TupleType tuple,
+                                                      TemporaryType tmp,
+                                                      Lambda&& lambda,
+                                                      ExtraLambdaArgTypes&&... extra_types) {
+    return FilterHelper<TemporaryType&, ExtraLambdaArgTypes...>(
+        tuple,
+        std::forward<Lambda>(lambda),
+        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        tmp,
+        std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+
+  template <typename... ExtraLambdaArgTypes, typename TupleType, typename Lambda>
   static constexpr decltype(auto) FlatMap(TupleType tuple,
                                           Lambda&& lambda,
                                           ExtraLambdaArgTypes&&... extra_types) {
@@ -612,6 +663,28 @@ class ValuesToValues {
   }
 
  private:
+  template <typename... ExtraLambdaArgTypes, typename TupleType, std::size_t... Is, typename Lambda>
+  static constexpr decltype(auto) FilterHelper(TupleType tuple,
+                                               Lambda&& lambda,
+                                               std::index_sequence<Is...>,
+                                               ExtraLambdaArgTypes&&... extra_types) {
+    return std::tuple_cat(
+        [lambda = std::forward<Lambda>(lambda)]<typename ElementType>(
+            ElementType&& element, ExtraLambdaArgTypes&&... extra_types) {
+          auto lambda_result = lambda.template operator()<ElementType>(
+              std::forward<ExtraLambdaArgTypes>(extra_types)...);
+          constexpr bool kCheckResult = decltype(lambda_result){};
+          if constexpr (kCheckResult) {
+            return std::tuple<ElementType>{element};
+          } else {
+            return std::tuple<>{};
+          }
+        }
+            .template operator()<std::tuple_element_t<Is, TupleType>>(
+                std::forward<std::tuple_element_t<Is, TupleType>>(std::get<Is>(tuple)),
+                std::forward<ExtraLambdaArgTypes>(extra_types)...)...);
+  }
+
   template <typename... ExtraLambdaArgTypes, typename TupleType, std::size_t... Is, typename Lambda>
   static constexpr decltype(auto) FlatMapHelper(TupleType tuple,
                                                 Lambda&& lambda,

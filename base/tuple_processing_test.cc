@@ -43,6 +43,11 @@ constexpr bool TestFunc() {
                                std::tuple<std::pair<MetaValue<std::size_t{0}>, char>,
                                           std::pair<MetaValue<std::size_t{1}>, int&>>>);
 
+  static_assert(
+      std::is_same_v<TypesToTypes::Filter<TupleType<char, int&>,
+                                          []<typename T>() { return std::is_same_v<T, char>; }>,
+                     std::tuple<char>>);
+
   // Test mapping by type.
   static_assert(
       std::is_same_v<TypesToTypes::FlatMap<TupleType<char, int&>,
@@ -78,6 +83,79 @@ constexpr bool TestFunc() {
   static_assert(std::is_same_v<decltype(ValuesToValues::Enumerate(TupleType{'a', 42})),
                                std::tuple<std::pair<MetaValue<std::size_t{0}>, char>,
                                           std::pair<MetaValue<std::size_t{1}>, int>>>);
+
+  // Test FlatMap values to values.
+  constexpr std::tuple<const int&> kFilterTupleOut1{kForEachInt1};
+  constexpr auto kFilterResult1 = [&kForEachTupleIn] {
+    int extra_arg1 = 0, extra_arg2 = 0;
+    auto result = ValuesToValues::Filter(
+        kForEachTupleIn,
+        []<typename T>(int& extra_arg1, int& extra_arg2) -> decltype(auto) {
+          extra_arg1 += 1;
+          extra_arg2 -= 1;
+          if constexpr (std::is_same_v<T, const int&>) {
+            return MetaValue<true>{};
+          } else {
+            return MetaValue<false>{};
+          }
+        },
+        extra_arg1,
+        extra_arg2);
+    CHECK_EQ(extra_arg1, 2);
+    CHECK_EQ(extra_arg2, -2);
+    return result;
+  }();
+  static_assert(kFilterResult1 == kFilterTupleOut1);
+  static_assert(std::is_same_v<decltype(kFilterResult1), const std::tuple<const int&>>);
+  // Test FlatMap values to values with a temporary.
+  constexpr std::tuple<const int&> kFilterTupleOut2{kForEachInt1};
+  constexpr auto kFilterResult2 = [&kForEachTupleIn] {
+    int extra_arg1 = 0, extra_arg2 = 0;
+    auto result = ValuesToValues::FilterWithTemporary<int>(
+        kForEachTupleIn,
+        []<typename T>(int& idx, int& extra_arg1, int& extra_arg2) -> decltype(auto) {
+          extra_arg1 += 1;
+          extra_arg2 -= 1;
+          CHECK_EQ(++idx, extra_arg1);
+          if constexpr (std::is_same_v<T, const int&>) {
+            return MetaValue<true>{};
+          } else {
+            return MetaValue<false>{};
+          }
+        },
+        extra_arg1,
+        extra_arg2);
+    CHECK_EQ(extra_arg1, 2);
+    CHECK_EQ(extra_arg2, -2);
+    return result;
+  }();
+  static_assert(kFilterResult2 == kFilterTupleOut2);
+  static_assert(std::is_same_v<decltype(kFilterResult2), const std::tuple<const int&>>);
+  // Test FlatMap values to values with an explicitly initialized temporary.
+  constexpr std::tuple<const int&> kFilterTupleOut3{kForEachInt1};
+  constexpr auto kFilterResult3 = [&kForEachTupleIn] {
+    int extra_arg1 = 0, extra_arg2 = 0;
+    auto result = ValuesToValues::FilterWithTemporary(
+        kForEachTupleIn,
+        /* idx = */ 42,
+        []<typename T>(int& idx, int& extra_arg1, int& extra_arg2) -> decltype(auto) {
+          extra_arg1 += 1;
+          extra_arg2 -= 1;
+          CHECK_EQ(++idx, 42 + extra_arg1);
+          if constexpr (std::is_same_v<T, const int&>) {
+            return MetaValue<true>{};
+          } else {
+            return MetaValue<false>{};
+          }
+        },
+        extra_arg1,
+        extra_arg2);
+    CHECK_EQ(extra_arg1, 2);
+    CHECK_EQ(extra_arg2, -2);
+    return result;
+  }();
+  static_assert(kFilterResult3 == kFilterTupleOut3);
+  static_assert(std::is_same_v<decltype(kFilterResult3), const std::tuple<const int&>>);
 
   // Test FlatMap types to values.
   constexpr std::tuple<const int&, float, char> kFlatMapTupleOut1{kForEachInt2, float{42.42}, 'A'};
@@ -136,7 +214,7 @@ constexpr bool TestFunc() {
       std::is_same_v<decltype(kFlatMapResult3), const std::tuple<const int&, float, char>>);
   // Test FlatMap values to values.
   constexpr std::tuple<const int&, float, char> kFlatMapTupleOut4{kForEachInt1, float{42.42}, 'A'};
-  constexpr auto FlatMapResult4 = ValuesToValues::FlatMap(
+  constexpr auto kFlatMapResult4 = ValuesToValues::FlatMap(
       kForEachTupleIn,
       []<typename T>(T t, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
         CHECK_EQ(&kExtraArg1, &kForEachInt1);
@@ -149,9 +227,9 @@ constexpr bool TestFunc() {
       },
       kForEachInt1,
       kForEachInt2);
-  static_assert(FlatMapResult4 == kFlatMapTupleOut4);
+  static_assert(kFlatMapResult4 == kFlatMapTupleOut4);
   static_assert(
-      std::is_same_v<decltype(FlatMapResult4), const std::tuple<const int&, float, char>>);
+      std::is_same_v<decltype(kFlatMapResult4), const std::tuple<const int&, float, char>>);
   // Test FlatMap values to values with a temporary.
   constexpr std::tuple<const int&, float, char> kFlatMapTupleOut5{kForEachInt1, float{43.42}, 'B'};
   constexpr auto kFlatMapResult5 = ValuesToValues::FlatMapWithTemporary<int>(
@@ -174,7 +252,7 @@ constexpr bool TestFunc() {
       std::is_same_v<decltype(kFlatMapResult5), const std::tuple<const int&, float, char>>);
   // Test FlatMap values to values with an explicitly initialized temporary.
   constexpr std::tuple<const int&, float, char> kFlatMapTupleOut6{kForEachInt1, float{85.42}, 'l'};
-  constexpr auto FlatMapResult6 = ValuesToValues::FlatMapWithTemporary(
+  constexpr auto kFlatMapResult6 = ValuesToValues::FlatMapWithTemporary(
       kForEachTupleIn,
       /* idx = */ 42,
       []<typename T>(
@@ -190,9 +268,9 @@ constexpr bool TestFunc() {
       },
       kForEachInt1,
       kForEachInt2);
-  static_assert(FlatMapResult6 == kFlatMapTupleOut6);
+  static_assert(kFlatMapResult6 == kFlatMapTupleOut6);
   static_assert(
-      std::is_same_v<decltype(FlatMapResult6), const std::tuple<const int&, float, char>>);
+      std::is_same_v<decltype(kFlatMapResult6), const std::tuple<const int&, float, char>>);
 
   // Test ForEach to types.
   constexpr auto kForEachResult1 = [] {
