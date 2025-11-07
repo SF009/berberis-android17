@@ -173,6 +173,40 @@ class TypesToTypes {
 class TypesToValues {
  public:
   template <typename TupleType, typename... ExtraLambdaArgTypes, typename Lambda>
+  static constexpr decltype(auto) FlatMap(Lambda&& lambda, ExtraLambdaArgTypes&&... extra_types) {
+    return FlatMapHelper<TupleType, ExtraLambdaArgTypes...>(
+        std::forward<Lambda>(lambda),
+        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+  template <typename TupleType,
+            typename TemporaryType,
+            typename... ExtraLambdaArgTypes,
+            typename Lambda>
+  static constexpr decltype(auto) FlatMapWithTemporary(Lambda&& lambda,
+                                                       ExtraLambdaArgTypes&&... extra_types) {
+    TemporaryType tmp{};
+    return FlatMapHelper<TupleType, TemporaryType&, ExtraLambdaArgTypes...>(
+        std::forward<Lambda>(lambda),
+        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        tmp,
+        std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+  template <typename TupleType,
+            typename TemporaryType,
+            typename... ExtraLambdaArgTypes,
+            typename Lambda>
+  static constexpr decltype(auto) FlatMapWithTemporary(TemporaryType tmp,
+                                                       Lambda&& lambda,
+                                                       ExtraLambdaArgTypes&&... extra_types) {
+    return FlatMapHelper<TupleType, TemporaryType&, ExtraLambdaArgTypes...>(
+        std::forward<Lambda>(lambda),
+        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        tmp,
+        std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+
+  template <typename TupleType, typename... ExtraLambdaArgTypes, typename Lambda>
   static constexpr void ForEach(Lambda&& lambda, ExtraLambdaArgTypes&&... extra_types) {
     ForEachHelper<TupleType, ExtraLambdaArgTypes...>(
         std::forward<Lambda>(lambda),
@@ -304,6 +338,14 @@ class TypesToValues {
 
  private:
   template <typename TupleType, typename... ExtraLambdaArgTypes, typename Lambda, std::size_t... Is>
+  static constexpr decltype(auto) FlatMapHelper(Lambda&& lambda,
+                                                std::index_sequence<Is...>,
+                                                ExtraLambdaArgTypes&&... extra_types) {
+    return std::tuple_cat(lambda.template operator()<std::tuple_element_t<Is, TupleType>>(
+        std::forward<ExtraLambdaArgTypes>(extra_types)...)...);
+  }
+
+  template <typename TupleType, typename... ExtraLambdaArgTypes, typename Lambda, std::size_t... Is>
   static constexpr void ForEachHelper(Lambda&& lambda,
                                       std::index_sequence<Is...>,
                                       ExtraLambdaArgTypes&&... extra_types) {
@@ -358,6 +400,47 @@ class ValuesToValues {
   template <typename TupleType>
   static constexpr TypesToTypes::Enumerate<TupleType> Enumerate(TupleType tuple) {
     return Zip(TypesToTypes::Indexes<TupleType>{}, tuple);
+  }
+
+  template <typename... ExtraLambdaArgTypes, typename TupleType, typename Lambda>
+  static constexpr decltype(auto) FlatMap(TupleType tuple,
+                                          Lambda&& lambda,
+                                          ExtraLambdaArgTypes&&... extra_types) {
+    return FlatMapHelper<ExtraLambdaArgTypes...>(
+        tuple,
+        std::forward<Lambda>(lambda),
+        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+  template <typename TemporaryType,
+            typename... ExtraLambdaArgTypes,
+            typename TupleType,
+            typename Lambda>
+  static constexpr decltype(auto) FlatMapWithTemporary(TupleType tuple,
+                                                       Lambda&& lambda,
+                                                       ExtraLambdaArgTypes&&... extra_types) {
+    TemporaryType tmp{};
+    return FlatMapHelper<TemporaryType&, ExtraLambdaArgTypes...>(
+        tuple,
+        std::forward<Lambda>(lambda),
+        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        tmp,
+        std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+  template <typename TemporaryType,
+            typename... ExtraLambdaArgTypes,
+            typename TupleType,
+            typename Lambda>
+  static constexpr decltype(auto) FlatMapWithTemporary(TupleType tuple,
+                                                       TemporaryType tmp,
+                                                       Lambda&& lambda,
+                                                       ExtraLambdaArgTypes&&... extra_types) {
+    return FlatMapHelper<TemporaryType&, ExtraLambdaArgTypes...>(
+        tuple,
+        std::forward<Lambda>(lambda),
+        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        tmp,
+        std::forward<ExtraLambdaArgTypes>(extra_types)...);
   }
 
   template <typename... ExtraLambdaArgTypes, typename TupleType, typename Lambda>
@@ -529,6 +612,15 @@ class ValuesToValues {
   }
 
  private:
+  template <typename... ExtraLambdaArgTypes, typename TupleType, std::size_t... Is, typename Lambda>
+  static constexpr decltype(auto) FlatMapHelper(TupleType tuple,
+                                                Lambda&& lambda,
+                                                std::index_sequence<Is...>,
+                                                ExtraLambdaArgTypes&&... extra_types) {
+    return std::tuple_cat(lambda.template operator()<std::tuple_element_t<Is, TupleType>>(
+        std::get<Is>(tuple), std::forward<ExtraLambdaArgTypes>(extra_types)...)...);
+  }
+
   template <typename... ExtraLambdaArgTypes, typename TupleType, std::size_t... Is, typename Lambda>
   static constexpr void ForEachHelper(TupleType tuple,
                                       Lambda&& lambda,

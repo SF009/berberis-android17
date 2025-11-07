@@ -70,6 +70,8 @@ constexpr bool TestFunc() {
   static_assert(std::is_same_v<TypesToTypes::Zip<TupleType<char, int&>, std::array<long, 2>>,
                                std::tuple<std::pair<char, long>, std::pair<int&, long>>>);
 
+  constexpr std::tuple<const int&, char> kForEachTupleIn{kForEachInt1, 'A'};
+
   // Enumerate for values.
   static_assert(ValuesToValues::Enumerate(TupleType{'a', 42}) ==
                 std::tuple{std::pair{MetaValue<0>{}, 'a'}, std::pair{MetaValue<1>{}, 42}});
@@ -77,7 +79,120 @@ constexpr bool TestFunc() {
                                std::tuple<std::pair<MetaValue<std::size_t{0}>, char>,
                                           std::pair<MetaValue<std::size_t{1}>, int>>>);
 
-  constexpr std::tuple<const int&, char> kForEachTupleIn{kForEachInt1, 'A'};
+  // Test FlatMap types to values.
+  constexpr std::tuple<const int&, float, char> kFlatMapTupleOut1{kForEachInt2, float{42.42}, 'A'};
+  constexpr auto kFlatMapResult1 = TypesToValues::FlatMap<TupleType<const int&, char>>(
+      []<typename T>(const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
+        CHECK_EQ(&kExtraArg1, &kForEachInt1);
+        CHECK_EQ(&kExtraArg2, &kForEachInt2);
+        if constexpr (std::is_same_v<T, char>) {
+          return std::tuple{float{42.42}, 'A'};
+        } else {
+          return std::tuple<T>(kForEachInt2);
+        }
+      },
+      kForEachInt1,
+      kForEachInt2);
+  static_assert(kFlatMapResult1 == kFlatMapTupleOut1);
+  static_assert(
+      std::is_same_v<decltype(kFlatMapResult1), const std::tuple<const int&, float, char>>);
+  // Test FlatMap types to values with a temporary.
+  constexpr std::tuple<const int&, float, char> kFlatMapTupleOut2{kForEachInt2, float{43.42}, 'B'};
+  constexpr auto kFlatMapResult2 =
+      TypesToValues::FlatMapWithTemporary<TupleType<const int&, char>, int>(
+          []<typename T>(int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
+            CHECK_EQ(&kExtraArg1, &kForEachInt1);
+            CHECK_EQ(&kExtraArg2, &kForEachInt2);
+            if constexpr (std::is_same_v<T, char>) {
+              return std::tuple{static_cast<float>(42.42 + idx), static_cast<char>('A' + idx)};
+            } else {
+              idx++;
+              return std::tuple<T>(kForEachInt2);
+            }
+          },
+          kForEachInt1,
+          kForEachInt2);
+  static_assert(kFlatMapResult2 == kFlatMapTupleOut2);
+  static_assert(
+      std::is_same_v<decltype(kFlatMapResult2), const std::tuple<const int&, float, char>>);
+  // Test FlatMap types to values with an explicitly initialized temporary.
+  constexpr std::tuple<const int&, float, char> kFlatMapTupleOut3{kForEachInt2, float{85.42}, 'l'};
+  constexpr auto kFlatMapResult3 = TypesToValues::FlatMapWithTemporary<TupleType<const int&, char>>(
+      /* idx = */ 42,
+      []<typename T>(int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
+        CHECK_EQ(&kExtraArg1, &kForEachInt1);
+        CHECK_EQ(&kExtraArg2, &kForEachInt2);
+        if constexpr (std::is_same_v<T, char>) {
+          return std::tuple{static_cast<float>(42.42 + idx), static_cast<char>('A' + idx)};
+        } else {
+          idx++;
+          return std::tuple<T>(kForEachInt2);
+        }
+      },
+      kForEachInt1,
+      kForEachInt2);
+  static_assert(kFlatMapResult3 == kFlatMapTupleOut3);
+  static_assert(
+      std::is_same_v<decltype(kFlatMapResult3), const std::tuple<const int&, float, char>>);
+  // Test FlatMap values to values.
+  constexpr std::tuple<const int&, float, char> kFlatMapTupleOut4{kForEachInt1, float{42.42}, 'A'};
+  constexpr auto FlatMapResult4 = ValuesToValues::FlatMap(
+      kForEachTupleIn,
+      []<typename T>(T t, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
+        CHECK_EQ(&kExtraArg1, &kForEachInt1);
+        CHECK_EQ(&kExtraArg2, &kForEachInt2);
+        if constexpr (std::is_same_v<T, char>) {
+          return std::tuple{float{42.42}, 'A'};
+        } else {
+          return std::tuple<T>{t};
+        }
+      },
+      kForEachInt1,
+      kForEachInt2);
+  static_assert(FlatMapResult4 == kFlatMapTupleOut4);
+  static_assert(
+      std::is_same_v<decltype(FlatMapResult4), const std::tuple<const int&, float, char>>);
+  // Test FlatMap values to values with a temporary.
+  constexpr std::tuple<const int&, float, char> kFlatMapTupleOut5{kForEachInt1, float{43.42}, 'B'};
+  constexpr auto kFlatMapResult5 = ValuesToValues::FlatMapWithTemporary<int>(
+      kForEachTupleIn,
+      []<typename T>(
+          T t, int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
+        CHECK_EQ(&kExtraArg1, &kForEachInt1);
+        CHECK_EQ(&kExtraArg2, &kForEachInt2);
+        if constexpr (std::is_same_v<T, char>) {
+          return std::tuple{static_cast<float>(42.42 + idx), static_cast<char>('A' + idx)};
+        } else {
+          idx++;
+          return std::tuple<T>{t};
+        }
+      },
+      kForEachInt1,
+      kForEachInt2);
+  static_assert(kFlatMapResult5 == kFlatMapTupleOut5);
+  static_assert(
+      std::is_same_v<decltype(kFlatMapResult5), const std::tuple<const int&, float, char>>);
+  // Test FlatMap values to values with an explicitly initialized temporary.
+  constexpr std::tuple<const int&, float, char> kFlatMapTupleOut6{kForEachInt1, float{85.42}, 'l'};
+  constexpr auto FlatMapResult6 = ValuesToValues::FlatMapWithTemporary(
+      kForEachTupleIn,
+      /* idx = */ 42,
+      []<typename T>(
+          T t, int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
+        CHECK_EQ(&kExtraArg1, &kForEachInt1);
+        CHECK_EQ(&kExtraArg2, &kForEachInt2);
+        if constexpr (std::is_same_v<T, char>) {
+          return std::tuple{static_cast<float>(42.42 + idx), char('A' + idx)};
+        } else {
+          idx++;
+          return std::tuple<T>{t};
+        }
+      },
+      kForEachInt1,
+      kForEachInt2);
+  static_assert(FlatMapResult6 == kFlatMapTupleOut6);
+  static_assert(
+      std::is_same_v<decltype(FlatMapResult6), const std::tuple<const int&, float, char>>);
 
   // Test ForEach to types.
   constexpr auto kForEachResult1 = [] {
