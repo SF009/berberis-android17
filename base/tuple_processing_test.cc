@@ -39,6 +39,20 @@ constexpr int kForEachInt2 = 2;
 
 template <template <typename, typename> typename TupleType>
 constexpr bool TestFunc() {
+  static_assert(TypesToTypes::All<TupleType<char, char>,
+                                  []<typename T>() { return std::is_same_v<T, char>; }>{});
+  static_assert(!TypesToTypes::All<TupleType<char, int&>,
+                                   []<typename T>() { return std::is_same_v<T, char>; }>{});
+  static_assert(!TypesToTypes::All<TupleType<float, int&>,
+                                   []<typename T>() { return std::is_same_v<T, char>; }>{});
+
+  static_assert(TypesToTypes::Any<TupleType<char, char>,
+                                  []<typename T>() { return std::is_same_v<T, char>; }>{});
+  static_assert(TypesToTypes::Any<TupleType<char, int&>,
+                                  []<typename T>() { return std::is_same_v<T, char>; }>{});
+  static_assert(!TypesToTypes::Any<TupleType<float, int&>,
+                                   []<typename T>() { return std::is_same_v<T, char>; }>{});
+
   static_assert(std::is_same_v<TypesToTypes::Enumerate<TupleType<char, int&>>,
                                std::tuple<std::pair<MetaValue<std::size_t{0}>, char>,
                                           std::pair<MetaValue<std::size_t{1}>, int&>>>);
@@ -76,6 +90,130 @@ constexpr bool TestFunc() {
                                std::tuple<std::pair<char, long>, std::pair<int&, long>>>);
 
   constexpr std::tuple<const int&, char> kForEachTupleIn{kForEachInt1, 'A'};
+
+  // Test All and Any types to values.
+  static_assert([] {
+    int extra_arg1 = 0, extra_arg2 = 0;
+    bool result = TypesToValues::All<std::tuple<char, const int&>>(
+        []<typename T>(int& extra_arg1, int& extra_arg2) {
+          extra_arg1 += 1;
+          extra_arg2 -= 1;
+          if constexpr (std::is_same_v<T, const int&>) {
+            return MetaValue<true>{};
+          } else {
+            return MetaValue<false>{};
+          }
+        },
+        extra_arg1,
+        extra_arg2);
+    // Short-circuit logic.
+    CHECK_EQ(extra_arg1, 1);
+    CHECK_EQ(extra_arg2, -1);
+    return !result;
+  }());
+  static_assert([] {
+    int extra_arg1 = 0, extra_arg2 = 0;
+    bool result = TypesToValues::Any<std::tuple<char, const int&>>(
+        []<typename T>(int& extra_arg1, int& extra_arg2) {
+          extra_arg1 += 1;
+          extra_arg2 -= 1;
+          if constexpr (std::is_same_v<T, char>) {
+            return MetaValue<true>{};
+          } else {
+            return MetaValue<false>{};
+          }
+        },
+        extra_arg1,
+        extra_arg2);
+    // Short-circuit logic.
+    CHECK_EQ(extra_arg1, 1);
+    CHECK_EQ(extra_arg2, -1);
+    return result;
+  }());
+  // Test All and Any types to values with a temporary.
+  static_assert([] {
+    int extra_arg1 = 0, extra_arg2 = 0;
+    bool result = TypesToValues::AllWithTemporary<std::tuple<char, const int&>, int>(
+        []<typename T>(int& idx, int& extra_arg1, int& extra_arg2) {
+          extra_arg1 += 1;
+          extra_arg2 -= 1;
+          CHECK_EQ(++idx, extra_arg1);
+          if constexpr (std::is_same_v<T, const int&>) {
+            return MetaValue<true>{};
+          } else {
+            return MetaValue<false>{};
+          }
+        },
+        extra_arg1,
+        extra_arg2);
+    // Short-circuit logic.
+    CHECK_EQ(extra_arg1, 1);
+    CHECK_EQ(extra_arg2, -1);
+    return !result;
+  }());
+  static_assert([] {
+    int extra_arg1 = 0, extra_arg2 = 0;
+    bool result = TypesToValues::AnyWithTemporary<std::tuple<char, const int&>, int>(
+        []<typename T>(int& idx, int& extra_arg1, int& extra_arg2) {
+          extra_arg1 += 1;
+          extra_arg2 -= 1;
+          CHECK_EQ(++idx, extra_arg1);
+          if constexpr (std::is_same_v<T, char>) {
+            return MetaValue<true>{};
+          } else {
+            return MetaValue<false>{};
+          }
+        },
+        extra_arg1,
+        extra_arg2);
+    // Short-circuit logic.
+    CHECK_EQ(extra_arg1, 1);
+    CHECK_EQ(extra_arg2, -1);
+    return result;
+  }());
+  // Test All and Any types to values with an explicitly initialized temporary.
+  static_assert([] {
+    int extra_arg1 = 0, extra_arg2 = 0;
+    bool result = TypesToValues::AllWithTemporary<std::tuple<char, const int&>>(
+        /* idx = */ 42,
+        []<typename T>(int& idx, int& extra_arg1, int& extra_arg2) {
+          extra_arg1 += 1;
+          extra_arg2 -= 1;
+          CHECK_EQ(++idx, 42 + extra_arg1);
+          if constexpr (std::is_same_v<T, const int&>) {
+            return MetaValue<true>{};
+          } else {
+            return MetaValue<false>{};
+          }
+        },
+        extra_arg1,
+        extra_arg2);
+    // Short-circuit logic.
+    CHECK_EQ(extra_arg1, 1);
+    CHECK_EQ(extra_arg2, -1);
+    return !result;
+  }());
+  static_assert([] {
+    int extra_arg1 = 0, extra_arg2 = 0;
+    bool result = TypesToValues::AnyWithTemporary<std::tuple<char, const int&>>(
+        /* idx = */ 42,
+        []<typename T>(int& idx, int& extra_arg1, int& extra_arg2) {
+          extra_arg1 += 1;
+          extra_arg2 -= 1;
+          CHECK_EQ(++idx, 42 + extra_arg1);
+          if constexpr (std::is_same_v<T, char>) {
+            return MetaValue<true>{};
+          } else {
+            return MetaValue<false>{};
+          }
+        },
+        extra_arg1,
+        extra_arg2);
+    // Short-circuit logic.
+    CHECK_EQ(extra_arg1, 1);
+    CHECK_EQ(extra_arg2, -1);
+    return result;
+  }());
 
   // Enumerate for values.
   static_assert(ValuesToValues::Enumerate(TupleType{'a', 42}) ==
