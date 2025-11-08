@@ -246,13 +246,13 @@ template <auto kEmitInsnFunc,
 class DeviceInsnInfo;
 
 template <auto kEmitInsnFunc_,
-          StringLiteral kMnemo,
+          StringLiteral kMnemo_,
           bool kSideEffects_,
           auto GetOpcode,
           typename CPUIDRestriction_,
           typename... Operands_>
 class DeviceInsnInfo<kEmitInsnFunc_,
-                     kMnemo,
+                     kMnemo_,
                      kSideEffects_,
                      GetOpcode,
                      CPUIDRestriction_,
@@ -260,7 +260,10 @@ class DeviceInsnInfo<kEmitInsnFunc_,
     final {
  public:
   static constexpr auto kEmitInsnFunc = kEmitInsnFunc_;
+  static constexpr StringLiteral kMnemo = kMnemo_;
   static constexpr bool kSideEffects = kSideEffects_;
+  template <typename EnumType>
+  static constexpr EnumType kOpcode = GetOpcode.template operator()<EnumType>();
   using CPUIDRestriction = CPUIDRestriction_;
   template <typename Callback, typename... Args>
   constexpr static void ProcessOperands(Callback&& callback, Args&&... args) {
