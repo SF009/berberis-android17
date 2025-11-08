@@ -67,10 +67,9 @@ constexpr bool TestFunc() {
       std::is_same_v<TypesToTypes::FlatMap<TupleType<char, int&>,
                                            []<typename T>() -> decltype(auto) {
                                              if constexpr (std::is_same_v<T, char>) {
-                                               return static_cast<std::tuple<float, float>*>(
-                                                   nullptr);
+                                               return kTypes<float, float>;
                                              } else {
-                                               return static_cast<std::tuple<T>*>(nullptr);
+                                               return kTypes<T>;
                                              }
                                            }>,
                      std::tuple<float, float, int&>>);

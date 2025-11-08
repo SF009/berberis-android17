@@ -339,12 +339,11 @@ class MachineInsn final : public MachineInsnX86_64 {
           []<typename Operand> {
             if constexpr (device_arch_info::kIsRegister<Operand> &&
                           Operand::kUsage == device_arch_info::kUseDef) {
-              return static_cast<std::tuple<
+              return kTypes<
                   device_arch_info::OperandInfo<typename Operand::Class, device_arch_info::kDef>,
-                  device_arch_info::OperandInfo<typename Operand::Class, device_arch_info::kUse>>*>(
-                  nullptr);
+                  device_arch_info::OperandInfo<typename Operand::Class, device_arch_info::kUse>>;
             } else {
-              return static_cast<std::tuple<Operand>*>(nullptr);
+              return kTypes<Operand>;
             }
           }>,
       typename DeviceInsnInfo_::Operands>;
@@ -366,14 +365,14 @@ class MachineInsn final : public MachineInsnX86_64 {
       TypesToTypes::FlatMap<typename DeviceInsnInfo_::Operands, []<typename Operand> {
         if constexpr (device_arch_info::kIsRegister<Operand>) {
           if constexpr (kSSAMode == kSSA && Operand::kUsage == device_arch_info::kUseDef) {
-            return static_cast<std::tuple<MachineReg, MachineReg>*>(nullptr);
+            return kTypes<MachineReg, MachineReg>;
           } else {
-            return static_cast<std::tuple<MachineReg>*>(nullptr);
+            return kTypes<MachineReg>;
           }
         } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
-          return static_cast<std::tuple<MachineReg, MachineReg>*>(nullptr);
+          return kTypes<MachineReg, MachineReg>;
         } else {
-          return static_cast<std::tuple<>*>(nullptr);
+          return kTypes<>;
         }
       }>>>;
   template <auto>
@@ -388,15 +387,15 @@ class MachineInsn final : public MachineInsnX86_64 {
       TypesToTypes::FlatMap<typename DeviceInsnInfo::Operands, []<typename Operand> {
         if constexpr (device_arch_info::kIsCondition<Operand> ||
                       device_arch_info::kIsImmediate<Operand>) {
-          return static_cast<std::tuple<typename Operand::Class::Type>*>(nullptr);
+          return kTypes<typename Operand::Class::Type>;
         } else if constexpr (device_arch_info::kIsRegister<Operand>) {
           if constexpr (kSSAMode == kSSA && Operand::kUsage == device_arch_info::kUseDef) {
-            return static_cast<std::tuple<MachineReg, MachineReg>*>(nullptr);
+            return kTypes<MachineReg, MachineReg>;
           } else {
-            return static_cast<std::tuple<MachineReg>*>(nullptr);
+            return kTypes<MachineReg>;
           }
         } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
-          return static_cast<std::tuple<const MemoryOperand&>*>(nullptr);
+          return kTypes<const MemoryOperand&>;
         } else {
           static_assert(kDependentTypeFalse<Operand>);
         }
@@ -405,19 +404,19 @@ class MachineInsn final : public MachineInsnX86_64 {
       TypesToTypes::FlatMap<typename DeviceInsnInfo::Operands, []<typename Operand> {
         if constexpr (device_arch_info::kIsCondition<Operand> ||
                       device_arch_info::kIsImmediate<Operand>) {
-          return static_cast<std::tuple<typename Operand::Class::Type>*>(nullptr);
+          return kTypes<typename Operand::Class::Type>;
         } else if constexpr (device_arch_info::kIsRegister<Operand>) {
           if constexpr (Operand::kUsage == device_arch_info::kUse ||
                         Operand::kUsage == device_arch_info::kUseDef) {
-            return static_cast<std::tuple<MachineReg>*>(nullptr);
+            return kTypes<MachineReg>;
           } else if constexpr (Operand::kUsage == device_arch_info::kDef ||
                                Operand::kUsage == device_arch_info::kDefEarlyClobber) {
-            return static_cast<std::tuple<>*>(nullptr);
+            return kTypes<>;
           } else {
             static_assert(kDependentValueFalse<Operand::kUsage>);
           }
         } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
-          return static_cast<std::tuple<const MemoryOperand&>*>(nullptr);
+          return kTypes<const MemoryOperand&>;
         } else {
           static_assert(kDependentTypeFalse<Operand>);
         }
@@ -429,19 +428,19 @@ class MachineInsn final : public MachineInsnX86_64 {
                      TypesToTypes::FlatMap<typename DeviceInsnInfo::Operands, []<typename Operand> {
                        if constexpr (device_arch_info::kIsCondition<Operand> ||
                                      device_arch_info::kIsImmediate<Operand>) {
-                         return static_cast<std::tuple<>*>(nullptr);
+                         return kTypes<>;
                        } else if constexpr (device_arch_info::kIsRegister<Operand>) {
                          if constexpr (Operand::kUsage == device_arch_info::kDef ||
                                        Operand::kUsage == device_arch_info::kDefEarlyClobber ||
                                        Operand::kUsage == device_arch_info::kUseDef) {
-                           return static_cast<std::tuple<MachineReg>*>(nullptr);
+                           return kTypes<MachineReg>;
                          } else if constexpr (Operand::kUsage == device_arch_info::kUse) {
-                           return static_cast<std::tuple<>*>(nullptr);
+                           return kTypes<>;
                          } else {
                            static_assert(kDependentValueFalse<Operand::kUsage>);
                          }
                        } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
-                         return static_cast<std::tuple<>*>(nullptr);
+                         return kTypes<>;
                        } else {
                          static_assert(kDependentTypeFalse<Operand>);
                        }
@@ -639,15 +638,15 @@ class MachineInsn final : public MachineInsnX86_64 {
         TypesToTypes::FlatMap<typename DeviceInsnInfo::Operands, []<typename Operand> {
           if constexpr (device_arch_info::kIsCondition<Operand> ||
                         device_arch_info::kIsImmediate<Operand>) {
-            return static_cast<std::tuple<>*>(nullptr);
+            return kTypes<>;
           } else if constexpr (device_arch_info::kIsRegister<Operand>) {
             if constexpr (kSSAMode == kSSA && Operand::kUsage == device_arch_info::kUseDef) {
-              return static_cast<std::tuple<MachineReg, MachineReg>*>(nullptr);
+              return kTypes<MachineReg, MachineReg>;
             } else {
-              return static_cast<std::tuple<MachineReg>*>(nullptr);
+              return kTypes<MachineReg>;
             }
           } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
-            return static_cast<std::tuple<MachineReg, MachineReg>*>(nullptr);
+            return kTypes<MachineReg, MachineReg>;
           } else {
             static_assert(kDependentTypeFalse<Operand>);
           }

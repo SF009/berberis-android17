@@ -67,6 +67,15 @@ DEFINE_VALUE_OPERATOR(^)
 
 #pragma pop_macro("DEFINE_VALUE_OPERATOR")
 
+template <typename... Types_>
+class Types {
+ public:
+  using Tuple = std::tuple<Types_...>;
+};
+
+template <typename... Types_>
+inline constexpr auto kTypes = Types<Types_...>{};
+
 // TypesToTypes provides type-level metaprogramming utilities for std::tuple (with support for
 // std::array if <array> include is present). It uses template specializations to perform operations
 // on the types within a tuple.
@@ -96,9 +105,9 @@ class TypesToTypes {
   using Filter = FlatMapHelper<TupleType, []<typename Type>() {
     constexpr bool kAccepted = kLambda.template operator()<Type>();
     if constexpr (kAccepted) {
-      return static_cast<std::tuple<Type>*>(nullptr);
+      return kTypes<Type>;
     } else {
-      return static_cast<std::tuple<>*>(nullptr);
+      return kTypes<>;
     }
   }>::Result;
 
@@ -147,7 +156,8 @@ class TypesToTypes {
   template <typename... Types, auto kLambda>
   class FlatMapHelper<std::tuple<Types...>, kLambda> {
    public:
-    using Result = decltype(std::tuple_cat(*kLambda.template operator()<Types>()...));
+    using Result = decltype(std::tuple_cat(
+        std::declval<typename decltype(kLambda.template operator()<Types>())::Tuple>()...));
   };
   template <typename Type, auto kLambda>
   class FlatMapHelper {
