@@ -23,6 +23,7 @@
 #include <bit>
 #include <cstdint>
 #include <string>
+#include <tuple>
 
 #include "berberis/assembler/x86_64.h"
 #include "berberis/backend/code_emitter.h"
