@@ -40,19 +40,20 @@ class SemanticsPlayer {
   // and Low demultiplexer approach.  More info on go/berberis-intrinsic-demultiplexing
   using TemplateTypeId = SemanticsListener::TemplateTypeId;
   template <typename TypeName>
-  using Type = SemanticsListener::template Value<SemanticsListener::template kIdFromType<TypeName>>;
+  using Type =
+      SemanticsListener::template MetaValue<SemanticsListener::template kIdFromType<TypeName>>;
   // Syntax sugar to eliminate {} from type conversion.
   template <typename TypeName>
   static constexpr Type<TypeName> kType{};
   template <auto kEnumValue>
   using TypeFromId = SemanticsListener::template TypeFromId<kEnumValue>;
   template <auto ValueParam>
-  using Value = SemanticsListener::template Value<ValueParam>;
+  using MetaValue = SemanticsListener::template MetaValue<ValueParam>;
   // Syntax sugar to eliminate {} from value conversion.
   template <auto ValueParam>
-  static constexpr Value<ValueParam> kValue{};
+  static constexpr MetaValue<ValueParam> kValue{};
   template <typename TypeName>
-  static constexpr Value<static_cast<int>(sizeof(TypeName))> kSize{};
+  static constexpr MetaValue<static_cast<int>(sizeof(TypeName))> kSize{};
 
   explicit SemanticsPlayer(SemanticsListener* listener) : listener_(listener) {}
 
@@ -991,31 +992,31 @@ class SemanticsPlayer {
 
   template <typename ValueType>
   static constexpr auto ToFloat(ValueType value) {
-    return TemplateTypeIdToFloat(value);
+    return SemanticsListener::ToFloat(value);
   }
   template <typename ValueType>
   static constexpr auto ToInt(ValueType value) {
-    return TemplateTypeIdToInt(value);
+    return SemanticsListener::ToInt(value);
   }
   template <typename ValueType>
   static constexpr auto ToNarrow(ValueType value) {
-    return TemplateTypeIdToNarrow(value);
+    return SemanticsListener::ToNarrow(value);
   }
   template <typename ValueType>
   static constexpr auto ToSigned(ValueType value) {
-    return TemplateTypeIdToSigned(value);
+    return SemanticsListener::ToSigned(value);
   }
   template <typename ValueType>
   static constexpr auto SizeOf(ValueType value) {
-    return TemplateTypeIdSizeOf(value);
+    return SemanticsListener::SizeOf(value);
   }
   template <typename ValueType>
   static constexpr auto ToUnsigned(ValueType value) {
-    return TemplateTypeIdToUnsigned(value);
+    return SemanticsListener::ToUnsigned(value);
   }
   template <typename ValueType>
   static constexpr auto ToWide(ValueType value) {
-    return TemplateTypeIdToWide(value);
+    return SemanticsListener::ToWide(value);
   }
 
  private:

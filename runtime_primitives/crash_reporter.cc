@@ -56,15 +56,10 @@ void HandleFatalSignal(int sig, siginfo_t* info, void* context) {
 }
 
 void InitCrashReporter() {
-  struct sigaction action {};
-  action.sa_sigaction = HandleFatalSignal;
-  action.sa_flags = SA_SIGINFO | SA_ONSTACK;
-  sigfillset(&action.sa_mask);
-
-  sigaction(SIGSEGV, &action, &g_orig_action[SIGSEGV]);
-  sigaction(SIGILL, &action, &g_orig_action[SIGILL]);
-  sigaction(SIGFPE, &action, &g_orig_action[SIGFPE]);
-  sigaction(SIGABRT, &action, &g_orig_action[SIGABRT]);
+  sigaction(SIGSEGV, nullptr, &g_orig_action[SIGSEGV]);
+  sigaction(SIGILL, nullptr, &g_orig_action[SIGILL]);
+  sigaction(SIGFPE, nullptr, &g_orig_action[SIGFPE]);
+  sigaction(SIGABRT, nullptr, &g_orig_action[SIGABRT]);
 }
 
 }  // namespace berberis

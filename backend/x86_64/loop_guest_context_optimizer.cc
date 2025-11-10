@@ -113,7 +113,7 @@ void GenerateGetInsns(MachineIR* ir, MachineBasicBlock* bb, const MemRegMap& mem
   CHECK_EQ(bb->out_edges().size(), 1);
 
   auto insert_it = std::prev(bb->insn_list().end());
-  CHECK(mem_reg_map.size() <= std::numeric_limits<int32_t>::max());
+  CHECK_LE(mem_reg_map.size(), size_t{std::numeric_limits<int32_t>::max()});
   for (int32_t disp = 0; disp < static_cast<int32_t>(mem_reg_map.size()); disp++) {
     if (!mem_reg_map[disp].has_value()) {
       continue;

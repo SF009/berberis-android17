@@ -76,7 +76,7 @@ class GuestThread {
   bool ProcessAndDisablePendingSignals();
   bool TestAndEnablePendingSignals();
 
-  void SetSignalFromHost(const siginfo_t& info);
+  void EnqueueSignalFromHost(const siginfo_t& info, const ucontext_t* context);
 
   void GetAttr(GuestAddr* stack_base, size_t* stack_size, size_t* guard_size) const {
     *stack_base = ToGuestAddr(stack_);

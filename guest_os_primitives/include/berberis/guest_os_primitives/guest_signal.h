@@ -84,6 +84,8 @@ GuestAddr WrapHostSigactionForGuest(const HostStructSigaction& host_sa);
 
 void ProcessGuestSignal(GuestThread* thread, const Guest_sigaction* sa, Guest_siginfo_t* info);
 
+void InitGuestSignalHandling();
+
 }  // namespace berberis
 
 #endif  // BERBERIS_GUEST_OS_PRIMITIVES_GUEST_SIGNAL_H_

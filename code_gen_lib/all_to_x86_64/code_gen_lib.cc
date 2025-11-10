@@ -173,17 +173,17 @@ void EmitIndirectDispatch(x86_64::Assembler* as, x86_64::Assembler::Register tar
   // Rax holds insn_addr. We use target and/or rcx/rdx for scratches.
   x86_64::Assembler::Register scratch1 = target;
   x86_64::Assembler::Register scratch2 = as->rcx;
-  if (target == as->rax) {
-    as->Movq(as->rdx, target);
-    scratch1 = as->rdx;
-  } else if (target == as->rcx) {
+  if (target == as->rcx) {
     scratch1 = as->rcx;
     scratch2 = as->rdx;
+  } else if (target == as->rax || IsConfigFlagSet(kOptimizedInterRegionABI)) {
+    as->Movq(as->rdx, target);
+    scratch1 = as->rdx;
   }
   // scratch1 always holds insn_addr at this point.
   as->Shrq(scratch1, int8_t{24});
   as->Andl(scratch1, 0xff'ffff);
-  as->Movq(scratch2, reinterpret_cast<uint64_t>(main_table_ptr));
+  as->Movq(scratch2, bit_cast<uint64_t>(main_table_ptr));
   as->Movq(scratch2,
            {.base = scratch2, .index = scratch1, .scale = x86_64::Assembler::kTimesEight});
 

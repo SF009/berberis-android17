@@ -65,7 +65,7 @@ class LiteTranslator {
   template <auto kEnumValue>
   using TypeFromId = intrinsics::TypeFromId<kEnumValue>;
   template <auto ValueParam>
-  using Value = intrinsics::Value<ValueParam>;
+  using MetaValue = MetaValue<ValueParam>;
   static constexpr TemplateTypeId IntSizeToTemplateTypeId(uint8_t size, bool is_signed = false) {
     return intrinsics::IntSizeToTemplateTypeId(size, is_signed);
   }
@@ -425,15 +425,44 @@ class LiteTranslator {
   };
 
   template <intrinsics::TemplateTypeId IntType, bool aq, bool rl>
-  Register Lr(Register, Value<IntType>, Value<aq>, Value<rl>) {
+  Register Lr(Register, MetaValue<IntType>, MetaValue<aq>, MetaValue<rl>) {
     Undefined();
     return Assembler::no_register;
   }
 
   template <intrinsics::TemplateTypeId IntType, bool aq, bool rl>
-  Register Sc(Register, Register, Value<IntType>, Value<aq>, Value<rl>) {
+  Register Sc(Register, Register, MetaValue<IntType>, MetaValue<aq>, MetaValue<rl>) {
     Undefined();
     return Assembler::no_register;
+  }
+
+  template <typename ValueType>
+  static constexpr auto ToFloat(ValueType value) {
+    return intrinsics::TemplateTypeIdToFloat(value);
+  }
+  template <typename ValueType>
+  static constexpr auto ToInt(ValueType value) {
+    return intrinsics::TemplateTypeIdToInt(value);
+  }
+  template <typename ValueType>
+  static constexpr auto ToNarrow(ValueType value) {
+    return intrinsics::TemplateTypeIdToNarrow(value);
+  }
+  template <typename ValueType>
+  static constexpr auto ToSigned(ValueType value) {
+    return intrinsics::TemplateTypeIdToSigned(value);
+  }
+  template <typename ValueType>
+  static constexpr auto SizeOf(ValueType value) {
+    return intrinsics::TemplateTypeIdSizeOf(value);
+  }
+  template <typename ValueType>
+  static constexpr auto ToUnsigned(ValueType value) {
+    return intrinsics::TemplateTypeIdToUnsigned(value);
+  }
+  template <typename ValueType>
+  static constexpr auto ToWide(ValueType value) {
+    return intrinsics::TemplateTypeIdToWide(value);
   }
 
  private:

@@ -382,8 +382,8 @@ extern const int32_t kBerberisMacroAssemblerConstantsRelocated;
 const int32_t kBerberisMacroAssemblerConstantsRelocated = GetConstants();
 
 #pragma push_macro("VECTOR_CONST_EXTERN")
-#define VECTOR_CONST_EXTERN(Value, Name, Offset) \
-  const int32_t VectorConst<Value>::kValue =     \
+#define VECTOR_CONST_EXTERN(kValue_, Name, Offset) \
+  const int32_t VectorConst<kValue_>::kValue =     \
       GetConstants() + offsetof(MacroAssemblerConstants, Name) + Offset;
 
 VECTOR_CONST_EXTERN(int8_t{-128}, kMinInt8, 0);
@@ -410,8 +410,8 @@ VECTOR_CONST_EXTERN(uint64_t{0x7ff8'0000'0000'0000}, kCanonicalNansFloat64, 0);
 #pragma pop_macro("VECTOR_CONST_EXTERN")
 
 #pragma push_macro("CONST_EXTERN")
-#define CONST_EXTERN(Value, Name, Offset) \
-  const int32_t Const<Value>::kValue =    \
+#define CONST_EXTERN(kValue_, Name, Offset) \
+  const int32_t Const<kValue_>::kValue =    \
       GetConstants() + offsetof(MacroAssemblerConstants, Name) + Offset;
 
 CONST_EXTERN(uint64_t{127}, kBsrToClzInt64, 0);

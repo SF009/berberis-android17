@@ -22,6 +22,7 @@
 
 #include "berberis/base/checks.h"
 #include "berberis/base/dependent_false.h"
+#include "berberis/base/tuple_processing.h"
 #include "berberis/intrinsics/common/intrinsics_float.h"  // Float16/Float32/Float64
 
 namespace berberis {
@@ -29,19 +30,6 @@ namespace berberis {
 class SIMD128Register;
 
 namespace intrinsics {
-
-// Value that's passed as argument of function or lambda couldn't be constexpr, but if it's
-// passed as part of argument type then it's different.
-// Class Value is empty, but carries the required information in its type.
-// It can also be automatically converted into value of the specified type when needed.
-// That way we can pass argument into a template as normal, non-template argument.
-template <auto ValueParam>
-class Value {
- public:
-  using ValueType = std::remove_cvref_t<decltype(ValueParam)>;
-  static constexpr auto kValue = ValueParam;
-  constexpr operator ValueType() const { return kValue; }
-};
 
 enum TemplateTypeId : uint8_t {
   kInt8T = 1,
@@ -185,25 +173,12 @@ using TypeFromId = TypeFromIdHelper<kEnumValue>::Type;
 template <enum TemplateTypeId kEnumValue>
 using WrappedTypeFromId = WrappedTypeFromIdHelper<kEnumValue>::Type;
 
-// If we carry TemplateTypeId then we can do the exact same manipulations wuth it as with
-// normal value, but also can get actual type from it and do appropriate operations:
-// make signed, make unsigned, widen, narrow, etc.
-template <TemplateTypeId ValueParam>
-class Value<ValueParam> {
- public:
-  using Type = TypeFromId<ValueParam>;
-  using WrappedType = WrappedTypeFromId<ValueParam>;
-  using ValueType = TemplateTypeId;
-  static constexpr auto kValue = ValueParam;
-  constexpr operator TemplateTypeId() const { return kValue; }
-};
-
 #pragma push_macro("DEFINE_VALUE_FUNCTION")
 #undef DEFINE_VALUE_FUNCTION
-#define DEFINE_VALUE_FUNCTION(FunctionName)                                   \
-  template <TemplateTypeId ValueParam>                                        \
-  constexpr Value<FunctionName(ValueParam)> FunctionName(Value<ValueParam>) { \
-    return {};                                                                \
+#define DEFINE_VALUE_FUNCTION(FunctionName)                                           \
+  template <TemplateTypeId ValueParam>                                                \
+  constexpr MetaValue<FunctionName(ValueParam)> FunctionName(MetaValue<ValueParam>) { \
+    return {};                                                                        \
   }
 
 DEFINE_VALUE_FUNCTION(TemplateTypeIdToFloat)
@@ -215,32 +190,6 @@ DEFINE_VALUE_FUNCTION(TemplateTypeIdToUnsigned)
 DEFINE_VALUE_FUNCTION(TemplateTypeIdToWide)
 
 #pragma pop_macro("DEFINE_VALUE_FUNCTION")
-
-#pragma push_macro("DEFINE_VALUE_OPERATOR")
-#undef DEFINE_VALUE_OPERATOR
-#define DEFINE_VALUE_OPERATOR(operator_name)                                       \
-  template <auto ValueParam1, auto ValueParam2>                                    \
-  constexpr Value<(ValueParam1 operator_name ValueParam2)> operator operator_name( \
-      Value<ValueParam1>, Value<ValueParam2>) {                                    \
-    return {};                                                                     \
-  }
-
-DEFINE_VALUE_OPERATOR(+)
-DEFINE_VALUE_OPERATOR(-)
-DEFINE_VALUE_OPERATOR(*)
-DEFINE_VALUE_OPERATOR(/)
-DEFINE_VALUE_OPERATOR(<<)
-DEFINE_VALUE_OPERATOR(>>)
-DEFINE_VALUE_OPERATOR(==)
-DEFINE_VALUE_OPERATOR(!=)
-DEFINE_VALUE_OPERATOR(>)
-DEFINE_VALUE_OPERATOR(<)
-DEFINE_VALUE_OPERATOR(<=)
-DEFINE_VALUE_OPERATOR(>=)
-DEFINE_VALUE_OPERATOR(&&)
-DEFINE_VALUE_OPERATOR(||)
-
-#pragma pop_macro("DEFINE_VALUE_OPERATOR")
 
 // Note: this is very simple demultiplexer and it's NOT guaranteed to always work (especially if
 // someone would use it with more than 8 parameters), but it would start producing collisions then
@@ -274,6 +223,19 @@ enum PreferredIntrinsicsImplementation {
 };
 
 }  // namespace intrinsics
+
+// If we carry TemplateTypeId then we can do the exact same manipulations with it as with
+// the normal value, but also can get the actual type from it and do the appropriate operations:
+// make signed, make unsigned, widen, narrow, etc.
+template <intrinsics::TemplateTypeId ValueParam>
+class MetaValue<ValueParam> {
+ public:
+  using Type = intrinsics::TypeFromId<ValueParam>;
+  using WrappedType = intrinsics::WrappedTypeFromId<ValueParam>;
+  using ValueType = intrinsics::TemplateTypeId;
+  static constexpr auto kValue = ValueParam;
+  constexpr operator ValueType() const { return kValue; }
+};
 
 }  // namespace berberis
 

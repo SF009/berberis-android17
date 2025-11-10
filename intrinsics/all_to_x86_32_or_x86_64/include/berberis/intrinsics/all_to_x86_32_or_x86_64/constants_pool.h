@@ -27,25 +27,25 @@ namespace berberis::constants_pool {
 // 64 bit constants for use with arithmetic operations.
 // Used because only 32 bit immediates are supported on x86-64.
 
-template <auto Value>
-struct Const {};
+template <auto kValue>
+struct Const;
 
-// Specialize Const<Value> using an out-of-line definition.
-#define BERBERIS_CONST_EXTERN(Value) \
-  template <>                        \
-  struct Const<Value> {              \
-    static const int32_t kValue;     \
+// Specialize Const<kValue_> using an out-of-line definition.
+#define BERBERIS_CONST_EXTERN(kValue_) \
+  template <>                          \
+  struct Const<kValue_> {              \
+    static const int32_t kValue;       \
   }
 
-// Specialize Const<Value> using a reference to another constant's int32_t address.
-#define BERBERIS_CONST_ALIAS(Value, Alias)          \
+// Specialize Const<kValue_> using a reference to another constant's int32_t address.
+#define BERBERIS_CONST_ALIAS(kValue_, Alias)        \
   template <>                                       \
-  struct Const<Value> {                             \
+  struct Const<kValue_> {                           \
     static constexpr const int32_t& kValue = Alias; \
   }
 
-template <auto Value>
-inline const int32_t& kConst = Const<Value>::kValue;
+template <auto kValue>
+inline const int32_t& kConst = Const<kValue>::kValue;
 
 BERBERIS_CONST_EXTERN(uint32_t{32});
 BERBERIS_CONST_EXTERN(uint32_t{63});

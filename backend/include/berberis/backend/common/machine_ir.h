@@ -337,7 +337,8 @@ class MachineBasicBlock {
         out_edges_(arena),
         live_in_(arena),
         live_out_(arena),
-        is_recovery_(false) {}
+        is_recovery_(false),
+        is_cold_{false} {}
 
   [[nodiscard]] uint32_t id() const { return id_; }
 
@@ -363,8 +364,10 @@ class MachineBasicBlock {
   [[nodiscard]] MachineRegVector& live_out() { return live_out_; }
 
   void MarkAsRecovery() { is_recovery_ = true; }
+  void MarkAsCold() { is_cold_ = true; }
 
   [[nodiscard]] bool is_recovery() const { return is_recovery_; }
+  [[nodiscard]] bool is_cold() const { return is_recovery_ || is_cold_; }
 
   [[nodiscard]] std::string GetDebugString() const;
 
@@ -378,6 +381,7 @@ class MachineBasicBlock {
   MachineRegVector live_in_;
   MachineRegVector live_out_;
   bool is_recovery_;
+  bool is_cold_;
 };
 
 using MachineBasicBlockList = ArenaList<MachineBasicBlock*>;

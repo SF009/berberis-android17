@@ -26,19 +26,19 @@
 
 namespace berberis::constants_pool {
 
-// Specialize VectorConst<Value> using an out-of-line definition.
+// Specialize VectorConst<kValue> using an out-of-line definition.
 #pragma push_macro("VECTOR_CONST_EXTERN")
-#define VECTOR_CONST_EXTERN(Value) \
-  template <>                      \
-  struct VectorConst<Value> {      \
-    static const int32_t kValue;   \
+#define VECTOR_CONST_EXTERN(kValue_) \
+  template <>                        \
+  struct VectorConst<kValue_> {      \
+    static const int32_t kValue;     \
   }
 
-// Specialize VectorConst<Value> using a reference to another constant's int32_t address.
+// Specialize VectorConst<kValue> using a reference to another constant's int32_t address.
 #pragma push_macro("VECTOR_CONST_ALIAS")
-#define VECTOR_CONST_ALIAS(Value, Alias)            \
+#define VECTOR_CONST_ALIAS(kValue_, Alias)          \
   template <>                                       \
-  struct VectorConst<Value> {                       \
+  struct VectorConst<kValue_> {                     \
     static constexpr const int32_t& kValue = Alias; \
   }
 
@@ -180,8 +180,8 @@ inline constexpr TypeConstantAccessor<&constants_pool::kNanBox<FloatType>> kNanB
 template <typename FloatType>
 inline constexpr TypeConstantAccessor<&constants_pool::kNanBoxedNans<FloatType>> kNanBoxedNans{};
 
-template <auto Value>
-inline constexpr VectorConstantAccessor<Value> kVectorConst{};
+template <auto kValue>
+inline constexpr VectorConstantAccessor<kValue> kVectorConst{};
 
 }  // namespace berberis::constants_offsets
 
