@@ -213,6 +213,135 @@ constexpr bool TestFunc() {
     CHECK_EQ(extra_arg2, -1);
     return result;
   }());
+  // Test All and Any values to values.
+  static_assert([kForEachTupleIn] {
+    int extra_arg1 = 0, extra_arg2 = 0;
+    bool result = ValuesToValues::All(
+        kForEachTupleIn,
+        []<typename T>(T, int& extra_arg1, int& extra_arg2) {
+          extra_arg1 += 1;
+          extra_arg2 -= 1;
+          if constexpr (std::is_same_v<T, char>) {
+            return MetaValue<true>{};
+          } else {
+            return MetaValue<false>{};
+          }
+        },
+        extra_arg1,
+        extra_arg2);
+    // Short-circuit logic.
+    CHECK_EQ(extra_arg1, 1);
+    CHECK_EQ(extra_arg2, -1);
+    return !result;
+  }());
+  static_assert([kForEachTupleIn] {
+    int extra_arg1 = 0, extra_arg2 = 0;
+    bool result = ValuesToValues::Any(
+        kForEachTupleIn,
+        []<typename T>(T, int& extra_arg1, int& extra_arg2) {
+          extra_arg1 += 1;
+          extra_arg2 -= 1;
+          if constexpr (std::is_same_v<T, const int&>) {
+            return MetaValue<true>{};
+          } else {
+            return MetaValue<false>{};
+          }
+        },
+        extra_arg1,
+        extra_arg2);
+    // Short-circuit logic.
+    CHECK_EQ(extra_arg1, 1);
+    CHECK_EQ(extra_arg2, -1);
+    return result;
+  }());
+  // Test All and Any values to values with a temporary.
+  static_assert([kForEachTupleIn] {
+    int extra_arg1 = 0, extra_arg2 = 0;
+    bool result = ValuesToValues::AllWithTemporary<int>(
+        kForEachTupleIn,
+        []<typename T>(T, int& idx, int& extra_arg1, int& extra_arg2) {
+          extra_arg1 += 1;
+          extra_arg2 -= 1;
+          CHECK_EQ(++idx, extra_arg1);
+          if constexpr (std::is_same_v<T, char>) {
+            return MetaValue<true>{};
+          } else {
+            return MetaValue<false>{};
+          }
+        },
+        extra_arg1,
+        extra_arg2);
+    // Short-circuit logic.
+    CHECK_EQ(extra_arg1, 1);
+    CHECK_EQ(extra_arg2, -1);
+    return !result;
+  }());
+  static_assert([kForEachTupleIn] {
+    int extra_arg1 = 0, extra_arg2 = 0;
+    bool result = ValuesToValues::AnyWithTemporary<int>(
+        kForEachTupleIn,
+        []<typename T>(T, int& idx, int& extra_arg1, int& extra_arg2) {
+          extra_arg1 += 1;
+          extra_arg2 -= 1;
+          CHECK_EQ(++idx, extra_arg1);
+          if constexpr (std::is_same_v<T, const int&>) {
+            return MetaValue<true>{};
+          } else {
+            return MetaValue<false>{};
+          }
+        },
+        extra_arg1,
+        extra_arg2);
+    // Short-circuit logic.
+    CHECK_EQ(extra_arg1, 1);
+    CHECK_EQ(extra_arg2, -1);
+    return result;
+  }());
+  // Test All and Any values to values with an explicitly initialized temporary.
+  static_assert([kForEachTupleIn] {
+    int extra_arg1 = 0, extra_arg2 = 0;
+    bool result = ValuesToValues::AllWithTemporary(
+        kForEachTupleIn,
+        /* idx = */ 42,
+        []<typename T>(T, int& idx, int& extra_arg1, int& extra_arg2) {
+          extra_arg1 += 1;
+          extra_arg2 -= 1;
+          CHECK_EQ(++idx, 42 + extra_arg1);
+          if constexpr (std::is_same_v<T, char>) {
+            return MetaValue<true>{};
+          } else {
+            return MetaValue<false>{};
+          }
+        },
+        extra_arg1,
+        extra_arg2);
+    // Short-circuit logic.
+    CHECK_EQ(extra_arg1, 1);
+    CHECK_EQ(extra_arg2, -1);
+    return !result;
+  }());
+  static_assert([kForEachTupleIn] {
+    int extra_arg1 = 0, extra_arg2 = 0;
+    bool result = ValuesToValues::AnyWithTemporary(
+        kForEachTupleIn,
+        /* idx = */ 42,
+        []<typename T>(T, int& idx, int& extra_arg1, int& extra_arg2) {
+          extra_arg1 += 1;
+          extra_arg2 -= 1;
+          CHECK_EQ(++idx, 42 + extra_arg1);
+          if constexpr (std::is_same_v<T, const int&>) {
+            return MetaValue<true>{};
+          } else {
+            return MetaValue<false>{};
+          }
+        },
+        extra_arg1,
+        extra_arg2);
+    // Short-circuit logic.
+    CHECK_EQ(extra_arg1, 1);
+    CHECK_EQ(extra_arg2, -1);
+    return result;
+  }());
 
   // Enumerate for values.
   static_assert(ValuesToValues::Enumerate(TupleType{'a', 42}) ==

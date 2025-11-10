@@ -356,8 +356,8 @@ class MachineInsn final : public MachineInsnX86_64 {
   static_assert(
       std::is_same_v<decltype(kSSAMode), enum SSAMode> ||
           !TypesToValues::Any<typename DeviceInsnInfo_::Operands>([]<typename Operand> {
-            return MetaValue<device_arch_info::kIsRegister<Operand> &&
-                             Operand::kUsage == device_arch_info::kUseDef>{};
+            return device_arch_info::kIsRegister<Operand> &&
+                   Operand::kUsage == device_arch_info::kUseDef;
           }),
       "Only instructions without kUseDef operands can be used without kSSAMode specification");
 
@@ -576,8 +576,8 @@ class MachineInsn final : public MachineInsnX86_64 {
   void Emit(CodeEmitter* as) const override {
     if constexpr (kSSAMode == kSSA &&
                   TypesToValues::Any<typename DeviceInsnInfo::Operands>([]<typename Operand> {
-                    return MetaValue<device_arch_info::kIsRegister<Operand> &&
-                                     Operand::kUsage == device_arch_info::kUseDef>{};
+                    return device_arch_info::kIsRegister<Operand> &&
+                           Operand::kUsage == device_arch_info::kUseDef;
                   })) {
       FATAL("Attempt to emit SSA pseudo-instruction");
     } else {
@@ -780,8 +780,8 @@ constexpr auto MachineInsn<DeviceInsnInfo, kSSAMode>::GenMachineInsnInfo()
       .opcode = static_cast<MachineOpcode>(
           DeviceInsnInfo::template kOpcode<MachineOpcode> |
           (kSSAMode && TypesToValues::Any<typename DeviceInsnInfo::Operands>([]<typename Operand> {
-             return MetaValue<device_arch_info::kIsRegister<Operand> &&
-                              Operand::kUsage == device_arch_info::kUseDef>{};
+             return device_arch_info::kIsRegister<Operand> &&
+                    Operand::kUsage == device_arch_info::kUseDef;
            })) << kSSAOpcodeBit),
       .kind = GetInsnKind()};
   TypesToValues::ForEachWithTemporary<typename DeviceInsnInfo::Operands,
