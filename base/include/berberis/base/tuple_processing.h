@@ -931,6 +931,45 @@ class ValuesToValues {
     return Skip<kCount, TupleType>(tuple);
   }
 
+  template <typename InitialValueType,
+            auto kLambda,
+            auto... extra_lambda_values,
+            typename TupleType>
+  static constexpr decltype(auto) SkipWhileWithTemporary(TupleType tuple) {
+    constexpr std::size_t kCount =
+        TakeSkipHelper<TupleType, InitialValueType{}, kLambda, extra_lambda_values...>();
+    return Skip<kCount, TupleType>(tuple);
+  }
+
+  template <typename InitialValueType,
+            typename TupleType,
+            auto kLambda,
+            auto... extra_lambda_values>
+  static constexpr decltype(auto) SkipWhileWithTemporary(TupleType tuple,
+                                                         MetaValue<kLambda>,
+                                                         MetaValue<extra_lambda_values>...) {
+    constexpr std::size_t kCount =
+        TakeSkipHelper<TupleType, InitialValueType{}, kLambda, extra_lambda_values...>();
+    return Skip<kCount, TupleType>(tuple);
+  }
+
+  template <auto initial_value, auto kLambda, auto... extra_lambda_values, typename TupleType>
+  static constexpr decltype(auto) SkipWhileWithTemporary(TupleType tuple) {
+    constexpr std::size_t kCount =
+        TakeSkipHelper<TupleType, initial_value, kLambda, extra_lambda_values...>();
+    return Skip<kCount, TupleType>(tuple);
+  }
+
+  template <auto initial_value, typename TupleType, auto kLambda, auto... extra_lambda_values>
+  static constexpr decltype(auto) SkipWhileWithTemporary(TupleType tuple,
+                                                         MetaValue<initial_value>,
+                                                         MetaValue<kLambda>,
+                                                         MetaValue<extra_lambda_values>...) {
+    constexpr std::size_t kCount =
+        TakeSkipHelper<TupleType, initial_value, kLambda, extra_lambda_values...>();
+    return Skip<kCount, TupleType>(tuple);
+  }
+
   template <auto kCount, typename TupleType>
   static constexpr decltype(auto) Take(TupleType tuple) {
     return FlatMapHelper(
@@ -964,6 +1003,45 @@ class ValuesToValues {
                                             MetaValue<extra_lambda_values>...) {
     constexpr std::size_t kCount =
         TypesToTypes::TakeSkipHelper<TupleType, kLambda, extra_lambda_values...>::Produce();
+    return Take<kCount, TupleType>(tuple);
+  }
+
+  template <typename InitialValueType,
+            auto kLambda,
+            auto... extra_lambda_values,
+            typename TupleType>
+  static constexpr decltype(auto) TakeWhileWithTemporary(TupleType tuple) {
+    constexpr std::size_t kCount =
+        TakeSkipHelper<TupleType, InitialValueType{}, kLambda, extra_lambda_values...>();
+    return Take<kCount, TupleType>(tuple);
+  }
+
+  template <typename InitialValueType,
+            typename TupleType,
+            auto kLambda,
+            auto... extra_lambda_values>
+  static constexpr decltype(auto) TakeWhileWithTemporary(TupleType tuple,
+                                                         MetaValue<kLambda>,
+                                                         MetaValue<extra_lambda_values>...) {
+    constexpr std::size_t kCount =
+        TakeSkipHelper<TupleType, InitialValueType{}, kLambda, extra_lambda_values...>();
+    return Take<kCount, TupleType>(tuple);
+  }
+
+  template <auto initial_value, auto kLambda, auto... extra_lambda_values, typename TupleType>
+  static constexpr decltype(auto) TakeWhileWithTemporary(TupleType tuple) {
+    constexpr std::size_t kCount =
+        TakeSkipHelper<TupleType, initial_value, kLambda, extra_lambda_values...>();
+    return Take<kCount, TupleType>(tuple);
+  }
+
+  template <auto initial_value, typename TupleType, auto kLambda, auto... extra_lambda_values>
+  static constexpr decltype(auto) TakeWhileWithTemporary(TupleType tuple,
+                                                         MetaValue<initial_value>,
+                                                         MetaValue<kLambda>,
+                                                         MetaValue<extra_lambda_values>...) {
+    constexpr std::size_t kCount =
+        TakeSkipHelper<TupleType, initial_value, kLambda, extra_lambda_values...>();
     return Take<kCount, TupleType>(tuple);
   }
 
@@ -1054,6 +1132,26 @@ class ValuesToValues {
           std::forward<std::tuple_element_t<Is, TupleType>>(std::get<Is>(tuple)),
           std::forward<ExtraLambdaArgTypes>(extra_types)...)...
     };
+  }
+
+  template <typename TupleType, auto initial_value, auto kLambda, auto... extra_lambda_values>
+  static constexpr std::size_t TakeSkipHelper() {
+    std::size_t size = 0;
+    auto value = initial_value;
+    // Note: we don't really need the return value of TypesToValues::All here, instead we rely on
+    // the fact that TypesToValues::All stops calculations when it finds first false.
+    TypesToValues::All<TupleType>(
+        []<typename Type>(auto& value, std::size_t& size) {
+          if (kLambda.template operator()<Type>(value, extra_lambda_values...)) {
+            size++;
+            return true;
+          } else {
+            return false;
+          }
+        },
+        value,
+        size);
+    return size;
   }
 
   template <typename TupleTypeLeft, typename TupleTypeRight, std::size_t... Is>
