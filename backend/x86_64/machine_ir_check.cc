@@ -61,6 +61,16 @@ MachineIRCheckStatus CheckNoDanglingEdgesOrBasicBlocks(const MachineIR& machine_
   return kMachineIRCheckSuccess;
 }
 
+bool CheckEdgesAndInterLiveVRegsConsistency(const MachineBasicBlock* bb) {
+  if (bb->in_edges().empty() && !bb->live_in().empty()) {
+    return false;
+  }
+  if (bb->out_edges().empty() && !bb->live_out().empty()) {
+    return false;
+  }
+  return true;
+}
+
 bool CheckInOutEdgesLinksToBasicBlock(const MachineBasicBlock* bb) {
   for (auto* edge : bb->in_edges()) {
     if (edge->dst() != bb) {
@@ -137,8 +147,11 @@ MachineIRCheckStatus CheckInsnListIntegrity(const MachineIR* ir, const MachineBa
 
 MachineIRCheckStatus CheckCFG(const MachineIR& machine_ir) {
   for (auto* bb : machine_ir.bb_list()) {
+    if (!CheckEdgesAndInterLiveVRegsConsistency(bb)) {
+      return kMachineIRInconsistentEdgesAndInterLiveVRegs;
+    }
     if (!CheckInOutEdgesLinksToBasicBlock(bb)) {
-      return kMachineIRCheckFail;
+      return kMachineIRMislinkedEdge;
     }
     auto status = CheckNoDanglingEdgesOrBasicBlocks(machine_ir, bb);
     if (status != kMachineIRCheckSuccess) {

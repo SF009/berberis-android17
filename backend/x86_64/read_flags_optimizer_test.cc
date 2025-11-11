@@ -18,15 +18,14 @@
 
 #include <algorithm>
 
-#include "berberis/backend/x86_64/read_flags_optimizer.h"
-
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/backend/x86_64/machine_ir_analysis.h"
 #include "berberis/backend/x86_64/machine_ir_builder.h"
 #include "berberis/backend/x86_64/machine_ir_check.h"
+#include "berberis/backend/x86_64/read_flags_optimizer.h"
 #include "berberis/base/algorithm.h"
 #include "berberis/base/arena_alloc.h"
-#include "berberis/base/arena_vector.h"
+#include "berberis/guest_state/guest_addr.h"
 
 namespace berberis::x86_64 {
 
@@ -159,16 +158,23 @@ TEST(MachineIRReadFlagsOptimizer, CheckPostLoopChecksRedefines) {
   MachineReg flags = machine_ir.AllocVReg();
   MachineRegVector regs({flags}, machine_ir.arena());
 
-  auto bb0 = machine_ir.NewBasicBlock();
+  auto* loop_exit = machine_ir.NewBasicBlock();
+  auto* postloop = machine_ir.NewBasicBlock();
 
-  bb0->live_in().push_back(flags);
-  builder.StartBasicBlock(bb0);
+  machine_ir.AddEdge(loop_exit, postloop);
+
+  builder.StartBasicBlock(loop_exit);
+  builder.Gen<PseudoBranch>(postloop);
+  loop_exit->live_out().push_back(flags);
+
+  postloop->live_in().push_back(flags);
+  builder.StartBasicBlock(postloop);
   builder.Gen<AddqRegReg, kNoSSA>(flags, flags, kMachineRegFLAGS);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
   ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
 
-  ASSERT_FALSE(CheckPostLoopNode(bb0, regs));
+  ASSERT_FALSE(CheckPostLoopNode(postloop, regs));
 }
 
 TEST(MachineIRReadFlagsOptimizer, CheckPostLoopNodeLifetime) {
@@ -1230,20 +1236,33 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersUpdatesLiveInOut) {
   MachineReg input1 = machine_ir.AllocVReg();
   MachineReg input11 = machine_ir.AllocVReg();
 
-  auto bb0 = machine_ir.NewBasicBlock();
+  auto* loop_exit = machine_ir.NewBasicBlock();
+  auto* postloop = machine_ir.NewBasicBlock();
+  auto* postloop_successor = machine_ir.NewBasicBlock();
 
-  builder.StartBasicBlock(bb0);
+  machine_ir.AddEdge(loop_exit, postloop);
+  machine_ir.AddEdge(postloop, postloop_successor);
+
+  builder.StartBasicBlock(loop_exit);
+  builder.Gen<PseudoBranch>(postloop);
+  loop_exit->live_out().push_back(flags0);
+
+  builder.StartBasicBlock(postloop);
   builder.Gen<PseudoCopy>(flags00, flags0, 8);
+  builder.Gen<PseudoBranch>(postloop_successor);
+  postloop->live_in().push_back(flags0);
+  postloop->live_out().push_back(flags00);
+
+  builder.StartBasicBlock(postloop_successor);
   builder.Gen<PseudoJump>(kNullGuestAddr);
-  bb0->live_in().push_back(flags0);
-  bb0->live_out().push_back(flags00);
+  postloop_successor->live_in().push_back(flags00);
 
   ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
 
   ReplaceFlagRegisters(
       &machine_ir,
       ReadFlagsOptContext{
-          bb0,
+          postloop,
           MachineInsnList{{machine_ir.NewInsn<PseudoReadFlags>(
                               PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS)},
                           machine_ir.arena()}
@@ -1254,14 +1273,14 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersUpdatesLiveInOut) {
                               .begin(),
                           false},
       },
-      bb0->insn_list().begin(),
+      postloop->insn_list().begin(),
       MachineRegVector({flags0}, machine_ir.arena()),
       ArenaMap<MachineReg, MachineReg>({{input0, input00}, {input1, input11}}, machine_ir.arena()),
       nullptr);
 
-  ASSERT_EQ(bb0->live_in().size(), 2UL);
-  ASSERT_TRUE(Contains(bb0->live_in(), input00));
-  ASSERT_TRUE(Contains(bb0->live_in(), input11));
+  ASSERT_EQ(postloop->live_in().size(), 2UL);
+  ASSERT_TRUE(Contains(postloop->live_in(), input00));
+  ASSERT_TRUE(Contains(postloop->live_in(), input11));
 }
 
 TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersDeletesCopies) {
@@ -1377,16 +1396,29 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersKeepsLiveIns) {
   MachineReg input1 = machine_ir.AllocVReg();
   MachineReg input11 = machine_ir.AllocVReg();
 
-  auto bb = machine_ir.NewBasicBlock();
+  auto* pred_bb = machine_ir.NewBasicBlock();
+  auto* bb = machine_ir.NewBasicBlock();
+  auto* succ_bb = machine_ir.NewBasicBlock();
+
+  machine_ir.AddEdge(pred_bb, bb);
+  machine_ir.AddEdge(bb, succ_bb);
+
+  builder.StartBasicBlock(pred_bb);
+  builder.Gen<PseudoBranch>(bb);
+  pred_bb->live_out().push_back(flags0);
 
   builder.StartBasicBlock(bb);
   // Have an extra copy here just so we can pass next(begin()) to
   // ReplaceFlagRegisters but it could be any instruction.
   builder.Gen<AddqRegReg, kNoSSA>(input0, input1, kMachineRegFLAGS);
   builder.Gen<PseudoCopy>(flags00, flags0, 8);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<PseudoBranch>(succ_bb);
   bb->live_in().push_back(flags0);
   bb->live_out().push_back(flags00);
+
+  builder.StartBasicBlock(succ_bb);
+  builder.Gen<PseudoJump>(kNullGuestAddr);
+  succ_bb->live_in().push_back(flags00);
 
   ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
 

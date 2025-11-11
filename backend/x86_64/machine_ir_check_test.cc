@@ -17,6 +17,7 @@
 #include "gtest/gtest.h"
 
 #include "berberis/backend/code_emitter.h"
+#include "berberis/backend/common/machine_ir.h"
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/backend/x86_64/machine_ir_builder.h"
 #include "berberis/backend/x86_64/machine_ir_check.h"
@@ -45,7 +46,7 @@ TEST(MachineIRCheckTest, BasicBlockNotDstOfInEdgeLists) {
   bb1->in_edges().push_back(bad_edge);
   bb2->out_edges().push_back(good_edge);
 
-  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckFail);
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRMislinkedEdge);
 }
 
 TEST(MachineIRCheckTest, BasicBlockNotSrcOfItsOutEdgeLists) {
@@ -62,7 +63,7 @@ TEST(MachineIRCheckTest, BasicBlockNotSrcOfItsOutEdgeLists) {
   bb1->out_edges().push_back(bad_edge);
   bb2->in_edges().push_back(good_edge);
 
-  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckFail);
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRMislinkedEdge);
 }
 
 TEST(MachineIRCheckTest, EdgeIsNotIncomingForItsDst) {
@@ -404,6 +405,46 @@ TEST(MachineIRCheckTest, EnterLocationWithOptimizedABI) {
   // Enter at the beginning of non-entry basic block.
   bb2->insn_list().push_front(machine_ir.NewInsn<x86_64::Enter>());
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRWrongEnterInsnLocation);
+}
+
+TEST(MachineIRCheckTest, InterLiveVRegsWithoutInOutEdges) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+  auto* pred_bb = machine_ir.NewBasicBlock();
+  auto* bb = machine_ir.NewBasicBlock();
+  auto* succ_bb = machine_ir.NewBasicBlock();
+  auto in_vreg = machine_ir.AllocVReg();
+  auto out_vreg = machine_ir.AllocVReg();
+
+  builder.StartBasicBlock(bb);
+  builder.Gen<PseudoJump>(kNullGuestAddr);
+
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+
+  bb->live_in().push_back(in_vreg);
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir),
+            x86_64::kMachineIRInconsistentEdgesAndInterLiveVRegs);
+
+  builder.StartBasicBlock(pred_bb);
+  builder.Gen<PseudoBranch>(bb);
+  pred_bb->live_out().push_back(in_vreg);
+  machine_ir.AddEdge(pred_bb, bb);
+
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+
+  bb->live_out().push_back(out_vreg);
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir),
+            x86_64::kMachineIRInconsistentEdgesAndInterLiveVRegs);
+
+  *bb->insn_list().begin() = machine_ir.NewInsn<PseudoBranch>(succ_bb);
+  builder.StartBasicBlock(succ_bb);
+  builder.Gen<PseudoJump>(kNullGuestAddr);
+  succ_bb->live_in().push_back(out_vreg);
+  machine_ir.AddEdge(bb, succ_bb);
+
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
 }
 
 }  // namespace
