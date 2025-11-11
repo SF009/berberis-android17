@@ -116,8 +116,11 @@ MachineIRCheckStatus CheckInsnListIntegrity(const MachineIR* ir, const MachineBa
         break;
       case MachineOpcode::kMachineOpPseudoIndirectJump:
       case MachineOpcode::kMachineOpPseudoJump:
-        return insn == bb->insn_list().back() ? kMachineIRCheckSuccess
-                                              : kMachineIRWrongControlFlowInsnLocation;
+        if (insn != bb->insn_list().back()) {
+          return kMachineIRWrongControlFlowInsnLocation;
+        }
+        return bb->out_edges().empty() ? kMachineIRCheckSuccess
+                                       : kMachineIRControlFlowInsnSuccessorMismatch;
       case MachineOpcode::kMachineOpPseudoBranch: {
         if (insn != bb->insn_list().back()) {
           return kMachineIRWrongControlFlowInsnLocation;

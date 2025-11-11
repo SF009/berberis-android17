@@ -741,6 +741,7 @@ TEST(ExecMachineIR, RecoveryBlock) {
   x86_64::MachineIR machine_ir(&arena);
   constexpr auto kScratchReg = kMachineRegRBP;
   auto* main_bb = machine_ir.NewBasicBlock();
+  auto* exit_bb = machine_ir.NewBasicBlock();
   auto* recovery_bb = machine_ir.NewBasicBlock();
 
   x86_64::MachineIRBuilder builder(&machine_ir);
@@ -750,12 +751,16 @@ TEST(ExecMachineIR, RecoveryBlock) {
       kScratchReg, kScratchReg, x86_64::kMachineRegFLAGS);
   builder.Gen<x86_64::MovqOpReg>({.base = kScratchReg}, kScratchReg);
   builder.SetRecoveryPointAtLastInsn(recovery_bb);
-  builder.Gen<PseudoJump>(21ULL);
+  builder.Gen<PseudoBranch>(exit_bb);
+
+  builder.StartBasicBlock(exit_bb);
+  builder.Gen<PseudoJump>(42ULL);
 
   builder.StartBasicBlock(recovery_bb);
   builder.Gen<PseudoJump>(42ULL);
 
   machine_ir.AddEdge(main_bb, recovery_bb);
+  machine_ir.AddEdge(main_bb, exit_bb);
 
   ExecTest test;
   test.Init(machine_ir);
