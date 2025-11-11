@@ -129,11 +129,7 @@ constexpr bool TestFunc() {
         []<typename T>(int& extra_arg1, int& extra_arg2) {
           extra_arg1 += 1;
           extra_arg2 -= 1;
-          if constexpr (std::is_same_v<T, const int&>) {
-            return MetaValue<true>{};
-          } else {
-            return MetaValue<false>{};
-          }
+          return std::is_same_v<T, const int&>;
         },
         extra_arg1,
         extra_arg2);
@@ -148,11 +144,7 @@ constexpr bool TestFunc() {
         []<typename T>(int& extra_arg1, int& extra_arg2) {
           extra_arg1 += 1;
           extra_arg2 -= 1;
-          if constexpr (std::is_same_v<T, char>) {
-            return MetaValue<true>{};
-          } else {
-            return MetaValue<false>{};
-          }
+          return std::is_same_v<T, char>;
         },
         extra_arg1,
         extra_arg2);
@@ -169,11 +161,7 @@ constexpr bool TestFunc() {
           extra_arg1 += 1;
           extra_arg2 -= 1;
           CHECK_EQ(++idx, extra_arg1);
-          if constexpr (std::is_same_v<T, const int&>) {
-            return MetaValue<true>{};
-          } else {
-            return MetaValue<false>{};
-          }
+          return std::is_same_v<T, const int&>;
         },
         extra_arg1,
         extra_arg2);
@@ -189,11 +177,7 @@ constexpr bool TestFunc() {
           extra_arg1 += 1;
           extra_arg2 -= 1;
           CHECK_EQ(++idx, extra_arg1);
-          if constexpr (std::is_same_v<T, char>) {
-            return MetaValue<true>{};
-          } else {
-            return MetaValue<false>{};
-          }
+          return std::is_same_v<T, char>;
         },
         extra_arg1,
         extra_arg2);
@@ -211,11 +195,7 @@ constexpr bool TestFunc() {
           extra_arg1 += 1;
           extra_arg2 -= 1;
           CHECK_EQ(++idx, 42 + extra_arg1);
-          if constexpr (std::is_same_v<T, const int&>) {
-            return MetaValue<true>{};
-          } else {
-            return MetaValue<false>{};
-          }
+          return std::is_same_v<T, const int&>;
         },
         extra_arg1,
         extra_arg2);
@@ -232,11 +212,7 @@ constexpr bool TestFunc() {
           extra_arg1 += 1;
           extra_arg2 -= 1;
           CHECK_EQ(++idx, 42 + extra_arg1);
-          if constexpr (std::is_same_v<T, char>) {
-            return MetaValue<true>{};
-          } else {
-            return MetaValue<false>{};
-          }
+          return std::is_same_v<T, char>;
         },
         extra_arg1,
         extra_arg2);
@@ -253,11 +229,7 @@ constexpr bool TestFunc() {
         []<typename T>(T, int& extra_arg1, int& extra_arg2) {
           extra_arg1 += 1;
           extra_arg2 -= 1;
-          if constexpr (std::is_same_v<T, char>) {
-            return MetaValue<true>{};
-          } else {
-            return MetaValue<false>{};
-          }
+          return std::is_same_v<T, char>;
         },
         extra_arg1,
         extra_arg2);
@@ -273,11 +245,7 @@ constexpr bool TestFunc() {
         []<typename T>(T, int& extra_arg1, int& extra_arg2) {
           extra_arg1 += 1;
           extra_arg2 -= 1;
-          if constexpr (std::is_same_v<T, const int&>) {
-            return MetaValue<true>{};
-          } else {
-            return MetaValue<false>{};
-          }
+          return std::is_same_v<T, const int&>;
         },
         extra_arg1,
         extra_arg2);
@@ -295,11 +263,7 @@ constexpr bool TestFunc() {
           extra_arg1 += 1;
           extra_arg2 -= 1;
           CHECK_EQ(++idx, extra_arg1);
-          if constexpr (std::is_same_v<T, char>) {
-            return MetaValue<true>{};
-          } else {
-            return MetaValue<false>{};
-          }
+          return std::is_same_v<T, char>;
         },
         extra_arg1,
         extra_arg2);
@@ -316,11 +280,7 @@ constexpr bool TestFunc() {
           extra_arg1 += 1;
           extra_arg2 -= 1;
           CHECK_EQ(++idx, extra_arg1);
-          if constexpr (std::is_same_v<T, const int&>) {
-            return MetaValue<true>{};
-          } else {
-            return MetaValue<false>{};
-          }
+          return std::is_same_v<T, const int&>;
         },
         extra_arg1,
         extra_arg2);
@@ -339,11 +299,7 @@ constexpr bool TestFunc() {
           extra_arg1 += 1;
           extra_arg2 -= 1;
           CHECK_EQ(++idx, 42 + extra_arg1);
-          if constexpr (std::is_same_v<T, char>) {
-            return MetaValue<true>{};
-          } else {
-            return MetaValue<false>{};
-          }
+          return std::is_same_v<T, char>;
         },
         extra_arg1,
         extra_arg2);
@@ -361,11 +317,7 @@ constexpr bool TestFunc() {
           extra_arg1 += 1;
           extra_arg2 -= 1;
           CHECK_EQ(++idx, 42 + extra_arg1);
-          if constexpr (std::is_same_v<T, const int&>) {
-            return MetaValue<true>{};
-          } else {
-            return MetaValue<false>{};
-          }
+          return std::is_same_v<T, const int&>;
         },
         extra_arg1,
         extra_arg2);
