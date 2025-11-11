@@ -568,6 +568,61 @@ TEST(MachineIRRenameCopyUsesTest, DuplicateLiveInsDontGetRenamedWhenBBHasMultipl
   EXPECT_TRUE(Contains(bb2->live_out(), vreg2));
 }
 
+TEST(MachineIRRenameCopyUsesTest, DuplicateRenamedWithBothLiveInsNotRenamedWithNoLiveIns) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  auto* bb1 = machine_ir.NewBasicBlock();
+  auto* bb2 = machine_ir.NewBasicBlock();
+  auto* bb3 = machine_ir.NewBasicBlock();
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  MachineReg vreg1 = machine_ir.AllocVReg();
+  MachineReg vreg2 = machine_ir.AllocVReg();
+  MachineReg vreg3 = machine_ir.AllocVReg();
+  MachineReg vreg4 = machine_ir.AllocVReg();
+  MachineReg flags = machine_ir.AllocVReg();
+
+  builder.StartBasicBlock(bb1);
+  builder.Gen<PseudoCopy>(vreg1, vreg2, 8);
+  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  machine_ir.AddEdge(bb1, bb2);
+  machine_ir.AddEdge(bb1, bb3);
+  bb1->live_out().push_back(vreg1);
+  bb1->live_out().push_back(vreg2);
+
+  builder.StartBasicBlock(bb2);
+  // bb2 has no live-ins, so it should be skipped by the optimization.
+  builder.Gen<PseudoJump>(kNullGuestAddr);
+
+  builder.StartBasicBlock(bb3);
+  bb3->live_in().push_back(vreg1);
+  bb3->live_in().push_back(vreg2);
+  auto* add_insn1 = builder.Gen<AddqRegReg, kNoSSA>(vreg3, vreg2, flags);
+  auto* add_insn2 = builder.Gen<AddqRegReg, kNoSSA>(vreg4, vreg1, flags);
+  builder.Gen<PseudoJump>(kNullGuestAddr);
+
+  ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
+  RenameCopyUses(&machine_ir);
+  ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
+
+  // bb2 has no live-ins, so it should be skipped by the optimization.
+  EXPECT_TRUE(bb2->live_in().empty());
+
+  // bb3 has live-ins and one predecessor, so it should be optimized.
+  EXPECT_EQ(add_insn1->RegAt(1), vreg2);
+  EXPECT_EQ(add_insn2->RegAt(1), vreg2);
+
+  // vreg1 should be removed from bb3's live-ins.
+  EXPECT_FALSE(Contains(bb3->live_in(), vreg1));
+  EXPECT_TRUE(Contains(bb3->live_in(), vreg2));
+
+  // vreg1 is no longer live-in to any successor of bb1, so it should be removed from live-outs.
+  EXPECT_FALSE(Contains(bb1->live_out(), vreg1));
+  EXPECT_TRUE(Contains(bb1->live_out(), vreg2));
+}
+
 TEST(MachineIRRenameCopyUsesTest, DuplicateLiveInsWhichAreOverwrittenDoNotGetRenamed) {
   Arena arena;
   x86_64::MachineIR machine_ir(&arena);
