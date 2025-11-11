@@ -552,17 +552,28 @@ class ValuesToTypes {
 
  public:
   template <auto kValues>
-  using MetaValues = decltype(MetaValuesHelper<kValues>::MetaValues(
-      std::declval<
-          std::make_index_sequence<std::tuple_size_v<std::remove_cvref_t<decltype(*kValues)>>>>()));
+  using MetaValues = MetaValuesHelper<kValues>::MetaValues;
 
  private:
   template <auto kValues>
   class MetaValuesHelper {
    public:
     template <std::size_t... Is>
-    static constexpr std::tuple<MetaValue<std::get<Is>(*kValues)>...> MetaValues(
+    static constexpr std::tuple<MetaValue<std::get<Is>(kValues)>...> MetaValuesFunc(
         std::index_sequence<Is...>);
+    using MetaValues =
+        decltype(MetaValuesFunc(std::declval<std::make_index_sequence<
+                                    std::tuple_size_v<std::remove_cvref_t<decltype(kValues)>>>>()));
+  };
+  template <auto* kValues>
+  class MetaValuesHelper<kValues> {
+   public:
+    template <std::size_t... Is>
+    static constexpr std::tuple<MetaValue<std::get<Is>(*kValues)>...> MetaValuesFunc(
+        std::index_sequence<Is...>);
+    using MetaValues = decltype(MetaValuesFunc(
+        std::declval<std::make_index_sequence<
+            std::tuple_size_v<std::remove_cvref_t<decltype(*kValues)>>>>()));
   };
 };
 
