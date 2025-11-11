@@ -38,6 +38,9 @@ class MetaValue {
   constexpr operator ValueType() const { return kValue; }
 };
 
+template <auto kValueParam>
+constexpr MetaValue<kValueParam> kMeta = MetaValue<kValueParam>{};
+
 #pragma push_macro("DEFINE_VALUE_OPERATOR")
 #undef DEFINE_VALUE_OPERATOR
 #define DEFINE_VALUE_OPERATOR(operator_name)                                             \
