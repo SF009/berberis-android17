@@ -545,7 +545,7 @@ def _get_semantics_player_hook_template_switch(name, intr):
     yield 2 * INDENT + 'return %s(%s);' % (
       name,
       ','.join(list('arg%d' % arg[0] for arg in enumerate(intr['in'])) +
-               list(f'MetaValue<{expectation}>{{}}'
+               list(f'kMeta<{expectation}>'
                     for expectation in expectations)))
   yield INDENT + 'default:'
   yield 2 * INDENT + 'FATAL("Unsupported size");'
