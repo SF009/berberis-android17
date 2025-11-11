@@ -792,6 +792,57 @@ TEST(ExecMachineIR, RecoveryWithGuestPC) {
   EXPECT_EQ(test.returned_rax(), 42ULL);
 }
 
+TEST(ExecMachineIR, RecoveryWithGuestPCAndSpills) {
+  ScopedSignalHandler handler(SIGSEGV, SigsegvHandler);
+
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+  builder.StartBasicBlock(machine_ir.NewBasicBlock());
+
+  // Create a lot of virtual registers to force spilling, which in turn will
+  // create a non-zero stack frame.
+  constexpr int kNumVRegs = 32;
+  MachineReg vregs[kNumVRegs];
+  for (int i = 0; i < kNumVRegs; ++i) {
+    vregs[i] = machine_ir.AllocVReg();
+    builder.Gen<x86_64::MovqRegImm>(vregs[i], i);
+  }
+
+  // Cause a SIGSEGV by dereferencing a null pointer.
+  // Use one of the virtual registers to hold the null pointer.
+  MachineReg zero_reg = machine_ir.AllocVReg();
+  builder.Gen<x86_64::MovqRegImm>(zero_reg, 0);
+  builder.Gen<x86_64::MovqOpReg>({.base = zero_reg}, zero_reg);
+  builder.SetRecoveryWithGuestPCAtLastInsn(123ULL);
+
+  // Use the other vregs after the faulting instruction to ensure they are live
+  // across it. This forces the register allocator to spill them if necessary.
+  // This code path is not expected to be executed but is needed for liveness
+  // analysis.
+  MachineReg sum = machine_ir.AllocVReg();
+  builder.Gen<x86_64::MovqRegImm>(sum, 0);
+  for (int i = 0; i < kNumVRegs; ++i) {
+    MachineReg vflags = machine_ir.AllocVReg();
+    builder.Gen<x86_64::AddqRegReg, x86_64::kNoSSA>(sum, vregs[i], vflags);
+  }
+
+  AllocRegs(&machine_ir);
+  EXPECT_GT(machine_ir.FrameSize(), 0u);
+
+  ExecTest test;
+  test.Init(machine_ir);
+  g_recovery_map = &test.recovery_map();
+
+  test.Exec();
+
+  // Verify that recovery was successful and the correct guest PC was returned.
+  // A successful execution implies the stack was correctly restored by
+  // EmitFreeStackFrame in the recovery path.
+  EXPECT_EQ(test.returned_rax(), 123ULL);
+}
+
 TEST(ExecMachineIR, PseudoReadFlags) {
   struct Data {
     uint64_t x;
