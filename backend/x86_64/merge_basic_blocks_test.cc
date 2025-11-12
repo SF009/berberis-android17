@@ -55,11 +55,11 @@ TEST(MergeBasicBlocksTest, MergeBasicBlocks) {
 
   builder.StartBasicBlock(bb3);
   builder.Gen<MovqRegImm>(vreg, 6);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   builder.StartBasicBlock(bb4);
   builder.Gen<MovqRegImm>(vreg, 7);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
 
@@ -113,11 +113,11 @@ TEST(MergeBasicBlocksTest, MergeDoesNotOccurWhenPredecessorHasMultipleSuccessors
 
   builder.StartBasicBlock(bb3);
   builder.Gen<MovqRegImm>(vreg, 6);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   builder.StartBasicBlock(bb4);
   builder.Gen<MovqRegImm>(vreg, 7);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
 
@@ -152,7 +152,7 @@ TEST(MergeBasicBlocksTest, MergeDoesNotOccurWhenSuccessorHasMultiplePredecessors
 
   builder.StartBasicBlock(bb3);
   builder.Gen<MovqRegImm>(vreg, 7);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   builder.StartBasicBlock(bb4);
   builder.Gen<MovqRegImm>(vreg, 8);
@@ -188,7 +188,7 @@ TEST(MergeBasicBlocksTest, ChainMergesOfConsecutiveBasicBlocks) {
 
   builder.StartBasicBlock(bb3);
   auto bb3_insn1 = builder.Gen<MovqRegImm>(vreg, 7);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
 
@@ -226,7 +226,7 @@ TEST(MergeBasicBlocksTest, MergeBackwardsEdgeBasicBlocks) {
 
   builder.StartBasicBlock(bb2);
   auto bb2_insn1 = builder.Gen<MovqRegImm>(vreg, 6);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   builder.StartBasicBlock(bb3);
   auto bb3_insn1 = builder.Gen<MovqRegImm>(vreg, 7);
@@ -234,7 +234,7 @@ TEST(MergeBasicBlocksTest, MergeBackwardsEdgeBasicBlocks) {
 
   builder.StartBasicBlock(bb4);
   builder.Gen<MovqRegImm>(vreg, 8);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
 
@@ -279,12 +279,12 @@ TEST(MergeBasicBlocksTest, MergeBasicBlocksThrowsErrorIfTriesToMergeIRWithLiveOu
   bb3->live_in().push_back(vreg);
   builder.StartBasicBlock(bb3);
   builder.Gen<MovqRegImm>(vreg, 6);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   bb4->live_in().push_back(vreg);
   builder.StartBasicBlock(bb4);
   builder.Gen<MovqRegImm>(vreg, 7);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
 

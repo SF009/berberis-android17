@@ -279,13 +279,13 @@ MachineInsnList CondBranch::Lower(Arena* arena) const {
   return {1, NewInArena<CondBranch, const CondBranch&>(arena, *this), arena};
 }
 
-PseudoJump::PseudoJump(GuestAddr target, Kind kind)
-    : MachineInsn(kMachineOpPseudoJump, 0, nullptr, nullptr, kMachineInsnSideEffects),
+Jump::Jump(GuestAddr target, Kind kind)
+    : MachineInsn(kMachineOpJump, 0, nullptr, nullptr, kMachineInsnSideEffects),
       target_(target),
       kind_(kind) {}
 
-PseudoJump::PseudoJump(GuestAddr target, WithOptimizedABI, Kind kind)
-    : MachineInsn(kMachineOpPseudoJump,
+Jump::Jump(GuestAddr target, WithOptimizedABI, Kind kind)
+    : MachineInsn(kMachineOpJump,
                   6,
                   x86_64::kPseudoJumpInfoOptimizedABI,
                   args_,
@@ -293,12 +293,12 @@ PseudoJump::PseudoJump(GuestAddr target, WithOptimizedABI, Kind kind)
       target_(target),
       kind_(kind) {}
 
-MachineInsn* PseudoJump::Clone(Arena* arena) const {
-  return NewInArena<PseudoJump, const PseudoJump&>(arena, *this);
+MachineInsn* Jump::Clone(Arena* arena) const {
+  return NewInArena<Jump, const Jump&>(arena, *this);
 }
 
-MachineInsnList PseudoJump::Lower(Arena* arena) const {
-  return {1, NewInArena<PseudoJump, const PseudoJump&>(arena, *this), arena};
+MachineInsnList Jump::Lower(Arena* arena) const {
+  return {1, NewInArena<Jump, const Jump&>(arena, *this), arena};
 }
 
 PseudoIndirectJump::PseudoIndirectJump(MachineReg target)

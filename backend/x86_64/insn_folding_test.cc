@@ -411,7 +411,7 @@ TEST(InsnFoldingTest, DefMapGetsLatestDef) {
   builder.Gen<MovqRegImm>(vreg1, 0);
   builder.Gen<MovqRegImm>(vreg2, 0);
   builder.Gen<AddqRegReg, kNoSSA>(vreg2, vreg1, flags);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   bb->live_out().push_back(vreg1);
   bb->live_out().push_back(vreg2);
@@ -772,7 +772,7 @@ TEST(InsnFoldingTest, HardRegsAreSafe) {
 
   builder.StartBasicBlock(bb);
   builder.Gen<AddqRegReg, kNoSSA>(kMachineRegRAX, kMachineRegRDI, kMachineRegFLAGS);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   FoldInsns(&machine_ir);
 
@@ -798,7 +798,7 @@ TEST(InsnFoldingTest, PseudoWriteFlagsErased) {
   builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, vreg2, flag);
   builder.Gen<PseudoCopy>(vreg3, vreg2, 8);
   builder.Gen<PseudoWriteFlags>(vreg3, flag);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   FoldInsns(&machine_ir);
 
@@ -830,7 +830,7 @@ TEST(InsnFoldingTest, FlagModifiedAfterPseudoRead) {
   builder.Gen<PseudoCopy>(vreg3, vreg2, 8);
   builder.Gen<AddqRegReg, kNoSSA>(vreg4, vreg5, flag);
   builder.Gen<PseudoWriteFlags>(vreg3, flag);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   FoldInsns(&machine_ir);
 
@@ -854,7 +854,7 @@ TEST(InsnFoldingTest, WriteFlagsNotDeletedBecauseDefinitionIsAfterUse) {
   builder.Gen<PseudoCopy>(vreg3, vreg2, 8);
   builder.Gen<MovqRegImm>(vreg2, 3);
   builder.Gen<PseudoWriteFlags>(vreg3, flag);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   FoldInsns(&machine_ir);
 
@@ -876,7 +876,7 @@ TEST(InsnFoldingTest, FoldInsnsSmoke) {
   builder.StartBasicBlock(bb);
   builder.Gen<MovqRegImm>(vreg1, 2);
   builder.Gen<AddqRegReg, kNoSSA>(vreg2, vreg1, flags);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   bb->live_out().push_back(vreg2);
   bb->live_in().push_back(vreg2);

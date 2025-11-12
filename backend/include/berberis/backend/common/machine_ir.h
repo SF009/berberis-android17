@@ -529,7 +529,7 @@ class CondBranch final : public MachineInsn {
   MachineReg eflags_;
 };
 
-class PseudoJump final : public MachineInsn {
+class Jump final : public MachineInsn {
  public:
   enum class Kind {
     kJumpWithPendingSignalsCheck,
@@ -540,8 +540,8 @@ class PseudoJump final : public MachineInsn {
 
   struct WithOptimizedABI {};
 
-  PseudoJump(GuestAddr target, Kind kind = Kind::kJumpWithPendingSignalsCheck);
-  PseudoJump(GuestAddr target,
+  Jump(GuestAddr target, Kind kind = Kind::kJumpWithPendingSignalsCheck);
+  Jump(GuestAddr target,
              WithOptimizedABI tag,
              Kind kind = Kind::kJumpWithPendingSignalsCheck);
 
@@ -552,8 +552,8 @@ class PseudoJump final : public MachineInsn {
   Kind kind() const { return kind_; }
 
  private:
-  friend PseudoJump* NewInArena<PseudoJump, const PseudoJump&>(Arena*, const PseudoJump&);
-  PseudoJump(const PseudoJump&) = default;
+  friend Jump* NewInArena<Jump, const Jump&>(Arena*, const Jump&);
+  Jump(const Jump&) = default;
   MachineInsn* Clone(Arena* arena) const override;
   MachineInsnList Lower(Arena* arena) const override;
   GuestAddr target_;

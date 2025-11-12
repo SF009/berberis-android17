@@ -42,7 +42,7 @@ TEST(MachineRenameVRegsTest, AssignNewVRegsInSameBasicBlock) {
   builder.StartBasicBlock(bb);
   builder.Gen<x86_64::MovqRegImm>(vreg, 0);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   x86_64::VRegMap vreg_map(&machine_ir);
   vreg_map.AssignNewVRegs();
@@ -75,7 +75,7 @@ TEST(MachineRenameVRegsTest, AssignNewVRegsAcrossBasicBlocks) {
 
   builder.StartBasicBlock(bb2);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   x86_64::VRegMap vreg_map(&machine_ir);
   vreg_map.AssignNewVRegs();

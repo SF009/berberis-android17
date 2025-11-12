@@ -66,7 +66,7 @@ TEST(MachineIRAnalysis, SelfLoop) {
   builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb3);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
   auto loops = x86_64::FindLoops(&machine_ir);
@@ -103,7 +103,7 @@ TEST(MachineIRAnalysis, SingleLoop) {
   builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb4, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb4);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
   auto loops = x86_64::FindLoops(&machine_ir);
@@ -298,7 +298,7 @@ TEST(MachineIRAnalysis, FindSingleLoopTree) {
   builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb3);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
   auto loop_tree = x86_64::BuildLoopTree(&machine_ir);

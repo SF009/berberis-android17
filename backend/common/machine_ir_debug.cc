@@ -152,7 +152,7 @@ std::string CondBranch::GetDebugString() const {
   return out;
 }
 
-std::string PseudoJump::GetDebugString() const {
+std::string Jump::GetDebugString() const {
   const char* suffix;
   switch (kind_) {
     case Kind::kJumpWithPendingSignalsCheck:

@@ -66,7 +66,7 @@ TEST(MachineIRReadFlagsOptimizer, CountLifetimeCounts) {
   builder.Gen<AddqRegReg, kNoSSA>(reg1, reg2, machine_ir.AllocVReg());
   builder.Gen<PxorXRegXReg, kNoSSA>(xreg0, xreg1);
   builder.Gen<MovqRegReg>(reg3, reg2);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   RegLifetimeCounter counter(&machine_ir);
   counter.Count(bb);
@@ -116,7 +116,7 @@ TEST(MachineIRReadFlagsOptimizer, CountRegLifetimeMap) {
   auto* reg0_end = builder.Gen<AddqRegReg, kNoSSA>(reg1, reg1, machine_ir.AllocVReg());
   auto* reg3_start = builder.Gen<MovqRegReg>(reg3, reg1);
   auto* reg1_end = builder.Gen<PxorXRegXReg, kNoSSA>(reg2, reg2);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   RegLifetimeCounter counter(&machine_ir);
   counter.Count(bb);
@@ -168,7 +168,7 @@ TEST(MachineIRReadFlagsOptimizer, UpdateLastUse) {
   builder.Gen<AddqRegReg, kNoSSA>(reg0, reg1, kMachineRegFLAGS);
   builder.Gen<MovqRegImm>(reg2, 2);
   builder.Gen<AddqRegReg, kNoSSA>(reg0, reg2, kMachineRegFLAGS);
-  auto* new_end = builder.Gen<PseudoJump>(kNullGuestAddr);
+  auto* new_end = builder.Gen<Jump>(kNullGuestAddr);
 
   RegLifetimeCounter counter(&machine_ir);
   counter.Count(bb);

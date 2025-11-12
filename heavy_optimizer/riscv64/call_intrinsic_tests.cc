@@ -41,7 +41,7 @@ class ExecTest {
   ExecTest() = default;
 
   void Init(x86_64::MachineIR* machine_ir) {
-    auto* jump = machine_ir->template NewInsn<PseudoJump>(0);
+    auto* jump = machine_ir->template NewInsn<Jump>(0);
     machine_ir->bb_list().back()->insn_list().push_back(jump);
 
     EXPECT_EQ(x86_64::CheckMachineIR(*machine_ir), x86_64::kMachineIRCheckSuccess);

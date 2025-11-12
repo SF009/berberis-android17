@@ -42,7 +42,7 @@ TEST(MachineIRLoopGuestContextOptimizer, ReplaceGetAndUpdateMap) {
   builder.StartBasicBlock(bb);
   auto reg1 = machine_ir.AllocVReg();
   builder.GenGet(reg1, GetThreadStateRegOffset(0));
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   auto insn_it = bb->insn_list().begin();
   MemRegMap mem_reg_map(sizeof(CPUState), std::nullopt, machine_ir.arena());
@@ -67,7 +67,7 @@ TEST(MachineIRLoopGuestContextOptimizer, ReplacePutAndUpdateMap) {
   builder.StartBasicBlock(bb);
   auto reg1 = machine_ir.AllocVReg();
   builder.GenPut(GetThreadStateRegOffset(1), reg1);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   auto insn_it = bb->insn_list().begin();
   MemRegMap mem_reg_map(sizeof(CPUState), std::nullopt, machine_ir.arena());
@@ -94,7 +94,7 @@ TEST(MachineIRLoopGuestContextOptimizer, ReplaceGetPutAndUpdateMap) {
   auto reg2 = machine_ir.AllocVReg();
   builder.GenGet(reg1, GetThreadStateRegOffset(1));
   builder.GenPut(GetThreadStateRegOffset(1), reg2);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   auto insn_it = bb->insn_list().begin();
   MemRegMap mem_reg_map(sizeof(CPUState), std::nullopt, machine_ir.arena());
@@ -126,7 +126,7 @@ TEST(MachineIRLoopGuestContextOptimizer, ReplaceGetSimdAndUpdateMap) {
   builder.StartBasicBlock(bb);
   auto reg1 = machine_ir.AllocVReg();
   builder.GenGetSimd<16>(reg1, GetThreadStateSimdRegOffset(0));
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   auto insn_it = bb->insn_list().begin();
   MemRegMap mem_reg_map(sizeof(CPUState), std::nullopt, machine_ir.arena());
@@ -154,7 +154,7 @@ TEST(MachineIRLoopGuestContextOptimizer, ReplacePutSimdAndUpdateMap) {
   builder.StartBasicBlock(bb);
   auto reg1 = machine_ir.AllocVReg();
   builder.GenSetSimd<16>(GetThreadStateSimdRegOffset(0), reg1);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   auto insn_it = bb->insn_list().begin();
   MemRegMap mem_reg_map(sizeof(CPUState), std::nullopt, machine_ir.arena());
@@ -182,7 +182,7 @@ TEST(MachineIRLoopGuestContextOptimizer, ReplaceGetFAndUpdateMap) {
   builder.StartBasicBlock(bb);
   auto reg1 = machine_ir.AllocVReg();
   builder.GenGetSimd<8>(reg1, GetThreadStateFRegOffset(0));
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   auto insn_it = bb->insn_list().begin();
   MemRegMap mem_reg_map(sizeof(CPUState), std::nullopt, machine_ir.arena());
@@ -210,7 +210,7 @@ TEST(MachineIRLoopGuestContextOptimizer, ReplacePutFAndUpdateMap) {
   builder.StartBasicBlock(bb);
   auto reg1 = machine_ir.AllocVReg();
   builder.GenSetSimd<8>(GetThreadStateFRegOffset(0), reg1);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   auto insn_it = bb->insn_list().begin();
   MemRegMap mem_reg_map(sizeof(CPUState), std::nullopt, machine_ir.arena());
@@ -238,7 +238,7 @@ TEST(MachineIRLoopGuestContextOptimizer, ReplaceGetVAndUpdateMap) {
   builder.StartBasicBlock(bb);
   auto reg1 = machine_ir.AllocVReg();
   builder.GenGetSimd<16>(reg1, GetThreadStateVRegOffset(0));
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   auto insn_it = bb->insn_list().begin();
   MemRegMap mem_reg_map(sizeof(CPUState), std::nullopt, machine_ir.arena());
@@ -266,7 +266,7 @@ TEST(MachineIRLoopGuestContextOptimizer, ReplacePutVAndUpdateMap) {
   builder.StartBasicBlock(bb);
   auto reg1 = machine_ir.AllocVReg();
   builder.GenSetSimd<16>(GetThreadStateVRegOffset(0), reg1);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   auto insn_it = bb->insn_list().begin();
   MemRegMap mem_reg_map(sizeof(CPUState), std::nullopt, machine_ir.arena());
@@ -292,7 +292,7 @@ TEST(MachineIRLoopGuestContextOptimizerRiscv64, ReplaceGetMovwAndUpdateMap) {
   auto reg1 = machine_ir.AllocVReg();
   auto offset = 0;
   builder.Gen<MovwRegOp>(reg1, {.base = kMachineRegRBP, .disp = offset});
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   auto insn_it = bb->insn_list().begin();
   MemRegMap mem_reg_map(sizeof(CPUState), std::nullopt, machine_ir.arena());
@@ -316,7 +316,7 @@ TEST(MachineIRLoopGuestContextOptimizerRiscv64, ReplacePutMovwAndUpdateMap) {
   auto reg1 = machine_ir.AllocVReg();
   auto offset = 0;
   builder.Gen<MovwOpReg>({.base = kMachineRegRBP, .disp = offset}, reg1);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   auto insn_it = bb->insn_list().begin();
   MemRegMap mem_reg_map(sizeof(CPUState), std::nullopt, machine_ir.arena());
@@ -478,7 +478,7 @@ TEST(MachineIRLoopGuestContextOptimizer, GeneratePreloop) {
   builder.Gen<CondBranch>(
       CodeEmitter::Condition::kZero, loop_body, afterloop, kMachineRegFLAGS);
   builder.StartBasicBlock(afterloop);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   Loop loop(machine_ir.arena());
   loop.push_back(loop_body);
@@ -559,7 +559,7 @@ TEST(MachineIRLoopGuestContextOptimizer, GenerateAfterloop) {
   builder.Gen<CondBranch>(
       CodeEmitter::Condition::kZero, loop_body, afterloop, kMachineRegFLAGS);
   builder.StartBasicBlock(afterloop);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   Loop loop(machine_ir.arena());
   loop.push_back(loop_body);
@@ -644,7 +644,7 @@ TEST(MachineIRLoopGuestContextOptimizer, GenerateMultiplePreloops) {
   builder.Gen<CondBranch>(
       CodeEmitter::Condition::kZero, loop_body, afterloop, kMachineRegFLAGS);
   builder.StartBasicBlock(afterloop);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   Loop loop(machine_ir.arena());
   loop.push_back(loop_body);
@@ -693,9 +693,9 @@ TEST(MachineIRLoopGuestContextOptimizer, GenerateMultiplePostloops) {
   builder.Gen<CondBranch>(
       CodeEmitter::Condition::kZero, loop_body1, postloop2, kMachineRegFLAGS);
   builder.StartBasicBlock(postloop1);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
   builder.StartBasicBlock(postloop2);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   Loop loop(machine_ir.arena());
   loop.push_back(loop_body1);
@@ -743,7 +743,7 @@ TEST(MachineIRLoopGuestContextOptimizer, RemovePutInSelfLoop) {
   builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, body, afterloop, kMachineRegFLAGS);
 
   builder.StartBasicBlock(afterloop);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   RemoveLoopGuestContextAccesses(&machine_ir);
   ASSERT_EQ(CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
@@ -789,7 +789,7 @@ TEST(MachineIRLoopGuestContextOptimizer, RemovePutRegAndPutImmediateInSelfLoop) 
   builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, body, afterloop, kMachineRegFLAGS);
 
   builder.StartBasicBlock(afterloop);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   RemoveLoopGuestContextAccesses(&machine_ir);
   ASSERT_EQ(CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
@@ -836,7 +836,7 @@ TEST(MachineIRLoopGuestContextOptimizer, RemoveGetInSelfLoop) {
   builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, body, afterloop, kMachineRegFLAGS);
 
   builder.StartBasicBlock(afterloop);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   RemoveLoopGuestContextAccesses(&machine_ir);
   ASSERT_EQ(CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
@@ -880,7 +880,7 @@ TEST(MachineIRLoopGuestContextOptimizer, RemoveGetPutInSelfLoop) {
   builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, body, afterloop, kMachineRegFLAGS);
 
   builder.StartBasicBlock(afterloop);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   RemoveLoopGuestContextAccesses(&machine_ir);
   ASSERT_EQ(CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
@@ -934,10 +934,10 @@ TEST(MachineIRLoopGuestContextOptimizer, RemovePutInLoopWithMultipleExits) {
   builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, body1, afterloop2, kMachineRegFLAGS);
 
   builder.StartBasicBlock(afterloop1);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   builder.StartBasicBlock(afterloop2);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   RemoveLoopGuestContextAccesses(&machine_ir);
   ASSERT_EQ(CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
@@ -1100,7 +1100,7 @@ TEST(MachineIRLoopGuestContextOptimizer, OptimizeLoopWithPriority) {
   builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, body, afterloop, kMachineRegFLAGS);
 
   builder.StartBasicBlock(afterloop);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   ASSERT_EQ(CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
   Loop loop({body}, machine_ir.arena());
@@ -1176,7 +1176,7 @@ TEST(MachineIRLoopGuestContextOptimizer, ReplaceGetFlagsAndUpdateMap) {
   auto reg1 = machine_ir.AllocVReg();
   auto offset = GetThreadStateFlagOffset();
   builder.Gen<MovwRegOp>(reg1, {.base = kMachineRegRBP, .disp = static_cast<int32_t>(offset)});
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   auto insn_it = bb->insn_list().begin();
   MemRegMap mem_reg_map(sizeof(CPUState), std::nullopt, machine_ir.arena());
@@ -1203,7 +1203,7 @@ TEST(MachineIRLoopGuestContextOptimizer, ReplacePutFlagsAndUpdateMap) {
   auto reg1 = machine_ir.AllocVReg();
   auto offset = GetThreadStateFlagOffset();
   builder.Gen<MovwOpReg>({.base = kMachineRegRBP, .disp = static_cast<int32_t>(offset)}, reg1);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   auto insn_it = bb->insn_list().begin();
   MemRegMap mem_reg_map(sizeof(CPUState), std::nullopt, machine_ir.arena());

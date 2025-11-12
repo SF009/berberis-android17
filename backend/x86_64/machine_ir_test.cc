@@ -40,7 +40,7 @@ TEST(MachineIR, SplitBasicBlock) {
   builder.Gen<x86_64::MovqRegImm>(x86_64::kMachineRegRBP, 1);
   builder.Gen<x86_64::MovqRegImm>(x86_64::kMachineRegRBP, 1);
   builder.Gen<x86_64::MovqRegImm>(x86_64::kMachineRegRBP, 1);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   auto insn_it = bb->insn_list().begin();
   std::advance(insn_it, 2);
@@ -72,11 +72,11 @@ TEST(MachineIR, SplitBasicBlockWithOutcomingEdges) {
 
   builder.StartBasicBlock(bb2);
   builder.Gen<x86_64::MovqRegImm>(vreg, 0);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   builder.StartBasicBlock(bb3);
   builder.Gen<x86_64::MovqRegImm>(vreg, 0);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   auto insn_it = std::next(bb1->insn_list().begin());
   MachineBasicBlock* new_bb = machine_ir.SplitBasicBlock(bb1, insn_it);

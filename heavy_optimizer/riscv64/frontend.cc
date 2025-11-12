@@ -113,14 +113,14 @@ void HeavyOptimizerFrontend::GenJump(GuestAddr target) {
 
   // Checking pending signals only on back jumps guarantees no infinite loops
   // without pending signal checks.
-  auto kind = target <= GetInsnAddr() ? PseudoJump::Kind::kJumpWithPendingSignalsCheck
-                                      : PseudoJump::Kind::kJumpWithoutPendingSignalsCheck;
+  auto kind = target <= GetInsnAddr() ? Jump::Kind::kJumpWithPendingSignalsCheck
+                                      : Jump::Kind::kJumpWithoutPendingSignalsCheck;
 
-  builder_.Gen<PseudoJump>(target, kind);
+  builder_.Gen<Jump>(target, kind);
 }
 
 void HeavyOptimizerFrontend::ExitGeneratedCode(GuestAddr target) {
-  builder_.Gen<PseudoJump>(target, PseudoJump::Kind::kExitGeneratedCode);
+  builder_.Gen<Jump>(target, Jump::Kind::kExitGeneratedCode);
 }
 
 void HeavyOptimizerFrontend::ExitRegionIndirect(Register target) {
@@ -160,13 +160,13 @@ void HeavyOptimizerFrontend::ResolveJumps() {
     }
 
     const MachineInsn* last_insn = bb->insn_list().back();
-    if (last_insn->opcode() != kMachineOpPseudoJump) {
+    if (last_insn->opcode() != kMachineOpJump) {
       continue;
     }
 
-    auto* jump = static_cast<const PseudoJump*>(last_insn);
-    if (jump->kind() == PseudoJump::Kind::kSyscall ||
-        jump->kind() == PseudoJump::Kind::kExitGeneratedCode) {
+    auto* jump = static_cast<const Jump*>(last_insn);
+    if (jump->kind() == Jump::Kind::kSyscall ||
+        jump->kind() == Jump::Kind::kExitGeneratedCode) {
       // Syscall or generated code exit must always exit region.
       continue;
     }
@@ -214,19 +214,19 @@ void HeavyOptimizerFrontend::ReplaceJumpWithBranch(MachineBasicBlock* bb,
                                                    MachineBasicBlock* target_bb) {
   auto ir = builder_.ir();
   const auto* last_insn = bb->insn_list().back();
-  CHECK_EQ(last_insn->opcode(), kMachineOpPseudoJump);
-  auto* jump = static_cast<const PseudoJump*>(last_insn);
-  GuestAddr target = static_cast<const PseudoJump*>(jump)->target();
+  CHECK_EQ(last_insn->opcode(), kMachineOpJump);
+  auto* jump = static_cast<const Jump*>(last_insn);
+  GuestAddr target = static_cast<const Jump*>(jump)->target();
   // Do not invalidate this iterator as it may be a target for another jump.
   // Instead overwrite the instruction.
   auto jump_it = std::prev(bb->insn_list().end());
 
-  if (jump->kind() == PseudoJump::Kind::kJumpWithoutPendingSignalsCheck) {
+  if (jump->kind() == Jump::Kind::kJumpWithoutPendingSignalsCheck) {
     // Simple branch for forward jump.
     *jump_it = ir->NewInsn<berberis::Branch>(target_bb);
     ir->AddEdge(bb, target_bb);
   } else {
-    CHECK(jump->kind() == PseudoJump::Kind::kJumpWithPendingSignalsCheck);
+    CHECK(jump->kind() == Jump::Kind::kJumpWithPendingSignalsCheck);
     // See EmitCheckSignalsAndMaybeReturn.
     auto* exit_bb = ir->NewBasicBlock();
     // Note that we intentionally don't mark exit_bb as recovery and therefore don't request its
