@@ -50,7 +50,7 @@ class ExecTest {
     // Add exiting jump if not already.
     auto* last_insn = machine_ir.bb_list().back()->insn_list().back();
     if (!machine_ir.IsControlTransfer(last_insn)) {
-      auto* jump = machine_ir.template NewInsn<PseudoJump>(0);
+      auto* jump = machine_ir.template NewInsn<Jump>(0);
       machine_ir.bb_list().back()->insn_list().push_back(jump);
     }
 
@@ -754,10 +754,10 @@ TEST(ExecMachineIR, RecoveryBlock) {
   builder.Gen<Branch>(exit_bb);
 
   builder.StartBasicBlock(exit_bb);
-  builder.Gen<PseudoJump>(42ULL);
+  builder.Gen<Jump>(42ULL);
 
   builder.StartBasicBlock(recovery_bb);
-  builder.Gen<PseudoJump>(42ULL);
+  builder.Gen<Jump>(42ULL);
 
   machine_ir.AddEdge(main_bb, recovery_bb);
   machine_ir.AddEdge(main_bb, exit_bb);

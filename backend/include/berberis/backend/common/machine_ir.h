@@ -529,7 +529,7 @@ class CondBranch final : public MachineInsn {
   MachineReg eflags_;
 };
 
-class PseudoJump final : public MachineInsn {
+class Jump final : public MachineInsn {
  public:
   enum class Kind {
     kJumpWithPendingSignalsCheck,
@@ -540,8 +540,8 @@ class PseudoJump final : public MachineInsn {
 
   struct WithOptimizedABI {};
 
-  PseudoJump(GuestAddr target, Kind kind = Kind::kJumpWithPendingSignalsCheck);
-  PseudoJump(GuestAddr target,
+  Jump(GuestAddr target, Kind kind = Kind::kJumpWithPendingSignalsCheck);
+  Jump(GuestAddr target,
              WithOptimizedABI tag,
              Kind kind = Kind::kJumpWithPendingSignalsCheck);
 
@@ -552,8 +552,8 @@ class PseudoJump final : public MachineInsn {
   Kind kind() const { return kind_; }
 
  private:
-  friend PseudoJump* NewInArena<PseudoJump, const PseudoJump&>(Arena*, const PseudoJump&);
-  PseudoJump(const PseudoJump&) = default;
+  friend Jump* NewInArena<Jump, const Jump&>(Arena*, const Jump&);
+  Jump(const Jump&) = default;
   MachineInsn* Clone(Arena* arena) const override;
   MachineInsnList Lower(Arena* arena) const override;
   GuestAddr target_;
@@ -562,21 +562,21 @@ class PseudoJump final : public MachineInsn {
   MachineReg args_[6];
 };
 
-class PseudoIndirectJump final : public MachineInsn {
+class IndirectJump final : public MachineInsn {
  public:
   struct WithOptimizedABI {};
 
-  explicit PseudoIndirectJump(MachineReg src);
-  PseudoIndirectJump(MachineReg src, WithOptimizedABI tag);
+  explicit IndirectJump(MachineReg src);
+  IndirectJump(MachineReg src, WithOptimizedABI tag);
 
   [[nodiscard]] std::string GetDebugString() const override;
   void Emit(CodeEmitter* as) const override;
 
  private:
-  friend PseudoIndirectJump* NewInArena<PseudoIndirectJump, const PseudoIndirectJump&>(
+  friend IndirectJump* NewInArena<IndirectJump, const IndirectJump&>(
       Arena*,
-      const PseudoIndirectJump&);
-  PseudoIndirectJump(const PseudoIndirectJump&);
+      const IndirectJump&);
+  IndirectJump(const IndirectJump&);
   MachineInsn* Clone(Arena* arena) const override;
   MachineInsnList Lower(Arena* arena) const override;
   // Target and ABI outputs.

@@ -47,7 +47,7 @@ std::tuple<MachineBasicBlock*, MachineBasicBlock*> MakeTwoConsecutiveBlocks(
   builder.StartBasicBlock(bb1);
   builder.Gen<Branch>(bb2);
   builder.StartBasicBlock(bb2);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   EXPECT_EQ(x86_64::CheckMachineIR(*machine_ir), x86_64::kMachineIRCheckSuccess);
 
@@ -85,12 +85,12 @@ TEST(MachineIRCheckTest, BasicBlockOutEdgeWithoutBranchInsn) {
   builder.StartBasicBlock(bb1);
   builder.Gen<Branch>(bb2);
   builder.StartBasicBlock(bb2);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   // Make sure IR is otherwise correct.
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
 
-  *bb1->insn_list().begin() = machine_ir.NewInsn<PseudoJump>(kNullGuestAddr);
+  *bb1->insn_list().begin() = machine_ir.NewInsn<Jump>(kNullGuestAddr);
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRControlFlowInsnSuccessorMismatch);
 }
 
@@ -108,7 +108,7 @@ TEST(MachineIRCheckTest, EdgeIsNotIncomingForItsDst) {
   builder.StartBasicBlock(bb1);
   builder.Gen<Branch>(bb2);
   builder.StartBasicBlock(bb2);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckDanglingEdge);
 }
@@ -127,9 +127,9 @@ TEST(MachineIRCheckTest, EdgeIsNotOutgoingForItsSrc) {
 
   x86_64::MachineIRBuilder builder(&machine_ir);
   builder.StartBasicBlock(bb1);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
   builder.StartBasicBlock(bb2);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckDanglingEdge);
 }
@@ -167,7 +167,7 @@ TEST(MachineIRCheckTest, SimpleWellFormedMachineIR) {
   builder.Gen<Branch>(bb2);
 
   builder.StartBasicBlock(bb2);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
 }
@@ -218,7 +218,7 @@ TEST(MachineIRCheckTest, MisplacedJump) {
   MachineReg vreg = machine_ir.AllocVReg();
 
   builder.StartBasicBlock(bb);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);
 
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRWrongControlFlowInsnLocation);
@@ -234,7 +234,7 @@ TEST(MachineIRCheckTest, MisplacedIndirectJump) {
   MachineReg vreg = machine_ir.AllocVReg();
 
   builder.StartBasicBlock(bb);
-  builder.Gen<PseudoIndirectJump>(vreg);
+  builder.Gen<IndirectJump>(vreg);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);
 
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRWrongControlFlowInsnLocation);
@@ -269,11 +269,11 @@ TEST(MachineIRCheckTest, MisplacedCondBranch) {
 
   builder.StartBasicBlock(bb2);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   builder.StartBasicBlock(bb3);
   builder.Gen<x86_64::MovqRegImm>(vreg, 1);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRWrongControlFlowInsnLocation);
 }
@@ -294,7 +294,7 @@ TEST(MachineIRCheckTest, NoThenEdgeBranch) {
 
   builder.StartBasicBlock(bb2);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckDanglingBasicBlock);
 }
@@ -318,11 +318,11 @@ TEST(MachineIRCheckTest, NoThenEdgePseudoCondBranch) {
 
   builder.StartBasicBlock(bb2);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   builder.StartBasicBlock(bb3);
   builder.Gen<x86_64::MovqRegImm>(vreg, 1);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRControlFlowInsnSuccessorMismatch);
 }
@@ -346,11 +346,11 @@ TEST(MachineIRCheckTest, NoElseEdgePseudoCondBranch) {
 
   builder.StartBasicBlock(bb2);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   builder.StartBasicBlock(bb3);
   builder.Gen<x86_64::MovqRegImm>(vreg, 1);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRControlFlowInsnSuccessorMismatch);
 }
@@ -369,7 +369,7 @@ TEST(MachineIRCheckTest, EnterLocationWithRegularABI) {
   builder.Gen<Branch>(bb2);
 
   builder.StartBasicBlock(bb2);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
 
@@ -398,7 +398,7 @@ TEST(MachineIRCheckTest, EnterLocationWithOptimizedABI) {
   builder.Gen<Branch>(bb2);
 
   builder.StartBasicBlock(bb2);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   // Enter is missing.
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRWrongEnterInsnLocation);
@@ -431,7 +431,7 @@ TEST(MachineIRCheckTest, InterLiveVRegsWithoutInOutEdges) {
   auto out_vreg = machine_ir.AllocVReg();
 
   builder.StartBasicBlock(bb);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
 
@@ -452,7 +452,7 @@ TEST(MachineIRCheckTest, InterLiveVRegsWithoutInOutEdges) {
 
   *bb->insn_list().begin() = machine_ir.NewInsn<Branch>(succ_bb);
   builder.StartBasicBlock(succ_bb);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
   succ_bb->live_in().push_back(out_vreg);
   machine_ir.AddEdge(bb, succ_bb);
 

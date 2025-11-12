@@ -41,7 +41,7 @@ TEST(MachineIRLocalGuestContextOptimizer, RemoveReadAfterWrite) {
   auto reg2 = machine_ir.AllocVReg();
   builder.GenPut(GetThreadStateRegOffset(0), reg1);
   builder.GenGet(reg2, GetThreadStateRegOffset(0));
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   x86_64::RemoveLocalGuestContextAccesses(&machine_ir);
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
@@ -72,7 +72,7 @@ TEST(MachineIRLocalGuestContextOptimizer, RemoveReadAfterWriteImmediate) {
   auto reg1 = machine_ir.AllocVReg();
   builder.GenPutImm(GetThreadStateRegOffset(0), 6);
   builder.GenGet(reg1, GetThreadStateRegOffset(0));
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   x86_64::RemoveLocalGuestContextAccesses(&machine_ir);
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
@@ -104,7 +104,7 @@ TEST(MachineIRLocalGuestContextOptimizer, RemoveReadAfterRead) {
   auto reg2 = machine_ir.AllocVReg();
   builder.GenGet(reg1, GetThreadStateRegOffset(0));
   builder.GenGet(reg2, GetThreadStateRegOffset(0));
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   x86_64::RemoveLocalGuestContextAccesses(&machine_ir);
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
@@ -134,7 +134,7 @@ TEST(MachineIRLocalGuestContextOptimizer, RemoveWriteBeforeWrite) {
   auto reg2 = machine_ir.AllocVReg();
   builder.GenPut(GetThreadStateRegOffset(0), reg1);
   builder.GenPut(GetThreadStateRegOffset(0), reg2);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   x86_64::RemoveLocalGuestContextAccesses(&machine_ir);
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
@@ -160,7 +160,7 @@ TEST(MachineIRLocalGuestContextOptimizer, RemoveWriteImmediateBeforeWrite) {
   builder.GenPutImm(GetThreadStateRegOffset(0), 5);
   builder.GenGet(reg2, GetThreadStateRegOffset(0));
   builder.GenPut(GetThreadStateRegOffset(0), reg1);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   x86_64::RemoveLocalGuestContextAccesses(&machine_ir);
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
@@ -192,7 +192,7 @@ TEST(MachineIRLocalGuestContextOptimizer, RemoveWriteBeforeWriteImmediate) {
   builder.GenPut(GetThreadStateRegOffset(0), reg1);
   builder.GenGet(reg2, GetThreadStateRegOffset(0));
   builder.GenPutImm(GetThreadStateRegOffset(0), 5);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   x86_64::RemoveLocalGuestContextAccesses(&machine_ir);
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
@@ -224,7 +224,7 @@ TEST(MachineIRLocalGuestContextOptimizer, DoNotRemoveAccessToMonitorValue) {
   constexpr auto offset = offsetof(ProcessState, cpu.reservation_value);
   builder.Gen<x86_64::MovqOpReg>({.base = x86_64::kMachineRegRBP, .disp = offset}, reg1);
   builder.Gen<x86_64::MovqOpReg>({.base = x86_64::kMachineRegRBP, .disp = offset}, reg2);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   x86_64::RemoveLocalGuestContextAccesses(&machine_ir);
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
@@ -261,7 +261,7 @@ TEST(MachineIRLocalGuestContextOptimizer, LimitRegisters) {
     builder.GenGet(machine_ir.AllocVReg(), GetThreadStateSimdRegOffset(0));
     builder.GenGet(machine_ir.AllocVReg(), GetThreadStateSimdRegOffset(5));
   }
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   x86_64::RemoveLocalGuestContextAccesses(&machine_ir,
                                           x86_64::OptimizeLocalParams{
@@ -297,7 +297,7 @@ TEST(MachineIRLocalGuestContextOptimizer, LimitRegisters) {
     insn_it++;
     ASSERT_EQ((*insn_it)->opcode(), kMachineOpPseudoCopy);
     insn_it++;
-    ASSERT_EQ((*insn_it)->opcode(), kMachineOpPseudoJump);
+    ASSERT_EQ((*insn_it)->opcode(), kMachineOpJump);
   }
 }
 
@@ -318,7 +318,7 @@ TEST(MachineIRLocalGuestContextOptimizer, LimitRegistersWithOptimizedABI) {
     builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(i));
     builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(i));
   }
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
 
@@ -353,7 +353,7 @@ TEST(MachineIRLocalGuestContextOptimizer, LimitRegistersWithOptimizedABI) {
     insn_it++;
   }
 
-  ASSERT_EQ((*insn_it)->opcode(), kMachineOpPseudoJump);
+  ASSERT_EQ((*insn_it)->opcode(), kMachineOpJump);
 }
 
 }  // namespace

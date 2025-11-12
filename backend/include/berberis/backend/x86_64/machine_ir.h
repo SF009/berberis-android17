@@ -62,8 +62,8 @@ enum MachineOpcode : int {
   kMachineOpPseudoCopy,
   kMachineOpPseudoDefReg,
   kMachineOpPseudoDefXReg,
-  kMachineOpPseudoIndirectJump,
-  kMachineOpPseudoJump,
+  kMachineOpIndirectJump,
+  kMachineOpJump,
   kMachineOpPseudoReadFlags,
   kMachineOpPseudoWriteFlags,
 #include "machine_opcode_x86_64-inl.h"  // NOLINT generated file!
@@ -979,7 +979,7 @@ class MachineIR : public berberis::MachineIR {
 
   [[nodiscard]] static bool IsControlTransfer(berberis::MachineInsn* insn) {
     return insn->opcode() == kMachineOpBranch || insn->opcode() == kMachineOpCondBranch ||
-           insn->opcode() == kMachineOpPseudoIndirectJump || insn->opcode() == kMachineOpPseudoJump;
+           insn->opcode() == kMachineOpIndirectJump || insn->opcode() == kMachineOpJump;
   }
 
   [[nodiscard]] BasicBlockOrder bb_order() const { return bb_order_; }

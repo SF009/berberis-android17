@@ -148,7 +148,7 @@ TEST(HeavyOptimizerFrontendTest, LoopInsideRegion) {
   ASSERT_EQ(branch_insn->opcode(), kMachineOpCondBranch);
   auto* signal_exit_bb = static_cast<CondBranch*>(branch_insn)->then_bb();
   branch_insn = signal_exit_bb->insn_list().back();
-  ASSERT_EQ(branch_insn->opcode(), kMachineOpPseudoJump);
+  ASSERT_EQ(branch_insn->opcode(), kMachineOpJump);
 
   EXPECT_EQ(preloop_bb->in_edges().size(), 1UL);
   EXPECT_EQ(preloop_bb->out_edges().size(), 1UL);
@@ -172,7 +172,7 @@ TEST(HeavyOptimizerFrontendTest, BranchBuildsJump) {
   frontend.IncrementInsnAddr(kInsnSize);
 
   // Branch builds Jump.
-  CheckBasicBlockEndsWith(FindEntrySuccessor(&machine_ir), kMachineOpPseudoJump);
+  CheckBasicBlockEndsWith(FindEntrySuccessor(&machine_ir), kMachineOpJump);
 }
 
 TEST(HeavyOptimizerFrontendTest, ResolveJumps) {
@@ -338,7 +338,7 @@ TEST(HeavyOptimizerFrontendTest, ResolveJumpToAnotherJump) {
   EXPECT_EQ(bb1->out_edges()[0]->dst(), bb4);
 
   auto* bb2 = bb4->out_edges()[0]->dst();
-  CheckBasicBlockEndsWith(bb2, kMachineOpPseudoJump);
+  CheckBasicBlockEndsWith(bb2, kMachineOpJump);
   EXPECT_EQ(bb2->out_edges().size(), 0u);
 }
 
