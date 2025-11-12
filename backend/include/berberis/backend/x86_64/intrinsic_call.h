@@ -139,7 +139,8 @@ template <typename IntrinsicRetTuple,
           IntrinsicRetTuple (*function)(IntrinsicParamTypes...)>
 class IntrinsicCall<function> {
  public:
-  using CleanRetType = intrinsic_call::CleanTypes<IntrinsicRetTuple>;
+  using CleanRetType = intrinsic_call::CleanTypes<
+      std::conditional_t<std::is_same_v<IntrinsicRetTuple, void>, std::tuple<>, IntrinsicRetTuple>>;
   using CleanParamTypes = intrinsic_call::CleanTypes<std::tuple<IntrinsicParamTypes...>>;
 
  private:

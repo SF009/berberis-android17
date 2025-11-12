@@ -72,10 +72,9 @@ static_assert(std::is_same_v<
               std::tuple<__m128>>);
 // Smoke test for Parameters.
 static_assert(
-    std::is_same_v<
-        IntrinsicCall<static_cast<std::tuple<> (*)(const __int128_t, const intrinsics::Float16)>(
-            nullptr)>::CleanParamTypes,
-        std::tuple<__int128_t, intrinsics::Float16>>);
+    std::is_same_v<IntrinsicCall<static_cast<void (*)(const __int128_t, const intrinsics::Float16)>(
+                       nullptr)>::CleanParamTypes,
+                   std::tuple<__int128_t, intrinsics::Float16>>);
 
 // Small ints are returned in RAX.
 static_assert(
@@ -174,28 +173,28 @@ static_assert(
                    std::tuple<device_arch_info::RAX>>);
 
 // Verify that types properly go into proper register types.
-static_assert(std::is_same_v<
-              IntrinsicCall<static_cast<std::tuple<> (*)(intrinsics::Float16,
-                                                         int8_t,
-                                                         intrinsics::Float32,
-                                                         int16_t,
-                                                         intrinsics::Float64,
-                                                         int32_t,
-                                                         SIMD128Register,
-                                                         int64_t,
-                                                         __m128,
-                                                         __int128_t)>(nullptr)>::ArgumentRegisters,
-              std::tuple<device_arch_info::XMM0,
-                         device_arch_info::RDI,
-                         device_arch_info::XMM1,
-                         device_arch_info::RSI,
-                         device_arch_info::XMM2,
-                         device_arch_info::RDX,
-                         device_arch_info::XMM3,
-                         device_arch_info::RCX,
-                         device_arch_info::XMM4,
-                         device_arch_info::R8,
-                         device_arch_info::R9>>);
+static_assert(
+    std::is_same_v<IntrinsicCall<static_cast<void (*)(intrinsics::Float16,
+                                                      int8_t,
+                                                      intrinsics::Float32,
+                                                      int16_t,
+                                                      intrinsics::Float64,
+                                                      int32_t,
+                                                      SIMD128Register,
+                                                      int64_t,
+                                                      __m128,
+                                                      __int128_t)>(nullptr)>::ArgumentRegisters,
+                   std::tuple<device_arch_info::XMM0,
+                              device_arch_info::RDI,
+                              device_arch_info::XMM1,
+                              device_arch_info::RSI,
+                              device_arch_info::XMM2,
+                              device_arch_info::RDX,
+                              device_arch_info::XMM3,
+                              device_arch_info::RCX,
+                              device_arch_info::XMM4,
+                              device_arch_info::R8,
+                              device_arch_info::R9>>);
 // If result is returned in memory then first integer register is used for pointer to result.
 static_assert(
     std::is_same_v<IntrinsicCall<static_cast<std::tuple<SIMD128Register, SIMD128Register> (*)(
