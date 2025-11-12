@@ -145,8 +145,8 @@ TEST(HeavyOptimizerFrontendTest, LoopInsideRegion) {
   auto* cmpb = *std::next(loop_bb->insn_list().rbegin());
   ASSERT_EQ(cmpb->opcode(), kMachineOpCmpbMemBaseDispImm);
   branch_insn = loop_bb->insn_list().back();
-  ASSERT_EQ(branch_insn->opcode(), kMachineOpPseudoCondBranch);
-  auto* signal_exit_bb = static_cast<PseudoCondBranch*>(branch_insn)->then_bb();
+  ASSERT_EQ(branch_insn->opcode(), kMachineOpCondBranch);
+  auto* signal_exit_bb = static_cast<CondBranch*>(branch_insn)->then_bb();
   branch_insn = signal_exit_bb->insn_list().back();
   ASSERT_EQ(branch_insn->opcode(), kMachineOpPseudoJump);
 
@@ -223,7 +223,7 @@ TEST(HeavyOptimizerFrontendTest, ResolveJumpToAlreadyReplacedJump) {
 
   auto* next_bb = bb->out_edges()[0]->dst();
   // This one is CondBranch because we also insert pending signals check.
-  CheckBasicBlockEndsWith(next_bb, kMachineOpPseudoCondBranch);
+  CheckBasicBlockEndsWith(next_bb, kMachineOpCondBranch);
   ASSERT_EQ(next_bb->out_edges()[1]->dst(), bb);
 }
 
@@ -269,17 +269,17 @@ TEST(HeavyOptimizerFrontendTest, ResolveJumpToAlreadyReplacedBackJump) {
   //                   |       BB4
   //                   ------- COND_BRANCH_BB2
   auto* bb1 = FindEntrySuccessor(&machine_ir);
-  CheckBasicBlockEndsWith(bb1, kMachineOpPseudoCondBranch);
+  CheckBasicBlockEndsWith(bb1, kMachineOpCondBranch);
 
   auto* bb2 = bb1->out_edges()[1]->dst();
-  CheckBasicBlockEndsWith(bb2, kMachineOpPseudoCondBranch);
+  CheckBasicBlockEndsWith(bb2, kMachineOpCondBranch);
   ASSERT_EQ(bb2->out_edges()[1]->dst(), bb1);
 
   auto* bb3 = bb1->out_edges()[0]->dst();
   CheckBasicBlockEndsWith(bb3, kMachineOpBranch);
 
   auto* bb4 = bb3->out_edges()[0]->dst();
-  CheckBasicBlockEndsWith(bb4, kMachineOpPseudoCondBranch);
+  CheckBasicBlockEndsWith(bb4, kMachineOpCondBranch);
   ASSERT_EQ(bb4->out_edges()[1]->dst(), bb2);
 }
 
@@ -324,7 +324,7 @@ TEST(HeavyOptimizerFrontendTest, ResolveJumpToAnotherJump) {
   // When resolving BB1->BB4 jump we split BB2 into BB2 and BB4.
   // Then we must resolve BB4->BB3 jump, otherwise BB3 will be unlinked from IR.
   auto* bb0 = FindEntrySuccessor(&machine_ir);
-  CheckBasicBlockEndsWith(bb0, kMachineOpPseudoCondBranch);
+  CheckBasicBlockEndsWith(bb0, kMachineOpCondBranch);
 
   auto* bb1 = bb0->out_edges()[1]->dst();
   CheckBasicBlockEndsWith(bb1, kMachineOpBranch);

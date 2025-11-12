@@ -586,7 +586,7 @@ TEST(MachineIRRenameCopyUsesTest, DuplicateRenamedWithBothLiveInsNotRenamedWithN
 
   builder.StartBasicBlock(bb1);
   builder.Gen<PseudoCopy>(vreg1, vreg2, 8);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
   machine_ir.AddEdge(bb1, bb2);
   machine_ir.AddEdge(bb1, bb3);
   bb1->live_out().push_back(vreg1);
@@ -678,7 +678,7 @@ TEST(MachineIRRenameCopyUsesTest, RenameDuplicateRegisterWhichIsMappedToNonLiveI
 
   builder.StartBasicBlock(bb1);
   builder.Gen<PseudoCopy>(vreg1, vreg2, 8);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
   machine_ir.AddEdge(bb1, bb2);
   machine_ir.AddEdge(bb1, bb3);
   bb1->live_out().push_back(vreg1);

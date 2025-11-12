@@ -45,7 +45,7 @@ void HeavyOptimizerFrontend::CompareAndBranch(BranchOpcode opcode,
   ir->AddEdge(cur_bb, then_bb);
   ir->AddEdge(cur_bb, else_bb);
 
-  builder_.Gen<PseudoCondBranch>(
+  builder_.Gen<CondBranch>(
       ToAssemblerCond(opcode), then_bb, else_bb, std::get<0>(Gen<x86_64::CmpqRegReg>(arg1, arg2)));
 
   builder_.StartBasicBlock(then_bb);
@@ -238,7 +238,7 @@ void HeavyOptimizerFrontend::ReplaceJumpWithBranch(MachineBasicBlock* bb,
                                                 kPendingSignalsPresent,
                                                 GetFlagsRegister());
     *jump_it = cmpb;
-    auto* cond_branch = ir->NewInsn<PseudoCondBranch>(
+    auto* cond_branch = ir->NewInsn<CondBranch>(
         x86_64::Assembler::Condition::kEqual, exit_bb, target_bb, GetFlagsRegister());
     bb->insn_list().push_back(cond_branch);
 
@@ -739,7 +739,7 @@ Register HeavyOptimizerFrontend::MemoryRegionReservationExchange(Register aligne
       Gen<x86_64::MovqRegOp>({.base = x86_64::kMachineRegRBP, .disp = address_offset});
   builder_.GenPutImm(address_offset, kNullGuestAddr);
   // Compare aligned_addr to the one in CPUState.
-  builder_.Gen<PseudoCondBranch>(
+  builder_.Gen<CondBranch>(
       x86_64::Assembler::Condition::kNotEqual,
       failure_bb,
       addr_match_bb,
@@ -792,7 +792,7 @@ void HeavyOptimizerFrontend::MemoryRegionReservationSwapWithLockedOwner(
   Register lock_entry = AllocTempReg();
   // Limit life-time of a narrow reg-class call result.
   builder_.Gen<PseudoCopy>(lock_entry, call->IntResultAt(0), 8);
-  builder_.Gen<PseudoCondBranch>(x86_64::Assembler::Condition::kZero,
+  builder_.Gen<CondBranch>(x86_64::Assembler::Condition::kZero,
                                  failure_bb,
                                  lock_success_bb,
                                  std::get<0>(Gen<x86_64::TestqRegReg>(lock_entry, lock_entry)));
@@ -805,7 +805,7 @@ void HeavyOptimizerFrontend::MemoryRegionReservationSwapWithLockedOwner(
   // MemoryRegionReservation::Unlock(lock_entry)
   Gen<x86_64::MovqOpImm>({.base = lock_entry}, 0);
   // Zero-flag is set if CmpXchg is successful.
-  builder_.Gen<PseudoCondBranch>(
+  builder_.Gen<CondBranch>(
       x86_64::Assembler::Condition::kNotZero, failure_bb, swap_success_bb, host_flags);
 
   builder_.StartBasicBlock(swap_success_bb);

@@ -109,7 +109,7 @@ BuildDataFlowToTwoSuccs(x86_64::MachineIR* machine_ir) {
 
   builder.StartBasicBlock(bb1);
   builder.Gen<x86_64::MovqRegImm>(vreg, 0);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb2);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);
@@ -149,7 +149,7 @@ BuildDiamondControlFlow(x86_64::MachineIR* machine_ir) {
 
   builder.StartBasicBlock(bb1);
   builder.Gen<x86_64::MovqRegImm>(vreg, 0);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb2);
   builder.Gen<Branch>(bb4);
@@ -194,7 +194,7 @@ BuildDataFlowAcrossEmptyLoop(x86_64::MachineIR* machine_ir) {
   builder.Gen<Branch>(bb2);
 
   builder.StartBasicBlock(bb2);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb3);
   builder.Gen<Branch>(bb2);

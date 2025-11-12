@@ -927,11 +927,11 @@ void FoldWriteFlags(MachineIR* machine_ir) {
   for (auto* bb : machine_ir->bb_list()) {
     CHECK(!bb->insn_list().empty());
     auto insn_it = std::prev(bb->insn_list().end());
-    if ((*insn_it)->opcode() != kMachineOpPseudoCondBranch) {
+    if ((*insn_it)->opcode() != kMachineOpCondBranch) {
       continue;
     }
 
-    auto* branch = static_cast<PseudoCondBranch*>(*insn_it);
+    auto* branch = static_cast<CondBranch*>(*insn_it);
     const auto* write_flags = *(--insn_it);
     if (write_flags->opcode() != kMachineOpPseudoWriteFlags) {
       continue;

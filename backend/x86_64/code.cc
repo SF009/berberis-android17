@@ -255,13 +255,13 @@ MachineInsnList Branch::Lower(Arena* arena) const {
   return {1, NewInArena<Branch, const Branch&>(arena, *this), arena};
 }
 
-const MachineOpcode PseudoCondBranch::kOpcode = kMachineOpPseudoCondBranch;
+const MachineOpcode CondBranch::kOpcode = kMachineOpCondBranch;
 
-PseudoCondBranch::PseudoCondBranch(Assembler::Condition cond,
-                                   const MachineBasicBlock* then_bb,
-                                   const MachineBasicBlock* else_bb,
-                                   MachineReg eflags)
-    : MachineInsn(kMachineOpPseudoCondBranch,
+CondBranch::CondBranch(Assembler::Condition cond,
+                       const MachineBasicBlock* then_bb,
+                       const MachineBasicBlock* else_bb,
+                       MachineReg eflags)
+    : MachineInsn(kMachineOpCondBranch,
                   1,
                   x86_64::kPseudoCondBranchInfo,
                   &eflags_,
@@ -271,12 +271,12 @@ PseudoCondBranch::PseudoCondBranch(Assembler::Condition cond,
       else_bb_(else_bb),
       eflags_(eflags) {}
 
-MachineInsn* PseudoCondBranch::Clone(Arena* arena) const {
-  return NewInArena<PseudoCondBranch, const PseudoCondBranch&>(arena, *this);
+MachineInsn* CondBranch::Clone(Arena* arena) const {
+  return NewInArena<CondBranch, const CondBranch&>(arena, *this);
 }
 
-MachineInsnList PseudoCondBranch::Lower(Arena* arena) const {
-  return {1, NewInArena<PseudoCondBranch, const PseudoCondBranch&>(arena, *this), arena};
+MachineInsnList CondBranch::Lower(Arena* arena) const {
+  return {1, NewInArena<CondBranch, const CondBranch&>(arena, *this), arena};
 }
 
 PseudoJump::PseudoJump(GuestAddr target, Kind kind)
