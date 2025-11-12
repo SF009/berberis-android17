@@ -645,7 +645,7 @@ class PseudoDefReg final : public MachineInsn {
   MachineReg reg_;
 };
 
-class PseudoReadFlags final : public MachineInsn {
+class ReadFlags final : public MachineInsn {
  public:
   static const MachineOpcode kOpcode;
 
@@ -660,7 +660,7 @@ class PseudoReadFlags final : public MachineInsn {
     kOverflow = 1,
   };
 
-  PseudoReadFlags(WithOverflowEnum with_overflow, MachineReg dst, MachineReg flags);
+  ReadFlags(WithOverflowEnum with_overflow, MachineReg dst, MachineReg flags);
 
   std::string GetDebugString() const override;
   void Emit(CodeEmitter* as) const override;
@@ -668,32 +668,32 @@ class PseudoReadFlags final : public MachineInsn {
   bool with_overflow() const { return with_overflow_; };
 
  private:
-  friend PseudoReadFlags* NewInArena<PseudoReadFlags, const PseudoReadFlags&>(
+  friend ReadFlags* NewInArena<ReadFlags, const ReadFlags&>(
       Arena*,
-      const PseudoReadFlags&);
-  PseudoReadFlags(const PseudoReadFlags&);
+      const ReadFlags&);
+  ReadFlags(const ReadFlags&);
   MachineInsn* Clone(Arena* arena) const override;
   MachineInsnList Lower(Arena* arena) const override;
   MachineReg regs_[2];
   bool with_overflow_;
 };
 
-class PseudoWriteFlags final : public MachineInsn {
+class WriteFlags final : public MachineInsn {
  public:
   static const MachineOpcode kOpcode;
 
-  using Flags = PseudoReadFlags::Flags;
+  using Flags = ReadFlags::Flags;
 
-  PseudoWriteFlags(MachineReg src, MachineReg flags);
+  WriteFlags(MachineReg src, MachineReg flags);
 
   std::string GetDebugString() const override;
   void Emit(CodeEmitter* as) const override;
 
  private:
-  friend PseudoWriteFlags* NewInArena<PseudoWriteFlags, const PseudoWriteFlags&>(
+  friend WriteFlags* NewInArena<WriteFlags, const WriteFlags&>(
       Arena*,
-      const PseudoWriteFlags&);
-  PseudoWriteFlags(const PseudoWriteFlags&);
+      const WriteFlags&);
+  WriteFlags(const WriteFlags&);
   MachineInsn* Clone(Arena* arena) const override;
   MachineInsnList Lower(Arena* arena) const override;
   MachineReg regs_[2];
@@ -703,7 +703,7 @@ class SSAPseudoWriteFlags final : public MachineInsn {
  public:
   static const MachineOpcode kOpcode;
 
-  using Flags = PseudoReadFlags::Flags;
+  using Flags = ReadFlags::Flags;
 
   SSAPseudoWriteFlags(MachineReg clobber, MachineReg src, MachineReg flags);
 

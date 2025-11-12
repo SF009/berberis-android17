@@ -394,10 +394,10 @@ MachineInsnList PseudoDefReg::Lower(Arena* arena) const {
   return {1, NewInArena<PseudoDefReg, const PseudoDefReg&>(arena, *this), arena};
 }
 
-const MachineOpcode PseudoReadFlags::kOpcode = kMachineOpPseudoReadFlags;
+const MachineOpcode ReadFlags::kOpcode = kMachineOpReadFlags;
 
-PseudoReadFlags::PseudoReadFlags(WithOverflowEnum with_overflow, MachineReg dst, MachineReg flags)
-    : MachineInsn(kMachineOpPseudoReadFlags,
+ReadFlags::ReadFlags(WithOverflowEnum with_overflow, MachineReg dst, MachineReg flags)
+    : MachineInsn(kMachineOpReadFlags,
                   2,
                   x86_64::kPseudoReadFlagsInfo,
                   regs_,
@@ -405,42 +405,42 @@ PseudoReadFlags::PseudoReadFlags(WithOverflowEnum with_overflow, MachineReg dst,
       regs_{dst, flags},
       with_overflow_(with_overflow == kWithOverflow) {}
 
-PseudoReadFlags::PseudoReadFlags(const PseudoReadFlags& other)
+ReadFlags::ReadFlags(const ReadFlags& other)
     : MachineInsn(other, regs_),
       regs_{other.regs_[0], other.regs_[1]},
       with_overflow_{other.with_overflow_} {}
 
-MachineInsn* PseudoReadFlags::Clone(Arena* arena) const {
-  return NewInArena<PseudoReadFlags, const PseudoReadFlags&>(arena, *this);
+MachineInsn* ReadFlags::Clone(Arena* arena) const {
+  return NewInArena<ReadFlags, const ReadFlags&>(arena, *this);
 }
 
-MachineInsnList PseudoReadFlags::Lower(Arena* arena) const {
-  return {1, NewInArena<PseudoReadFlags, const PseudoReadFlags&>(arena, *this), arena};
+MachineInsnList ReadFlags::Lower(Arena* arena) const {
+  return {1, NewInArena<ReadFlags, const ReadFlags&>(arena, *this), arena};
 }
 
-const MachineOpcode PseudoWriteFlags::kOpcode = kMachineOpPseudoWriteFlags;
+const MachineOpcode WriteFlags::kOpcode = kMachineOpWriteFlags;
 
-PseudoWriteFlags::PseudoWriteFlags(MachineReg src, MachineReg flags)
-    : MachineInsn(kMachineOpPseudoWriteFlags,
+WriteFlags::WriteFlags(MachineReg src, MachineReg flags)
+    : MachineInsn(kMachineOpWriteFlags,
                   2,
                   x86_64::kPseudoWriteFlagsInfo,
                   regs_,
                   kMachineInsnDefault),
       regs_{src, flags} {}
 
-PseudoWriteFlags::PseudoWriteFlags(const PseudoWriteFlags& insn)
+WriteFlags::WriteFlags(const WriteFlags& insn)
     : MachineInsn(insn), regs_{insn.regs_[0], insn.regs_[1]} {}
 
-MachineInsn* PseudoWriteFlags::Clone(Arena* arena) const {
-  return NewInArena<PseudoWriteFlags, const PseudoWriteFlags&>(arena, *this);
+MachineInsn* WriteFlags::Clone(Arena* arena) const {
+  return NewInArena<WriteFlags, const WriteFlags&>(arena, *this);
 }
 
-MachineInsnList PseudoWriteFlags::Lower(Arena* arena) const {
-  return {1, NewInArena<PseudoWriteFlags, const PseudoWriteFlags&>(arena, *this), arena};
+MachineInsnList WriteFlags::Lower(Arena* arena) const {
+  return {1, NewInArena<WriteFlags, const WriteFlags&>(arena, *this), arena};
 }
 
 const MachineOpcode SSAPseudoWriteFlags::kOpcode =
-    static_cast<MachineOpcode>(kMachineOpPseudoWriteFlags | (x86_64::kSSA << kSSAOpcodeBit));
+    static_cast<MachineOpcode>(kMachineOpWriteFlags | (x86_64::kSSA << kSSAOpcodeBit));
 
 SSAPseudoWriteFlags::SSAPseudoWriteFlags(MachineReg clobber, MachineReg src, MachineReg flags)
     : MachineInsn(SSAPseudoWriteFlags::kOpcode,
@@ -459,7 +459,7 @@ MachineInsn* SSAPseudoWriteFlags::Clone(Arena* arena) const {
 
 MachineInsnList SSAPseudoWriteFlags::Lower(Arena* arena) const {
   return {{NewInArena<Copy>(arena, regs_[0], regs_[1], 4),
-           NewInArena<PseudoWriteFlags>(arena, regs_[1], regs_[2])},
+           NewInArena<WriteFlags>(arena, regs_[1], regs_[2])},
           arena};
 }
 

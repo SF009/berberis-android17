@@ -46,7 +46,7 @@ TEST(LowerSSAInstructionsTest, PseudoWriteFlags) {
 
   EXPECT_EQ(bb->insn_list().size(), 2UL);
   EXPECT_EQ(bb->insn_list().front()->opcode(), kMachineOpCopy);
-  EXPECT_EQ(bb->insn_list().back()->opcode(), kMachineOpPseudoWriteFlags);
+  EXPECT_EQ(bb->insn_list().back()->opcode(), kMachineOpWriteFlags);
 }
 
 }  // namespace
