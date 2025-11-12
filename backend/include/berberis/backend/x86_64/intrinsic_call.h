@@ -25,6 +25,7 @@
 #include "berberis/base/stringprintf.h"
 #include "berberis/base/tuple_processing.h"
 #include "berberis/intrinsics/simd_register.h"
+#include "berberis/runtime_primitives/host_code.h"
 
 namespace berberis::x86_64 {
 
@@ -228,6 +229,36 @@ class IntrinsicCall<function> {
           return !std::is_same_v<ClobberedClass, ResultedClass>;
         });
       }>;
+  static void Emit(CodeEmitter& as) {
+    // Note that a call to AVX-compiled code may touch YMM bits above 128, which
+    // would require `vzeroupper` before we come back to generated code. This is
+    // to make sure there is no performance penalty. ABI requires such `vzeroupper`s
+    // done by the callee unless the result in returned in full YMM register.
+    // Since we don't support full YMM results here, we don't need extra
+    // `vzeroupper`s here.
+    as.Call(bit_cast<HostCode>(function));
+  }
+
+  using MachineInsn = x86_64::MachineInsn<device_arch_info::DeviceInsnInfo<
+      Emit,
+      "INTRINSIC_CALL",
+      true,
+      []<typename Opcode> { return Opcode::kMachineOpCallImm; },
+      device_arch_info::NoCPUIDRestriction,
+      TypesToTypes::Concat<
+          TypesToTypes::Map<ResultRegisters,
+                            []<typename RegisterClass>(RegisterClass) {
+                              return device_arch_info::OperandInfo<RegisterClass,
+                                                                   device_arch_info::kDef>{};
+                            }>,
+          TypesToTypes::Map<ArgumentRegisters,
+                            []<typename RegisterClass>(RegisterClass) {
+                              return device_arch_info::OperandInfo<RegisterClass,
+                                                                   device_arch_info::kUse>{};
+                            }>,
+          TypesToTypes::Map<ClobberRegisters, []<typename RegisterClass>(RegisterClass) {
+            return device_arch_info::OperandInfo<RegisterClass, device_arch_info::kDef>{};
+          }>>>>;
 };
 
 // Short description of the algorithm used and why it's correct.
