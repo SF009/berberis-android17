@@ -98,7 +98,7 @@ TEST(MachineIRContextLivenessAnalyzerTest, GetRevivesLiveInKilledByPut) {
   auto vreg = machine_ir.AllocVReg();
   builder.StartBasicBlock(bb1);
   builder.GenGet(vreg, GetThreadStateRegOffset(0));
-  builder.Gen<PseudoBranch>(bb2);
+  builder.Gen<Branch>(bb2);
 
   builder.StartBasicBlock(bb2);
   builder.GenPut(GetThreadStateRegOffset(0), vreg);
@@ -125,7 +125,7 @@ TEST(MachineIRContextLivenessAnalyzerTest,
   auto vreg = machine_ir.AllocVReg();
   builder.StartBasicBlock(bb1);
   builder.GenGet(vreg, GetThreadStateRegOffset(1));
-  builder.Gen<PseudoBranch>(bb2);
+  builder.Gen<Branch>(bb2);
 
   builder.StartBasicBlock(bb2);
   builder.GenPut(GetThreadStateRegOffset(0), vreg);

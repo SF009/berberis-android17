@@ -473,7 +473,7 @@ TEST(MachineIRLoopGuestContextOptimizer, GeneratePreloop) {
 
   MachineIRBuilder builder(&machine_ir);
   builder.StartBasicBlock(preloop);
-  builder.Gen<PseudoBranch>(loop_body);
+  builder.Gen<Branch>(loop_body);
   builder.StartBasicBlock(loop_body);
   builder.Gen<PseudoCondBranch>(
       CodeEmitter::Condition::kZero, loop_body, afterloop, kMachineRegFLAGS);
@@ -554,7 +554,7 @@ TEST(MachineIRLoopGuestContextOptimizer, GenerateAfterloop) {
 
   MachineIRBuilder builder(&machine_ir);
   builder.StartBasicBlock(preloop);
-  builder.Gen<PseudoBranch>(loop_body);
+  builder.Gen<Branch>(loop_body);
   builder.StartBasicBlock(loop_body);
   builder.Gen<PseudoCondBranch>(
       CodeEmitter::Condition::kZero, loop_body, afterloop, kMachineRegFLAGS);
@@ -637,9 +637,9 @@ TEST(MachineIRLoopGuestContextOptimizer, GenerateMultiplePreloops) {
 
   MachineIRBuilder builder(&machine_ir);
   builder.StartBasicBlock(preloop1);
-  builder.Gen<PseudoBranch>(loop_body);
+  builder.Gen<Branch>(loop_body);
   builder.StartBasicBlock(preloop2);
-  builder.Gen<PseudoBranch>(loop_body);
+  builder.Gen<Branch>(loop_body);
   builder.StartBasicBlock(loop_body);
   builder.Gen<PseudoCondBranch>(
       CodeEmitter::Condition::kZero, loop_body, afterloop, kMachineRegFLAGS);
@@ -685,7 +685,7 @@ TEST(MachineIRLoopGuestContextOptimizer, GenerateMultiplePostloops) {
 
   MachineIRBuilder builder(&machine_ir);
   builder.StartBasicBlock(preloop);
-  builder.Gen<PseudoBranch>(loop_body1);
+  builder.Gen<Branch>(loop_body1);
   builder.StartBasicBlock(loop_body1);
   builder.Gen<PseudoCondBranch>(
       CodeEmitter::Condition::kZero, loop_body2, postloop1, kMachineRegFLAGS);
@@ -736,7 +736,7 @@ TEST(MachineIRLoopGuestContextOptimizer, RemovePutInSelfLoop) {
   MachineIRBuilder builder(&machine_ir);
 
   builder.StartBasicBlock(preloop);
-  builder.Gen<PseudoBranch>(body);
+  builder.Gen<Branch>(body);
 
   builder.StartBasicBlock(body);
   builder.GenPut(GetThreadStateRegOffset(0), vreg1);
@@ -781,7 +781,7 @@ TEST(MachineIRLoopGuestContextOptimizer, RemovePutRegAndPutImmediateInSelfLoop) 
   MachineIRBuilder builder(&machine_ir);
 
   builder.StartBasicBlock(preloop);
-  builder.Gen<PseudoBranch>(body);
+  builder.Gen<Branch>(body);
 
   builder.StartBasicBlock(body);
   builder.GenPut(GetThreadStateRegOffset(0), vreg1);
@@ -829,7 +829,7 @@ TEST(MachineIRLoopGuestContextOptimizer, RemoveGetInSelfLoop) {
   MachineIRBuilder builder(&machine_ir);
 
   builder.StartBasicBlock(preloop);
-  builder.Gen<PseudoBranch>(body);
+  builder.Gen<Branch>(body);
 
   builder.StartBasicBlock(body);
   builder.GenGet(vreg1, GetThreadStateRegOffset(0));
@@ -872,7 +872,7 @@ TEST(MachineIRLoopGuestContextOptimizer, RemoveGetPutInSelfLoop) {
   MachineIRBuilder builder(&machine_ir);
 
   builder.StartBasicBlock(preloop);
-  builder.Gen<PseudoBranch>(body);
+  builder.Gen<Branch>(body);
 
   builder.StartBasicBlock(body);
   builder.GenGet(vreg1, GetThreadStateRegOffset(0));
@@ -924,7 +924,7 @@ TEST(MachineIRLoopGuestContextOptimizer, RemovePutInLoopWithMultipleExits) {
   MachineIRBuilder builder(&machine_ir);
 
   builder.StartBasicBlock(preloop);
-  builder.Gen<PseudoBranch>(body1);
+  builder.Gen<Branch>(body1);
 
   builder.StartBasicBlock(body1);
   builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, body2, afterloop1, kMachineRegFLAGS);
@@ -982,7 +982,7 @@ TEST(MachineIRLoopGuestContextOptimizer, CountGuestRegAccesses) {
   MachineIRBuilder builder(&machine_ir);
 
   builder.StartBasicBlock(preloop);
-  builder.Gen<PseudoBranch>(body1);
+  builder.Gen<Branch>(body1);
 
   builder.StartBasicBlock(body1);
   builder.GenPut(GetThreadStateRegOffset(0), vreg1);
@@ -991,7 +991,7 @@ TEST(MachineIRLoopGuestContextOptimizer, CountGuestRegAccesses) {
   } else if (DoesCpuStateHaveDedicatedVecRegs()) {
     builder.GenGetSimd<16>(vreg2, GetThreadStateVRegOffset(0));
   }
-  builder.Gen<PseudoBranch>(body2);
+  builder.Gen<Branch>(body2);
 
   builder.StartBasicBlock(body2);
   builder.GenGet(vreg1, GetThreadStateRegOffset(1));
@@ -1001,7 +1001,7 @@ TEST(MachineIRLoopGuestContextOptimizer, CountGuestRegAccesses) {
   } else if (DoesCpuStateHaveDedicatedVecRegs()) {
     builder.GenSetSimd<16>(GetThreadStateVRegOffset(0), vreg2);
   }
-  builder.Gen<PseudoBranch>(body1);
+  builder.Gen<Branch>(body1);
 
   Loop loop({body1, body2}, machine_ir.arena());
   auto guest_access_count = CountGuestRegAccesses(&machine_ir, &loop);
@@ -1030,19 +1030,19 @@ TEST(MachineIRLoopGuestContextOptimizer, GetOffsetCounters) {
   MachineIRBuilder builder(&machine_ir);
 
   builder.StartBasicBlock(preloop);
-  builder.Gen<PseudoBranch>(body1);
+  builder.Gen<Branch>(body1);
 
   builder.StartBasicBlock(body1);
   builder.GenPut(GetThreadStateRegOffset(0), vreg1);
   builder.GenGet(vreg1, GetThreadStateRegOffset(0));
   builder.GenGet(vreg1, GetThreadStateRegOffset(1));
-  builder.Gen<PseudoBranch>(body2);
+  builder.Gen<Branch>(body2);
 
   builder.StartBasicBlock(body2);
   builder.GenGet(vreg1, GetThreadStateRegOffset(2));
   builder.GenPut(GetThreadStateRegOffset(2), vreg1);
   builder.GenPutImm(GetThreadStateRegOffset(0), 5);
-  builder.Gen<PseudoBranch>(body1);
+  builder.Gen<Branch>(body1);
 
   Loop loop({body1, body2}, machine_ir.arena());
   auto counters = GetSortedOffsetCounters(&machine_ir, &loop);
@@ -1074,7 +1074,7 @@ TEST(MachineIRLoopGuestContextOptimizer, OptimizeLoopWithPriority) {
   MachineIRBuilder builder(&machine_ir);
 
   builder.StartBasicBlock(preloop);
-  builder.Gen<PseudoBranch>(body);
+  builder.Gen<Branch>(body);
 
   // Regular reg 0 has 3 uses.
   // Regular reg 1 has 1 use.

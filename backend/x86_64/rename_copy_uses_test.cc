@@ -296,7 +296,7 @@ TEST(MachineIRRenameCopyUsesTest, FindDuplicateLiveOuts) {
   builder.StartBasicBlock(bb1);
   builder.Gen<PseudoCopy>(vreg1, vreg2, 8);
   builder.Gen<PseudoCopy>(vreg3, vreg4, 8);
-  builder.Gen<PseudoBranch>(bb2);
+  builder.Gen<Branch>(bb2);
   machine_ir.AddEdge(bb1, bb2);
   bb1->live_out().push_back(vreg1);
   bb1->live_out().push_back(vreg2);
@@ -306,7 +306,7 @@ TEST(MachineIRRenameCopyUsesTest, FindDuplicateLiveOuts) {
   builder.StartBasicBlock(bb2);
   builder.Gen<PseudoCopy>(vreg1, vreg2, 8);
   builder.Gen<PseudoCopy>(vreg3, vreg4, 8);
-  builder.Gen<PseudoBranch>(bb3);
+  builder.Gen<Branch>(bb3);
   machine_ir.AddEdge(bb2, bb3);
   bb2->live_out().push_back(vreg1);
   bb2->live_out().push_back(vreg2);
@@ -404,7 +404,7 @@ TEST(MachineIRRenameCopyUsesTest, DuplicateLiveInsGetRenamed) {
 
   builder.StartBasicBlock(bb1);
   builder.Gen<PseudoCopy>(vreg1, vreg2, 8);
-  builder.Gen<PseudoBranch>(bb2);
+  builder.Gen<Branch>(bb2);
   machine_ir.AddEdge(bb1, bb2);
   bb1->live_out().push_back(vreg1);
   bb1->live_out().push_back(vreg2);
@@ -445,7 +445,7 @@ TEST(MachineIRRenameCopyUsesTest, ChainedDuplicateLiveInsGetRenamed) {
   builder.StartBasicBlock(bb1);
   builder.Gen<PseudoCopy>(vreg2, vreg1, 8);
   builder.Gen<PseudoCopy>(vreg3, vreg2, 8);
-  builder.Gen<PseudoBranch>(bb2);
+  builder.Gen<Branch>(bb2);
   machine_ir.AddEdge(bb1, bb2);
   bb1->live_out().push_back(vreg1);
   bb1->live_out().push_back(vreg2);
@@ -489,7 +489,7 @@ TEST(MachineIRRenameCopyUsesTest, DuplicateLiveInsToBBWithOutEdgesGetRenamed) {
 
   builder.StartBasicBlock(bb1);
   builder.Gen<PseudoCopy>(vreg1, vreg2, 8);
-  builder.Gen<PseudoBranch>(bb2);
+  builder.Gen<Branch>(bb2);
   machine_ir.AddEdge(bb1, bb2);
   bb1->live_out().push_back(vreg1);
   bb1->live_out().push_back(vreg2);
@@ -499,7 +499,7 @@ TEST(MachineIRRenameCopyUsesTest, DuplicateLiveInsToBBWithOutEdgesGetRenamed) {
   bb2->live_in().push_back(vreg2);
   auto* add_insn1 = builder.Gen<AddqRegReg, kNoSSA>(vreg3, vreg2, flags);
   auto* add_insn2 = builder.Gen<AddqRegReg, kNoSSA>(vreg3, vreg1, flags);
-  builder.Gen<PseudoBranch>(bb3);
+  builder.Gen<Branch>(bb3);
   machine_ir.AddEdge(bb2, bb3);
 
   builder.StartBasicBlock(bb3);
@@ -534,14 +534,14 @@ TEST(MachineIRRenameCopyUsesTest, DuplicateLiveInsDontGetRenamedWhenBBHasMultipl
 
   builder.StartBasicBlock(bb1);
   builder.Gen<PseudoCopy>(vreg1, vreg2, 8);
-  builder.Gen<PseudoBranch>(bb3);
+  builder.Gen<Branch>(bb3);
   machine_ir.AddEdge(bb1, bb3);
   bb1->live_out().push_back(vreg1);
   bb1->live_out().push_back(vreg2);
 
   builder.StartBasicBlock(bb2);
   builder.Gen<PseudoCopy>(vreg1, vreg2, 8);
-  builder.Gen<PseudoBranch>(bb3);
+  builder.Gen<Branch>(bb3);
   machine_ir.AddEdge(bb2, bb3);
   bb2->live_out().push_back(vreg1);
   bb2->live_out().push_back(vreg2);
@@ -639,7 +639,7 @@ TEST(MachineIRRenameCopyUsesTest, DuplicateLiveInsWhichAreOverwrittenDoNotGetRen
 
   builder.StartBasicBlock(bb1);
   builder.Gen<PseudoCopy>(vreg1, vreg2, 8);
-  builder.Gen<PseudoBranch>(bb2);
+  builder.Gen<Branch>(bb2);
   machine_ir.AddEdge(bb1, bb2);
   bb1->live_out().push_back(vreg1);
   bb1->live_out().push_back(vreg2);

@@ -138,7 +138,7 @@ std::string MachineIR::GetDebugStringAsDot() const {
   return str;
 }
 
-std::string PseudoBranch::GetDebugString() const {
+std::string Branch::GetDebugString() const {
   return StringPrintf("PSEUDO_BRANCH %d", then_bb()->id());
 }
 

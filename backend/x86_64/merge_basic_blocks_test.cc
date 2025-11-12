@@ -46,7 +46,7 @@ TEST(MergeBasicBlocksTest, MergeBasicBlocks) {
 
   builder.StartBasicBlock(bb1);
   auto bb1_insn1 = builder.Gen<MovqRegImm>(vreg, 5);
-  builder.Gen<PseudoBranch>(bb2);
+  builder.Gen<Branch>(bb2);
 
   builder.StartBasicBlock(bb2);
   auto bb2_insn1 = builder.Gen<AddqRegImm, kNoSSA>(vreg, 10, flags);
@@ -144,7 +144,7 @@ TEST(MergeBasicBlocksTest, MergeDoesNotOccurWhenSuccessorHasMultiplePredecessors
 
   builder.StartBasicBlock(bb1);
   builder.Gen<MovqRegImm>(vreg, 5);
-  builder.Gen<PseudoBranch>(bb2);
+  builder.Gen<Branch>(bb2);
 
   builder.StartBasicBlock(bb2);
   builder.Gen<MovqRegImm>(vreg, 6);
@@ -156,7 +156,7 @@ TEST(MergeBasicBlocksTest, MergeDoesNotOccurWhenSuccessorHasMultiplePredecessors
 
   builder.StartBasicBlock(bb4);
   builder.Gen<MovqRegImm>(vreg, 8);
-  builder.Gen<PseudoBranch>(bb2);
+  builder.Gen<Branch>(bb2);
 
   ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
 
@@ -180,11 +180,11 @@ TEST(MergeBasicBlocksTest, ChainMergesOfConsecutiveBasicBlocks) {
 
   builder.StartBasicBlock(bb1);
   auto bb1_insn1 = builder.Gen<MovqRegImm>(vreg, 5);
-  builder.Gen<PseudoBranch>(bb2);
+  builder.Gen<Branch>(bb2);
 
   builder.StartBasicBlock(bb2);
   auto bb2_insn1 = builder.Gen<MovqRegImm>(vreg, 6);
-  builder.Gen<PseudoBranch>(bb3);
+  builder.Gen<Branch>(bb3);
 
   builder.StartBasicBlock(bb3);
   auto bb3_insn1 = builder.Gen<MovqRegImm>(vreg, 7);
@@ -230,7 +230,7 @@ TEST(MergeBasicBlocksTest, MergeBackwardsEdgeBasicBlocks) {
 
   builder.StartBasicBlock(bb3);
   auto bb3_insn1 = builder.Gen<MovqRegImm>(vreg, 7);
-  builder.Gen<PseudoBranch>(bb2);
+  builder.Gen<Branch>(bb2);
 
   builder.StartBasicBlock(bb4);
   builder.Gen<MovqRegImm>(vreg, 8);
@@ -267,7 +267,7 @@ TEST(MergeBasicBlocksTest, MergeBasicBlocksThrowsErrorIfTriesToMergeIRWithLiveOu
 
   builder.StartBasicBlock(bb1);
   builder.Gen<MovqRegImm>(vreg, 5);
-  builder.Gen<PseudoBranch>(bb2);
+  builder.Gen<Branch>(bb2);
   bb1->live_out().push_back(vreg);
 
   builder.StartBasicBlock(bb2);

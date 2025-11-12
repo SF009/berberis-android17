@@ -476,11 +476,11 @@ class MachineIR {
   MachineBasicBlockList bb_list_;
 };
 
-class PseudoBranch final : public MachineInsn {
+class Branch final : public MachineInsn {
  public:
   static const MachineOpcode kOpcode;
 
-  explicit PseudoBranch(const MachineBasicBlock* then_bb);
+  explicit Branch(const MachineBasicBlock* then_bb);
 
   std::string GetDebugString() const override;
   void Emit(CodeEmitter* as) const override;
@@ -489,8 +489,8 @@ class PseudoBranch final : public MachineInsn {
   void set_then_bb(const MachineBasicBlock* then_bb) { then_bb_ = then_bb; }
 
  private:
-  friend PseudoBranch* NewInArena<PseudoBranch, const PseudoBranch&>(Arena*, const PseudoBranch&);
-  PseudoBranch(const PseudoBranch&) = default;
+  friend Branch* NewInArena<Branch, const Branch&>(Arena*, const Branch&);
+  Branch(const Branch&) = default;
   MachineInsn* Clone(Arena* arena) const override;
   MachineInsnList Lower(Arena* arena) const override;
   const MachineBasicBlock* then_bb_;

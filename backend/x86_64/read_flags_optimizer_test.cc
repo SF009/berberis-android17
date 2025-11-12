@@ -66,9 +66,9 @@ TestLoop BuildBasicLoop(MachineIR* machine_ir) {
   auto flags1 = machine_ir->AllocVReg();
 
   builder.StartBasicBlock(bb0);
-  builder.Gen<PseudoBranch>(bb1);
+  builder.Gen<Branch>(bb1);
   builder.StartBasicBlock(bb1);
-  builder.Gen<PseudoBranch>(bb2);
+  builder.Gen<Branch>(bb2);
 
   builder.StartBasicBlock(bb2);
   builder.Gen<AddqRegReg, kNoSSA>(
@@ -110,7 +110,7 @@ TEST(MachineIRReadFlagsOptimizer, CheckRegsUnusedWithinInsnRangeAddsReg) {
   builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS);
   builder.Gen<PseudoCopy>(flags1, flags0, 8);
   builder.Gen<PseudoWriteFlags>(flags1, kMachineRegFLAGS);
-  builder.Gen<PseudoBranch>(bb1);
+  builder.Gen<Branch>(bb1);
 
   builder.StartBasicBlock(bb1);
   builder.Gen<PseudoJump>(kNullGuestAddr);
@@ -164,7 +164,7 @@ TEST(MachineIRReadFlagsOptimizer, CheckPostLoopChecksRedefines) {
   machine_ir.AddEdge(loop_exit, postloop);
 
   builder.StartBasicBlock(loop_exit);
-  builder.Gen<PseudoBranch>(postloop);
+  builder.Gen<Branch>(postloop);
   loop_exit->live_out().push_back(flags);
 
   postloop->live_in().push_back(flags);
@@ -193,7 +193,7 @@ TEST(MachineIRReadFlagsOptimizer, CheckPostLoopNodeLifetime) {
   builder.StartBasicBlock(bb0);
   builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, flags, kMachineRegFLAGS);
   builder.Gen<PseudoCopy>(flags_copy, flags, 8);
-  builder.Gen<PseudoBranch>(bb1);
+  builder.Gen<Branch>(bb1);
 
   builder.StartBasicBlock(bb1);
   builder.Gen<AddqRegReg, kNoSSA>(machine_ir.AllocVReg(), flags_copy, kMachineRegFLAGS);
@@ -253,7 +253,7 @@ TEST(MachineIRReadFlagsOptimizer, CheckPostLoopNodeLiveOut) {
   machine_ir.AddEdge(bb2, bb3);
 
   builder.StartBasicBlock(bb0);
-  builder.Gen<PseudoBranch>(bb1);
+  builder.Gen<Branch>(bb1);
 
   builder.StartBasicBlock(bb1);
   builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb1, bb2, kMachineRegFLAGS);
@@ -261,7 +261,7 @@ TEST(MachineIRReadFlagsOptimizer, CheckPostLoopNodeLiveOut) {
   bb2->live_in().push_back(flags);
   builder.StartBasicBlock(bb2);
   builder.Gen<PseudoCopy>(flags_copy, flags, 8);
-  builder.Gen<PseudoBranch>(bb3);
+  builder.Gen<Branch>(bb3);
   bb2->live_out().push_back(flags_copy);
 
   bb3->live_in().push_back(flags_copy);
@@ -331,11 +331,11 @@ TEST(MachineIRReadFlagsOptimizer, CheckSuccessorNodeFailsIfNotExit) {
   bb2->live_in().push_back(flags);
 
   builder.StartBasicBlock(bb0);
-  builder.Gen<PseudoBranch>(bb1);
+  builder.Gen<Branch>(bb1);
   builder.StartBasicBlock(bb1);
-  builder.Gen<PseudoBranch>(bb2);
+  builder.Gen<Branch>(bb2);
   builder.StartBasicBlock(bb2);
-  builder.Gen<PseudoBranch>(bb1);
+  builder.Gen<Branch>(bb1);
 
   ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
 
@@ -478,7 +478,7 @@ TEST(MachineIRReadFlagsOptimizer, InsertFlagGenInstructionsAddsCmc) {
   builder.Gen<AddqRegReg, kNoSSA>(input0, input1, kMachineRegFLAGS);
   builder.Gen<Cmc, kNoSSA>(kMachineRegFLAGS);
   builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS);
-  builder.Gen<PseudoBranch>(bb1);
+  builder.Gen<Branch>(bb1);
 
   builder.StartBasicBlock(bb1);
   builder.Gen<MovqRegReg>(flags0, flags0);
@@ -799,7 +799,7 @@ TEST(MachineIRReadFlagsOptimizer, RemoveEligibleReadFlagsInLoopTree) {
   machine_ir.AddEdge(bb3, bb4);
 
   builder.StartBasicBlock(bb0);
-  builder.Gen<PseudoBranch>(bb1);
+  builder.Gen<Branch>(bb1);
 
   builder.StartBasicBlock(bb1);
   builder.Gen<AddqRegReg, kNoSSA>(scratch, scratch, kMachineRegFLAGS);
@@ -886,10 +886,10 @@ TEST(MachineIRReadFlagsOptimizer, RemoveEligibleReadFlagsExitsToOuterLoop) {
   machine_ir.AddEdge(bb3, bb4);
 
   builder.StartBasicBlock(bb0);
-  builder.Gen<PseudoBranch>(bb1);
+  builder.Gen<Branch>(bb1);
 
   builder.StartBasicBlock(bb1);
-  builder.Gen<PseudoBranch>(bb2);
+  builder.Gen<Branch>(bb2);
 
   builder.StartBasicBlock(bb2);
   builder.Gen<SubqRegReg, kNoSSA>(scratch, scratch, kMachineRegFLAGS);
@@ -1030,10 +1030,10 @@ TEST(MachineIRReadFlagsOptimizer, RemoveReadFlags) {
   machine_ir.AddEdge(bb4, bb5);
 
   builder.StartBasicBlock(bb0);
-  builder.Gen<PseudoBranch>(bb1);
+  builder.Gen<Branch>(bb1);
 
   builder.StartBasicBlock(bb1);
-  builder.Gen<PseudoBranch>(bb2);
+  builder.Gen<Branch>(bb2);
 
   builder.StartBasicBlock(bb2);
   builder.Gen<AddqRegReg, kNoSSA>(input_flag0, input_flag1, kMachineRegFLAGS);
@@ -1149,7 +1149,7 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersRecursesOnNeighbors) {
   bb2->live_in().push_back(flags0);
   builder.StartBasicBlock(bb2);
   builder.Gen<PseudoWriteFlags>(flags0, kMachineRegFLAGS);
-  builder.Gen<PseudoBranch>(bb0);
+  builder.Gen<Branch>(bb0);
 
   ReplaceFlagRegisters(
       &machine_ir,
@@ -1187,7 +1187,7 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersReplacesInstructions) {
   builder.StartBasicBlock(bb0);
   auto* flag_set_insn = builder.Gen<SubqRegImm, kNoSSA>(input0, 12, kMachineRegFLAGS);
   builder.Gen<PseudoCopy>(input00, input0, 8);
-  builder.Gen<PseudoBranch>(bb1);
+  builder.Gen<Branch>(bb1);
 
   bb1->live_in().push_back(flags0);
   builder.StartBasicBlock(bb1);
@@ -1244,12 +1244,12 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersUpdatesLiveInOut) {
   machine_ir.AddEdge(postloop, postloop_successor);
 
   builder.StartBasicBlock(loop_exit);
-  builder.Gen<PseudoBranch>(postloop);
+  builder.Gen<Branch>(postloop);
   loop_exit->live_out().push_back(flags0);
 
   builder.StartBasicBlock(postloop);
   builder.Gen<PseudoCopy>(flags00, flags0, 8);
-  builder.Gen<PseudoBranch>(postloop_successor);
+  builder.Gen<Branch>(postloop_successor);
   postloop->live_in().push_back(flags0);
   postloop->live_out().push_back(flags00);
 
@@ -1404,7 +1404,7 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersKeepsLiveIns) {
   machine_ir.AddEdge(bb, succ_bb);
 
   builder.StartBasicBlock(pred_bb);
-  builder.Gen<PseudoBranch>(bb);
+  builder.Gen<Branch>(bb);
   pred_bb->live_out().push_back(flags0);
 
   builder.StartBasicBlock(bb);
@@ -1412,7 +1412,7 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersKeepsLiveIns) {
   // ReplaceFlagRegisters but it could be any instruction.
   builder.Gen<AddqRegReg, kNoSSA>(input0, input1, kMachineRegFLAGS);
   builder.Gen<PseudoCopy>(flags00, flags0, 8);
-  builder.Gen<PseudoBranch>(succ_bb);
+  builder.Gen<Branch>(succ_bb);
   bb->live_in().push_back(flags0);
   bb->live_out().push_back(flags00);
 

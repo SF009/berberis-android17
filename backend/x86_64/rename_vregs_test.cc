@@ -71,7 +71,7 @@ TEST(MachineRenameVRegsTest, AssignNewVRegsAcrossBasicBlocks) {
 
   builder.StartBasicBlock(bb1);
   builder.Gen<x86_64::MovqRegImm>(vreg, 0);
-  builder.Gen<PseudoBranch>(bb2);
+  builder.Gen<Branch>(bb2);
 
   builder.StartBasicBlock(bb2);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);

@@ -68,8 +68,8 @@ const MachineBasicBlock* FindEntrySuccessor(const MachineIR* machine_ir) {
   auto* entry_bb = FindEntryBasicBlock(machine_ir);
   CHECK_GE(entry_bb->insn_list().size(), 1UL);
   auto* branch_insn = entry_bb->insn_list().back();
-  CHECK_EQ(branch_insn->opcode(), kMachineOpPseudoBranch);
-  return static_cast<PseudoBranch*>(branch_insn)->then_bb();
+  CHECK_EQ(branch_insn->opcode(), kMachineOpBranch);
+  return static_cast<Branch*>(branch_insn)->then_bb();
 }
 
 void CheckBasicBlockEndsWith(const MachineBasicBlock* bb, MachineOpcode opcode) {
@@ -140,8 +140,8 @@ TEST(HeavyOptimizerFrontendTest, LoopInsideRegion) {
 
   auto* preloop_bb = FindEntrySuccessor(&machine_ir);
   auto* branch_insn = preloop_bb->insn_list().back();
-  ASSERT_EQ(branch_insn->opcode(), kMachineOpPseudoBranch);
-  auto* loop_bb = static_cast<PseudoBranch*>(branch_insn)->then_bb();
+  ASSERT_EQ(branch_insn->opcode(), kMachineOpBranch);
+  auto* loop_bb = static_cast<Branch*>(branch_insn)->then_bb();
   auto* cmpb = *std::next(loop_bb->insn_list().rbegin());
   ASSERT_EQ(cmpb->opcode(), kMachineOpCmpbMemBaseDispImm);
   branch_insn = loop_bb->insn_list().back();
@@ -194,7 +194,7 @@ TEST(HeavyOptimizerFrontendTest, ResolveJumps) {
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
 
   // Jump is replaced by Branch.
-  CheckBasicBlockEndsWith(FindEntrySuccessor(&machine_ir), kMachineOpPseudoBranch);
+  CheckBasicBlockEndsWith(FindEntrySuccessor(&machine_ir), kMachineOpBranch);
 }
 
 TEST(HeavyOptimizerFrontendTest, ResolveJumpToAlreadyReplacedJump) {
@@ -219,7 +219,7 @@ TEST(HeavyOptimizerFrontendTest, ResolveJumpToAlreadyReplacedJump) {
 
   // Both Jumps are replaced by Branches
   auto* bb = FindEntrySuccessor(&machine_ir);
-  CheckBasicBlockEndsWith(bb, kMachineOpPseudoBranch);
+  CheckBasicBlockEndsWith(bb, kMachineOpBranch);
 
   auto* next_bb = bb->out_edges()[0]->dst();
   // This one is CondBranch because we also insert pending signals check.
@@ -276,7 +276,7 @@ TEST(HeavyOptimizerFrontendTest, ResolveJumpToAlreadyReplacedBackJump) {
   ASSERT_EQ(bb2->out_edges()[1]->dst(), bb1);
 
   auto* bb3 = bb1->out_edges()[0]->dst();
-  CheckBasicBlockEndsWith(bb3, kMachineOpPseudoBranch);
+  CheckBasicBlockEndsWith(bb3, kMachineOpBranch);
 
   auto* bb4 = bb3->out_edges()[0]->dst();
   CheckBasicBlockEndsWith(bb4, kMachineOpPseudoCondBranch);
@@ -327,13 +327,13 @@ TEST(HeavyOptimizerFrontendTest, ResolveJumpToAnotherJump) {
   CheckBasicBlockEndsWith(bb0, kMachineOpPseudoCondBranch);
 
   auto* bb1 = bb0->out_edges()[1]->dst();
-  CheckBasicBlockEndsWith(bb1, kMachineOpPseudoBranch);
+  CheckBasicBlockEndsWith(bb1, kMachineOpBranch);
 
   auto* bb5 = bb0->out_edges()[0]->dst();
-  CheckBasicBlockEndsWith(bb5, kMachineOpPseudoBranch);
+  CheckBasicBlockEndsWith(bb5, kMachineOpBranch);
 
   auto* bb4 = bb5->out_edges()[0]->dst();
-  CheckBasicBlockEndsWith(bb4, kMachineOpPseudoBranch);
+  CheckBasicBlockEndsWith(bb4, kMachineOpBranch);
 
   EXPECT_EQ(bb1->out_edges()[0]->dst(), bb4);
 
