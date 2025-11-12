@@ -57,7 +57,7 @@ enum MachineOpcode : int {
   kMachineOpEnter,
   kMachineOpCallImm,
   kMachineOpCallImmArg,
-  kMachineOpPseudoBranch,
+  kMachineOpBranch,
   kMachineOpPseudoCondBranch,
   kMachineOpPseudoCopy,
   kMachineOpPseudoDefReg,
@@ -964,7 +964,7 @@ class MachineIR : public berberis::MachineIR {
 
     new_bb->insn_list().splice(
         new_bb->insn_list().begin(), bb->insn_list(), insn_it, bb->insn_list().end());
-    bb->insn_list().push_back(NewInsn<PseudoBranch>(new_bb));
+    bb->insn_list().push_back(NewInsn<Branch>(new_bb));
 
     // Relink out edges from bb.
     for (auto out_edge : bb->out_edges()) {
@@ -978,8 +978,7 @@ class MachineIR : public berberis::MachineIR {
   }
 
   [[nodiscard]] static bool IsControlTransfer(berberis::MachineInsn* insn) {
-    return insn->opcode() == kMachineOpPseudoBranch ||
-           insn->opcode() == kMachineOpPseudoCondBranch ||
+    return insn->opcode() == kMachineOpBranch || insn->opcode() == kMachineOpPseudoCondBranch ||
            insn->opcode() == kMachineOpPseudoIndirectJump || insn->opcode() == kMachineOpPseudoJump;
   }
 

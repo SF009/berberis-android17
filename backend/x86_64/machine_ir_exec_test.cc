@@ -751,7 +751,7 @@ TEST(ExecMachineIR, RecoveryBlock) {
       kScratchReg, kScratchReg, x86_64::kMachineRegFLAGS);
   builder.Gen<x86_64::MovqOpReg>({.base = kScratchReg}, kScratchReg);
   builder.SetRecoveryPointAtLastInsn(recovery_bb);
-  builder.Gen<PseudoBranch>(exit_bb);
+  builder.Gen<Branch>(exit_bb);
 
   builder.StartBasicBlock(exit_bb);
   builder.Gen<PseudoJump>(42ULL);

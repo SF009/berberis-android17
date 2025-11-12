@@ -49,7 +49,7 @@ TEST(MachineIR, SplitBasicBlock) {
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
   EXPECT_TRUE(machine_ir.bb_list().size() == 2);
   EXPECT_EQ(bb->insn_list().size(), static_cast<unsigned int>(3));
-  EXPECT_EQ(bb->insn_list().back()->opcode(), kMachineOpPseudoBranch);
+  EXPECT_EQ(bb->insn_list().back()->opcode(), kMachineOpBranch);
   EXPECT_EQ(new_bb->insn_list().size(), static_cast<unsigned int>(4));
 }
 

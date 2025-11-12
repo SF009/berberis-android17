@@ -121,11 +121,11 @@ MachineIRCheckStatus CheckInsnListIntegrity(const MachineIR* ir, const MachineBa
         }
         return bb->out_edges().empty() ? kMachineIRCheckSuccess
                                        : kMachineIRControlFlowInsnSuccessorMismatch;
-      case MachineOpcode::kMachineOpPseudoBranch: {
+      case MachineOpcode::kMachineOpBranch: {
         if (insn != bb->insn_list().back()) {
           return kMachineIRWrongControlFlowInsnLocation;
         }
-        const PseudoBranch* branch = reinterpret_cast<const PseudoBranch*>(insn);
+        const Branch* branch = reinterpret_cast<const Branch*>(insn);
         return IsBasicBlockSuccessor(bb, branch->then_bb())
                    ? kMachineIRCheckSuccess
                    : kMachineIRControlFlowInsnSuccessorMismatch;

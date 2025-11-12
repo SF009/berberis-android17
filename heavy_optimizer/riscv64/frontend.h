@@ -644,7 +644,7 @@ class HeavyOptimizerFrontend {
     auto* cont_bb = builder_.ir()->NewBasicBlock();
     builder_.ir()->AddEdge(region_entry_bb, cont_bb);
     builder_.StartBasicBlock(region_entry_bb);
-    builder_.Gen<PseudoBranch>(cont_bb);
+    builder_.Gen<berberis::Branch>(cont_bb);
     builder_.StartBasicBlock(cont_bb);
   }
 

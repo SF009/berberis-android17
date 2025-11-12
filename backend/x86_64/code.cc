@@ -240,19 +240,19 @@ MachineInsnList CallImmArg::Lower(Arena* arena) const {
 
 }  // namespace x86_64
 
-const MachineOpcode PseudoBranch::kOpcode = kMachineOpPseudoBranch;
+const MachineOpcode Branch::kOpcode = kMachineOpBranch;
 using Assembler = x86_64::Assembler;
 
-PseudoBranch::PseudoBranch(const MachineBasicBlock* then_bb)
-    : MachineInsn(kMachineOpPseudoBranch, 0, nullptr, nullptr, kMachineInsnSideEffects),
+Branch::Branch(const MachineBasicBlock* then_bb)
+    : MachineInsn(kMachineOpBranch, 0, nullptr, nullptr, kMachineInsnSideEffects),
       then_bb_(then_bb) {}
 
-MachineInsn* PseudoBranch::Clone(Arena* arena) const {
-  return NewInArena<PseudoBranch, const PseudoBranch&>(arena, *this);
+MachineInsn* Branch::Clone(Arena* arena) const {
+  return NewInArena<Branch, const Branch&>(arena, *this);
 }
 
-MachineInsnList PseudoBranch::Lower(Arena* arena) const {
-  return {1, NewInArena<PseudoBranch, const PseudoBranch&>(arena, *this), arena};
+MachineInsnList Branch::Lower(Arena* arena) const {
+  return {1, NewInArena<Branch, const Branch&>(arena, *this), arena};
 }
 
 const MachineOpcode PseudoCondBranch::kOpcode = kMachineOpPseudoCondBranch;

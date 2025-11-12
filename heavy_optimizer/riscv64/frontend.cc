@@ -223,7 +223,7 @@ void HeavyOptimizerFrontend::ReplaceJumpWithBranch(MachineBasicBlock* bb,
 
   if (jump->kind() == PseudoJump::Kind::kJumpWithoutPendingSignalsCheck) {
     // Simple branch for forward jump.
-    *jump_it = ir->NewInsn<PseudoBranch>(target_bb);
+    *jump_it = ir->NewInsn<berberis::Branch>(target_bb);
     ir->AddEdge(bb, target_bb);
   } else {
     CHECK(jump->kind() == PseudoJump::Kind::kJumpWithPendingSignalsCheck);
@@ -480,7 +480,7 @@ void HeavyOptimizerFrontend::GenRecoveryBlockForLastInsn() {
   // Note, even though there are two bb successors, we only explicitly branch to
   // the continue_bb, since jump to the recovery_bb is set up by the signal
   // handler.
-  builder_.Gen<PseudoBranch>(continue_bb);
+  builder_.Gen<berberis::Branch>(continue_bb);
 
   builder_.StartBasicBlock(recovery_bb);
   ExitGeneratedCode(GetInsnAddr());
@@ -758,11 +758,11 @@ Register HeavyOptimizerFrontend::MemoryRegionReservationExchange(Register aligne
   // Pseudo-def for use-def operand of XOR to make sure data-flow is integrate.
   builder_.Gen<PseudoDefReg>(result);
   builder_.Gen<x86_64::XorqRegReg, x86_64::kNoSSA>(result, result, GetFlagsRegister());
-  builder_.Gen<PseudoBranch>(continue_bb);
+  builder_.Gen<berberis::Branch>(continue_bb);
 
   builder_.StartBasicBlock(failure_bb);
   builder_.Gen<x86_64::MovqRegImm>(result, 1);
-  builder_.Gen<PseudoBranch>(continue_bb);
+  builder_.Gen<berberis::Branch>(continue_bb);
 
   builder_.StartBasicBlock(continue_bb);
 

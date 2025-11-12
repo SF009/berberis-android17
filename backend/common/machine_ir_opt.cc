@@ -53,8 +53,8 @@ void RemoveForwarderBlocks(MachineIR* machine_ir) {
     if (machine_bb->insn_list().size() != 1) continue;
 
     const MachineInsn* last_insn = machine_bb->insn_list().back();
-    if (last_insn->opcode() == PseudoBranch::kOpcode) {
-      const PseudoBranch* branch_insn = static_cast<const PseudoBranch*>(last_insn);
+    if (last_insn->opcode() == Branch::kOpcode) {
+      const Branch* branch_insn = static_cast<const Branch*>(last_insn);
       forwarder_map[machine_bb->id()] = branch_insn->then_bb();
     }
   }
@@ -93,8 +93,8 @@ void RemoveForwarderBlocks(MachineIR* machine_ir) {
     }
 
     MachineInsn* last_insn = insn_list.back();
-    if (last_insn->opcode() == PseudoBranch::kOpcode) {
-      PseudoBranch* branch_insn = static_cast<PseudoBranch*>(last_insn);
+    if (last_insn->opcode() == Branch::kOpcode) {
+      Branch* branch_insn = static_cast<Branch*>(last_insn);
       if (auto* new_dest = forwarder_map[branch_insn->then_bb()->id()]) {
         branch_insn->set_then_bb(new_dest);
       }
