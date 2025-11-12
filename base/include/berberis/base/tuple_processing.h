@@ -129,6 +129,9 @@ class TypesToTypes {
   using Any = MetaValue<std::less<std::size_t>{}(std::size_t{0},
                                                  std::tuple_size_v<Filter<TupleType, kLambda>>)>;
 
+  template <typename... TuplesTypes>
+  using Concat = decltype(std::tuple_cat(std::declval<TuplesTypes>()...));
+
   // Applies a type-level lambda to each type in the input |Type| tuple.
   // The lambda is expected to return a tuple-like type for each input type.
   // All the resulting tuples are then concatenated ("flattened") into a single tuple.
@@ -195,16 +198,14 @@ class TypesToTypes {
   template <typename... Types, auto kLambda>
   class FlatMapHelper<std::tuple<Types...>, kLambda> {
    public:
-    using Result = decltype(std::tuple_cat(
-        std::declval<typename decltype(kLambda.template operator()<Types>())::Tuple>()...));
+    using Result = Concat<typename decltype(kLambda.template operator()<Types>())::Tuple...>;
   };
   template <typename TupleType, auto kLambda>
   class FlatMapHelper {
    public:
-    // Note: tuple_cap here ensures that we would use the specialization above and wouldn't cause
+    // Note: Concat here ensures that we would use the specialization above and wouldn't cause
     // endless recursion here.
-    using Result =
-        FlatMapHelper<decltype(std::tuple_cat(std::declval<TupleType>())), kLambda>::Result;
+    using Result = FlatMapHelper<Concat<TupleType>, kLambda>::Result;
   };
 
   template <typename... Types, auto kLambda>
@@ -216,9 +217,9 @@ class TypesToTypes {
   template <typename TupleType, auto kLambda>
   class MapHelper {
    public:
-    // Note: tuple_cap here ensures that we would use the specialization above and wouldn't cause
+    // Note: Concat here ensures that we would use the specialization above and wouldn't cause
     // endless recursion here.
-    using Result = MapHelper<decltype(std::tuple_cat(std::declval<TupleType>())), kLambda>::Result;
+    using Result = MapHelper<Concat<TupleType>, kLambda>::Result;
   };
 
   template <typename... TypesLeft, typename... TypesRight>
@@ -229,10 +230,9 @@ class TypesToTypes {
   template <typename TypeLeft, typename TypeRight>
   class ZipHelper {
    public:
-    // Note: tuple_cap here ensures that we would use the specialization above and wouldn't cause
+    // Note: Concat here ensures that we would use the specialization above and wouldn't cause
     // endless recursion here.
-    using Result = ZipHelper<decltype(std::tuple_cat(std::declval<TypeLeft>())),
-                             decltype(std::tuple_cat(std::declval<TypeRight>()))>::Result;
+    using Result = ZipHelper<Concat<TypeLeft>, Concat<TypeRight>>::Result;
   };
 };
 

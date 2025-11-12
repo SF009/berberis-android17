@@ -70,8 +70,7 @@ class IntrinsicCall<function> {
                                                   device_arch_info::XMM6,
                                                   device_arch_info::XMM7>;
   using AllArgumentetersRegisters =
-      decltype(std::tuple_cat(std::declval<AllGpArgumentetersRegisters>(),
-                              std::declval<AllXmmArgumentetersRegisters>()));
+      TypesToTypes::Concat<AllGpArgumentetersRegisters, AllXmmArgumentetersRegisters>;
   using AllClobberRegisters = std::tuple<device_arch_info::RAX,
                                          device_arch_info::RDI,
                                          device_arch_info::RSI,
