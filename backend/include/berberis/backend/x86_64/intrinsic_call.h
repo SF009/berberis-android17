@@ -28,6 +28,90 @@
 
 namespace berberis::x86_64 {
 
+namespace intrinsic_call {
+
+using GpArgumentetersRegisters = std::tuple<device_arch_info::RDI,
+                                            device_arch_info::RSI,
+                                            device_arch_info::RDX,
+                                            device_arch_info::RCX,
+                                            device_arch_info::R8,
+                                            device_arch_info::R9>;
+using XmmArgumentetersRegisters = std::tuple<device_arch_info::XMM0,
+                                             device_arch_info::XMM1,
+                                             device_arch_info::XMM2,
+                                             device_arch_info::XMM3,
+                                             device_arch_info::XMM4,
+                                             device_arch_info::XMM5,
+                                             device_arch_info::XMM6,
+                                             device_arch_info::XMM7>;
+using ArgumentetersRegisters =
+    TypesToTypes::Concat<GpArgumentetersRegisters, XmmArgumentetersRegisters>;
+using ClobberRegisters = std::tuple<device_arch_info::RAX,
+                                    device_arch_info::RDI,
+                                    device_arch_info::RSI,
+                                    device_arch_info::RDX,
+                                    device_arch_info::RCX,
+                                    device_arch_info::R8,
+                                    device_arch_info::R9,
+                                    device_arch_info::R10,
+                                    device_arch_info::R11,
+                                    device_arch_info::XMM0,
+                                    device_arch_info::XMM1,
+                                    device_arch_info::XMM2,
+                                    device_arch_info::XMM3,
+                                    device_arch_info::XMM4,
+                                    device_arch_info::XMM5,
+                                    device_arch_info::XMM6,
+                                    device_arch_info::XMM7,
+                                    device_arch_info::XMM8,
+                                    device_arch_info::XMM9,
+                                    device_arch_info::XMM10,
+                                    device_arch_info::XMM11,
+                                    device_arch_info::XMM12,
+                                    device_arch_info::XMM13,
+                                    device_arch_info::XMM14,
+                                    device_arch_info::XMM15,
+                                    device_arch_info::FLAGS>;
+
+// Helper convertor to go from kRegisterClass variable back to Register's class.
+template <auto kRegisterClass_, typename RegistersClassesList_>
+using kRegisterClassToClassTuple =
+    TypesToTypes::Filter<RegistersClassesList_, []<typename RegisterClass>() {
+      return kRegisterClass_ == &kRegisterClass<RegisterClass>;
+    }>;
+
+struct ResultsElementInfo {
+  // Register class for elements passed in register. Note that ABI permits coalescion of few
+  // elements of tuple in one register. Note: nullptr means everything is passed in memory.
+  const MachineRegClass* register_class;
+  // Position in register or memory from the beginning of the register (or struct if memory is
+  // used).
+  std::size_t element_offset;
+};
+// Note: we don't support aggregates, which means most parameters go into one register.
+// We also don't support stack-passed parameters for now. But __int128_t uses two registers.
+enum ArgumentElementType { kInteger, kXMM, kInt128 };
+struct ArgumentsElementInfo {
+  ArgumentElementType param_type;
+  std::array<const MachineRegClass*, 2> register_classes;
+};
+
+template <typename ArgumentsTuple>
+using CleanTypes = TypesToTypes::FlatMap<ArgumentsTuple, []<typename RawType> {
+  using Type = std::remove_cvref_t<RawType>;
+  if constexpr (std::is_integral_v<Type> || std::is_same_v<Type, intrinsics::Float16> ||
+                std::is_same_v<Type, intrinsics::Float32> ||
+                std::is_same_v<Type, intrinsics::Float64>) {
+    return kTypes<Type>;
+  } else if constexpr (std::is_same_v<Type, SIMD128Register> || std::is_same_v<Type, __m128>) {
+    return kTypes<__m128>;
+  } else {
+    static_assert(kDependentTypeFalse<Type>);
+  }
+}>;
+
+}  // namespace intrinsic_call
+
 template <auto function>
 class IntrinsicCall;
 
@@ -35,99 +119,20 @@ template <typename IntrinsicRetTuple,
           typename... IntrinsicParamTypes,
           IntrinsicRetTuple (*function)(IntrinsicParamTypes...)>
 class IntrinsicCall<function> {
- private:
-  template <typename ArgumentsTuple>
-  using CleanTypes = TypesToTypes::FlatMap<ArgumentsTuple, []<typename RawType> {
-    using Type = std::remove_cvref_t<RawType>;
-    if constexpr (std::is_integral_v<Type> || std::is_same_v<Type, intrinsics::Float16> ||
-                  std::is_same_v<Type, intrinsics::Float32> ||
-                  std::is_same_v<Type, intrinsics::Float64>) {
-      return kTypes<Type>;
-    } else if constexpr (std::is_same_v<Type, SIMD128Register> || std::is_same_v<Type, __m128>) {
-      return kTypes<__m128>;
-    } else {
-      static_assert(kDependentTypeFalse<Type>);
-    }
-  }>;
-
  public:
-  using CleanRetType = CleanTypes<IntrinsicRetTuple>;
-  using CleanParamTypes = CleanTypes<std::tuple<IntrinsicParamTypes...>>;
+  using CleanRetType = intrinsic_call::CleanTypes<IntrinsicRetTuple>;
+  using CleanParamTypes = intrinsic_call::CleanTypes<std::tuple<IntrinsicParamTypes...>>;
 
  private:
-  using AllGpArgumentetersRegisters = std::tuple<device_arch_info::RDI,
-                                                 device_arch_info::RSI,
-                                                 device_arch_info::RDX,
-                                                 device_arch_info::RCX,
-                                                 device_arch_info::R8,
-                                                 device_arch_info::R9>;
-  using AllXmmArgumentetersRegisters = std::tuple<device_arch_info::XMM0,
-                                                  device_arch_info::XMM1,
-                                                  device_arch_info::XMM2,
-                                                  device_arch_info::XMM3,
-                                                  device_arch_info::XMM4,
-                                                  device_arch_info::XMM5,
-                                                  device_arch_info::XMM6,
-                                                  device_arch_info::XMM7>;
-  using AllArgumentetersRegisters =
-      TypesToTypes::Concat<AllGpArgumentetersRegisters, AllXmmArgumentetersRegisters>;
-  using AllClobberRegisters = std::tuple<device_arch_info::RAX,
-                                         device_arch_info::RDI,
-                                         device_arch_info::RSI,
-                                         device_arch_info::RDX,
-                                         device_arch_info::RCX,
-                                         device_arch_info::R8,
-                                         device_arch_info::R9,
-                                         device_arch_info::R10,
-                                         device_arch_info::R11,
-                                         device_arch_info::XMM0,
-                                         device_arch_info::XMM1,
-                                         device_arch_info::XMM2,
-                                         device_arch_info::XMM3,
-                                         device_arch_info::XMM4,
-                                         device_arch_info::XMM5,
-                                         device_arch_info::XMM6,
-                                         device_arch_info::XMM7,
-                                         device_arch_info::XMM8,
-                                         device_arch_info::XMM9,
-                                         device_arch_info::XMM10,
-                                         device_arch_info::XMM11,
-                                         device_arch_info::XMM12,
-                                         device_arch_info::XMM13,
-                                         device_arch_info::XMM14,
-                                         device_arch_info::XMM15,
-                                         device_arch_info::FLAGS>;
-
-  // Helper convertor to go from kRegisterClass variable back to Register's class.
-  template <auto kRegisterClass_, typename RegistersClassesList_>
-  using kRegisterClassToClassTuple =
-      TypesToTypes::Filter<RegistersClassesList_, []<typename RegisterClass>() {
-        return kRegisterClass_ == &kRegisterClass<RegisterClass>;
-      }>;
-
-  struct ResultsElementInfo {
-    // Register class for elements passed in register. Note that ABI permits coalescion of few
-    // elements of tuple in one register. Note: nullptr means everything is passed in memory.
-    const MachineRegClass* register_class;
-    // Position in register or memory from the beginning of the register (or struct if memory is
-    // used).
-    std::size_t element_offset;
-  };
-  static constexpr std::array<ResultsElementInfo,
+  static constexpr std::array<intrinsic_call::ResultsElementInfo,
                               std::tuple_size_v<CleanRetType> +
                                   ((std::is_same_v<CleanRetType, std::tuple<__int128_t>> ||
                                     std::is_same_v<CleanRetType, std::tuple<__uint128_t>>)
                                        ? 1
                                        : 0)>
   GenResultsElements();
-  // Note: we don't support aggregates, which means most parameters go into one register.
-  // We also don't support stack-passed parameters for now. But __int128_t uses two registers.
-  enum ArgumentElementType { kInteger, kXMM, kInt128 };
-  struct ArgumentsElementInfo {
-    ArgumentElementType param_type;
-    std::array<const MachineRegClass*, 2> register_classes;
-  };
-  static constexpr std::array<ArgumentsElementInfo, std::tuple_size_v<CleanParamTypes>>
+  static constexpr std::array<intrinsic_call::ArgumentsElementInfo,
+                              std::tuple_size_v<CleanParamTypes>>
   GenArgumentElements();
 
  public:
@@ -138,7 +143,7 @@ class IntrinsicCall<function> {
   // it's usually an address of a frontend provided area on stack.
   using ResultRegisters = TypesToTypes::
       FlatMap<ValuesToTypes::MetaValues<kResultsElements>, []<typename ResultElementInfo> {
-        constexpr ResultsElementInfo kResultElementInfo = ResultElementInfo::kValue;
+        constexpr intrinsic_call::ResultsElementInfo kResultElementInfo = ResultElementInfo::kValue;
         // Ignore elements except for the first one. Each 8-byte bundle have
         // such element because we are dealing with tuple and not random
         // structs with arbitrary bitfields that may include padding.
@@ -148,7 +153,8 @@ class IntrinsicCall<function> {
           return kTypes<device_arch_info::RAX>;
         } else {
           using RegisterClassTuple =
-              kRegisterClassToClassTuple<kResultElementInfo.register_class, AllClobberRegisters>;
+              intrinsic_call::kRegisterClassToClassTuple<kResultElementInfo.register_class,
+                                                         intrinsic_call::ClobberRegisters>;
           static_assert(std::tuple_size_v<RegisterClassTuple> == 1);
           return kTypes<std::tuple_element_t<0, RegisterClassTuple>>;
         }
@@ -159,33 +165,36 @@ class IntrinsicCall<function> {
   // Clobber registers are registers that a function is allowed to modify. According to the x86-64
   // psABI, these are the caller-saved registers. The registers used to return values are also
   // modified, but their final state is the function's result, so they are not typically listed as
-  // "clobbered" in the sense of losing their prior value. Here, we define `ClobberRegisters` as all
-  // registers that *could* be modified by the intrinsic call, excluding those that are used to
-  // return the function's result. This is done to simplify work for the frontend: frontend doesn't
-  // need to dig through list of registers modified by CALL to find the results, results always come
-  // first in the list of registers, clobbered registers come after these.
-  using ClobberRegisters = TypesToTypes::Filter<AllClobberRegisters, []<typename ClobberedClass>() {
-    return TypesToValues::All<ResultRegisters>(
-        []<typename ResultedClass>() { return !std::is_same_v<ClobberedClass, ResultedClass>; });
-  }>;
+  // "clobbered" in the sense of losing their prior value. Here, we define `ClobberRegisters` as
+  // all registers that *could* be modified by the intrinsic call, excluding those that are used
+  // to return the function's result. This is done to simplify work for the frontend: frontend
+  // doesn't need to dig through list of registers modified by CALL to find the results, results
+  // always come first in the list of registers, clobbered registers come after these.
+  using ClobberRegisters =
+      TypesToTypes::Filter<intrinsic_call::ClobberRegisters, []<typename ClobberedClass>() {
+        return TypesToValues::All<ResultRegisters>([]<typename ResultedClass>() {
+          return !std::is_same_v<ClobberedClass, ResultedClass>;
+        });
+      }>;
   using ArgumentRegisters = TypesToTypes::
       FlatMap<ValuesToTypes::MetaValues<kArgumentElements>, []<typename ArgumentElementInfo> {
-        constexpr ArgumentsElementInfo kArgumentElementInfo = ArgumentElementInfo::kValue;
-        if constexpr (kArgumentElementInfo.param_type == kInt128) {
+        constexpr intrinsic_call::ArgumentsElementInfo kArgumentElementInfo =
+            ArgumentElementInfo::kValue;
+        if constexpr (kArgumentElementInfo.param_type == intrinsic_call::kInt128) {
           using RegisterClassTuple1 =
-              kRegisterClassToClassTuple<kArgumentElementInfo.register_classes[0],
-                                         AllArgumentetersRegisters>;
+              intrinsic_call::kRegisterClassToClassTuple<kArgumentElementInfo.register_classes[0],
+                                                         intrinsic_call::ArgumentetersRegisters>;
           using RegisterClassTuple2 =
-              kRegisterClassToClassTuple<kArgumentElementInfo.register_classes[1],
-                                         AllArgumentetersRegisters>;
+              intrinsic_call::kRegisterClassToClassTuple<kArgumentElementInfo.register_classes[1],
+                                                         intrinsic_call::ArgumentetersRegisters>;
           static_assert(std::tuple_size_v<RegisterClassTuple1> == 1);
           static_assert(std::tuple_size_v<RegisterClassTuple2> == 1);
           return kTypes<std::tuple_element_t<0, RegisterClassTuple1>,
                         std::tuple_element_t<0, RegisterClassTuple2>>;
         } else {
           using RegisterClassTuple =
-              kRegisterClassToClassTuple<kArgumentElementInfo.register_classes[0],
-                                         AllArgumentetersRegisters>;
+              intrinsic_call::kRegisterClassToClassTuple<kArgumentElementInfo.register_classes[0],
+                                                         intrinsic_call::ArgumentetersRegisters>;
           static_assert(std::tuple_size_v<RegisterClassTuple> == 1);
           return kTypes<std::tuple_element_t<0, RegisterClassTuple>>;
         }
@@ -233,7 +242,7 @@ template <typename IntrinsicRetTuple,
           typename... IntrinsicParamTypes,
           IntrinsicRetTuple (*function)(IntrinsicParamTypes...)>
 constexpr auto IntrinsicCall<function>::GenResultsElements()
-    -> std::array<ResultsElementInfo,
+    -> std::array<intrinsic_call::ResultsElementInfo,
                   std::tuple_size_v<CleanRetType> +
                       ((std::is_same_v<CleanRetType, std::tuple<__int128_t>> ||
                         std::is_same_v<CleanRetType, std::tuple<__uint128_t>>)
@@ -241,31 +250,32 @@ constexpr auto IntrinsicCall<function>::GenResultsElements()
                            : 0)> {
   // If we don't have elements to process then we are done.
   if constexpr (std::tuple_size_v<CleanRetType> == 0) {
-    return std::array<ResultsElementInfo, 0>{};
+    return std::array<intrinsic_call::ResultsElementInfo, 0>{};
     // __int128, __uint128_t and __m128 are the only types that may span 8byte chunk, and they can
     // be only passed in registers if they are used alone.
   } else if constexpr (std::is_same_v<CleanRetType, std::tuple<__int128>> ||
                        std::is_same_v<CleanRetType, std::tuple<__uint128_t>>) {
-    return std::array{ResultsElementInfo{.register_class = &kRegisterClass<device_arch_info::RAX>,
-                                         .element_offset = 0},
-                      ResultsElementInfo{.register_class = &kRegisterClass<device_arch_info::RDX>,
-                                         .element_offset = 0}};
+    return std::array{
+        intrinsic_call::ResultsElementInfo{.register_class = &kRegisterClass<device_arch_info::RAX>,
+                                           .element_offset = 0},
+        intrinsic_call::ResultsElementInfo{.register_class = &kRegisterClass<device_arch_info::RDX>,
+                                           .element_offset = 0}};
   } else if constexpr (std::is_same_v<CleanRetType, std::tuple<__m128>>) {
-    return std::array{ResultsElementInfo{.register_class = &kRegisterClass<device_arch_info::XMM0>,
-                                         .element_offset = 0}};
+    return std::array{intrinsic_call::ResultsElementInfo{
+        .register_class = &kRegisterClass<device_arch_info::XMM0>, .element_offset = 0}};
   } else {
-    std::array<ResultsElementInfo, std::tuple_size_v<CleanRetType>> result =
+    std::array<intrinsic_call::ResultsElementInfo, std::tuple_size_v<CleanRetType>> result =
         ToArray(TypesToValues::MapWithTemporary<CleanRetType, /* offset = */ std::size_t>(
             []<typename Type>(std::size_t& offset) {
               static_assert(IsPowerOf2(sizeof(Type)));
               std::size_t current_offset = AlignUp<sizeof(Type)>(offset);
               offset = current_offset + sizeof(Type);
               if constexpr (std::is_integral_v<Type>) {
-                return ResultsElementInfo{.register_class = &kGeneralReg64,
-                                          .element_offset = current_offset};
+                return intrinsic_call::ResultsElementInfo{.register_class = &kGeneralReg64,
+                                                          .element_offset = current_offset};
               } else {
-                return ResultsElementInfo{.register_class = &kXmmReg,
-                                          .element_offset = current_offset};
+                return intrinsic_call::ResultsElementInfo{.register_class = &kXmmReg,
+                                                          .element_offset = current_offset};
               }
             }));
     // If struct size is larger than 16 bytes then it's returned in memory.
@@ -310,12 +320,12 @@ template <typename IntrinsicRetTuple,
           typename... IntrinsicParamTypes,
           IntrinsicRetTuple (*function)(IntrinsicParamTypes...)>
 constexpr auto IntrinsicCall<function>::GenArgumentElements()
-    -> std::array<ArgumentsElementInfo, std::tuple_size_v<CleanParamTypes>> {
+    -> std::array<intrinsic_call::ArgumentsElementInfo, std::tuple_size_v<CleanParamTypes>> {
   if constexpr (std::tuple_size_v<CleanParamTypes> == 0) {
-    return std::array<ArgumentsElementInfo, 0>{};
+    return std::array<intrinsic_call::ArgumentsElementInfo, 0>{};
   } else {
     struct ArgumentsElementPreliminaryInfo {
-      ArgumentElementType param_type;
+      intrinsic_call::ArgumentElementType param_type;
       std::size_t register_argument_number;
     };
     constexpr auto kPreliminaryResult =
@@ -328,34 +338,35 @@ constexpr auto IntrinsicCall<function>::GenArgumentElements()
                             std::is_same_v<CleanArgumentType, __uint128_t>) {
                 std::size_t first_integer_index = integer_index;
                 integer_index += 2;
-                return ArgumentsElementPreliminaryInfo{kInt128, first_integer_index};
+                return ArgumentsElementPreliminaryInfo{intrinsic_call::kInt128,
+                                                       first_integer_index};
               } else if constexpr (std::is_integral_v<CleanArgumentType>) {
-                return ArgumentsElementPreliminaryInfo{kInteger, integer_index++};
+                return ArgumentsElementPreliminaryInfo{intrinsic_call::kInteger, integer_index++};
               } else {
-                return ArgumentsElementPreliminaryInfo{kXMM, xmm_index++};
+                return ArgumentsElementPreliminaryInfo{intrinsic_call::kXMM, xmm_index++};
               }
             }));
     return ToArray(TypesToValues::Map<ValuesToTypes::MetaValues<kPreliminaryResult>>(
         []<typename ArgumentInfo>() {
           constexpr ArgumentsElementPreliminaryInfo kArgumentInfo = ArgumentInfo{};
-          if constexpr (kArgumentInfo.param_type == kInt128) {
-            return ArgumentsElementInfo{
-                kInt128,
+          if constexpr (kArgumentInfo.param_type == intrinsic_call::kInt128) {
+            return intrinsic_call::ArgumentsElementInfo{
+                intrinsic_call::kInt128,
                 {&kRegisterClass<std::tuple_element_t<kArgumentInfo.register_argument_number,
-                                                      AllGpArgumentetersRegisters>>,
+                                                      intrinsic_call::GpArgumentetersRegisters>>,
                  &kRegisterClass<std::tuple_element_t<kArgumentInfo.register_argument_number + 1,
-                                                      AllGpArgumentetersRegisters>>}};
-          } else if constexpr (kArgumentInfo.param_type == kInteger) {
-            return ArgumentsElementInfo{
-                kInteger,
+                                                      intrinsic_call::GpArgumentetersRegisters>>}};
+          } else if constexpr (kArgumentInfo.param_type == intrinsic_call::kInteger) {
+            return intrinsic_call::ArgumentsElementInfo{
+                intrinsic_call::kInteger,
                 {&kRegisterClass<std::tuple_element_t<kArgumentInfo.register_argument_number,
-                                                      AllGpArgumentetersRegisters>>,
+                                                      intrinsic_call::GpArgumentetersRegisters>>,
                  nullptr}};
-          } else if constexpr (kArgumentInfo.param_type == kXMM) {
-            return ArgumentsElementInfo{
-                kXMM,
+          } else if constexpr (kArgumentInfo.param_type == intrinsic_call::kXMM) {
+            return intrinsic_call::ArgumentsElementInfo{
+                intrinsic_call::kXMM,
                 {&kRegisterClass<std::tuple_element_t<kArgumentInfo.register_argument_number,
-                                                      AllXmmArgumentetersRegisters>>,
+                                                      intrinsic_call::XmmArgumentetersRegisters>>,
                  nullptr}};
           } else {
             static_assert(kDependentValueFalse<kArgumentInfo.param_type>);
