@@ -123,7 +123,7 @@ void ChangeBranchTarget(MachineBasicBlock* bb,
   CHECK_GT(bb->insn_list().size(), 0);
   auto last_insn = bb->insn_list().back();
 
-  // The branch instruction can either be PseudoCondBranch or PseudoBranch.
+  // The branch instruction can either be CondBranch or PseudoBranch.
   // When removing critical edges, the branch instruction is PseudoBranch if
   // and only if bb has an outedge to a recovery block.
   if (last_insn->opcode() == kMachineOpBranch) {
@@ -133,8 +133,8 @@ void ChangeBranchTarget(MachineBasicBlock* bb,
     return;
   }
 
-  CHECK(last_insn->opcode() == kMachineOpPseudoCondBranch);
-  auto insn = static_cast<PseudoCondBranch*>(last_insn);
+  CHECK(last_insn->opcode() == kMachineOpCondBranch);
+  auto insn = static_cast<CondBranch*>(last_insn);
   if (insn->then_bb() == old_dst) {
     insn->set_then_bb(new_dst);
   } else if (insn->else_bb() == old_dst) {

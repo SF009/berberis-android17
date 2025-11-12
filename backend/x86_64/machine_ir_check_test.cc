@@ -249,7 +249,7 @@ TEST(MachineIRCheckTest, MisplacedBranch) {
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRWrongControlFlowInsnLocation);
 }
 
-TEST(MachineIRCheckTest, MisplacedPseudoCondBranch) {
+TEST(MachineIRCheckTest, MisplacedCondBranch) {
   Arena arena;
   x86_64::MachineIR machine_ir(&arena);
 
@@ -264,7 +264,7 @@ TEST(MachineIRCheckTest, MisplacedPseudoCondBranch) {
   MachineReg vreg = machine_ir.AllocVReg();
 
   builder.StartBasicBlock(bb1);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
   builder.Gen<x86_64::MovqRegImm>(vreg, 0);
 
   builder.StartBasicBlock(bb2);
@@ -314,7 +314,7 @@ TEST(MachineIRCheckTest, NoThenEdgePseudoCondBranch) {
 
   builder.StartBasicBlock(bb1);
   builder.Gen<x86_64::MovqRegImm>(vreg, 0);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb2);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);
@@ -342,7 +342,7 @@ TEST(MachineIRCheckTest, NoElseEdgePseudoCondBranch) {
 
   builder.StartBasicBlock(bb1);
   builder.Gen<x86_64::MovqRegImm>(vreg, 0);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb2);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);

@@ -98,8 +98,8 @@ void RemoveForwarderBlocks(MachineIR* machine_ir) {
       if (auto* new_dest = forwarder_map[branch_insn->then_bb()->id()]) {
         branch_insn->set_then_bb(new_dest);
       }
-    } else if (last_insn->opcode() == PseudoCondBranch::kOpcode) {
-      PseudoCondBranch* branch_insn = static_cast<PseudoCondBranch*>(last_insn);
+    } else if (last_insn->opcode() == CondBranch::kOpcode) {
+      CondBranch* branch_insn = static_cast<CondBranch*>(last_insn);
       if (auto* new_then_bb = forwarder_map[branch_insn->then_bb()->id()]) {
         branch_insn->set_then_bb(new_then_bb);
       }

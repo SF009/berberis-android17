@@ -282,7 +282,7 @@ TEST(MachineIR, RemoveCriticalEdge) {
   builder.Gen<Branch>(bb3);
 
   builder.StartBasicBlock(bb2);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb3);
   builder.Gen<PseudoJump>(kNullGuestAddr);
@@ -326,7 +326,7 @@ TEST(MachineIR, RemoveCriticalEdgeLoop) {
   builder.Gen<Branch>(bb2);
 
   builder.StartBasicBlock(bb2);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb3);
   builder.Gen<PseudoJump>(kNullGuestAddr);
@@ -407,7 +407,7 @@ TEST(MachineIR, PutsInSuccessorsKillPut) {
   auto vreg = machine_ir.AllocVReg();
   builder.StartBasicBlock(bb1);
   builder.GenPut(GetThreadStateRegOffset(0), vreg);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb2);
   builder.GenPut(GetThreadStateRegOffset(0), vreg);
@@ -440,7 +440,7 @@ TEST(MachineIR, PutsInSuccessorsKillPutImm) {
   auto vreg = machine_ir.AllocVReg();
   builder.StartBasicBlock(bb1);
   builder.GenPutImm(GetThreadStateRegOffset(0), 5);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb2);
   builder.GenPut(GetThreadStateRegOffset(0), vreg);
@@ -473,7 +473,7 @@ TEST(MachineIR, PutInOneOfTwoSuccessorsDoesNotKillPut) {
   auto vreg = machine_ir.AllocVReg();
   builder.StartBasicBlock(bb1);
   builder.GenPut(GetThreadStateRegOffset(0), vreg);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb2);
   builder.GenPut(GetThreadStateRegOffset(0), vreg);
@@ -507,7 +507,7 @@ TEST(MachineIR, MultiplePutsCanBeKilled) {
   builder.StartBasicBlock(bb1);
   builder.GenPut(GetThreadStateRegOffset(0), vreg1);
   builder.GenPut(GetThreadStateRegOffset(1), vreg2);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb2);
   builder.GenPut(GetThreadStateRegOffset(0), vreg1);
@@ -641,7 +641,7 @@ TEST(MachineIR, ForwardingPseudoCondBranchThen) {
 
   x86_64::MachineIRBuilder builder(&machine_ir);
   builder.StartBasicBlock(bb0);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb1, bb3, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb1, bb3, x86_64::kMachineRegFLAGS);
 
   // Create a forwarder block
   builder.StartBasicBlock(bb1);
@@ -667,11 +667,11 @@ TEST(MachineIR, ForwardingPseudoCondBranchThen) {
   EXPECT_EQ(bb0, *bb_it);
   EXPECT_EQ(1u, bb0->insn_list().size());
 
-  // Verify that the sole instruction is PseudoCondBranch that jumps
+  // Verify that the sole instruction is CondBranch that jumps
   // to BB2 (then_bb) and BB3 (else_bb).
   MachineInsn* bb0_insn = bb0->insn_list().front();
-  EXPECT_EQ(kMachineOpPseudoCondBranch, bb0_insn->opcode());
-  PseudoCondBranch* bb0_branch_insn = static_cast<PseudoCondBranch*>(bb0_insn);
+  EXPECT_EQ(kMachineOpCondBranch, bb0_insn->opcode());
+  CondBranch* bb0_branch_insn = static_cast<CondBranch*>(bb0_insn);
   EXPECT_EQ(bb2, bb0_branch_insn->then_bb());
   EXPECT_EQ(bb3, bb0_branch_insn->else_bb());
 
@@ -706,7 +706,7 @@ TEST(MachineIR, ForwardingPseudoCondBranchElse) {
   machine_ir.AddEdge(bb2, bb3);
 
   builder.StartBasicBlock(bb0);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb1, bb2, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb1, bb2, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb1);
   builder.Gen<x86_64::MovlRegImm>(kMachineRegRAX, 23);
@@ -732,11 +732,11 @@ TEST(MachineIR, ForwardingPseudoCondBranchElse) {
   EXPECT_EQ(bb0, *bb_it);
   EXPECT_EQ(1u, bb0->insn_list().size());
 
-  // Verify that the sole instruction is PseudoCondBranch that jumps
+  // Verify that the sole instruction is CondBranch that jumps
   // to BB1 (then_bb) and BB3 (else_bb).
   MachineInsn* bb0_insn = bb0->insn_list().front();
-  EXPECT_EQ(kMachineOpPseudoCondBranch, bb0_insn->opcode());
-  PseudoCondBranch* bb0_branch_insn = static_cast<PseudoCondBranch*>(bb0_insn);
+  EXPECT_EQ(kMachineOpCondBranch, bb0_insn->opcode());
+  CondBranch* bb0_branch_insn = static_cast<CondBranch*>(bb0_insn);
   EXPECT_EQ(bb1, bb0_branch_insn->then_bb());
   EXPECT_EQ(bb3, bb0_branch_insn->else_bb());
 
@@ -910,7 +910,7 @@ TEST(MachineIR, RemoveConsecutiveForwarderBlocks) {
   machine_ir.AddEdge(bb4, bb5);
 
   builder.StartBasicBlock(bb0);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb1, bb3, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb1, bb3, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb1);
   builder.Gen<x86_64::MovlRegImm>(kMachineRegRAX, 23);
@@ -952,8 +952,8 @@ TEST(MachineIR, RemoveConsecutiveForwarderBlocks) {
   // Verify that BB0 jumps to BB1 (then_bb) and BB4 (else_bb).
   EXPECT_EQ(bb0, *bb_it);
   MachineInsn* bb0_last_insn = bb0->insn_list().back();
-  EXPECT_EQ(kMachineOpPseudoCondBranch, bb0_last_insn->opcode());
-  PseudoCondBranch* bb0_branch_insn = static_cast<PseudoCondBranch*>(bb0_last_insn);
+  EXPECT_EQ(kMachineOpCondBranch, bb0_last_insn->opcode());
+  CondBranch* bb0_branch_insn = static_cast<CondBranch*>(bb0_last_insn);
   EXPECT_EQ(bb1, bb0_branch_insn->then_bb());
   EXPECT_EQ(bb4, bb0_branch_insn->else_bb());
 

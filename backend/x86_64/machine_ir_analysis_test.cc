@@ -63,7 +63,7 @@ TEST(MachineIRAnalysis, SelfLoop) {
   builder.Gen<Branch>(bb2);
 
   builder.StartBasicBlock(bb2);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb3);
   builder.Gen<PseudoJump>(kNullGuestAddr);
@@ -100,7 +100,7 @@ TEST(MachineIRAnalysis, SingleLoop) {
   builder.Gen<Branch>(bb3);
 
   builder.StartBasicBlock(bb3);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb4, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb4, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb4);
   builder.Gen<PseudoJump>(kNullGuestAddr);
@@ -140,7 +140,7 @@ TEST(MachineIRAnalysis, MultipleBackEdges) {
   builder.Gen<Branch>(bb3);
 
   builder.StartBasicBlock(bb3);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb4, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb4, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb4);
   builder.Gen<Branch>(bb2);
@@ -185,7 +185,7 @@ TEST(MachineIRAnalysis, TwoLoops) {
   builder.Gen<Branch>(bb3);
 
   builder.StartBasicBlock(bb3);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb4, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb4, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb4);
   builder.Gen<Branch>(bb1);
@@ -295,7 +295,7 @@ TEST(MachineIRAnalysis, FindSingleLoopTree) {
   builder.Gen<Branch>(bb2);
 
   builder.StartBasicBlock(bb2);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb3);
   builder.Gen<PseudoJump>(kNullGuestAddr);
@@ -342,7 +342,7 @@ TEST(MachineIRAnalysis, FindNestedLoopTree) {
   builder.Gen<Branch>(bb3);
 
   builder.StartBasicBlock(bb3);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb4, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb4, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb4);
   builder.Gen<Branch>(bb1);
@@ -396,13 +396,13 @@ TEST(MachineIRAnalysis, FindLoopTreeWithMultipleInnerloops) {
   builder.Gen<Branch>(bb3);
 
   builder.StartBasicBlock(bb3);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb4, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb4, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb4);
   builder.Gen<Branch>(bb5);
 
   builder.StartBasicBlock(bb5);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb1, bb4, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb1, bb4, x86_64::kMachineRegFLAGS);
 
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
   auto loop_tree = x86_64::BuildLoopTree(&machine_ir);

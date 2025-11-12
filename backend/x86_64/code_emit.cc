@@ -240,7 +240,7 @@ void Branch::Emit(CodeEmitter* as) const {
   as->Jmp(*then_label);
 }
 
-void PseudoCondBranch::Emit(CodeEmitter* as) const {
+void CondBranch::Emit(CodeEmitter* as) const {
   const Assembler::Label* then_label = as->GetLabelAt(then_bb()->id());
   const Assembler::Label* else_label = as->GetLabelAt(else_bb()->id());
 
@@ -343,7 +343,7 @@ void MachineIR::Emit(CodeEmitter* as) const {
 
     // Let CodeEmitter know the label of the next basic block, if any.
     // This label can be used e.g. used by Branch and
-    // PseudoCondBranch to avoid generating jumps to the next basic
+    // CondBranch to avoid generating jumps to the next basic
     // block.
     auto next_bb_it = std::next(bb_it);
     if (next_bb_it == bb_list().end()) {

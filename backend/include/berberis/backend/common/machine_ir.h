@@ -496,11 +496,11 @@ class Branch final : public MachineInsn {
   const MachineBasicBlock* then_bb_;
 };
 
-class PseudoCondBranch final : public MachineInsn {
+class CondBranch final : public MachineInsn {
  public:
   static const MachineOpcode kOpcode;
 
-  PseudoCondBranch(CodeEmitter::Condition cond,
+  CondBranch(CodeEmitter::Condition cond,
                    const MachineBasicBlock* then_bb,
                    const MachineBasicBlock* else_bb,
                    MachineReg eflags);
@@ -517,10 +517,10 @@ class PseudoCondBranch final : public MachineInsn {
   MachineReg eflags() const { return eflags_; }
 
  private:
-  friend PseudoCondBranch* NewInArena<PseudoCondBranch, const PseudoCondBranch&>(
+  friend CondBranch* NewInArena<CondBranch, const CondBranch&>(
       Arena*,
-      const PseudoCondBranch&);
-  PseudoCondBranch(const PseudoCondBranch&) = default;
+      const CondBranch&);
+  CondBranch(const CondBranch&) = default;
   MachineInsn* Clone(Arena* arena) const override;
   MachineInsnList Lower(Arena* arena) const override;
   CodeEmitter::Condition cond_;

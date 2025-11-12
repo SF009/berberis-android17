@@ -68,7 +68,7 @@ TEST(MachineIR, SplitBasicBlockWithOutcomingEdges) {
   builder.StartBasicBlock(bb1);
   builder.Gen<x86_64::MovqRegImm>(vreg, 0);
   builder.Gen<x86_64::MovqRegImm>(vreg, 0);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb2);
   builder.Gen<x86_64::MovqRegImm>(vreg, 0);

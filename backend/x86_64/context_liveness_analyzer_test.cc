@@ -154,7 +154,7 @@ TEST(MachineIRContextLivenessAnalyzerTest, ContextWritesOnlyKillLiveInIfHappenIn
 
   auto vreg = machine_ir.AllocVReg();
   builder.StartBasicBlock(bb1);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb2);
   builder.GenPut(GetThreadStateRegOffset(0), vreg);

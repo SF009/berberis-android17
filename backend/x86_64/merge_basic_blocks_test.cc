@@ -50,7 +50,7 @@ TEST(MergeBasicBlocksTest, MergeBasicBlocks) {
 
   builder.StartBasicBlock(bb2);
   auto bb2_insn1 = builder.Gen<AddqRegImm, kNoSSA>(vreg, 10, flags);
-  auto bb2_insn2 = builder.Gen<PseudoCondBranch>(
+  auto bb2_insn2 = builder.Gen<CondBranch>(
       CodeEmitter::Condition::kZero, bb3, bb4, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb3);
@@ -105,11 +105,11 @@ TEST(MergeBasicBlocksTest, MergeDoesNotOccurWhenPredecessorHasMultipleSuccessors
 
   builder.StartBasicBlock(bb1);
   builder.Gen<MovqRegImm>(vreg, 5);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb4, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb4, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb2);
   builder.Gen<AddqRegImm, kNoSSA>(vreg, 10, flags);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb3);
   builder.Gen<MovqRegImm>(vreg, 6);
@@ -148,7 +148,7 @@ TEST(MergeBasicBlocksTest, MergeDoesNotOccurWhenSuccessorHasMultiplePredecessors
 
   builder.StartBasicBlock(bb2);
   builder.Gen<MovqRegImm>(vreg, 6);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb3);
   builder.Gen<MovqRegImm>(vreg, 7);
@@ -222,7 +222,7 @@ TEST(MergeBasicBlocksTest, MergeBackwardsEdgeBasicBlocks) {
 
   builder.StartBasicBlock(bb1);
   builder.Gen<MovqRegImm>(vreg, 5);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb2);
   auto bb2_insn1 = builder.Gen<MovqRegImm>(vreg, 6);
@@ -273,7 +273,7 @@ TEST(MergeBasicBlocksTest, MergeBasicBlocksThrowsErrorIfTriesToMergeIRWithLiveOu
   builder.StartBasicBlock(bb2);
   bb2->live_in().push_back(vreg);
   builder.Gen<AddqRegImm, kNoSSA>(vreg, 10, flags);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, x86_64::kMachineRegFLAGS);
   bb2->live_out().push_back(vreg);
 
   bb3->live_in().push_back(vreg);

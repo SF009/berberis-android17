@@ -142,7 +142,7 @@ std::string Branch::GetDebugString() const {
   return StringPrintf("PSEUDO_BRANCH %d", then_bb()->id());
 }
 
-std::string PseudoCondBranch::GetDebugString() const {
+std::string CondBranch::GetDebugString() const {
   std::string out("PSEUDO_COND_BRANCH ");
   out += GetCondName(cond());
   out += ", ";

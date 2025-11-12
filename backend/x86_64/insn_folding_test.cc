@@ -905,7 +905,7 @@ void TestFoldCond(Cond input_cond, Cond expected_new_cond, uint16_t expected_fla
 
   builder.StartBasicBlock(bb);
   builder.Gen<PseudoWriteFlags>(kMachineRegRAX, kMachineRegFLAGS);
-  builder.Gen<PseudoCondBranch>(input_cond, nullptr, nullptr, kMachineRegFLAGS);
+  builder.Gen<CondBranch>(input_cond, nullptr, nullptr, kMachineRegFLAGS);
 
   MachineReg flags_src = (*bb->insn_list().begin())->RegAt(0);
 
@@ -920,8 +920,8 @@ void TestFoldCond(Cond input_cond, Cond expected_new_cond, uint16_t expected_fla
   EXPECT_EQ(expected_flags_mask, static_cast<uint16_t>(insn->imm()));
   MachineReg flags = insn->RegAt(1);
 
-  const auto* branch = static_cast<const PseudoCondBranch*>(*(++insn_it));
-  EXPECT_EQ(branch->opcode(), kMachineOpPseudoCondBranch);
+  const auto* branch = static_cast<const CondBranch*>(*(++insn_it));
+  EXPECT_EQ(branch->opcode(), kMachineOpCondBranch);
   EXPECT_EQ(flags, branch->RegAt(0));
   EXPECT_EQ(expected_new_cond, branch->cond());
 }

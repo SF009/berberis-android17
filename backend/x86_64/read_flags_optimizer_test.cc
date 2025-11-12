@@ -75,14 +75,14 @@ TestLoop BuildBasicLoop(MachineIR* machine_ir) {
       machine_ir->AllocVReg(), machine_ir->AllocVReg(), kMachineRegFLAGS);
   builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS);
   builder.Gen<PseudoCopy>(flags1, flags0, 8);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, kMachineRegFLAGS);
   bb2->live_out().push_back(flags1);
 
   builder.StartBasicBlock(bb3);
   builder.Gen<PseudoJump>(kNullGuestAddr);
 
   builder.StartBasicBlock(bb4);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb1, bb5, kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb1, bb5, kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb5);
   builder.Gen<PseudoJump>(kNullGuestAddr);
@@ -256,7 +256,7 @@ TEST(MachineIRReadFlagsOptimizer, CheckPostLoopNodeLiveOut) {
   builder.Gen<Branch>(bb1);
 
   builder.StartBasicBlock(bb1);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb1, bb2, kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb1, bb2, kMachineRegFLAGS);
 
   bb2->live_in().push_back(flags);
   builder.StartBasicBlock(bb2);
@@ -805,17 +805,17 @@ TEST(MachineIRReadFlagsOptimizer, RemoveEligibleReadFlagsInLoopTree) {
   builder.Gen<AddqRegReg, kNoSSA>(scratch, scratch, kMachineRegFLAGS);
   builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS);
   builder.Gen<PseudoCopy>(flags00, flags0, 8);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb5, kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb5, kMachineRegFLAGS);
   bb1->live_out().push_back(flags00);
 
   builder.StartBasicBlock(bb2);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb1, bb3, kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb1, bb3, kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb3);
   builder.Gen<AddqRegReg, kNoSSA>(scratch, scratch, kMachineRegFLAGS);
   builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, flags1, kMachineRegFLAGS);
   builder.Gen<PseudoCopy>(flags11, flags1, 8);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb4, kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb4, kMachineRegFLAGS);
   bb3->live_out().push_back(flags11);
 
   builder.StartBasicBlock(bb4);
@@ -895,13 +895,13 @@ TEST(MachineIRReadFlagsOptimizer, RemoveEligibleReadFlagsExitsToOuterLoop) {
   builder.Gen<SubqRegReg, kNoSSA>(scratch, scratch, kMachineRegFLAGS);
   builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS);
   builder.Gen<PseudoCopy>(flags00, flags0, 8);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, kMachineRegFLAGS);
   bb2->live_out().push_back(flags00);
 
   bb3->live_in().push_back(flags00);
   builder.StartBasicBlock(bb3);
   builder.Gen<MovqRegReg>(machine_ir.AllocVReg(), flags00);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb1, bb4, machine_ir.AllocVReg());
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb1, bb4, machine_ir.AllocVReg());
 
   builder.StartBasicBlock(bb4);
   builder.Gen<PseudoJump>(kNullGuestAddr);
@@ -1040,7 +1040,7 @@ TEST(MachineIRReadFlagsOptimizer, RemoveReadFlags) {
   auto* readflag_insn =
       builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, flags0, kMachineRegFLAGS);
   builder.Gen<PseudoCopy>(flags00, flags0, 8);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, kMachineRegFLAGS);
   bb2->live_out().push_back(flags00);
 
   builder.StartBasicBlock(bb3);
@@ -1050,7 +1050,7 @@ TEST(MachineIRReadFlagsOptimizer, RemoveReadFlags) {
 
   builder.StartBasicBlock(bb4);
   builder.Gen<PseudoCopy>(flags000, flags00, 8);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb1, bb5, kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb1, bb5, kMachineRegFLAGS);
   bb4->live_in().push_back(flags00);
   bb4->live_out().push_back(flags000);
 
@@ -1139,7 +1139,7 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersRecursesOnNeighbors) {
   builder.StartBasicBlock(bb0);
   auto* flag_set_insn = builder.Gen<SubqRegImm, kNoSSA>(input0, 12, kMachineRegFLAGS);
   builder.Gen<PseudoCopy>(input00, input0, 8);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb1, bb2, kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb1, bb2, kMachineRegFLAGS);
 
   bb1->live_in().push_back(flags0);
   builder.StartBasicBlock(bb1);
