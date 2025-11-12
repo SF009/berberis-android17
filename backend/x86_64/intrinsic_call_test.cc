@@ -196,6 +196,29 @@ static_assert(std::is_same_v<
                          device_arch_info::XMM4,
                          device_arch_info::R8,
                          device_arch_info::R9>>);
+// If result is returned in memory then first integer register is used for pointer to result.
+static_assert(
+    std::is_same_v<IntrinsicCall<static_cast<std::tuple<SIMD128Register, SIMD128Register> (*)(
+                       intrinsics::Float16,
+                       int16_t,
+                       intrinsics::Float16,
+                       int32_t,
+                       intrinsics::Float64,
+                       int64_t,
+                       SIMD128Register,
+                       __int128_t,
+                       __m128)>(nullptr)>::ArgumentRegisters,
+                   std::tuple<device_arch_info::RDI,
+                              device_arch_info::XMM0,
+                              device_arch_info::RSI,
+                              device_arch_info::XMM1,
+                              device_arch_info::RDX,
+                              device_arch_info::XMM2,
+                              device_arch_info::RCX,
+                              device_arch_info::XMM3,
+                              device_arch_info::R8,
+                              device_arch_info::R9,
+                              device_arch_info::XMM4>>);
 
 // both RAX and XMM0 are properly removed from ClobberRegisters
 static_assert(std::is_same_v<IntrinsicCall<static_cast<std::tuple<intrinsics::Float16,
