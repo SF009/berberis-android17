@@ -180,7 +180,7 @@ std::string Jump::GetDebugString() const {
   return out;
 }
 
-std::string PseudoIndirectJump::GetDebugString() const {
+std::string IndirectJump::GetDebugString() const {
   std::string out("PSEUDO_INDIRECT_JUMP ");
   for (int i = 0; i < NumRegOperands(); ++i) {
     if (i != 0) {

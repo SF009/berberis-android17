@@ -114,7 +114,7 @@ MachineIRCheckStatus CheckInsnListIntegrity(const MachineIR* ir, const MachineBa
           return kMachineIRWrongEnterInsnLocation;
         };
         break;
-      case MachineOpcode::kMachineOpPseudoIndirectJump:
+      case MachineOpcode::kMachineOpIndirectJump:
       case MachineOpcode::kMachineOpJump:
         if (insn != bb->insn_list().back()) {
           return kMachineIRWrongControlFlowInsnLocation;

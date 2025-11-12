@@ -234,7 +234,7 @@ TEST(MachineIRCheckTest, MisplacedIndirectJump) {
   MachineReg vreg = machine_ir.AllocVReg();
 
   builder.StartBasicBlock(bb);
-  builder.Gen<PseudoIndirectJump>(vreg);
+  builder.Gen<IndirectJump>(vreg);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);
 
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRWrongControlFlowInsnLocation);

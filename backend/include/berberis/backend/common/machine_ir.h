@@ -562,21 +562,21 @@ class Jump final : public MachineInsn {
   MachineReg args_[6];
 };
 
-class PseudoIndirectJump final : public MachineInsn {
+class IndirectJump final : public MachineInsn {
  public:
   struct WithOptimizedABI {};
 
-  explicit PseudoIndirectJump(MachineReg src);
-  PseudoIndirectJump(MachineReg src, WithOptimizedABI tag);
+  explicit IndirectJump(MachineReg src);
+  IndirectJump(MachineReg src, WithOptimizedABI tag);
 
   [[nodiscard]] std::string GetDebugString() const override;
   void Emit(CodeEmitter* as) const override;
 
  private:
-  friend PseudoIndirectJump* NewInArena<PseudoIndirectJump, const PseudoIndirectJump&>(
+  friend IndirectJump* NewInArena<IndirectJump, const IndirectJump&>(
       Arena*,
-      const PseudoIndirectJump&);
-  PseudoIndirectJump(const PseudoIndirectJump&);
+      const IndirectJump&);
+  IndirectJump(const IndirectJump&);
   MachineInsn* Clone(Arena* arena) const override;
   MachineInsnList Lower(Arena* arena) const override;
   // Target and ABI outputs.

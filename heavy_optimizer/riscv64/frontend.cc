@@ -124,7 +124,7 @@ void HeavyOptimizerFrontend::ExitGeneratedCode(GuestAddr target) {
 }
 
 void HeavyOptimizerFrontend::ExitRegionIndirect(Register target) {
-  builder_.Gen<PseudoIndirectJump>(target);
+  builder_.Gen<IndirectJump>(target);
 }
 
 void HeavyOptimizerFrontend::Undefined() {

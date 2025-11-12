@@ -301,8 +301,8 @@ MachineInsnList Jump::Lower(Arena* arena) const {
   return {1, NewInArena<Jump, const Jump&>(arena, *this), arena};
 }
 
-PseudoIndirectJump::PseudoIndirectJump(MachineReg target)
-    : MachineInsn(kMachineOpPseudoIndirectJump,
+IndirectJump::IndirectJump(MachineReg target)
+    : MachineInsn(kMachineOpIndirectJump,
                   1,
                   x86_64::kPseudoIndirectJumpInfo,
                   regs_,
@@ -310,8 +310,8 @@ PseudoIndirectJump::PseudoIndirectJump(MachineReg target)
   regs_[0] = target;
 }
 
-PseudoIndirectJump::PseudoIndirectJump(MachineReg target, WithOptimizedABI)
-    : MachineInsn(kMachineOpPseudoIndirectJump,
+IndirectJump::IndirectJump(MachineReg target, WithOptimizedABI)
+    : MachineInsn(kMachineOpIndirectJump,
                   1 + 6,
                   x86_64::kPseudoIndirectJumpInfoOptimizedABI,
                   regs_,
@@ -319,18 +319,18 @@ PseudoIndirectJump::PseudoIndirectJump(MachineReg target, WithOptimizedABI)
   regs_[0] = target;
 }
 
-PseudoIndirectJump::PseudoIndirectJump(const PseudoIndirectJump& insn) : MachineInsn(insn, regs_) {
+IndirectJump::IndirectJump(const IndirectJump& insn) : MachineInsn(insn, regs_) {
   for (size_t i = 0; i < arraysize(regs_); i++) {
     regs_[i] = insn.regs_[i];
   }
 }
 
-MachineInsn* PseudoIndirectJump::Clone(Arena* arena) const {
-  return NewInArena<PseudoIndirectJump, const PseudoIndirectJump&>(arena, *this);
+MachineInsn* IndirectJump::Clone(Arena* arena) const {
+  return NewInArena<IndirectJump, const IndirectJump&>(arena, *this);
 }
 
-MachineInsnList PseudoIndirectJump::Lower(Arena* arena) const {
-  return {1, NewInArena<PseudoIndirectJump, const PseudoIndirectJump&>(arena, *this), arena};
+MachineInsnList IndirectJump::Lower(Arena* arena) const {
+  return {1, NewInArena<IndirectJump, const IndirectJump&>(arena, *this), arena};
 }
 
 const MachineOpcode PseudoCopy::kOpcode = kMachineOpPseudoCopy;
