@@ -191,7 +191,7 @@ std::string IndirectJump::GetDebugString() const {
   return out;
 }
 
-std::string PseudoCopy::GetDebugString() const {
+std::string Copy::GetDebugString() const {
   std::string out("PSEUDO_COPY ");
   out += GetRegOperandDebugString(this, 0);
   out += ", ";

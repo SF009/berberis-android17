@@ -62,7 +62,7 @@ void SignExtend64(x86_64::MachineIRBuilder* builder, MachineReg dst, MachineReg 
 template <typename IntrinsicType>
 void SignExtend64Result(x86_64::MachineIRBuilder* builder, MachineReg dst, MachineReg src) {
   if constexpr (sizeof(IntrinsicType) == 8) {
-    builder->Gen<PseudoCopy>(dst, src, 8);
+    builder->Gen<Copy>(dst, src, 8);
   } else {
     static_assert(sizeof(IntrinsicType) == 4, "8- and 16-bit return values are not yet supported");
     call_intrinsic_internal::SignExtend64<IntrinsicType>(builder, dst, src);
@@ -255,7 +255,7 @@ void CallIntrinsicImpl(x86_64::MachineIRBuilder* builder,
       call_intrinsic_internal::SignExtend64Result<ResultType>(
           builder, result, call->IntResultAt(0));
     } else {
-      builder->Gen<PseudoCopy>(result.machine_reg(), call->XmmResultAt(0), 16);
+      builder->Gen<Copy>(result.machine_reg(), call->XmmResultAt(0), 16);
     }
   } else if constexpr (std::tuple_size_v<IntrinsicResType> == 2) {
     using ResultType1 = std::tuple_element_t<0, IntrinsicResType>;

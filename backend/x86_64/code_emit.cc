@@ -301,7 +301,7 @@ void IndirectJump::Emit(CodeEmitter* as) const {
   EmitIndirectDispatch(as, x86_64::GetGReg(RegAt(0)));
 }
 
-void PseudoCopy::Emit(CodeEmitter* as) const {
+void Copy::Emit(CodeEmitter* as) const {
   MachineReg dst = RegAt(0);
   MachineReg src = RegAt(1);
   if (src == dst) {

@@ -128,7 +128,7 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
       // Rename arg vreg in case it's used in several call operands which have non-intersecting
       // register classes. Reg-alloc will eliminate renaming where possible.
       MachineReg renamed_arg_reg = ir()->AllocVReg();
-      auto* copy = ir()->NewInsn<PseudoCopy>(
+      auto* copy = ir()->NewInsn<Copy>(
           renamed_arg_reg, arg_reg, (reg_type == CallImm::kIntRegType) ? 8 : 16);
       auto* call_arg_insn = ir()->NewInsn<CallImmArg>(renamed_arg_reg, reg_type);
       call->SetRegAt((reg_type == CallImm::kIntRegType)

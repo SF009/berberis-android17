@@ -178,7 +178,7 @@ void Mov(x86_64::MachineIRBuilder* builder, MachineReg dest, MachineReg src) {
   constexpr const auto& src_reg_class = x86_64::kRegisterClass<SrcRegClass>;
   if constexpr (std::is_integral_v<DestType>) {
     if constexpr (std::is_integral_v<SrcType>) {
-      builder->Gen<PseudoCopy>(dest, src, src_reg_class.RegSize());
+      builder->Gen<Copy>(dest, src, src_reg_class.RegSize());
     } else if constexpr (SrcRegClass::kAsRegister == 'x') {
       if constexpr (src_reg_class.RegSize() == 4) {
         if (host_platform::kHasAVX) {
@@ -206,7 +206,7 @@ void Mov(x86_64::MachineIRBuilder* builder, MachineReg dest, MachineReg src) {
           builder->Gen<x86_64::MovdXRegReg>(dest, src);
         }
       } else if constexpr (SrcRegClass::kAsRegister == 'x') {
-        builder->Gen<PseudoCopy>(dest, src, 16);
+        builder->Gen<Copy>(dest, src, 16);
       } else {
         static_assert(kDependentTypeFalse<std::tuple<DestRegClass, SrcRegClass>>);
       }
@@ -219,7 +219,7 @@ void Mov(x86_64::MachineIRBuilder* builder, MachineReg dest, MachineReg src) {
           builder->Gen<x86_64::MovqXRegReg>(dest, src);
         }
       } else if constexpr (SrcRegClass::kAsRegister == 'x') {
-        builder->Gen<PseudoCopy>(dest, src, 16);
+        builder->Gen<Copy>(dest, src, 16);
       } else {
         static_assert(kDependentTypeFalse<std::tuple<DestRegClass, SrcRegClass>>);
       }

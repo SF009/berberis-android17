@@ -587,18 +587,18 @@ class IndirectJump final : public MachineInsn {
 // Register class of operands is anything capable of keeping values of this
 // size.
 // ATTENTION: this insn has operands with variable register class!
-class PseudoCopy final : public MachineInsn {
+class Copy final : public MachineInsn {
  public:
   static const MachineOpcode kOpcode;
 
-  PseudoCopy(MachineReg dst, MachineReg src, int size);
+  Copy(MachineReg dst, MachineReg src, int size);
 
   std::string GetDebugString() const override;
   void Emit(CodeEmitter* as) const override;
 
  private:
-  friend PseudoCopy* NewInArena<PseudoCopy, const PseudoCopy&>(Arena*, const PseudoCopy&);
-  PseudoCopy(const PseudoCopy&);
+  friend Copy* NewInArena<Copy, const Copy&>(Arena*, const Copy&);
+  Copy(const Copy&);
   MachineInsn* Clone(Arena* arena) const override;
   MachineInsnList Lower(Arena* arena) const override;
   MachineReg regs_[2];

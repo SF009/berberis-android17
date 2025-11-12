@@ -791,7 +791,7 @@ void HeavyOptimizerFrontend::MemoryRegionReservationSwapWithLockedOwner(
                                    }});
   Register lock_entry = AllocTempReg();
   // Limit life-time of a narrow reg-class call result.
-  builder_.Gen<PseudoCopy>(lock_entry, call->IntResultAt(0), 8);
+  builder_.Gen<berberis::Copy>(lock_entry, call->IntResultAt(0), 8);
   builder_.Gen<CondBranch>(x86_64::Assembler::Condition::kZero,
                                  failure_bb,
                                  lock_success_bb,

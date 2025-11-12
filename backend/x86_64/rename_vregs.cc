@@ -54,8 +54,8 @@ void GenInterBasicBlockMove(MachineIR* machine_ir,
                             MachineReg vreg) {
   MachineReg pred_vreg = vreg_map->Get(vreg, pred_bb);
   MachineReg succ_vreg = vreg_map->Get(vreg, succ_bb);
-  PseudoCopy* insn =
-      machine_ir->NewInsn<PseudoCopy>(succ_vreg, pred_vreg, vreg_map->GetMaxSize(vreg));
+  Copy* insn =
+      machine_ir->NewInsn<Copy>(succ_vreg, pred_vreg, vreg_map->GetMaxSize(vreg));
 
   if (succ_bb->in_edges().size() == 1) {
     // Successor has single pred.

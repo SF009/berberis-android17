@@ -333,11 +333,11 @@ MachineInsnList IndirectJump::Lower(Arena* arena) const {
   return {1, NewInArena<IndirectJump, const IndirectJump&>(arena, *this), arena};
 }
 
-const MachineOpcode PseudoCopy::kOpcode = kMachineOpPseudoCopy;
+const MachineOpcode Copy::kOpcode = kMachineOpCopy;
 
 // Reg class of correct size is essential for current spill/reload code!!!
-PseudoCopy::PseudoCopy(MachineReg dst, MachineReg src, int size)
-    : MachineInsn(kMachineOpPseudoCopy,
+Copy::Copy(MachineReg dst, MachineReg src, int size)
+    : MachineInsn(kMachineOpCopy,
                   2,
                   size > 8   ? x86_64::kPseudoCopyXmmInfo
                   : size > 4 ? x86_64::kPseudoCopyReg64Info
@@ -346,15 +346,15 @@ PseudoCopy::PseudoCopy(MachineReg dst, MachineReg src, int size)
                   kMachineInsnCopy),
       regs_{dst, src} {}
 
-PseudoCopy::PseudoCopy(const PseudoCopy& insn)
+Copy::Copy(const Copy& insn)
     : MachineInsn(insn, regs_), regs_{insn.regs_[0], insn.regs_[1]} {}
 
-MachineInsn* PseudoCopy::Clone(Arena* arena) const {
-  return NewInArena<PseudoCopy, const PseudoCopy&>(arena, *this);
+MachineInsn* Copy::Clone(Arena* arena) const {
+  return NewInArena<Copy, const Copy&>(arena, *this);
 }
 
-MachineInsnList PseudoCopy::Lower(Arena* arena) const {
-  return {1, NewInArena<PseudoCopy, const PseudoCopy&>(arena, *this), arena};
+MachineInsnList Copy::Lower(Arena* arena) const {
+  return {1, NewInArena<Copy, const Copy&>(arena, *this), arena};
 }
 
 PseudoDefXReg::PseudoDefXReg(MachineReg reg)
@@ -458,7 +458,7 @@ MachineInsn* SSAPseudoWriteFlags::Clone(Arena* arena) const {
 }
 
 MachineInsnList SSAPseudoWriteFlags::Lower(Arena* arena) const {
-  return {{NewInArena<PseudoCopy>(arena, regs_[0], regs_[1], 4),
+  return {{NewInArena<Copy>(arena, regs_[0], regs_[1], 4),
            NewInArena<PseudoWriteFlags>(arena, regs_[1], regs_[2])},
           arena};
 }
