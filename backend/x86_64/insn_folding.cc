@@ -236,14 +236,14 @@ berberis::MachineInsn* InsnFolding::NewImmInsnFromRegInsn(const berberis::Machin
 
 bool InsnFolding::IsWritingSameFlagsValue(MachineInsnList::iterator write_flags_insn_it) const {
   const berberis::MachineInsn* write_flags_insn = *write_flags_insn_it;
-  CHECK(write_flags_insn && write_flags_insn->opcode() == kMachineOpPseudoWriteFlags);
+  CHECK(write_flags_insn && write_flags_insn->opcode() == kMachineOpWriteFlags);
   MachineReg src_reg = write_flags_insn->RegAt(0);
   auto [def_insn_it, def_insn_pos, _] = def_map_.FindNonPseudoCopyDef(src_reg);
   if (!def_insn_it.has_value()) {
     return false;
   }
   const berberis::MachineInsn* def_insn = *def_insn_it.value();
-  if (def_insn->opcode() != kMachineOpPseudoReadFlags) {
+  if (def_insn->opcode() != kMachineOpReadFlags) {
     return false;
   }
   // Instruction is PseudoReadFlags.
@@ -813,7 +813,7 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldInsn(
     case kMachineOpCmplRegReg:
     case kMachineOpTestlRegReg:
       return TryFoldImmediateAndContextReadInputs<false>(insn_it);
-    case kMachineOpPseudoWriteFlags: {
+    case kMachineOpWriteFlags: {
       if (IsWritingSameFlagsValue(insn_it)) {
         return {FoldingType::kRemoveInsn, nullptr};
       }
@@ -933,7 +933,7 @@ void FoldWriteFlags(MachineIR* machine_ir) {
 
     auto* branch = static_cast<CondBranch*>(*insn_it);
     const auto* write_flags = *(--insn_it);
-    if (write_flags->opcode() != kMachineOpPseudoWriteFlags) {
+    if (write_flags->opcode() != kMachineOpWriteFlags) {
       continue;
     }
     // There is only one flags register, so CondBranch must read flags from WriteFlags.
@@ -949,42 +949,42 @@ void FoldWriteFlags(MachineIR* machine_ir) {
 
     using Cond = CodeEmitter::Condition;
     Cond new_cond = Cond::kInvalidCondition;
-    PseudoWriteFlags::Flags flags_mask;
+    WriteFlags::Flags flags_mask;
 
     switch (branch->cond()) {
       // Verify that the flags are within the bottom 16 bits, so we can use Testw.
-      static_assert(sizeof(PseudoWriteFlags::Flags) == 2);
+      static_assert(sizeof(WriteFlags::Flags) == 2);
       case Cond::kZero:
         new_cond = Cond::kNotZero;
-        flags_mask = PseudoWriteFlags::Flags::kZero;
+        flags_mask = WriteFlags::Flags::kZero;
         break;
       case Cond::kNotZero:
         new_cond = Cond::kZero;
-        flags_mask = PseudoWriteFlags::Flags::kZero;
+        flags_mask = WriteFlags::Flags::kZero;
         break;
       case Cond::kCarry:
         new_cond = Cond::kNotZero;
-        flags_mask = PseudoWriteFlags::Flags::kCarry;
+        flags_mask = WriteFlags::Flags::kCarry;
         break;
       case Cond::kNotCarry:
         new_cond = Cond::kZero;
-        flags_mask = PseudoWriteFlags::Flags::kCarry;
+        flags_mask = WriteFlags::Flags::kCarry;
         break;
       case Cond::kNegative:
         new_cond = Cond::kNotZero;
-        flags_mask = PseudoWriteFlags::Flags::kNegative;
+        flags_mask = WriteFlags::Flags::kNegative;
         break;
       case Cond::kNotSign:
         new_cond = Cond::kZero;
-        flags_mask = PseudoWriteFlags::Flags::kNegative;
+        flags_mask = WriteFlags::Flags::kNegative;
         break;
       case Cond::kOverflow:
         new_cond = Cond::kNotZero;
-        flags_mask = PseudoWriteFlags::Flags::kOverflow;
+        flags_mask = WriteFlags::Flags::kOverflow;
         break;
       case Cond::kNoOverflow:
         new_cond = Cond::kZero;
-        flags_mask = PseudoWriteFlags::Flags::kOverflow;
+        flags_mask = WriteFlags::Flags::kOverflow;
         break;
       default:
         continue;

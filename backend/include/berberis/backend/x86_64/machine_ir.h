@@ -64,8 +64,8 @@ enum MachineOpcode : int {
   kMachineOpPseudoDefXReg,
   kMachineOpIndirectJump,
   kMachineOpJump,
-  kMachineOpPseudoReadFlags,
-  kMachineOpPseudoWriteFlags,
+  kMachineOpReadFlags,
+  kMachineOpWriteFlags,
 #include "machine_opcode_x86_64-inl.h"  // NOLINT generated file!
 };
 

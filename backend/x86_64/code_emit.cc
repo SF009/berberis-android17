@@ -314,7 +314,7 @@ void Copy::Emit(CodeEmitter* as) const {
   x86_64::EmitCopy(as, dst, src, size);
 }
 
-void PseudoReadFlags::Emit(CodeEmitter* as) const {
+void ReadFlags::Emit(CodeEmitter* as) const {
   as->Lahf();
   if (with_overflow()) {
     as->Setcc(CodeEmitter::Condition::kOverflow, as->rax);
@@ -324,7 +324,7 @@ void PseudoReadFlags::Emit(CodeEmitter* as) const {
   }
 }
 
-void PseudoWriteFlags::Emit(CodeEmitter* as) const {
+void WriteFlags::Emit(CodeEmitter* as) const {
   as->Addb(as->rax, int8_t{0x7f});
   as->Sahf();
 }

@@ -207,7 +207,7 @@ std::string PseudoDefReg::GetDebugString() const {
   return std::string("PSEUDO_DEF ") + GetRegOperandDebugString(this, 0);
 }
 
-std::string PseudoReadFlags::GetDebugString() const {
+std::string ReadFlags::GetDebugString() const {
   std::string out("PSEUDO_READ_FLAGS ");
   out += with_overflow() ? "" : "(skip overflow) ";
   out += GetRegOperandDebugString(this, 0);
@@ -216,7 +216,7 @@ std::string PseudoReadFlags::GetDebugString() const {
   return out;
 }
 
-std::string PseudoWriteFlags::GetDebugString() const {
+std::string WriteFlags::GetDebugString() const {
   std::string out("PSEUDO_WRITE_FLAGS ");
   out += GetRegOperandDebugString(this, 1);
   out += ", ";

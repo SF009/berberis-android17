@@ -869,8 +869,8 @@ TEST(ExecMachineIR, PseudoReadFlags) {
       kMachineRegRAX,
       {.base = kMachineRegRBP, .disp = offsetof(Data, y)},
       x86_64::kMachineRegFLAGS);
-  builder.Gen<PseudoReadFlags>(
-      PseudoReadFlags::kWithOverflow, kMachineRegRAX, x86_64::kMachineRegFLAGS);
+  builder.Gen<ReadFlags>(
+      ReadFlags::kWithOverflow, kMachineRegRAX, x86_64::kMachineRegFLAGS);
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&res_flags));
   builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP}, kMachineRegRAX);
 
@@ -916,8 +916,8 @@ TEST(ExecMachineIR, PseudoReadFlagsWithoutOverflow) {
       x86_64::kMachineRegFLAGS);
   // ReadFlags must reset overflow to zero, even if it's set in RAX.
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRAX, MakeFlags(0b0001));
-  builder.Gen<PseudoReadFlags>(
-      PseudoReadFlags::kWithoutOverflow, kMachineRegRAX, x86_64::kMachineRegFLAGS);
+  builder.Gen<ReadFlags>(
+      ReadFlags::kWithoutOverflow, kMachineRegRAX, x86_64::kMachineRegFLAGS);
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&res_flags));
   builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP}, kMachineRegRAX);
 
@@ -943,10 +943,10 @@ TEST(ExecMachineIR, PseudoWriteFlags) {
 
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&arg_flags));
   builder.Gen<x86_64::MovqRegOp>(kMachineRegRAX, {.base = kMachineRegRBP});
-  builder.Gen<PseudoWriteFlags>(kMachineRegRAX, x86_64::kMachineRegFLAGS);
+  builder.Gen<WriteFlags>(kMachineRegRAX, x86_64::kMachineRegFLAGS);
   // Assume PseudoReadFlags is verified by another test.
-  builder.Gen<PseudoReadFlags>(
-      PseudoReadFlags::kWithOverflow, kMachineRegRAX, x86_64::kMachineRegFLAGS);
+  builder.Gen<ReadFlags>(
+      ReadFlags::kWithOverflow, kMachineRegRAX, x86_64::kMachineRegFLAGS);
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&res_flags));
   builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP}, kMachineRegRAX);
 

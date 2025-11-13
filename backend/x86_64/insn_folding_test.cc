@@ -795,9 +795,9 @@ TEST(InsnFoldingTest, PseudoWriteFlagsErased) {
 
   builder.StartBasicBlock(bb);
   builder.Gen<AddqRegReg, kNoSSA>(vreg4, vreg5, flag);
-  builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, vreg2, flag);
+  builder.Gen<ReadFlags>(ReadFlags::kWithOverflow, vreg2, flag);
   builder.Gen<Copy>(vreg3, vreg2, 8);
-  builder.Gen<PseudoWriteFlags>(vreg3, flag);
+  builder.Gen<WriteFlags>(vreg3, flag);
   builder.Gen<Jump>(kNullGuestAddr);
 
   FoldInsns(&machine_ir);
@@ -826,10 +826,10 @@ TEST(InsnFoldingTest, FlagModifiedAfterPseudoRead) {
   MachineReg vreg5 = machine_ir.AllocVReg();
 
   builder.StartBasicBlock(bb);
-  builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, vreg2, flag);
+  builder.Gen<ReadFlags>(ReadFlags::kWithOverflow, vreg2, flag);
   builder.Gen<Copy>(vreg3, vreg2, 8);
   builder.Gen<AddqRegReg, kNoSSA>(vreg4, vreg5, flag);
-  builder.Gen<PseudoWriteFlags>(vreg3, flag);
+  builder.Gen<WriteFlags>(vreg3, flag);
   builder.Gen<Jump>(kNullGuestAddr);
 
   FoldInsns(&machine_ir);
@@ -850,10 +850,10 @@ TEST(InsnFoldingTest, WriteFlagsNotDeletedBecauseDefinitionIsAfterUse) {
   MachineReg vreg3 = machine_ir.AllocVReg();
 
   builder.StartBasicBlock(bb);
-  builder.Gen<PseudoReadFlags>(PseudoReadFlags::kWithOverflow, vreg2, flag);
+  builder.Gen<ReadFlags>(ReadFlags::kWithOverflow, vreg2, flag);
   builder.Gen<Copy>(vreg3, vreg2, 8);
   builder.Gen<MovqRegImm>(vreg2, 3);
-  builder.Gen<PseudoWriteFlags>(vreg3, flag);
+  builder.Gen<WriteFlags>(vreg3, flag);
   builder.Gen<Jump>(kNullGuestAddr);
 
   FoldInsns(&machine_ir);
@@ -904,7 +904,7 @@ void TestFoldCond(Cond input_cond, Cond expected_new_cond, uint16_t expected_fla
   MachineIRBuilder builder(&machine_ir);
 
   builder.StartBasicBlock(bb);
-  builder.Gen<PseudoWriteFlags>(kMachineRegRAX, kMachineRegFLAGS);
+  builder.Gen<WriteFlags>(kMachineRegRAX, kMachineRegFLAGS);
   builder.Gen<CondBranch>(input_cond, nullptr, nullptr, kMachineRegFLAGS);
 
   MachineReg flags_src = (*bb->insn_list().begin())->RegAt(0);
@@ -1003,14 +1003,14 @@ void TryFoldScaleIntoMemRead(int shift_amount, Assembler::ScaleFactor expected_s
 }
 
 TEST(InsnFoldingTest, FoldWriteFlags) {
-  TestFoldCond(Cond::kEqual, Cond::kNotEqual, PseudoWriteFlags::Flags::kZero);
-  TestFoldCond(Cond::kNotEqual, Cond::kEqual, PseudoWriteFlags::Flags::kZero);
-  TestFoldCond(Cond::kCarry, Cond::kNotEqual, PseudoWriteFlags::Flags::kCarry);
-  TestFoldCond(Cond::kNotCarry, Cond::kEqual, PseudoWriteFlags::Flags::kCarry);
-  TestFoldCond(Cond::kNegative, Cond::kNotEqual, PseudoWriteFlags::Flags::kNegative);
-  TestFoldCond(Cond::kNotSign, Cond::kEqual, PseudoWriteFlags::Flags::kNegative);
-  TestFoldCond(Cond::kOverflow, Cond::kNotEqual, PseudoWriteFlags::Flags::kOverflow);
-  TestFoldCond(Cond::kNoOverflow, Cond::kEqual, PseudoWriteFlags::Flags::kOverflow);
+  TestFoldCond(Cond::kEqual, Cond::kNotEqual, WriteFlags::Flags::kZero);
+  TestFoldCond(Cond::kNotEqual, Cond::kEqual, WriteFlags::Flags::kZero);
+  TestFoldCond(Cond::kCarry, Cond::kNotEqual, WriteFlags::Flags::kCarry);
+  TestFoldCond(Cond::kNotCarry, Cond::kEqual, WriteFlags::Flags::kCarry);
+  TestFoldCond(Cond::kNegative, Cond::kNotEqual, WriteFlags::Flags::kNegative);
+  TestFoldCond(Cond::kNotSign, Cond::kEqual, WriteFlags::Flags::kNegative);
+  TestFoldCond(Cond::kOverflow, Cond::kNotEqual, WriteFlags::Flags::kOverflow);
+  TestFoldCond(Cond::kNoOverflow, Cond::kEqual, WriteFlags::Flags::kOverflow);
 }
 
 TEST(InsnFoldingTest, CountTrailingZeroesFolding64) {
