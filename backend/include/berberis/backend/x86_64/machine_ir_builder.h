@@ -21,6 +21,7 @@
 #include <iterator>
 
 #include "berberis/backend/common/machine_ir_builder.h"
+#include "berberis/backend/x86_64/intrinsic_call.h"
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/base/logging.h"
 #include "berberis/guest_state/guest_addr.h"
@@ -115,6 +116,150 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
             typename... Args,
             std::enable_if_t<std::is_same_v<std::decay_t<CallImmArgType>, CallImmArg>, bool> = true>
   /*may_discard*/ CallImmArgType* Gen(Args... args) = delete;
+
+  template <auto kIntrinsic>
+  /*may_discard*/ auto GenIntrinsicCall(
+      MachineReg flag_register,
+      const std::array<MachineReg, std::size(IntrinsicCall<kIntrinsic>::kArgumentElements)>& args,
+      std::array<MachineReg,
+                 IntrinsicCall<kIntrinsic>::kIsImplicitPointerResult
+                     ? 1
+                     : std::size(IntrinsicCall<kIntrinsic>::kResultsElements)>& results) {
+    std::array<MachineReg, std::tuple_size_v<typename IntrinsicCall<kIntrinsic>::ResultRegisters>>
+        call_outs;
+    // Each register receives result for some elements, but in some cases more than one. If that
+    // happens then we always have argument that receives some other argument in the same register
+    // in position zero. We copy value into target register and then either Shrq or Psrlq/Vpsrlq to
+    // put result into the position. Note: we don't do zero or sign extension and don't load results
+    // from memory. This part may depend on the frontend needs and thus is not done in the backend.
+    constexpr bool kNeedExtraProcessing =
+        !IntrinsicCall<kIntrinsic>::kIsImplicitPointerResult &&
+        ValuesToValues::Any(IntrinsicCall<kIntrinsic>::kResultsElements,
+                            []<typename ResultElement>(ResultElement result_element) {
+                              return result_element.element_offset != 0;
+                            });
+    if constexpr (kNeedExtraProcessing) {
+      std::size_t call_outs_index = 0;
+      for (std::size_t index = 0; index < std::size(IntrinsicCall<kIntrinsic>::kResultsElements);
+           ++index) {
+        MachineReg reg = ir()->AllocVReg();
+        results[index] = reg;
+        auto& result_element = IntrinsicCall<kIntrinsic>::kResultsElements[index];
+        if (result_element.element_offset == 0) {
+          call_outs[call_outs_index++] = reg;
+        }
+      }
+    } else {
+      for (auto& reg : call_outs) {
+        reg = ir()->AllocVReg();
+      }
+      results = call_outs;
+    }
+    auto* call = ir()->NewInsn<typename IntrinsicCall<kIntrinsic>::MachineInsn>(std::tuple_cat(
+        call_outs,
+        // We need copies here to ensure that the arguments passed to the intrinsic are in virtual
+        // registers that can be independently allocated to the specific physical registers required
+        // by the intrinsic call ABI. Worst case scenario we may have one virtual register that
+        // would have to go into two different physical registers, in that case it's impossible for
+        // the register allocator to satofy the requirements, even in principle. These copies create
+        // new virtual registers that the register allocator can then assign to the correct physical
+        // registers.
+        TypesToValues::FlatMapWithTemporary<
+            ValuesToTypes::MetaValues<IntrinsicCall<kIntrinsic>::kArgumentElements>,
+            std::size_t>([&args, this]<typename ArgumentsElementInfo>(std::size_t& index) {
+          constexpr intrinsic_call::ArgumentsElementInfo kElementInfo = ArgumentsElementInfo{};
+          if constexpr (kElementInfo.param_type == intrinsic_call::kInt128) {
+            MachineReg physical_register1 = ir()->AllocVReg();
+            MachineReg physical_register2 = ir()->AllocVReg();
+            InsertInsn(ir()->NewInsn<Copy>(
+                physical_register1, args[index++], kElementInfo.register_classes[0]->reg_size));
+            InsertInsn(ir()->NewInsn<Copy>(
+                physical_register2, args[index++], kElementInfo.register_classes[1]->reg_size));
+            return std::tuple{physical_register1, physical_register2};
+          } else {
+            MachineReg physical_register = ir()->AllocVReg();
+            InsertInsn(ir()->NewInsn<Copy>(
+                physical_register, args[index++], kElementInfo.register_classes[0]->reg_size));
+            return std::tuple{physical_register};
+          }
+        }),
+        TypesToValues::Map<typename IntrinsicCall<kIntrinsic>::ClobberRegisters>(
+            [flag_register, this]<typename RegisterClass>() {
+              if constexpr (std::is_same_v<RegisterClass, device_arch_info::FLAGS>) {
+                return flag_register;
+              } else {
+                return ir()->AllocVReg();
+              }
+            })));
+    InsertInsn(call);
+    if constexpr (kNeedExtraProcessing) {
+      MachineReg last_zero_based_register;
+      TypesToValues::ForEach<TypesToTypes::Enumerate<
+          typename IntrinsicCall<kIntrinsic>::CleanRetType>>([&last_zero_based_register,
+                                                              &results,
+                                                              flag_register,
+                                                              this]<typename IndexAndResultType>() {
+        constexpr std::size_t kIdx = std::tuple_element_t<0, IndexAndResultType>{};
+        constexpr auto result_element = IntrinsicCall<kIntrinsic>::kResultsElements[kIdx];
+        if constexpr (result_element.element_offset == 0) {
+          last_zero_based_register = results[kIdx];
+        }
+        using ElementType = std::tuple_element_t<1, IndexAndResultType>;
+        // We need to special handle even the first register if we receive results in RAX/RDX but
+        // then have to move it into SSE register as per caller expectations.
+        if constexpr (result_element.element_offset != 0 ||
+                      ((result_element.register_class == &kRegisterClass<device_arch_info::RAX> ||
+                        result_element.register_class == &kRegisterClass<device_arch_info::RDX>) &&
+                       (std::is_same_v<ElementType, intrinsics::Float16> ||
+                        std::is_same_v<ElementType, intrinsics::Float32>))) {
+          if constexpr (result_element.register_class == &kRegisterClass<device_arch_info::RAX> ||
+                        result_element.register_class == &kRegisterClass<device_arch_info::RDX>) {
+            if constexpr (result_element.element_offset != 0) {
+              InsertInsn(ir()->NewInsn<ShrqRegImm, kSSA>(
+                  results[kIdx],
+                  last_zero_based_register,
+                  static_cast<int8_t>(result_element.element_offset * 8),
+                  flag_register));
+            }
+            if constexpr (std::is_same_v<ElementType, intrinsics::Float16>) {
+              MachineReg empty_xmm_register = ir()->AllocVReg();
+              InsertInsn(ir()->NewInsn<PseudoDefXReg>(empty_xmm_register));
+              MachineReg xmm_register = ir()->AllocVReg();
+#ifdef __AVX__
+              InsertInsn(ir()->NewInsn<VpinsrwXRegXRegRegImm>(
+                  xmm_register, empty_xmm_register, results[kIdx], int8_t{0}));
+#else
+              InsertInsn(ir()->NewInsn<PinsrwXRegRegImm, kSSA>(
+                  xmm_register, empty_xmm_register, results[kIdx], int8_t{0}));
+#endif
+              results[kIdx] = xmm_register;
+            } else if constexpr (std::is_same_v<ElementType, intrinsics::Float32>) {
+              MachineReg xmm_register = ir()->AllocVReg();
+#ifdef __AVX__
+              InsertInsn(ir()->NewInsn<VmovdXRegReg>(xmm_register, results[kIdx]));
+#else
+              InsertInsn(ir()->NewInsn<MovdXRegReg>(xmm_register, results[kIdx]));
+#endif
+              results[kIdx] = xmm_register;
+            }
+          } else {
+#ifdef __AVX__
+            InsertInsn(ir()->NewInsn<VpsrlqXRegXRegImm>(
+                results[kIdx],
+                last_zero_based_register,
+                static_cast<int8_t>(result_element.element_offset * 8)));
+#else
+            InsertInsn(ir()->NewInsn<PsrlqXRegImm, kSSA>(
+                results[kIdx],
+                last_zero_based_register,
+                static_cast<int8_t>(result_element.element_offset * 8)));
+#endif
+          }
+        }
+      });
+    }
+    return call;
+  }
 
  private:
   template <size_t kNumberOfArgumens>
