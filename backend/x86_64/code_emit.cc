@@ -329,7 +329,7 @@ void WriteFlags::Emit(CodeEmitter* as) const {
   as->Sahf();
 }
 
-void SSAPseudoWriteFlags::Emit(CodeEmitter* /*as*/) const {
+void SSAWriteFlags::Emit(CodeEmitter* /*as*/) const {
   FATAL("SSAPseudoWriteFlags couldn't be emitted");
 }
 

@@ -699,22 +699,22 @@ class WriteFlags final : public MachineInsn {
   MachineReg regs_[2];
 };
 
-class SSAPseudoWriteFlags final : public MachineInsn {
+class SSAWriteFlags final : public MachineInsn {
  public:
   static const MachineOpcode kOpcode;
 
   using Flags = ReadFlags::Flags;
 
-  SSAPseudoWriteFlags(MachineReg clobber, MachineReg src, MachineReg flags);
+  SSAWriteFlags(MachineReg clobber, MachineReg src, MachineReg flags);
 
   std::string GetDebugString() const override;
   void Emit(CodeEmitter* as) const override;
 
  private:
-  friend SSAPseudoWriteFlags* NewInArena<SSAPseudoWriteFlags, const SSAPseudoWriteFlags&>(
+  friend SSAWriteFlags* NewInArena<SSAWriteFlags, const SSAWriteFlags&>(
       Arena*,
-      const SSAPseudoWriteFlags&);
-  SSAPseudoWriteFlags(const SSAPseudoWriteFlags&);
+      const SSAWriteFlags&);
+  SSAWriteFlags(const SSAWriteFlags&);
   MachineInsn* Clone(Arena* arena) const override;
   MachineInsnList Lower(Arena* arena) const override;
   MachineReg regs_[3];
