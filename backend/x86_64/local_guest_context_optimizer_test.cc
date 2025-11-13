@@ -56,7 +56,7 @@ TEST(MachineIRLocalGuestContextOptimizer, RemoveReadAfterWrite) {
   ASSERT_EQ(store_insn->RegAt(0), x86_64::kMachineRegRBP);
 
   auto* load_copy_insn = *std::next(bb->insn_list().begin());
-  ASSERT_EQ(load_copy_insn->opcode(), kMachineOpPseudoCopy);
+  ASSERT_EQ(load_copy_insn->opcode(), kMachineOpCopy);
   ASSERT_EQ(load_copy_insn->RegAt(0), reg2);
   ASSERT_EQ(load_copy_insn->RegAt(1), replaced_reg);
 }
@@ -117,7 +117,7 @@ TEST(MachineIRLocalGuestContextOptimizer, RemoveReadAfterRead) {
   ASSERT_EQ(load_insn->RegAt(1), x86_64::kMachineRegRBP);
 
   auto* copy_insn = *std::next(bb->insn_list().begin());
-  ASSERT_EQ(copy_insn->opcode(), kMachineOpPseudoCopy);
+  ASSERT_EQ(copy_insn->opcode(), kMachineOpCopy);
   ASSERT_EQ(copy_insn->RegAt(0), reg2);
   ASSERT_EQ(copy_insn->RegAt(1), reg1);
 }
@@ -200,7 +200,7 @@ TEST(MachineIRLocalGuestContextOptimizer, RemoveWriteBeforeWriteImmediate) {
   ASSERT_EQ(bb->insn_list().size(), 3UL);
 
   auto* load_insn = *bb->insn_list().begin();
-  ASSERT_EQ(load_insn->opcode(), kMachineOpPseudoCopy);
+  ASSERT_EQ(load_insn->opcode(), kMachineOpCopy);
   ASSERT_EQ(load_insn->RegAt(0), reg2);
   ASSERT_EQ(load_insn->RegAt(1), reg1);
 
@@ -278,9 +278,9 @@ TEST(MachineIRLocalGuestContextOptimizer, LimitRegisters) {
   insn_it++;
   ASSERT_EQ((*insn_it)->opcode(), kMachineOpMovqRegMemBaseDisp);
   insn_it++;
-  ASSERT_EQ((*insn_it)->opcode(), kMachineOpPseudoCopy);
+  ASSERT_EQ((*insn_it)->opcode(), kMachineOpCopy);
   insn_it++;
-  ASSERT_EQ((*insn_it)->opcode(), kMachineOpPseudoCopy);
+  ASSERT_EQ((*insn_it)->opcode(), kMachineOpCopy);
   insn_it++;
 
   // Check instructions with simd regs replaced.
@@ -289,13 +289,13 @@ TEST(MachineIRLocalGuestContextOptimizer, LimitRegisters) {
     insn_it++;
     ASSERT_EQ((*insn_it)->opcode(), kMachineOpMovqRegMemBaseDisp);
     insn_it++;
-    ASSERT_EQ((*insn_it)->opcode(), kMachineOpPseudoCopy);
+    ASSERT_EQ((*insn_it)->opcode(), kMachineOpCopy);
     insn_it++;
-    ASSERT_EQ((*insn_it)->opcode(), kMachineOpPseudoCopy);
+    ASSERT_EQ((*insn_it)->opcode(), kMachineOpCopy);
     insn_it++;
     ASSERT_EQ((*insn_it)->opcode(), kMachineOpMovqRegMemBaseDisp);
     insn_it++;
-    ASSERT_EQ((*insn_it)->opcode(), kMachineOpPseudoCopy);
+    ASSERT_EQ((*insn_it)->opcode(), kMachineOpCopy);
     insn_it++;
     ASSERT_EQ((*insn_it)->opcode(), kMachineOpJump);
   }
@@ -338,7 +338,7 @@ TEST(MachineIRLocalGuestContextOptimizer, LimitRegistersWithOptimizedABI) {
     ASSERT_EQ((*insn_it)->opcode(), kMachineOpMovqRegMemBaseDisp);
     ASSERT_EQ(x86_64::AsMachineInsnX86_64(*insn_it)->disp(), GetThreadStateRegOffset(i));
     insn_it++;
-    ASSERT_EQ((*insn_it)->opcode(), kMachineOpPseudoCopy);
+    ASSERT_EQ((*insn_it)->opcode(), kMachineOpCopy);
     insn_it++;
   }
 

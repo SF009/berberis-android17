@@ -918,8 +918,8 @@ TEST(MachineIR, RemoveConsecutiveForwarderBlocks) {
 
   // Create a forwarder block.
   builder.StartBasicBlock(bb2);
-  builder.Gen<PseudoCopy>(kMachineRegRAX, kMachineRegRAX, 4);
-  builder.Gen<PseudoCopy>(kMachineRegRBX, kMachineRegRBX, 4);
+  builder.Gen<Copy>(kMachineRegRAX, kMachineRegRAX, 4);
+  builder.Gen<Copy>(kMachineRegRBX, kMachineRegRBX, 4);
   builder.Gen<Branch>(bb3);
 
   // Create another forwarder block.
@@ -983,8 +983,8 @@ TEST(MachineIR, RemoveNopPseudoCopy) {
   x86_64::MachineIRBuilder builder(&machine_ir);
 
   builder.StartBasicBlock(bb0);
-  builder.Gen<PseudoCopy>(kMachineRegRAX, kMachineRegRAX, 4);
-  builder.Gen<PseudoCopy>(kMachineRegRBX, kMachineRegRCX, 4);
+  builder.Gen<Copy>(kMachineRegRAX, kMachineRegRAX, 4);
+  builder.Gen<Copy>(kMachineRegRBX, kMachineRegRCX, 4);
   builder.Gen<Jump>(kNullGuestAddr);
 
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
@@ -1003,7 +1003,7 @@ TEST(MachineIR, RemoveNopPseudoCopy) {
   // Verify that the first instruction is PseudoCopy that copies ECX
   // to EBX.
   MachineInsn* insn0 = *insn_it;
-  EXPECT_EQ(kMachineOpPseudoCopy, insn0->opcode());
+  EXPECT_EQ(kMachineOpCopy, insn0->opcode());
   EXPECT_EQ(kMachineRegRBX, insn0->RegAt(0));
   EXPECT_EQ(kMachineRegRCX, insn0->RegAt(1));
 

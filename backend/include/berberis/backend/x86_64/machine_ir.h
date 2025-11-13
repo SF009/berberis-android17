@@ -59,7 +59,7 @@ enum MachineOpcode : int {
   kMachineOpCallImmArg,
   kMachineOpBranch,
   kMachineOpCondBranch,
-  kMachineOpPseudoCopy,
+  kMachineOpCopy,
   kMachineOpPseudoDefReg,
   kMachineOpPseudoDefXReg,
   kMachineOpIndirectJump,
@@ -707,7 +707,7 @@ class MachineInsn final : public MachineInsnX86_64 {
                         kind_idx++;
                         auto src = MachineInsnX86_64::RegAt(reg_idx++);
                         if (dst != src) {
-                          result.push_back(NewInArena<PseudoCopy>(
+                          result.push_back(NewInArena<Copy>(
                               arena, dst, src, kInfo.reg_kinds[kind_idx++].RegClass()->reg_size));
                         }
                         return dst;

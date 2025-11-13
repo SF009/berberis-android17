@@ -50,7 +50,7 @@ class VRegAccess {
           CHECK_EQ(1, index_);
           pos_.insn()->SetRegAt(1, spill);
         } else {
-          pos_.InsertBefore(machine_ir->NewInsn<PseudoCopy>(reg, spill, size));
+          pos_.InsertBefore(machine_ir->NewInsn<Copy>(reg, spill, size));
         }
       }
       if (IsDef()) {
@@ -59,7 +59,7 @@ class VRegAccess {
           CHECK_EQ(0, index_);
           pos_.insn()->SetRegAt(0, spill);
         } else {
-          pos_.InsertAfter(machine_ir->NewInsn<PseudoCopy>(spill, reg, size));
+          pos_.InsertAfter(machine_ir->NewInsn<Copy>(spill, reg, size));
         }
       }
     }

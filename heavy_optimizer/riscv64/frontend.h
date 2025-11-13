@@ -115,7 +115,7 @@ class HeavyOptimizerFrontend {
   [[nodiscard]] Register GetImm(int64_t imm);
   [[nodiscard]] Register Copy(Register value) {
     Register result = AllocTempReg();
-    builder_.Gen<PseudoCopy>(result, value, 8);
+    builder_.Gen<berberis::Copy>(result, value, 8);
     return result;
   }
 
@@ -382,7 +382,7 @@ class HeavyOptimizerFrontend {
 
   FpRegister Fmv(FpRegister arg) {
     auto res = AllocTempSimdReg();
-    builder_.Gen<PseudoCopy>(res.machine_reg(), arg.machine_reg(), 16);
+    builder_.Gen<berberis::Copy>(res.machine_reg(), arg.machine_reg(), 16);
     return res;
   }
 
@@ -602,7 +602,7 @@ class HeavyOptimizerFrontend {
                 // as input for shift.
                 auto dst = AllocTempReg();
                 auto src = std::get<kOperand.arg_index>(args_tuple);
-                builder_.Gen<PseudoCopy>(dst, src, kOperand.pseudo_copy_size);
+                builder_.Gen<berberis::Copy>(dst, src, kOperand.pseudo_copy_size);
                 return dst;
               } else {
                 static_assert(kOperand.process_way == kPassthroughOperand);

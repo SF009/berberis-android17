@@ -111,7 +111,7 @@ void LocalGuestContextOptimizer::ReplaceGetAndUpdateMap(const MachineInsnList::i
 
   auto copy_size = insn->opcode() == kMachineOpMovdqaXRegMemBaseDisp ? 16 : 8;
   if (std::holds_alternative<MachineReg>(mem_reg_map_[disp].value().value)) {
-    *insn_it = machine_ir_->NewInsn<PseudoCopy>(
+    *insn_it = machine_ir_->NewInsn<Copy>(
         dst, std::get<MachineReg>(mem_reg_map_[disp].value().value), copy_size);
   } else {
     CHECK(insn->opcode() != kMachineOpMovdqaXRegMemBaseDisp &&
