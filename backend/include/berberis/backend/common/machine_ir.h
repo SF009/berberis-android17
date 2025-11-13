@@ -367,7 +367,7 @@ class MachineBasicBlock {
   void MarkAsCold() { is_cold_ = true; }
 
   [[nodiscard]] bool is_recovery() const { return is_recovery_; }
-  [[nodiscard]] bool is_cold() const { return is_recovery_ || is_cold_; }
+  [[nodiscard]] bool IsCold() const { return is_recovery_ || is_cold_; }
 
   [[nodiscard]] std::string GetDebugString() const;
 
