@@ -155,6 +155,9 @@ class IntrinsicCall<function> {
   GenArgumentElements();
 
  public:
+  // Whether the result is returned in memory. In the absence of unions or unaligned fields this
+  // happens when and only when size of result is larger than 16 bytes.
+  static constexpr bool kIsImplicitPointerResult = sizeof(CleanRetType) > 16;
   // Note: we need kResultsElements mostly to calculate ResultRegisters but frontend can use it to
   // unpack values that are returned in one register.
   static constexpr auto kResultsElements = GenResultsElements();
@@ -181,6 +184,35 @@ class IntrinsicCall<function> {
   // Note: we need kArgumentElements mostly to calculate ArgumentRegisters but frontend can use it
   // to unpack values that are supposed to be passed in register.
   static constexpr auto kArgumentElements = GenArgumentElements();
+  using ArgumentRegisters = TypesToTypes::Concat<
+      std::conditional_t<kIsImplicitPointerResult, std::tuple<device_arch_info::RDI>, std::tuple<>>,
+      TypesToTypes::FlatMap<ValuesToTypes::MetaValues<kArgumentElements>,
+                            []<typename ArgumentElementInfo> {
+                              constexpr intrinsic_call::ArgumentsElementInfo kArgumentElementInfo =
+                                  ArgumentElementInfo::kValue;
+                              if constexpr (kArgumentElementInfo.param_type ==
+                                            intrinsic_call::kInt128) {
+                                using RegisterClassTuple1 =
+                                    intrinsic_call::kRegisterClassToClassTuple<
+                                        kArgumentElementInfo.register_classes[0],
+                                        intrinsic_call::ArgumentetersRegisters>;
+                                using RegisterClassTuple2 =
+                                    intrinsic_call::kRegisterClassToClassTuple<
+                                        kArgumentElementInfo.register_classes[1],
+                                        intrinsic_call::ArgumentetersRegisters>;
+                                static_assert(std::tuple_size_v<RegisterClassTuple1> == 1);
+                                static_assert(std::tuple_size_v<RegisterClassTuple2> == 1);
+                                return kTypes<std::tuple_element_t<0, RegisterClassTuple1>,
+                                              std::tuple_element_t<0, RegisterClassTuple2>>;
+                              } else {
+                                using RegisterClassTuple =
+                                    intrinsic_call::kRegisterClassToClassTuple<
+                                        kArgumentElementInfo.register_classes[0],
+                                        intrinsic_call::ArgumentetersRegisters>;
+                                static_assert(std::tuple_size_v<RegisterClassTuple> == 1);
+                                return kTypes<std::tuple_element_t<0, RegisterClassTuple>>;
+                              }
+                            }>>;
   // Clobber registers are registers that a function is allowed to modify. According to the x86-64
   // psABI, these are the caller-saved registers. The registers used to return values are also
   // modified, but their final state is the function's result, so they are not typically listed as
@@ -194,29 +226,6 @@ class IntrinsicCall<function> {
         return TypesToValues::All<ResultRegisters>([]<typename ResultedClass>() {
           return !std::is_same_v<ClobberedClass, ResultedClass>;
         });
-      }>;
-  using ArgumentRegisters = TypesToTypes::
-      FlatMap<ValuesToTypes::MetaValues<kArgumentElements>, []<typename ArgumentElementInfo> {
-        constexpr intrinsic_call::ArgumentsElementInfo kArgumentElementInfo =
-            ArgumentElementInfo::kValue;
-        if constexpr (kArgumentElementInfo.param_type == intrinsic_call::kInt128) {
-          using RegisterClassTuple1 =
-              intrinsic_call::kRegisterClassToClassTuple<kArgumentElementInfo.register_classes[0],
-                                                         intrinsic_call::ArgumentetersRegisters>;
-          using RegisterClassTuple2 =
-              intrinsic_call::kRegisterClassToClassTuple<kArgumentElementInfo.register_classes[1],
-                                                         intrinsic_call::ArgumentetersRegisters>;
-          static_assert(std::tuple_size_v<RegisterClassTuple1> == 1);
-          static_assert(std::tuple_size_v<RegisterClassTuple2> == 1);
-          return kTypes<std::tuple_element_t<0, RegisterClassTuple1>,
-                        std::tuple_element_t<0, RegisterClassTuple2>>;
-        } else {
-          using RegisterClassTuple =
-              intrinsic_call::kRegisterClassToClassTuple<kArgumentElementInfo.register_classes[0],
-                                                         intrinsic_call::ArgumentetersRegisters>;
-          static_assert(std::tuple_size_v<RegisterClassTuple> == 1);
-          return kTypes<std::tuple_element_t<0, RegisterClassTuple>>;
-        }
       }>;
 };
 
@@ -289,7 +298,10 @@ constexpr auto IntrinsicCall<function>::GenResultsElements()
               static_assert(IsPowerOf2(sizeof(Type)));
               std::size_t current_offset = AlignUp<sizeof(Type)>(offset);
               offset = current_offset + sizeof(Type);
-              if constexpr (std::is_integral_v<Type>) {
+              if constexpr (kIsImplicitPointerResult) {
+                return intrinsic_call::ResultsElementInfo{.register_class = nullptr,
+                                                          .element_offset = current_offset};
+              } else if constexpr (std::is_integral_v<Type>) {
                 return intrinsic_call::ResultsElementInfo{.register_class = &kGeneralReg64,
                                                           .element_offset = current_offset};
               } else {
@@ -298,10 +310,7 @@ constexpr auto IntrinsicCall<function>::GenResultsElements()
               }
             }));
     // If struct size is larger than 16 bytes then it's returned in memory.
-    if constexpr (sizeof(CleanRetType) > 16) {
-      for (auto& element : result) {
-        element.register_class = nullptr;
-      }
+    if constexpr (kIsImplicitPointerResult) {
       return result;
     }
     std::size_t int_register = 0, sse_register = 0;
@@ -339,9 +348,9 @@ constexpr auto IntrinsicCall<function>::GenArgumentElements()
   if constexpr (std::tuple_size_v<CleanParamTypes> == 0) {
     return std::array<intrinsic_call::ArgumentsElementInfo, 0>{};
   } else {
-    return ToArray(TypesToValues::MapWithTemporary<
-                   CleanParamTypes,
-                   /* integer_index, sse_index = */ std::tuple<std::size_t, std::size_t>>(
+    return ToArray(TypesToValues::MapWithTemporary<CleanParamTypes>(
+        /* integer_index, sse_index = */ std::tuple{std::size_t{kIsImplicitPointerResult ? 1 : 0},
+                                                    std::size_t{0}},
         []<typename CleanArgumentType>(std::tuple<std::size_t, std::size_t>& indexes) {
           auto& [integer_index, sse_index] = indexes;
           if constexpr (std::is_same_v<CleanArgumentType, __int128> ||
