@@ -133,7 +133,7 @@ void RemoveForwarderBlocks(MachineIR* machine_ir) {
 // properties we are interested in. So we intentionally keep this order valid if it was set.
 void MoveColdBlocksToEnd(MachineIR* machine_ir) {
   // Since the first bb is region entry, we must keep it in place.
-  CHECK(!machine_ir->bb_list().front()->is_cold());
+  CHECK(!machine_ir->bb_list().front()->IsCold());
 
   // We are going to partition bb_list() into normal and cold
   // basic blocks. We preserve the order of normal basic blocks so
@@ -147,7 +147,7 @@ void MoveColdBlocksToEnd(MachineIR* machine_ir) {
   auto* bb_list = &(machine_ir->bb_list());
   auto normal_it = bb_list->begin();
   for (auto*& bb : *bb_list) {
-    if (!bb->is_cold()) {
+    if (!bb->IsCold()) {
       std::swap(*normal_it++, bb);  // can be the same
     }
   }
