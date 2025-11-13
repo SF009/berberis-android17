@@ -40,7 +40,7 @@ TEST(LowerSSAInstructionsTest, PseudoWriteFlags) {
   MachineReg flags = machine_ir.AllocVReg();
 
   builder.StartBasicBlock(bb);
-  builder.Gen<SSAPseudoWriteFlags>(vreg_out, vreg_in, flags);
+  builder.Gen<SSAWriteFlags>(vreg_out, vreg_in, flags);
 
   LowerSSAInstructions(&machine_ir);
 

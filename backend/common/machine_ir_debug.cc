@@ -224,7 +224,7 @@ std::string WriteFlags::GetDebugString() const {
   return out;
 }
 
-std::string SSAPseudoWriteFlags::GetDebugString() const {
+std::string SSAWriteFlags::GetDebugString() const {
   std::string out("PSEUDO_WRITE_FLAGS ");
   out += GetRegOperandDebugString(this, 2);
   out += ", ";
