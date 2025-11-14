@@ -243,7 +243,8 @@ bool InsnFolding::IsWritingSameFlagsValue(MachineInsnList::iterator write_flags_
     return false;
   }
   const berberis::MachineInsn* def_insn = *def_insn_it.value();
-  if (def_insn->opcode() != kMachineOpReadFlags) {
+  if (def_insn->opcode() != kMachineOpReadFlagsWithOverflow &&
+      def_insn->opcode() != kMachineOpReadFlagsWithoutOverflow) {
     return false;
   }
   // Instruction is PseudoReadFlags.
@@ -949,50 +950,50 @@ void FoldWriteFlags(MachineIR* machine_ir) {
 
     using Cond = CodeEmitter::Condition;
     Cond new_cond = Cond::kInvalidCondition;
-    WriteFlags::Flags flags_mask;
+    LahfFlags flags_mask;
 
     switch (branch->cond()) {
       // Verify that the flags are within the bottom 16 bits, so we can use Testw.
-      static_assert(sizeof(WriteFlags::Flags) == 2);
+      static_assert(sizeof(LahfFlags) == 2);
       case Cond::kZero:
         new_cond = Cond::kNotZero;
-        flags_mask = WriteFlags::Flags::kZero;
+        flags_mask = LahfFlags::kZero;
         break;
       case Cond::kNotZero:
         new_cond = Cond::kZero;
-        flags_mask = WriteFlags::Flags::kZero;
+        flags_mask = LahfFlags::kZero;
         break;
       case Cond::kCarry:
         new_cond = Cond::kNotZero;
-        flags_mask = WriteFlags::Flags::kCarry;
+        flags_mask = LahfFlags::kCarry;
         break;
       case Cond::kNotCarry:
         new_cond = Cond::kZero;
-        flags_mask = WriteFlags::Flags::kCarry;
+        flags_mask = LahfFlags::kCarry;
         break;
       case Cond::kNegative:
         new_cond = Cond::kNotZero;
-        flags_mask = WriteFlags::Flags::kNegative;
+        flags_mask = LahfFlags::kNegative;
         break;
       case Cond::kNotSign:
         new_cond = Cond::kZero;
-        flags_mask = WriteFlags::Flags::kNegative;
+        flags_mask = LahfFlags::kNegative;
         break;
       case Cond::kOverflow:
         new_cond = Cond::kNotZero;
-        flags_mask = WriteFlags::Flags::kOverflow;
+        flags_mask = LahfFlags::kOverflow;
         break;
       case Cond::kNoOverflow:
         new_cond = Cond::kZero;
-        flags_mask = WriteFlags::Flags::kOverflow;
+        flags_mask = LahfFlags::kOverflow;
         break;
       default:
         continue;
     }
 
     MachineReg flags_src = write_flags->RegAt(0);
-    berberis::MachineInsn* new_write_flags =
-        machine_ir->NewInsn<x86_64::TestwRegImm>(flags_src, flags_mask, flags);
+    berberis::MachineInsn* new_write_flags = machine_ir->NewInsn<x86_64::TestwRegImm>(
+        flags_src, static_cast<int16_t>(flags_mask), flags);
     insn_it = bb->insn_list().erase(insn_it);
     bb->insn_list().insert(insn_it, new_write_flags);
     branch->set_cond(new_cond);

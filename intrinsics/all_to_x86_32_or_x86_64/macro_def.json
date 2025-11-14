@@ -21,6 +21,24 @@
       "mnemo": "CTZ_I32"
     },
     {
+      "name": "ReadFlagsWithOverflow",
+      "args": [
+        { "class": "AX", "usage": "def" },
+        { "class": "FLAGS", "usage": "use" }
+      ],
+      "asm": "ReadFlagsWithOverflow",
+      "mnemo": "READ_FLAGS_WITH_OVERFLOW"
+    },
+    {
+      "name": "ReadFlagsWithoutOverflow",
+      "args": [
+        { "class": "AX", "usage": "def" },
+        { "class": "FLAGS", "usage": "use" }
+      ],
+      "asm": "ReadFlagsWithoutOverflow",
+      "mnemo": "READ_FLAGS_WITHOUT_OVEERFLOW"
+    },
+    {
       "name": "ReverseBitsU32",
       "args": [
         { "class": "GeneralReg32", "usage": "def" },
@@ -29,6 +47,15 @@
       ],
       "asm": "ReverseBits<uint32_t>",
       "mnemo": "REVERSE_BITS_U32"
+    },
+    {
+      "name": "WriteFlags",
+      "args": [
+        { "class": "AX", "usage": "use_def" },
+        { "class": "FLAGS", "usage": "def" }
+      ],
+      "asm": "WriteFlags",
+      "mnemo": "WRITE_FLAGS"
     }
   ]
 }

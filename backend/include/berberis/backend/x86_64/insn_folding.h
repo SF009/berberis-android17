@@ -25,6 +25,14 @@
 
 namespace berberis::x86_64 {
 
+// Flags in LAHF-compatible format.
+enum class LahfFlags : uint16_t {
+  kNegative = 1 << 15,
+  kZero = 1 << 14,
+  kCarry = 1 << 8,
+  kOverflow = 1,
+};
+
 enum class FoldingType {
   kImpossible,
   kInsertInsn,

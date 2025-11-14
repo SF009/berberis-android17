@@ -795,9 +795,9 @@ TEST(InsnFoldingTest, PseudoWriteFlagsErased) {
 
   builder.StartBasicBlock(bb);
   builder.Gen<AddqRegReg, kNoSSA>(vreg4, vreg5, flag);
-  builder.Gen<ReadFlags>(ReadFlags::kWithOverflow, vreg2, flag);
+  builder.Gen<ReadFlagsWithOverflow>(vreg2, flag);
   builder.Gen<Copy>(vreg3, vreg2, 8);
-  builder.Gen<WriteFlags>(vreg3, flag);
+  builder.Gen<WriteFlags, kNoSSA>(vreg3, flag);
   builder.Gen<Jump>(kNullGuestAddr);
 
   FoldInsns(&machine_ir);
@@ -826,10 +826,10 @@ TEST(InsnFoldingTest, FlagModifiedAfterPseudoRead) {
   MachineReg vreg5 = machine_ir.AllocVReg();
 
   builder.StartBasicBlock(bb);
-  builder.Gen<ReadFlags>(ReadFlags::kWithOverflow, vreg2, flag);
+  builder.Gen<ReadFlagsWithOverflow>(vreg2, flag);
   builder.Gen<Copy>(vreg3, vreg2, 8);
   builder.Gen<AddqRegReg, kNoSSA>(vreg4, vreg5, flag);
-  builder.Gen<WriteFlags>(vreg3, flag);
+  builder.Gen<WriteFlags, kNoSSA>(vreg3, flag);
   builder.Gen<Jump>(kNullGuestAddr);
 
   FoldInsns(&machine_ir);
@@ -850,10 +850,10 @@ TEST(InsnFoldingTest, WriteFlagsNotDeletedBecauseDefinitionIsAfterUse) {
   MachineReg vreg3 = machine_ir.AllocVReg();
 
   builder.StartBasicBlock(bb);
-  builder.Gen<ReadFlags>(ReadFlags::kWithOverflow, vreg2, flag);
+  builder.Gen<ReadFlagsWithOverflow>(vreg2, flag);
   builder.Gen<Copy>(vreg3, vreg2, 8);
   builder.Gen<MovqRegImm>(vreg2, 3);
-  builder.Gen<WriteFlags>(vreg3, flag);
+  builder.Gen<WriteFlags, kNoSSA>(vreg3, flag);
   builder.Gen<Jump>(kNullGuestAddr);
 
   FoldInsns(&machine_ir);
@@ -896,7 +896,7 @@ TEST(InsnFoldingTest, FoldInsnsSmoke) {
 
 using Cond = CodeEmitter::Condition;
 
-void TestFoldCond(Cond input_cond, Cond expected_new_cond, uint16_t expected_flags_mask) {
+void TestFoldCond(Cond input_cond, Cond expected_new_cond, LahfFlags expected_flags_mask) {
   Arena arena;
   MachineIR machine_ir(&arena);
 
@@ -904,7 +904,7 @@ void TestFoldCond(Cond input_cond, Cond expected_new_cond, uint16_t expected_fla
   MachineIRBuilder builder(&machine_ir);
 
   builder.StartBasicBlock(bb);
-  builder.Gen<WriteFlags>(kMachineRegRAX, kMachineRegFLAGS);
+  builder.Gen<WriteFlags, kNoSSA>(kMachineRegRAX, kMachineRegFLAGS);
   builder.Gen<CondBranch>(input_cond, nullptr, nullptr, kMachineRegFLAGS);
 
   MachineReg flags_src = (*bb->insn_list().begin())->RegAt(0);
@@ -917,7 +917,7 @@ void TestFoldCond(Cond input_cond, Cond expected_new_cond, uint16_t expected_fla
   const auto* insn = AsMachineInsnX86_64(*insn_it);
   EXPECT_EQ(insn->opcode(), kMachineOpTestwRegImm);
   EXPECT_EQ(flags_src, insn->RegAt(0));
-  EXPECT_EQ(expected_flags_mask, static_cast<uint16_t>(insn->imm()));
+  EXPECT_EQ(expected_flags_mask, static_cast<LahfFlags>(insn->imm()));
   MachineReg flags = insn->RegAt(1);
 
   const auto* branch = static_cast<const CondBranch*>(*(++insn_it));
@@ -1003,14 +1003,14 @@ void TryFoldScaleIntoMemRead(int shift_amount, Assembler::ScaleFactor expected_s
 }
 
 TEST(InsnFoldingTest, FoldWriteFlags) {
-  TestFoldCond(Cond::kEqual, Cond::kNotEqual, WriteFlags::Flags::kZero);
-  TestFoldCond(Cond::kNotEqual, Cond::kEqual, WriteFlags::Flags::kZero);
-  TestFoldCond(Cond::kCarry, Cond::kNotEqual, WriteFlags::Flags::kCarry);
-  TestFoldCond(Cond::kNotCarry, Cond::kEqual, WriteFlags::Flags::kCarry);
-  TestFoldCond(Cond::kNegative, Cond::kNotEqual, WriteFlags::Flags::kNegative);
-  TestFoldCond(Cond::kNotSign, Cond::kEqual, WriteFlags::Flags::kNegative);
-  TestFoldCond(Cond::kOverflow, Cond::kNotEqual, WriteFlags::Flags::kOverflow);
-  TestFoldCond(Cond::kNoOverflow, Cond::kEqual, WriteFlags::Flags::kOverflow);
+  TestFoldCond(Cond::kEqual, Cond::kNotEqual, LahfFlags::kZero);
+  TestFoldCond(Cond::kNotEqual, Cond::kEqual, LahfFlags::kZero);
+  TestFoldCond(Cond::kCarry, Cond::kNotEqual, LahfFlags::kCarry);
+  TestFoldCond(Cond::kNotCarry, Cond::kEqual, LahfFlags::kCarry);
+  TestFoldCond(Cond::kNegative, Cond::kNotEqual, LahfFlags::kNegative);
+  TestFoldCond(Cond::kNotSign, Cond::kEqual, LahfFlags::kNegative);
+  TestFoldCond(Cond::kOverflow, Cond::kNotEqual, LahfFlags::kOverflow);
+  TestFoldCond(Cond::kNoOverflow, Cond::kEqual, LahfFlags::kOverflow);
 }
 
 TEST(InsnFoldingTest, CountTrailingZeroesFolding64) {

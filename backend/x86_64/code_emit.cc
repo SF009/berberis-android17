@@ -314,25 +314,6 @@ void Copy::Emit(CodeEmitter* as) const {
   x86_64::EmitCopy(as, dst, src, size);
 }
 
-void ReadFlags::Emit(CodeEmitter* as) const {
-  as->Lahf();
-  if (with_overflow()) {
-    as->Setcc(CodeEmitter::Condition::kOverflow, as->rax);
-  } else {
-    // Still need to fill overflow with zero.
-    as->Movb(as->rax, int8_t{0});
-  }
-}
-
-void WriteFlags::Emit(CodeEmitter* as) const {
-  as->Addb(as->rax, int8_t{0x7f});
-  as->Sahf();
-}
-
-void SSAWriteFlags::Emit(CodeEmitter* /*as*/) const {
-  FATAL("SSAPseudoWriteFlags couldn't be emitted");
-}
-
 void MachineIR::Emit(CodeEmitter* as) const {
   EmitAllocStackFrame(as, as->frame_size());
   ArenaVector<std::pair<CodeEmitter::Label*, GuestAddr>> recovery_labels(arena());
