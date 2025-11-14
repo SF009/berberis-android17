@@ -17,6 +17,8 @@
 #ifndef BERBERIS_BACKEND_COMMON_REG_ALLOC_INTERNAL_H_
 #define BERBERIS_BACKEND_COMMON_REG_ALLOC_INTERNAL_H_
 
+#include <limits>
+
 #include "berberis/backend/common/lifetime.h"
 #include "berberis/backend/common/machine_ir.h"
 #include "berberis/base/arena_list.h"
@@ -38,7 +40,9 @@ struct VRegLifetimeSpill {
 };
 
 // Every possible spill should have some smaller weight (CHECKed).
-inline const int kInfiniteSpillWeight = 99999;
+// Use half of the maximum int value to avoid overflow if accidentally used
+// in arithmetic.
+inline const int kInfiniteSpillWeight = std::numeric_limits<int>::max() / 2;
 
 // Track what virtual registers are currently allocated to this particular
 // hard register, and how to spill them.
