@@ -52,6 +52,7 @@ void RegLifetimeCounter::UpdateLastUse(MachineReg reg, berberis::MachineInsn* en
 
 void RegLifetimeCounter::CountRegLifetimeMap(MachineBasicBlock* bb) {
   CHECK(!bb->insn_list().empty());
+  lifetime_map_.clear();
   // First get all live_ins.
   for (auto reg : bb->live_in()) {
     lifetime_map_[reg] = RegLifetime{
@@ -148,6 +149,7 @@ void RegLifetimeCount::Increment(RegType reg_type) {
 void RegLifetimeCounter::CountRegLifetimes(MachineBasicBlock* bb) {
   CHECK(!bb->insn_list().empty());
   lifetime_counts_.resize(bb->insn_list().size());
+  std::fill(lifetime_counts_.begin(), lifetime_counts_.end(), RegLifetimeCount{});
   ArenaVector<RegLifetimeCount> increment_map(
       // size+1 to make handling live_outs simpler.
       bb->insn_list().size() + 1,

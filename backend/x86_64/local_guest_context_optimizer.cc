@@ -25,6 +25,30 @@ namespace berberis::x86_64 {
 
 using OffsetCounterMap = ArenaVector<std::pair<size_t, int>>;
 
+void LocalGuestContextOptimizer::UnmapOlderThan(int pos, RegType reg_type) {
+  for (auto& mapping : mem_reg_map_) {
+    if (!mapping.has_value()) {
+      continue;
+    }
+    auto reg_usage = mapping.value();
+    // Ignore immediates.
+    if (std::holds_alternative<uint64_t>(reg_usage.value)) {
+      continue;
+    }
+
+    MachineReg reg = std::get<MachineReg>(reg_usage.value);
+    const auto& lifetime_map = reg_lifetime_counter_.GetMap();
+    CHECK(lifetime_map.contains(reg));
+    if (lifetime_map.at(reg).reg_type != reg_type) {
+      continue;
+    }
+
+    if (lifetime_map.at(reg).end_pos <= pos) {
+      mapping = std::nullopt;
+    }
+  }
+}
+
 ArenaVector<int> CountGuestRegAccesses(const MachineIR* ir, MachineBasicBlock* bb) {
   ArenaVector<int> guest_access_count(sizeof(CPUState), 0, ir->arena());
   for (auto* base_insn : bb->insn_list()) {
@@ -58,6 +82,7 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(
     const OptimizeLocalParams& params) {
   for (auto* bb : machine_ir_->bb_list()) {
     std::fill(mem_reg_map_.begin(), mem_reg_map_.end(), std::nullopt);
+    reg_lifetime_counter_.Count(bb);
 
     auto sorted_offsets = GetSortedOffsetCounters(machine_ir_, bb);
     ArenaVector<bool> optimized_offsets(sizeof(CPUState), false, machine_ir_->arena());
