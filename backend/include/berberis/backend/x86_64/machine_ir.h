@@ -61,7 +61,6 @@ enum MachineOpcode : int {
   kMachineOpCondBranch,
   kMachineOpCopy,
   kMachineOpPseudoDefReg,
-  kMachineOpPseudoDefXReg,
   kMachineOpIndirectJump,
   kMachineOpJump,
   kMachineOpReadFlags,

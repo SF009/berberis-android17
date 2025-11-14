@@ -863,7 +863,7 @@ void TestRegAlloc() {
   MachineReg v0 = machine_ir.AllocVReg();
   builder.Gen<x86_64::MovqRegImm>(v0, 0);
   MachineReg vx0 = machine_ir.AllocVReg();
-  builder.Gen<PseudoDefXReg>(vx0);
+  builder.Gen<PseudoDefReg>(vx0);
   builder.Gen<x86_64::XorpdXRegXReg, x86_64::kNoSSA>(vx0, vx0);
 
   for (int i = 0; i < N; ++i) {

@@ -119,8 +119,6 @@ constexpr MachineRegKind kPseudoCopyReg64Info[] = {{&kReg64, MachineRegKind::kDe
 constexpr MachineRegKind kPseudoCopyXmmInfo[] = {{&kXmmReg, MachineRegKind::kDef},
                                                  {&kXmmReg, MachineRegKind::kUse}};
 
-constexpr MachineRegKind kPseudoDefXmmInfo[] = {{&kXmmReg, MachineRegKind::kDef}};
-
 constexpr MachineRegKind kPseudoDefReg64Info[] = {{&kReg64, MachineRegKind::kDef}};
 
 constexpr MachineRegKind kPseudoReadFlagsInfo[] = {{&kRAX, MachineRegKind::kDef},
@@ -355,25 +353,6 @@ MachineInsn* Copy::Clone(Arena* arena) const {
 
 MachineInsnList Copy::Lower(Arena* arena) const {
   return {1, NewInArena<Copy, const Copy&>(arena, *this), arena};
-}
-
-PseudoDefXReg::PseudoDefXReg(MachineReg reg)
-    : MachineInsn(kMachineOpPseudoDefXReg,
-                  1,
-                  x86_64::kPseudoDefXmmInfo,
-                  &reg_,
-                  kMachineInsnDefault),
-      reg_{reg} {}
-
-PseudoDefXReg::PseudoDefXReg(const PseudoDefXReg& insn)
-    : MachineInsn(insn, &reg_), reg_{insn.reg_} {}
-
-MachineInsn* PseudoDefXReg::Clone(Arena* arena) const {
-  return NewInArena<PseudoDefXReg, const PseudoDefXReg&>(arena, *this);
-}
-
-MachineInsnList PseudoDefXReg::Lower(Arena* arena) const {
-  return {1, NewInArena<PseudoDefXReg, const PseudoDefXReg&>(arena, *this), arena};
 }
 
 PseudoDefReg::PseudoDefReg(MachineReg reg)
