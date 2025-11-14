@@ -27,6 +27,8 @@
 #include "berberis/base/arena_alloc.h"
 #include "berberis/guest_state/guest_addr.h"
 
+#include "x86_64/read_flags_variants_test_helper.h"
+
 namespace berberis::x86_64 {
 
 namespace {
@@ -779,7 +781,7 @@ TEST(InsnFoldingTest, HardRegsAreSafe) {
   EXPECT_EQ(bb->insn_list().size(), 2UL);
 }
 
-TEST(InsnFoldingTest, PseudoWriteFlagsErased) {
+TEST_P(ReadFlagsVariantsTest, PseudoWriteFlagsErased) {
   Arena arena;
   MachineIR machine_ir(&arena);
 
@@ -795,7 +797,7 @@ TEST(InsnFoldingTest, PseudoWriteFlagsErased) {
 
   builder.StartBasicBlock(bb);
   builder.Gen<AddqRegReg, kNoSSA>(vreg4, vreg5, flag);
-  builder.Gen<ReadFlagsWithOverflow>(vreg2, flag);
+  GenReadFlags(builder, vreg2, flag);
   builder.Gen<Copy>(vreg3, vreg2, 8);
   builder.Gen<WriteFlags, kNoSSA>(vreg3, flag);
   builder.Gen<Jump>(kNullGuestAddr);
@@ -811,7 +813,7 @@ TEST(InsnFoldingTest, PseudoWriteFlagsErased) {
   EXPECT_EQ(kMachineOpCopy, insn->opcode());
 }
 
-TEST(InsnFoldingTest, FlagModifiedAfterPseudoRead) {
+TEST_P(ReadFlagsVariantsTest, FlagModifiedAfterPseudoRead) {
   Arena arena;
   MachineIR machine_ir(&arena);
 
@@ -826,7 +828,7 @@ TEST(InsnFoldingTest, FlagModifiedAfterPseudoRead) {
   MachineReg vreg5 = machine_ir.AllocVReg();
 
   builder.StartBasicBlock(bb);
-  builder.Gen<ReadFlagsWithOverflow>(vreg2, flag);
+  GenReadFlags(builder, vreg2, flag);
   builder.Gen<Copy>(vreg3, vreg2, 8);
   builder.Gen<AddqRegReg, kNoSSA>(vreg4, vreg5, flag);
   builder.Gen<WriteFlags, kNoSSA>(vreg3, flag);
@@ -837,7 +839,7 @@ TEST(InsnFoldingTest, FlagModifiedAfterPseudoRead) {
   EXPECT_EQ(bb->insn_list().size(), 5UL);
 }
 
-TEST(InsnFoldingTest, WriteFlagsNotDeletedBecauseDefinitionIsAfterUse) {
+TEST_P(ReadFlagsVariantsTest, WriteFlagsNotDeletedBecauseDefinitionIsAfterUse) {
   Arena arena;
   MachineIR machine_ir(&arena);
 
@@ -850,7 +852,7 @@ TEST(InsnFoldingTest, WriteFlagsNotDeletedBecauseDefinitionIsAfterUse) {
   MachineReg vreg3 = machine_ir.AllocVReg();
 
   builder.StartBasicBlock(bb);
-  builder.Gen<ReadFlagsWithOverflow>(vreg2, flag);
+  GenReadFlags(builder, vreg2, flag);
   builder.Gen<Copy>(vreg3, vreg2, 8);
   builder.Gen<MovqRegImm>(vreg2, 3);
   builder.Gen<WriteFlags, kNoSSA>(vreg3, flag);
@@ -1589,6 +1591,8 @@ TEST(InsnFoldingTest, FoldScaleIntoMemAccessCancelledIfShiftTooLarge) {
   EXPECT_EQ(recovery_bb, folded_insn->recovery_bb());
   EXPECT_EQ(42UL, folded_insn->recovery_pc());
 }
+
+INSTANTIATE_READ_FLAGS_VARIANTS_TEST(InsnFoldingTest);
 
 }  // namespace
 
