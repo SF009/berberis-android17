@@ -120,7 +120,9 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
   template <auto kIntrinsic>
   /*may_discard*/ auto GenIntrinsicCall(
       MachineReg flag_register,
-      const std::array<MachineReg, std::size(IntrinsicCall<kIntrinsic>::kArgumentElements)>& args,
+      const std::array<MachineReg,
+                       std::tuple_size_v<typename IntrinsicCall<kIntrinsic>::ArgumentRegisters>>&
+          args,
       std::array<MachineReg,
                  IntrinsicCall<kIntrinsic>::kIsImplicitPointerResult
                      ? 1
@@ -164,25 +166,38 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
         // the register allocator to satofy the requirements, even in principle. These copies create
         // new virtual registers that the register allocator can then assign to the correct physical
         // registers.
+        TypesToValues::FlatMap<
+            std::tuple<MetaValue<IntrinsicCall<kIntrinsic>::kIsImplicitPointerResult>>>(
+            [&args, this]<typename IsImplicitPointerResult>() {
+              if constexpr (IsImplicitPointerResult{}) {
+                MachineReg physical_register = ir()->AllocVReg();
+                // Pointer to result on stack is always 8 bytes long.
+                InsertInsn(ir()->NewInsn<Copy>(physical_register, args[0], 8));
+                return std::tuple{physical_register};
+              } else {
+                return std::tuple{};
+              }
+            }),
         TypesToValues::FlatMapWithTemporary<
-            ValuesToTypes::MetaValues<IntrinsicCall<kIntrinsic>::kArgumentElements>,
-            std::size_t>([&args, this]<typename ArgumentsElementInfo>(std::size_t& index) {
-          constexpr intrinsic_call::ArgumentsElementInfo kElementInfo = ArgumentsElementInfo{};
-          if constexpr (kElementInfo.param_type == intrinsic_call::kInt128) {
-            MachineReg physical_register1 = ir()->AllocVReg();
-            MachineReg physical_register2 = ir()->AllocVReg();
-            InsertInsn(ir()->NewInsn<Copy>(
-                physical_register1, args[index++], kElementInfo.register_classes[0]->reg_size));
-            InsertInsn(ir()->NewInsn<Copy>(
-                physical_register2, args[index++], kElementInfo.register_classes[1]->reg_size));
-            return std::tuple{physical_register1, physical_register2};
-          } else {
-            MachineReg physical_register = ir()->AllocVReg();
-            InsertInsn(ir()->NewInsn<Copy>(
-                physical_register, args[index++], kElementInfo.register_classes[0]->reg_size));
-            return std::tuple{physical_register};
-          }
-        }),
+            ValuesToTypes::MetaValues<IntrinsicCall<kIntrinsic>::kArgumentElements>>(
+            /* index = */ std::size_t{IntrinsicCall<kIntrinsic>::kIsImplicitPointerResult ? 1 : 0},
+            [&args, this]<typename ArgumentsElementInfo>(std::size_t& index) {
+              constexpr intrinsic_call::ArgumentsElementInfo kElementInfo = ArgumentsElementInfo{};
+              if constexpr (kElementInfo.param_type == intrinsic_call::kInt128) {
+                MachineReg physical_register1 = ir()->AllocVReg();
+                MachineReg physical_register2 = ir()->AllocVReg();
+                InsertInsn(ir()->NewInsn<Copy>(
+                    physical_register1, args[index++], kElementInfo.register_classes[0]->reg_size));
+                InsertInsn(ir()->NewInsn<Copy>(
+                    physical_register2, args[index++], kElementInfo.register_classes[1]->reg_size));
+                return std::tuple{physical_register1, physical_register2};
+              } else {
+                MachineReg physical_register = ir()->AllocVReg();
+                InsertInsn(ir()->NewInsn<Copy>(
+                    physical_register, args[index++], kElementInfo.register_classes[0]->reg_size));
+                return std::tuple{physical_register};
+              }
+            }),
         TypesToValues::Map<typename IntrinsicCall<kIntrinsic>::ClobberRegisters>(
             [flag_register, this]<typename RegisterClass>() {
               if constexpr (std::is_same_v<RegisterClass, device_arch_info::FLAGS>) {
