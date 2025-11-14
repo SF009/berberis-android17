@@ -141,8 +141,7 @@ TEST_F(RegAllocTest, HardRegAllocation_SpillAndAssign) {
   int spill_slot = lifetime1->GetSpill();
   EXPECT_NE(spill_slot, -1);
   // After splitting, the original lifetime should only contain the first access.
-  // TODO(b/459067902): This is incorrect. We should update the end of the range to 10 + 1.
-  EXPECT_EQ(lifetime1->end(), 20);
+  EXPECT_EQ(lifetime1->end(), 10 + 1);
   // One tiny lifetime from the second access should be added.
   EXPECT_EQ(lifetime_list.size(), 3u);
   auto* tiny_lifetime = &lifetime_list.back();
