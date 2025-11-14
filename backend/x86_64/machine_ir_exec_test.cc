@@ -1133,7 +1133,7 @@ TEST_F(ExecMachineIRTest, Copy) {
   builder_.Gen<Copy>(kXmms[3], kXmms[2], 16);
   dst_data.xmms[3] = data_.xmms[2];
 
-  // The minimum copy amount is 8 bytes. PseudoCopy of a smaller size will copy
+  // The minimum copy amount is 8 bytes. Copy of a smaller size will copy
   // garbage in upper bytes. This is in compliance with MachineIR assumptions,
   // but we cannot reliably test it.
   builder_.Gen<Copy>(slots_[5], slots_[4], 8);
@@ -1290,7 +1290,7 @@ TEST(ExecMachineIR, RecoveryWithGuestPCAndSpills) {
   EXPECT_EQ(test.returned_rax(), 123ULL);
 }
 
-TEST(ExecMachineIR, PseudoReadFlags) {
+TEST(ExecMachineIR, ReadFlagsWithOverflow) {
   struct Data {
     uint64_t x;
     uint64_t y;
@@ -1311,8 +1311,7 @@ TEST(ExecMachineIR, PseudoReadFlags) {
       kMachineRegRAX,
       {.base = kMachineRegRBP, .disp = offsetof(Data, y)},
       x86_64::kMachineRegFLAGS);
-  builder.Gen<ReadFlags>(
-      ReadFlags::kWithOverflow, kMachineRegRAX, x86_64::kMachineRegFLAGS);
+  builder.Gen<x86_64::ReadFlagsWithOverflow>(kMachineRegRAX, x86_64::kMachineRegFLAGS);
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&res_flags));
   builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP}, kMachineRegRAX);
 
@@ -1335,7 +1334,7 @@ TEST(ExecMachineIR, PseudoReadFlags) {
   EXPECT_EQ(res_flags & MakeFlags(0b1111), MakeFlags(0b1001));
 }
 
-TEST(ExecMachineIR, PseudoReadFlagsWithoutOverflow) {
+TEST(ExecMachineIR, ReadFlagsWithoutOverflow) {
   struct Data {
     uint64_t x;
     uint64_t y;
@@ -1358,8 +1357,8 @@ TEST(ExecMachineIR, PseudoReadFlagsWithoutOverflow) {
       x86_64::kMachineRegFLAGS);
   // ReadFlags must reset overflow to zero, even if it's set in RAX.
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRAX, MakeFlags(0b0001));
-  builder.Gen<ReadFlags>(
-      ReadFlags::kWithoutOverflow, kMachineRegRAX, x86_64::kMachineRegFLAGS);
+  builder.Gen<x86_64::ReadFlagsWithoutOverflow, x86_64::kNoSSA>(kMachineRegRAX,
+                                                                x86_64::kMachineRegFLAGS);
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&res_flags));
   builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP}, kMachineRegRAX);
 
@@ -1373,7 +1372,7 @@ TEST(ExecMachineIR, PseudoReadFlagsWithoutOverflow) {
   EXPECT_EQ(res_flags & MakeFlags(0b1111), MakeFlags(0b1000));
 }
 
-TEST(ExecMachineIR, PseudoWriteFlags) {
+TEST(ExecMachineIR, WriteFlags) {
   uint64_t arg_flags;
   uint64_t res_flags;
 
@@ -1385,10 +1384,10 @@ TEST(ExecMachineIR, PseudoWriteFlags) {
 
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&arg_flags));
   builder.Gen<x86_64::MovqRegOp>(kMachineRegRAX, {.base = kMachineRegRBP});
-  builder.Gen<WriteFlags>(kMachineRegRAX, x86_64::kMachineRegFLAGS);
+  builder.Gen<x86_64::WriteFlags, x86_64::kNoSSA>(kMachineRegRAX, x86_64::kMachineRegFLAGS);
   // Assume PseudoReadFlags is verified by another test.
-  builder.Gen<ReadFlags>(
-      ReadFlags::kWithOverflow, kMachineRegRAX, x86_64::kMachineRegFLAGS);
+  builder.Gen<x86_64::ReadFlagsWithOverflow, x86_64::kNoSSA>(kMachineRegRAX,
+                                                             x86_64::kMachineRegFLAGS);
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&res_flags));
   builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP}, kMachineRegRAX);
 

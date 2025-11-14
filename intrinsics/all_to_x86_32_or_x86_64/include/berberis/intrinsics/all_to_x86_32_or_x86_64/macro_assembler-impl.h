@@ -23,6 +23,39 @@
 namespace berberis {
 
 template <typename Assembler, typename AssemblerBase, typename SpecificMacroAssembler>
+template <typename IntType>
+constexpr void
+MacroAssemblerX86GuestAgnostic<Assembler, AssemblerBase, SpecificMacroAssembler>::CountLeadingZeros(
+    Register result,
+    Register src) {
+  Bsr<IntType>(result, src);
+  Cmov<IntType>(Condition::kZero, result, {.disp = constants_offsets::kBsrToClz<IntType>});
+  Xor<IntType>(result, sizeof(IntType) * CHAR_BIT - 1);
+}
+
+template <typename Assembler, typename AssemblerBase, typename SpecificMacroAssembler>
+template <typename IntType>
+constexpr void MacroAssemblerX86GuestAgnostic<Assembler, AssemblerBase, SpecificMacroAssembler>::
+    CountTrailingZeros(Register result, Register src) {
+  Bsf<IntType>(result, src);
+  Cmov<IntType>(Condition::kZero, result, {.disp = constants_offsets::kWidthInBits<IntType>});
+}
+
+template <typename Assembler, typename AssemblerBase, typename SpecificMacroAssembler>
+constexpr void MacroAssemblerX86GuestAgnostic<Assembler, AssemblerBase, SpecificMacroAssembler>::
+    ReadFlagsWithOverflow() {
+  Lahf();
+  Setcc(Condition::kOverflow, gpr_a);
+}
+
+template <typename Assembler, typename AssemblerBase, typename SpecificMacroAssembler>
+constexpr void MacroAssemblerX86GuestAgnostic<Assembler, AssemblerBase, SpecificMacroAssembler>::
+    ReadFlagsWithoutOverflow() {
+  Lahf();
+  Movb(gpr_a, int8_t{0});
+}
+
+template <typename Assembler, typename AssemblerBase, typename SpecificMacroAssembler>
 template <typename Ti>
 constexpr void
 MacroAssemblerX86GuestAgnostic<Assembler, AssemblerBase, SpecificMacroAssembler>::ReverseBits(
@@ -56,22 +89,10 @@ MacroAssemblerX86GuestAgnostic<Assembler, AssemblerBase, SpecificMacroAssembler>
 }
 
 template <typename Assembler, typename AssemblerBase, typename SpecificMacroAssembler>
-template <typename IntType>
 constexpr void
-MacroAssemblerX86GuestAgnostic<Assembler, AssemblerBase, SpecificMacroAssembler>::CountLeadingZeros(
-    Register result,
-    Register src) {
-  Bsr<IntType>(result, src);
-  Cmov<IntType>(Condition::kZero, result, {.disp = constants_offsets::kBsrToClz<IntType>});
-  Xor<IntType>(result, sizeof(IntType) * CHAR_BIT - 1);
-}
-
-template <typename Assembler, typename AssemblerBase, typename SpecificMacroAssembler>
-template <typename IntType>
-constexpr void MacroAssemblerX86GuestAgnostic<Assembler, AssemblerBase, SpecificMacroAssembler>::
-    CountTrailingZeros(Register result, Register src) {
-  Bsf<IntType>(result, src);
-  Cmov<IntType>(Condition::kZero, result, {.disp = constants_offsets::kWidthInBits<IntType>});
+MacroAssemblerX86GuestAgnostic<Assembler, AssemblerBase, SpecificMacroAssembler>::WriteFlags() {
+  Addb(gpr_a, int8_t{0x7f});
+  Sahf();
 }
 
 }  // namespace berberis

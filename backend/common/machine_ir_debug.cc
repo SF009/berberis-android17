@@ -207,31 +207,4 @@ std::string PseudoDefReg::GetDebugString() const {
   return std::string("PSEUDO_DEF ") + GetRegOperandDebugString(this, 0);
 }
 
-std::string ReadFlags::GetDebugString() const {
-  std::string out("PSEUDO_READ_FLAGS ");
-  out += with_overflow() ? "" : "(skip overflow) ";
-  out += GetRegOperandDebugString(this, 0);
-  out += ", ";
-  out += GetRegOperandDebugString(this, 1);
-  return out;
-}
-
-std::string WriteFlags::GetDebugString() const {
-  std::string out("PSEUDO_WRITE_FLAGS ");
-  out += GetRegOperandDebugString(this, 1);
-  out += ", ";
-  out += GetRegOperandDebugString(this, 0);
-  return out;
-}
-
-std::string SSAWriteFlags::GetDebugString() const {
-  std::string out("PSEUDO_WRITE_FLAGS ");
-  out += GetRegOperandDebugString(this, 2);
-  out += ", ";
-  out += GetRegOperandDebugString(this, 0);
-  out += "/";
-  out += GetRegOperandDebugString(this, 1);
-  return out;
-}
-
 }  // namespace berberis

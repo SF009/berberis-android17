@@ -123,16 +123,6 @@ constexpr MachineRegKind kPseudoDefXmmInfo[] = {{&kXmmReg, MachineRegKind::kDef}
 
 constexpr MachineRegKind kPseudoDefReg64Info[] = {{&kReg64, MachineRegKind::kDef}};
 
-constexpr MachineRegKind kPseudoReadFlagsInfo[] = {{&kRAX, MachineRegKind::kDef},
-                                                   {&kFLAGS, MachineRegKind::kUse}};
-
-constexpr MachineRegKind kPseudoWriteFlagsInfo[] = {{&kRAX, MachineRegKind::kUseDef},
-                                                    {&kFLAGS, MachineRegKind::kDef}};
-
-constexpr MachineRegKind kSSAPseudoWriteFlagsInfo[] = {{&kRAX, MachineRegKind::kDef},
-                                                       {&kRAX, MachineRegKind::kUse},
-                                                       {&kFLAGS, MachineRegKind::kDef}};
-
 }  // namespace
 
 Enter::Enter() : MachineInsnX86_64(&kEnterInfo, x86_64_insn_info_.regs_) {}
@@ -392,75 +382,6 @@ MachineInsn* PseudoDefReg::Clone(Arena* arena) const {
 
 MachineInsnList PseudoDefReg::Lower(Arena* arena) const {
   return {1, NewInArena<PseudoDefReg, const PseudoDefReg&>(arena, *this), arena};
-}
-
-const MachineOpcode ReadFlags::kOpcode = kMachineOpReadFlags;
-
-ReadFlags::ReadFlags(WithOverflowEnum with_overflow, MachineReg dst, MachineReg flags)
-    : MachineInsn(kMachineOpReadFlags,
-                  2,
-                  x86_64::kPseudoReadFlagsInfo,
-                  regs_,
-                  kMachineInsnDefault),
-      regs_{dst, flags},
-      with_overflow_(with_overflow == kWithOverflow) {}
-
-ReadFlags::ReadFlags(const ReadFlags& other)
-    : MachineInsn(other, regs_),
-      regs_{other.regs_[0], other.regs_[1]},
-      with_overflow_{other.with_overflow_} {}
-
-MachineInsn* ReadFlags::Clone(Arena* arena) const {
-  return NewInArena<ReadFlags, const ReadFlags&>(arena, *this);
-}
-
-MachineInsnList ReadFlags::Lower(Arena* arena) const {
-  return {1, NewInArena<ReadFlags, const ReadFlags&>(arena, *this), arena};
-}
-
-const MachineOpcode WriteFlags::kOpcode = kMachineOpWriteFlags;
-
-WriteFlags::WriteFlags(MachineReg src, MachineReg flags)
-    : MachineInsn(kMachineOpWriteFlags,
-                  2,
-                  x86_64::kPseudoWriteFlagsInfo,
-                  regs_,
-                  kMachineInsnDefault),
-      regs_{src, flags} {}
-
-WriteFlags::WriteFlags(const WriteFlags& insn)
-    : MachineInsn(insn), regs_{insn.regs_[0], insn.regs_[1]} {}
-
-MachineInsn* WriteFlags::Clone(Arena* arena) const {
-  return NewInArena<WriteFlags, const WriteFlags&>(arena, *this);
-}
-
-MachineInsnList WriteFlags::Lower(Arena* arena) const {
-  return {1, NewInArena<WriteFlags, const WriteFlags&>(arena, *this), arena};
-}
-
-const MachineOpcode SSAWriteFlags::kOpcode =
-    static_cast<MachineOpcode>(kMachineOpWriteFlags | (x86_64::kSSA << kSSAOpcodeBit));
-
-SSAWriteFlags::SSAWriteFlags(MachineReg clobber, MachineReg src, MachineReg flags)
-    : MachineInsn(SSAWriteFlags::kOpcode,
-                  3,
-                  x86_64::kSSAPseudoWriteFlagsInfo,
-                  regs_,
-                  kMachineInsnDefault),
-      regs_{clobber, src, flags} {}
-
-SSAWriteFlags::SSAWriteFlags(const SSAWriteFlags& insn)
-    : MachineInsn(insn), regs_{insn.regs_[0], insn.regs_[1], insn.regs_[2]} {}
-
-MachineInsn* SSAWriteFlags::Clone(Arena* arena) const {
-  return NewInArena<SSAWriteFlags, const SSAWriteFlags&>(arena, *this);
-}
-
-MachineInsnList SSAWriteFlags::Lower(Arena* arena) const {
-  return {{NewInArena<Copy>(arena, regs_[0], regs_[1], 4),
-           NewInArena<WriteFlags>(arena, regs_[1], regs_[2])},
-          arena};
 }
 
 }  // namespace berberis
