@@ -28,8 +28,8 @@
 namespace berberis::x86_64 {
 
 struct OptimizeLocalParams {
-  size_t general_reg_limit = 12;
-  size_t simd_reg_limit = 12;
+  size_t general_reg_limit = 13;
+  size_t simd_reg_limit = 13;
 };
 
 using MappedValue = std::variant<MachineReg, uint64_t>;
@@ -48,13 +48,13 @@ class LocalGuestContextOptimizer {
         reg_lifetime_counter_(machine_ir) {}
 
   // Removes entries from mem_reg_map_ with last use <= pos.
-  void UnmapOlderThan(int pos, RegType reg_type);
+  void UnmapOlderThan(size_t pos, RegType reg_type);
   const RegLifetimeCounter& GetLifetimeCounterForTesting() const { return reg_lifetime_counter_; }
   const MemRegUsageMap& GetMemRegUsageMapForTesting() const { return mem_reg_map_; }
-  void RemoveLocalGuestContextAccesses(const OptimizeLocalParams& params);
+  void RemoveLocalGuestContextAccesses(OptimizeLocalParams params);
 
  private:
-  void ReplaceGetAndUpdateMap(const MachineInsnList::iterator insn_it);
+  std::optional<MachineReg> ReplaceGetAndUpdateMap(const MachineInsnList::iterator insn_it);
   void ReplacePutAndUpdateMap(MachineInsnList& insn_list, const MachineInsnList::iterator insn_it);
 
   MachineIR* machine_ir_;

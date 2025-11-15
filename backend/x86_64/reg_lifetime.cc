@@ -16,6 +16,7 @@
 
 #include "berberis/backend/x86_64/reg_lifetime.h"
 
+#include <cstddef>
 #include <iterator>
 #include <variant>
 
@@ -28,6 +29,12 @@ namespace berberis::x86_64 {
 void RegLifetimeCounter::Count(MachineBasicBlock* bb) {
   CountRegLifetimeMap(bb);
   CountRegLifetimes(bb);
+}
+
+size_t RegLifetimeCounter::RegCountAt(size_t pos, RegType reg_type) const {
+  CHECK(reg_type != RegType::kUnknown);
+  return reg_type == RegType::kGeneral ? lifetime_counts_.at(pos).general
+                                       : lifetime_counts_.at(pos).xmm;
 }
 
 void RegLifetimeCounter::UpdateLastUse(MachineReg reg, berberis::MachineInsn* end, int end_pos) {
@@ -72,7 +79,7 @@ void RegLifetimeCounter::CountRegLifetimeMap(MachineBasicBlock* bb) {
   //   ... # Here v1 can actually be discarded but our algorithm considers it alive.
   //   v1 = 5
   std::variant<LiveOut, berberis::MachineInsn*> next_insn;
-  int pos = 0;
+  size_t pos = 0;
   for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end(); insn_it++, pos++) {
     auto insn = *insn_it;
     if (std::next(insn_it) == bb->insn_list().end()) {
