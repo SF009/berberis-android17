@@ -117,7 +117,24 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
             std::enable_if_t<std::is_same_v<std::decay_t<CallImmArgType>, CallImmArg>, bool> = true>
   /*may_discard*/ CallImmArgType* Gen(Args... args) = delete;
 
-  template <auto kIntrinsic>
+  template <typename IntrinsicType, typename... AddrType>
+  /*may_discard*/ auto GenIntrinsicCall(
+      MachineReg flag_register,
+      const std::array<MachineReg,
+                       std::tuple_size_v<typename IntrinsicCall<
+                           static_cast<IntrinsicType>(nullptr)>::ArgumentRegisters>>& args,
+      std::array<
+          MachineReg,
+          IntrinsicCall<static_cast<IntrinsicType>(nullptr)>::kIsImplicitPointerResult
+              ? 1
+              : std::size(IntrinsicCall<static_cast<IntrinsicType>(nullptr)>::kResultsElements)>&
+          results,
+      IntrinsicType func_ptr) {
+    return GenIntrinsicCall<static_cast<IntrinsicType>(nullptr)>(
+        flag_register, args, results, func_ptr);
+  }
+
+  template <auto kIntrinsic, typename... AddrType>
   /*may_discard*/ auto GenIntrinsicCall(
       MachineReg flag_register,
       const std::array<MachineReg,
@@ -126,7 +143,17 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
       std::array<MachineReg,
                  IntrinsicCall<kIntrinsic>::kIsImplicitPointerResult
                      ? 1
-                     : std::size(IntrinsicCall<kIntrinsic>::kResultsElements)>& results) {
+                     : std::size(IntrinsicCall<kIntrinsic>::kResultsElements)>& results,
+      AddrType... func_ptr) {
+    // We may need one extra argument if function address and type are passed separately.
+    if constexpr (IntrinsicCall<kIntrinsic>::kDynamicFunction) {
+      // If we have a dynamic intrinsic then we accept one address as 64-bit immediate.
+      static_assert(sizeof...(AddrType) == 1);
+      static_assert((std::is_same_v<decltype(kIntrinsic), AddrType> && ...));
+    } else {
+      // Otherwise address is part of the type.
+      static_assert(sizeof...(AddrType) == 0);
+    }
     std::array<MachineReg, std::tuple_size_v<typename IntrinsicCall<kIntrinsic>::ResultRegisters>>
         call_outs;
     // Each register receives result for some elements, but in some cases more than one. If that
@@ -158,6 +185,7 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
       results = call_outs;
     }
     auto* call = ir()->NewInsn<typename IntrinsicCall<kIntrinsic>::MachineInsn>(std::tuple_cat(
+        std::tuple{bit_cast<int64_t>(func_ptr)...},
         call_outs,
         // We need copies here to ensure that the arguments passed to the intrinsic are in virtual
         // registers that can be independently allocated to the specific physical registers required

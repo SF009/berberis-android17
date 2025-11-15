@@ -21,7 +21,9 @@
 #include <cstdint>
 #include <tuple>
 
+#include "berberis/backend/code_emitter.h"
 #include "berberis/backend/x86_64/machine_ir.h"
+#include "berberis/base/bit_util.h"
 #include "berberis/base/stringprintf.h"
 #include "berberis/base/tuple_processing.h"
 #include "berberis/intrinsics/simd_register.h"
@@ -123,6 +125,8 @@ using CleanTypes = TypesToTypes::FlatMap<ArgumentsTuple, []<typename RawType> {
                 std::is_same_v<Type, intrinsics::Float32> ||
                 std::is_same_v<Type, intrinsics::Float64>) {
     return kTypes<Type>;
+  } else if constexpr (std::is_pointer_v<Type>) {
+    return kTypes<uint64_t>;
   } else if constexpr (std::is_same_v<Type, SIMD128Register> || std::is_same_v<Type, __m128>) {
     return kTypes<__m128>;
   } else {
@@ -130,18 +134,49 @@ using CleanTypes = TypesToTypes::FlatMap<ArgumentsTuple, []<typename RawType> {
   }
 }>;
 
+inline void DynamicEmit(CodeEmitter& as, int64_t func_addr) {
+  // Note that a call to AVX-compiled code may touch YMM bits above 128, which
+  // would require `vzeroupper` before we come back to generated code. This is
+  // to make sure there is no performance penalty. ABI requires such `vzeroupper`s
+  // done by the callee unless the result in returned in full YMM register.
+  // Since we don't support full YMM results here, we don't need extra
+  // `vzeroupper`s here.
+  as.Call(bit_cast<HostCode>(func_addr));
+}
+
+template <auto kFunction>
+inline void StaticEmit(CodeEmitter& as) {
+  // Note that a call to AVX-compiled code may touch YMM bits above 128, which
+  // would require `vzeroupper` before we come back to generated code. This is
+  // to make sure there is no performance penalty. ABI requires such `vzeroupper`s
+  // done by the callee unless the result in returned in full YMM register.
+  // Since we don't support full YMM results here, we don't need extra
+  // `vzeroupper`s here.
+  as.Call(bit_cast<HostCode>(kFunction));
+}
+
 }  // namespace intrinsic_call
 
-template <auto function>
+template <auto kFunction>
 class IntrinsicCall;
 
-template <typename IntrinsicRetTuple,
+template <typename IntrinsicRetType,
           typename... IntrinsicParamTypes,
-          IntrinsicRetTuple (*function)(IntrinsicParamTypes...)>
-class IntrinsicCall<function> {
+          IntrinsicRetType (*kFunction)(IntrinsicParamTypes...)>
+class IntrinsicCall<kFunction> {
  public:
-  using CleanRetType = intrinsic_call::CleanTypes<
-      std::conditional_t<std::is_same_v<IntrinsicRetTuple, void>, std::tuple<>, IntrinsicRetTuple>>;
+  using CleanRetType = intrinsic_call::CleanTypes<std::conditional_t<
+      std::is_same_v<IntrinsicRetType, void>,
+      std::tuple<>,
+      std::conditional_t<std::is_integral_v<IntrinsicRetType> ||
+                             std::is_pointer_v<IntrinsicRetType> ||
+                             std::is_same_v<IntrinsicRetType, intrinsics::Float16> ||
+                             std::is_same_v<IntrinsicRetType, intrinsics::Float32> ||
+                             std::is_same_v<IntrinsicRetType, intrinsics::Float64> ||
+                             std::is_same_v<IntrinsicRetType, SIMD128Register> ||
+                             std::is_same_v<IntrinsicRetType, __m128>,
+                         std::tuple<IntrinsicRetType>,
+                         IntrinsicRetType>>>;
   using CleanParamTypes = intrinsic_call::CleanTypes<std::tuple<IntrinsicParamTypes...>>;
 
  private:
@@ -229,23 +264,22 @@ class IntrinsicCall<function> {
           return !std::is_same_v<ClobberedClass, ResultedClass>;
         });
       }>;
-  static void Emit(CodeEmitter& as) {
-    // Note that a call to AVX-compiled code may touch YMM bits above 128, which
-    // would require `vzeroupper` before we come back to generated code. This is
-    // to make sure there is no performance penalty. ABI requires such `vzeroupper`s
-    // done by the callee unless the result in returned in full YMM register.
-    // Since we don't support full YMM results here, we don't need extra
-    // `vzeroupper`s here.
-    as.Call(bit_cast<HostCode>(function));
-  }
 
+  static constexpr bool kDynamicFunction =
+      kFunction == static_cast<IntrinsicRetType (*)(IntrinsicParamTypes...)>(nullptr);
   using MachineInsn = x86_64::MachineInsn<device_arch_info::DeviceInsnInfo<
-      Emit,
+      std::conditional_t<kDynamicFunction,
+                         MetaValue<intrinsic_call::DynamicEmit>,
+                         MetaValue<intrinsic_call::StaticEmit<kFunction>>>{},
       "INTRINSIC_CALL",
       true,
       []<typename Opcode> { return Opcode::kMachineOpCallImm; },
       device_arch_info::NoCPUIDRestriction,
       TypesToTypes::Concat<
+          std::conditional_t<kDynamicFunction,
+                             std::tuple<device_arch_info::OperandInfo<device_arch_info::Imm64,
+                                                                      device_arch_info::kUse>>,
+                             std::tuple<>>,
           TypesToTypes::Map<ResultRegisters,
                             []<typename RegisterClass>(RegisterClass) {
                               return device_arch_info::OperandInfo<RegisterClass,
@@ -298,10 +332,10 @@ class IntrinsicCall<function> {
 // supported then they would be only handled separately when passed as one long double or complex
 // long double—which means they have to be treated specially only when aggregate contains them
 // without anything else.
-template <typename IntrinsicRetTuple,
+template <typename IntrinsicRetType,
           typename... IntrinsicParamTypes,
-          IntrinsicRetTuple (*function)(IntrinsicParamTypes...)>
-constexpr auto IntrinsicCall<function>::GenResultsElements()
+          IntrinsicRetType (*kFunction)(IntrinsicParamTypes...)>
+constexpr auto IntrinsicCall<kFunction>::GenResultsElements()
     -> std::array<intrinsic_call::ResultsElementInfo,
                   std::tuple_size_v<CleanRetType> +
                       ((std::is_same_v<CleanRetType, std::tuple<__int128_t>> ||
@@ -372,10 +406,10 @@ constexpr auto IntrinsicCall<function>::GenResultsElements()
   }
 }
 
-template <typename IntrinsicRetTuple,
+template <typename IntrinsicRetType,
           typename... IntrinsicParamTypes,
-          IntrinsicRetTuple (*function)(IntrinsicParamTypes...)>
-constexpr auto IntrinsicCall<function>::GenArgumentElements()
+          IntrinsicRetType (*kFunction)(IntrinsicParamTypes...)>
+constexpr auto IntrinsicCall<kFunction>::GenArgumentElements()
     -> std::array<intrinsic_call::ArgumentsElementInfo, std::tuple_size_v<CleanParamTypes>> {
   if constexpr (std::tuple_size_v<CleanParamTypes> == 0) {
     return std::array<intrinsic_call::ArgumentsElementInfo, 0>{};
