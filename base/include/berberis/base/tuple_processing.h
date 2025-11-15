@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <functional>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -92,6 +93,10 @@ class TypesToTypes {
   class IndexedHelper;
   template <typename Type, auto kLambda>
   class MapHelper;
+  template <typename TupleType, std::size_t kCount>
+  class SkipHelper;
+  template <typename TupleType, std::size_t kCount>
+  class TakeHelper;
   template <typename TupleType, auto kLambda, auto... extra_lambda_values>
   class TakeSkipHelper;
   template <typename TypeLeft, typename TypeRight>
@@ -105,13 +110,13 @@ class TypesToTypes {
       std::declval<std::make_index_sequence<std::tuple_size_v<TupleType>>>()));
 
   template <typename TypeLeft, typename TypeRight>
-  using Zip = ZipHelper<TypeLeft, TypeRight>::Result;
+  using Zip = typename ZipHelper<TypeLeft, TypeRight>::Result;
 
   template <typename TupleType>
   using Enumerate = Zip<Indexes<TupleType>, TupleType>;
 
   template <typename TupleType, auto kLambda>
-  using Filter = FlatMapHelper<TupleType, []<typename Type>() {
+  using Filter = typename FlatMapHelper<TupleType, []<typename Type>() {
     constexpr bool kAccepted = kLambda.template operator()<Type>();
     if constexpr (kAccepted) {
       return kTypes<Type>;
@@ -143,7 +148,7 @@ class TypesToTypes {
   // The use of pointer to tuple allows us to return types that couldn't be constructed
   // in lambda, e.g. references.
   template <typename TupleType, auto kLambda>
-  using FlatMap = FlatMapHelper<TupleType, kLambda>::Result;
+  using FlatMap = typename FlatMapHelper<TupleType, kLambda>::Result;
 
   // Applies a type-level lambda to each type in the input |Type| tuple.
   // The lambda is expected to return a single type for each input type.
@@ -155,34 +160,18 @@ class TypesToTypes {
   // The need to return type simplifies the code if type can be constructed, but makes it
   // impossible to return certain types (e.g. references).
   template <typename TupleType, auto kLambda>
-  using Map = MapHelper<TupleType, kLambda>::Result;
+  using Map = typename MapHelper<TupleType, kLambda>::Result;
 
   template <typename TupleType, std::size_t kCount>
-  using Skip = FlatMapHelper<Enumerate<TupleType>, []<typename EnumeratedType>() {
-    constexpr std::size_t kIdx = std::tuple_element_t<0, EnumeratedType>{};
-    static_assert(kIdx <= std::tuple_size_v<TupleType>);
-    constexpr bool kAccepted = kIdx >= kCount;
-    if constexpr (kAccepted) {
-      return kTypes<std::tuple_element_t<1, EnumeratedType>>;
-    } else {
-      return kTypes<>;
-    }
-  }>::Result;
+  using Skip =
+      typename FlatMapHelper<Enumerate<TupleType>, SkipHelper<TupleType, kCount>{}>::Result;
 
   template <typename TupleType, auto kLambda>
   using SkipWhile = Skip<TupleType, TakeSkipHelper<TupleType, kLambda>::Produce()>;
 
   template <typename TupleType, std::size_t kCount>
-  using Take = FlatMapHelper<Enumerate<TupleType>, []<typename EnumeratedType>() {
-    constexpr std::size_t kIdx = std::tuple_element_t<0, EnumeratedType>{};
-    static_assert(kIdx <= std::tuple_size_v<TupleType>);
-    constexpr bool kAccepted = kIdx < kCount;
-    if constexpr (kAccepted) {
-      return kTypes<std::tuple_element_t<1, EnumeratedType>>;
-    } else {
-      return kTypes<>;
-    }
-  }>::Result;
+  using Take =
+      typename FlatMapHelper<Enumerate<TupleType>, TakeHelper<TupleType, kCount>{}>::Result;
 
   template <typename TupleType, auto kLambda>
   using TakeWhile = Take<TupleType, TakeSkipHelper<TupleType, kLambda>::Produce()>;
@@ -205,7 +194,7 @@ class TypesToTypes {
    public:
     // Note: Concat here ensures that we would use the specialization above and wouldn't cause
     // endless recursion here.
-    using Result = FlatMapHelper<Concat<TupleType>, kLambda>::Result;
+    using Result = typename FlatMapHelper<Concat<TupleType>, kLambda>::Result;
   };
 
   template <typename... Types, auto kLambda>
@@ -219,7 +208,39 @@ class TypesToTypes {
    public:
     // Note: Concat here ensures that we would use the specialization above and wouldn't cause
     // endless recursion here.
-    using Result = MapHelper<Concat<TupleType>, kLambda>::Result;
+    using Result = typename MapHelper<Concat<TupleType>, kLambda>::Result;
+  };
+
+  template <typename TupleType, std::size_t kCount>
+  class SkipHelper {
+   public:
+    template <typename EnumeratedType>
+    constexpr auto operator()() const {
+      constexpr std::size_t kIdx = std::tuple_element_t<0, EnumeratedType>{};
+      static_assert(kIdx <= std::tuple_size_v<TupleType>);
+      constexpr bool kAccepted = kIdx >= kCount;
+      if constexpr (kAccepted) {
+        return kTypes<std::tuple_element_t<1, EnumeratedType>>;
+      } else {
+        return kTypes<>;
+      }
+    }
+  };
+
+  template <typename TupleType, std::size_t kCount>
+  class TakeHelper {
+   public:
+    template <typename EnumeratedType>
+    constexpr auto operator()() const {
+      constexpr std::size_t kIdx = std::tuple_element_t<0, EnumeratedType>{};
+      static_assert(kIdx <= std::tuple_size_v<TupleType>);
+      constexpr bool kAccepted = kIdx < kCount;
+      if constexpr (kAccepted) {
+        return kTypes<std::tuple_element_t<1, EnumeratedType>>;
+      } else {
+        return kTypes<>;
+      }
+    }
   };
 
   template <typename... TypesLeft, typename... TypesRight>
@@ -232,7 +253,7 @@ class TypesToTypes {
    public:
     // Note: Concat here ensures that we would use the specialization above and wouldn't cause
     // endless recursion here.
-    using Result = ZipHelper<Concat<TypeLeft>, Concat<TypeRight>>::Result;
+    using Result = typename ZipHelper<Concat<TypeLeft>, Concat<TypeRight>>::Result;
   };
 };
 
@@ -552,7 +573,7 @@ class ValuesToTypes {
 
  public:
   template <auto kValues>
-  using MetaValues = MetaValuesHelper<kValues>::MetaValues;
+  using MetaValues = typename MetaValuesHelper<kValues>::MetaValues;
 
  private:
   template <auto kValues>
@@ -565,7 +586,7 @@ class ValuesToTypes {
         decltype(MetaValuesFunc(std::declval<std::make_index_sequence<
                                     std::tuple_size_v<std::remove_cvref_t<decltype(kValues)>>>>()));
   };
-  template <auto* kValues>
+  template <typename TupleName, TupleName* kValues>
   class MetaValuesHelper<kValues> {
    public:
     template <std::size_t... Is>

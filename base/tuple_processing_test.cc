@@ -37,7 +37,7 @@ namespace {
 constexpr int kForEachInt1 = 1;
 constexpr int kForEachInt2 = 2;
 
-template <template <typename, typename> typename TupleType>
+template <template <typename...> typename TupleType>
 constexpr bool TestFunc() {
   static_assert(TypesToTypes::All<TupleType<char, char>,
                                   []<typename T>() { return std::is_same_v<T, char>; }>{});
@@ -90,15 +90,15 @@ constexpr bool TestFunc() {
 
   static_assert(
       std::is_same_v<
-          TypesToTypes::SkipWhile<TupleType<char, const int>, []<typename T> { return true; }>,
+          TypesToTypes::SkipWhile<TupleType<char, const int>, []<typename T>() { return true; }>,
           std::tuple<>>);
   static_assert(
       std::is_same_v<TypesToTypes::SkipWhile<TupleType<char, const int>,
-                                             []<typename T> { return std::is_same_v<T, char>; }>,
+                                             []<typename T>() { return std::is_same_v<T, char>; }>,
                      std::tuple<const int>>);
   static_assert(std::is_same_v<
                 TypesToTypes::SkipWhile<TupleType<char, const int>,
-                                        []<typename T> { return std::is_same_v<T, const int>; }>,
+                                        []<typename T>() { return std::is_same_v<T, const int>; }>,
                 std::tuple<char, const int>>);
 
   static_assert(
@@ -106,15 +106,15 @@ constexpr bool TestFunc() {
 
   static_assert(std::is_same_v<
                 TypesToTypes::TakeWhile<TupleType<char, const int>,
-                                        []<typename T> { return std::is_same_v<T, const int>; }>,
+                                        []<typename T>() { return std::is_same_v<T, const int>; }>,
                 std::tuple<>>);
   static_assert(
       std::is_same_v<TypesToTypes::TakeWhile<TupleType<char, const int>,
-                                             []<typename T> { return std::is_same_v<T, char>; }>,
+                                             []<typename T>() { return std::is_same_v<T, char>; }>,
                      std::tuple<char>>);
   static_assert(
       std::is_same_v<
-          TypesToTypes::TakeWhile<TupleType<char, const int>, []<typename T> { return true; }>,
+          TypesToTypes::TakeWhile<TupleType<char, const int>, []<typename T>() { return true; }>,
           std::tuple<char, const int>>);
 
   static_assert(std::is_same_v<TypesToTypes::Zip<TupleType<char, int&>, std::array<long, 2>>,
@@ -328,8 +328,17 @@ constexpr bool TestFunc() {
   }());
 
   // Enumerate for values.
+#if (!defined(__clang__) && !defined(__GNUC__)) || (defined(__clang__) && __clang_major__ > 19) || \
+    (defined(__GNUC__) && __GNUC__ > 14)
   static_assert(ValuesToValues::Enumerate(TupleType{'a', 42}) ==
                 std::tuple{std::pair{kMeta<0>, 'a'}, std::pair{kMeta<1>, 42}});
+#else
+  constexpr auto kEnumerateResult = ValuesToValues::Enumerate(TupleType{'a', 42});
+  static_assert(std::get<0>(std::get<0>(kEnumerateResult)) == kMeta<0>);
+  static_assert(std::get<1>(std::get<0>(kEnumerateResult)) == 'a');
+  static_assert(std::get<0>(std::get<1>(kEnumerateResult)) == kMeta<1>);
+  static_assert(std::get<1>(std::get<1>(kEnumerateResult)) == 42);
+#endif
   static_assert(std::is_same_v<decltype(ValuesToValues::Enumerate(TupleType{'a', 42})),
                                std::tuple<std::pair<MetaValue<std::size_t{0}>, char>,
                                           std::pair<MetaValue<std::size_t{1}>, int>>>);
