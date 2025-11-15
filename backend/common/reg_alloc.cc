@@ -64,16 +64,15 @@
 #include "berberis/backend/common/reg_alloc.h"
 
 #include <iterator>  // std::next()
-#include <string>
 
 #include "berberis/backend/common/lifetime.h"
 #include "berberis/backend/common/lifetime_analysis.h"
 #include "berberis/backend/common/machine_ir.h"
 #include "berberis/base/arena_alloc.h"
-#include "berberis/base/arena_list.h"
-#include "berberis/base/arena_vector.h"
 #include "berberis/base/config.h"
 #include "berberis/base/tracing.h"
+
+#include "reg_alloc_internal.h"
 
 // #define LOG_REG_ALLOC(...) TRACE(__VA_ARGS__)
 #define LOG_REG_ALLOC(...) ((void)0)
@@ -82,67 +81,28 @@ namespace berberis {
 
 namespace {
 
-// Lifetimes themselves are owned by lifetime list populated by lifetime
-// analysis. Use list of pointers to track lifetimes currently allocated
-// to particular hard register.
-using VRegLifetimePtrList = ArenaList<VRegLifetime*>;
+// Same as std::list::merge, but starting from a 'pos' position.
+void MergeVRegLifetimeList(VRegLifetimeList* dst,
+                           VRegLifetimeList::iterator dst_pos,
+                           VRegLifetimeList* src) {
+  while (!src->empty()) {
+    auto curr = src->begin();
+    for (; dst_pos != dst->end(); ++dst_pos) {
+      if (curr->begin() < dst_pos->begin()) {
+        break;
+      }
+    }
+    dst->splice(dst_pos, *src, curr);
+  }
+}
 
-// How to spill one virtual register.
-struct VRegLifetimeSpill {
-  VRegLifetimePtrList::iterator lifetime;
-  SplitPos realloc_pos;
+}  // namespace
 
-  VRegLifetimeSpill(VRegLifetimePtrList::iterator i, const SplitPos& p)
-      : lifetime(i), realloc_pos(p) {}
-};
+VRegLifetimeSpill::VRegLifetimeSpill(VRegLifetimePtrList::iterator i, const SplitPos& p)
+    : lifetime(i), realloc_pos(p) {}
 
-// Every possible spill should have some smaller weight (CHECKed).
-const int kInfiniteSpillWeight = 99999;
-
-// Track what virtual registers are currently allocated to this particular
-// hard register, and how to spill them.
-class HardRegAllocation {
- public:
-  explicit HardRegAllocation(Arena* arena)
-      : arena_(arena), lifetimes_(arena), new_lifetime_(nullptr), spills_(arena) {}
-
-  HardRegAllocation(const HardRegAllocation& other) = default;
-
-  // If new_lifetime doesn't interfere with lifetimes currently allocated
-  // to this hard register, allocate new_lifetime to this register as well.
-  bool TryAssign(VRegLifetime* new_lifetime);
-
-  // If TryAssign returned false:
-  // Check if it is possible to spill all lifetimes allocated to this hard
-  // register that interfere with new_lifetime, and return spill weight.
-  int ConsiderSpill(VRegLifetime* new_lifetime);
-
-  // If ConsiderSpill returned non-infinite weight:
-  // Given spill is possible, actually spill lifetimes that interfere with
-  // new_lifetime to spill_slot. Insert newly created tiny lifetimes into
-  // 'lifetimes' list, starting at position 'pos'.
-  void SpillAndAssign(VRegLifetime* new_lifetime,
-                      int spill_slot,
-                      VRegLifetimeList* lifetimes,
-                      VRegLifetimeList::iterator pos);
-
- private:
-  // Arena for allocations.
-  Arena* arena_;
-  // Lifetimes currently allocated to this hard register.
-  VRegLifetimePtrList lifetimes_;
-
-  // Last lifetime being allocated, for CHECKing.
-  // TODO(b/232598137): probably use this for ConsiderSpill and SpillAndAssign?
-  // This looks more natural...
-  VRegLifetime* new_lifetime_;
-
-  // How to free this register for last considered new lifetime.
-  // This is here for the following reasons:
-  // - it is highly coupled with lifetimes_
-  // - to avoid reallocating this for every spill consideration
-  ArenaVector<VRegLifetimeSpill> spills_;
-};
+HardRegAllocation::HardRegAllocation(Arena* arena)
+    : arena_(arena), lifetimes_(arena), new_lifetime_(nullptr), spills_(arena) {}
 
 bool HardRegAllocation::TryAssign(VRegLifetime* new_lifetime) {
   // TODO(b/232598137): had to disable the check below! The problem is that when
@@ -213,20 +173,6 @@ int HardRegAllocation::ConsiderSpill(VRegLifetime* new_lifetime) {
   return weight;
 }
 
-// Same as std::list::merge, but starting from a 'pos' position.
-void MergeVRegLifetimeList(VRegLifetimeList* dst,
-                           VRegLifetimeList::iterator dst_pos,
-                           VRegLifetimeList* src) {
-  while (!src->empty()) {
-    auto curr = src->begin();
-    for (; dst_pos != dst->end(); ++dst_pos) {
-      if (curr->begin() < dst_pos->begin()) {
-        break;
-      }
-    }
-    dst->splice(dst_pos, *src, curr);
-  }
-}
 
 void HardRegAllocation::SpillAndAssign(VRegLifetime* new_lifetime,
                                        int spill_slot,
@@ -260,38 +206,11 @@ void HardRegAllocation::SpillAndAssign(VRegLifetime* new_lifetime,
   lifetimes_.push_back(new_lifetime);
 }
 
-// Simple register allocator.
-// Walk list of lifetimes sorted by begin and allocates in order.
-// Modifies lifetimes that have been spilled and adds tiny lifetimes split
-// from spilled lifetimes to the same list.
-class VRegLifetimeAllocator {
- public:
-  VRegLifetimeAllocator(MachineIR* machine_ir, VRegLifetimeList* lifetimes)
-      : machine_ir_(machine_ir),
-        lifetimes_(lifetimes),
-        allocations_(config::kMaxHardRegs,
-                     HardRegAllocation(machine_ir->arena()),
-                     machine_ir->arena()) {}
-
-  void Allocate();
-
- private:
-  void AllocateLifetime(VRegLifetimeList::iterator lifetime_it);
-
-  bool TryAssignHardReg(VRegLifetime* lifetime, MachineReg hard_reg);
-
-  int ConsiderSpillHardReg(MachineReg hard_reg, VRegLifetime* lifetime);
-
-  void SpillAndAssignHardReg(MachineReg hard_reg, VRegLifetimeList::iterator curr);
-
-  void RewriteAllocatedLifetimes();
-
-  MachineIR* machine_ir_;
-
-  VRegLifetimeList* lifetimes_;
-
-  ArenaVector<HardRegAllocation> allocations_;
-};
+VRegLifetimeAllocator::VRegLifetimeAllocator(MachineIR* machine_ir, VRegLifetimeList* lifetimes)
+    : machine_ir_(machine_ir),
+      lifetimes_(lifetimes),
+      allocations_(
+          config::kMaxHardRegs, HardRegAllocation(machine_ir->arena()), machine_ir->arena()) {}
 
 int VRegLifetimeAllocator::ConsiderSpillHardReg(MachineReg hard_reg, VRegLifetime* lifetime) {
   return allocations_[hard_reg.reg()].ConsiderSpill(lifetime);
@@ -386,8 +305,6 @@ void CollectLifetimes(const MachineIR* machine_ir, VRegLifetimeList* lifetimes) 
     lifetime_analysis.EndBasicBlock();
   }
 }
-
-}  // namespace
 
 void AllocRegs(MachineIR* machine_ir) {
   VRegLifetimeList lifetimes(machine_ir->arena());
