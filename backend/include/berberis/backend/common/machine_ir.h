@@ -610,24 +610,6 @@ class Copy final : public MachineInsn {
 //
 // Example: PmovsxwdXRegXReg followed by MovlhpsXRegXReg
 // Example: xor rax, rax
-class PseudoDefXReg final : public MachineInsn {
- public:
-  explicit PseudoDefXReg(MachineReg reg);
-
-  [[nodiscard]] std::string GetDebugString() const override;
-  void Emit(CodeEmitter* /*as*/) const override {
-    // It's an auxiliary instruction. Does not emit.
-  }
-
- private:
-  friend PseudoDefXReg* NewInArena<PseudoDefXReg, const PseudoDefXReg&>(Arena*,
-                                                                        const PseudoDefXReg&);
-  PseudoDefXReg(const PseudoDefXReg&);
-  MachineInsn* Clone(Arena* arena) const override;
-  MachineInsnList Lower(Arena* arena) const override;
-  MachineReg reg_;
-};
-
 class PseudoDefReg final : public MachineInsn {
  public:
   explicit PseudoDefReg(MachineReg reg);

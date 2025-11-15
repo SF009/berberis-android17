@@ -199,10 +199,6 @@ std::string Copy::GetDebugString() const {
   return out;
 }
 
-std::string PseudoDefXReg::GetDebugString() const {
-  return std::string("PSEUDO_DEF ") + GetRegOperandDebugString(this, 0);
-}
-
 std::string PseudoDefReg::GetDebugString() const {
   return std::string("PSEUDO_DEF ") + GetRegOperandDebugString(this, 0);
 }

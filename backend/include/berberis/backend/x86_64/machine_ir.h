@@ -61,7 +61,6 @@ enum MachineOpcode : int {
   kMachineOpCondBranch,
   kMachineOpCopy,
   kMachineOpPseudoDefReg,
-  kMachineOpPseudoDefXReg,
   kMachineOpIndirectJump,
   kMachineOpJump,
 #include "machine_opcode_x86_64-inl.h"  // NOLINT generated file!

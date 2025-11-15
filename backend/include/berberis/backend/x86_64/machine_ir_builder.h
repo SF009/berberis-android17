@@ -178,11 +178,14 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
                 return std::tuple{};
               }
             }),
-        TypesToValues::FlatMapWithTemporary<
-            ValuesToTypes::MetaValues<IntrinsicCall<kIntrinsic>::kArgumentElements>>(
+        TypesToValues::FlatMapWithTemporary<TypesToTypes::Zip<
+            ValuesToTypes::MetaValues<IntrinsicCall<kIntrinsic>::kArgumentElements>,
+            typename IntrinsicCall<kIntrinsic>::CleanParamTypes>>(
             /* index = */ std::size_t{IntrinsicCall<kIntrinsic>::kIsImplicitPointerResult ? 1 : 0},
             [&args, this]<typename ArgumentsElementInfo>(std::size_t& index) {
-              constexpr intrinsic_call::ArgumentsElementInfo kElementInfo = ArgumentsElementInfo{};
+              constexpr intrinsic_call::ArgumentsElementInfo kElementInfo =
+                  std::tuple_element_t<0, ArgumentsElementInfo>{};
+              using ParamType = std::tuple_element_t<1, ArgumentsElementInfo>;
               if constexpr (kElementInfo.param_type == intrinsic_call::kInt128) {
                 MachineReg physical_register1 = ir()->AllocVReg();
                 MachineReg physical_register2 = ir()->AllocVReg();
@@ -193,9 +196,33 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
                 return std::tuple{physical_register1, physical_register2};
               } else {
                 MachineReg physical_register = ir()->AllocVReg();
-                InsertInsn(ir()->NewInsn<Copy>(
-                    physical_register, args[index++], kElementInfo.register_classes[0]->reg_size));
-                return std::tuple{physical_register};
+                if constexpr (std::is_integral_v<ParamType> && sizeof(ParamType) < 4) {
+                  if constexpr (std::is_signed_v<ParamType>) {
+                    if constexpr (sizeof(ParamType) == 1) {
+                      InsertInsn(
+                          ir()->NewInsn<x86_64::MovsxblRegReg>(physical_register, args[index++]));
+                    } else {
+                      static_assert(sizeof(ParamType) == 2);
+                      InsertInsn(
+                          ir()->NewInsn<x86_64::MovsxwlRegReg>(physical_register, args[index++]));
+                    }
+                  } else {
+                    static_assert(std::is_unsigned_v<ParamType>);
+                    if constexpr (sizeof(ParamType) == 1) {
+                      InsertInsn(
+                          ir()->NewInsn<x86_64::MovzxblRegReg>(physical_register, args[index++]));
+                    } else {
+                      static_assert(sizeof(ParamType) == 2);
+                      InsertInsn(
+                          ir()->NewInsn<x86_64::MovzxwlRegReg>(physical_register, args[index++]));
+                    }
+                  }
+                } else {
+                  InsertInsn(ir()->NewInsn<Copy>(physical_register,
+                                                 args[index++],
+                                                 kElementInfo.register_classes[0]->reg_size));
+                  return std::tuple{physical_register};
+                }
               }
             }),
         TypesToValues::Map<typename IntrinsicCall<kIntrinsic>::ClobberRegisters>(
@@ -238,7 +265,7 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
             }
             if constexpr (std::is_same_v<ElementType, intrinsics::Float16>) {
               MachineReg empty_xmm_register = ir()->AllocVReg();
-              InsertInsn(ir()->NewInsn<PseudoDefXReg>(empty_xmm_register));
+              InsertInsn(ir()->NewInsn<PseudoDefReg>(empty_xmm_register));
               MachineReg xmm_register = ir()->AllocVReg();
 #ifdef __AVX__
               InsertInsn(ir()->NewInsn<VpinsrwXRegXRegRegImm>(
