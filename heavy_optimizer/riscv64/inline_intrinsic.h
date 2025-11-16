@@ -43,7 +43,7 @@ namespace berberis {
 
 template <auto kFunction, typename ResType, typename FlagRegister, typename... ArgType>
 bool TryInlineIntrinsicForHeavyOptimizer(x86_64::MachineIRBuilder* builder,
-                                         ResType result,
+                                         ResType& result,
                                          FlagRegister flag_register,
                                          ArgType... args);
 
@@ -52,7 +52,7 @@ class InlineIntrinsic {
  public:
   template <typename ResType, typename FlagRegister, typename... ArgType>
   static bool TryInlineWithHostRounding(x86_64::MachineIRBuilder* builder,
-                                        ResType result,
+                                        ResType& result,
                                         FlagRegister flag_register,
                                         ArgType... args) {
     std::tuple args_tuple = std::make_tuple(args...);
@@ -251,7 +251,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
             typename FlagRegisterForFriend,
             typename... ArgTypeForFriend>
   friend bool TryInlineIntrinsicForHeavyOptimizer(x86_64::MachineIRBuilder* builder,
-                                                  ResTypeForFriend result,
+                                                  ResTypeForFriend& result,
                                                   FlagRegisterForFriend flag_register,
                                                   ArgTypeForFriend... args);
   template <auto kFunctionForFriend, typename FlagRegisterForFriend, typename... ArgTypeForFriend>
@@ -282,7 +282,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
       TryBindingBasedInlineIntrinsicForHeavyOptimizer&&) = delete;
 
   TryBindingBasedInlineIntrinsicForHeavyOptimizer(x86_64::MachineIRBuilder* builder,
-                                                  ResType result,
+                                                  ResType& result,
                                                   FlagRegister flag_register,
                                                   ArgType... args)
       : builder_(builder),
@@ -355,6 +355,15 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
       static_assert(berberis::kDependentValueFalse<IntrinsicBindingInfo::kCPUIDRestriction>);
     }
 
+    ValuesToValues::ForEach(result_,
+                            [builder = builder_]<typename RegisterType>(RegisterType& reg) {
+                              if constexpr (std::is_same_v<RegisterType, SimdReg>) {
+                                reg = SimdReg{builder->ir()->AllocVReg()};
+                              } else {
+                                reg = builder->ir()->AllocVReg();
+                              }
+                            });
+
     builder_->Gen<x86_64::MachineInsn<typename IntrinsicBindingInfo::DeviceInsnInfo, x86_64::kSSA>>(
         std::tuple_cat(UnwrapSimdReg(
             IntrinsicBindingInfo::template MakeTuplefromBindings<
@@ -395,7 +404,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
         return std::tuple{std::get<ArgBinding::kArgInfo.from>(input_args_)};
       }
     } else if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::IN_OUT_ARG) {
-      static_assert(!std::is_same_v<ResType, std::monostate>);
+      static_assert(!std::is_same_v<ResType, std::tuple<>>);
       static_assert(kUsage == device_arch_info::kUseDef);
       static_assert(!device_arch_info::kIsImplicitReg<OperandInfo>);
       if constexpr (RegisterClass::kAsRegister == 'x') {
@@ -407,7 +416,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
                           std::get<ArgBinding::kArgInfo.from>(input_args_)};
       }
     } else if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::IN_OUT_TMP_ARG) {
-      static_assert(!std::is_same_v<ResType, std::monostate>);
+      static_assert(!std::is_same_v<ResType, std::tuple<>>);
       static_assert(kUsage == device_arch_info::kUseDef);
       static_assert(device_arch_info::kIsImplicitReg<OperandInfo>);
       CHECK(implicit_result_reg_.IsInvalidReg());
@@ -430,7 +439,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
       implicit_result_reg_ = AllocVReg();
       return std::tuple{implicit_result_reg_};
     } else if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::OUT_ARG) {
-      static_assert(!std::is_same_v<ResType, std::monostate>);
+      static_assert(!std::is_same_v<ResType, std::tuple<>>);
       static_assert(kUsage == device_arch_info::kDef ||
                     kUsage == device_arch_info::kDefEarlyClobber);
       if constexpr (device_arch_info::kIsFLAGS<OperandInfo>) {
@@ -552,7 +561,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
 
  private:
   x86_64::MachineIRBuilder* builder_;
-  ResType result_;
+  ResType& result_;
   MachineReg xmm_result_reg_;
   MachineReg implicit_result_reg_;
   FlagRegister flag_register_;
@@ -563,7 +572,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
 
 template <auto kFunction, typename ResType, typename FlagRegister, typename... ArgType>
 bool TryInlineIntrinsicForHeavyOptimizer(x86_64::MachineIRBuilder* builder,
-                                         ResType result,
+                                         ResType& result,
                                          FlagRegister flag_register,
                                          ArgType... args) {
   if (InlineIntrinsic<kFunction>::TryInlineWithHostRounding(
@@ -580,7 +589,7 @@ bool TryInlineIntrinsicForHeavyOptimizer(x86_64::MachineIRBuilder* builder,
 
 template <auto kFunction, typename ResType, typename FlagRegister, typename... ArgType>
 void InlineIntrinsicForHeavyOptimizer(x86_64::MachineIRBuilder* builder,
-                                      ResType result,
+                                      ResType& result,
                                       FlagRegister flag_register,
                                       ArgType... args) {
   bool success = TryInlineIntrinsicForHeavyOptimizer<kFunction, ResType, FlagRegister, ArgType...>(
@@ -592,11 +601,12 @@ template <auto kFunction, typename FlagRegister, typename... ArgType>
 bool TryInlineIntrinsicForHeavyOptimizerVoid(x86_64::MachineIRBuilder* builder,
                                              FlagRegister flag_register,
                                              ArgType... args) {
+  std::tuple<> empty_result{};
   return TryBindingBasedInlineIntrinsicForHeavyOptimizer<kFunction,
-                                                         std::monostate,
+                                                         std::tuple<>,
                                                          FlagRegister,
                                                          ArgType...>(
-      builder, std::monostate{}, flag_register, args...);
+      builder, empty_result, flag_register, args...);
 }
 
 template <auto kFunction, typename FlagRegister, typename... ArgType>

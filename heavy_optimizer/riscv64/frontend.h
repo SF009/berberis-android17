@@ -500,11 +500,11 @@ class HeavyOptimizerFrontend {
             std::enable_if_t<!std::is_same_v<std::decay_t<AssemblerResType>, void>, bool> = true>
   AssemblerResType CallIntrinsic(AssemblerArgType... args) {
     auto result = TypesToValues::Map<typename x86_64::IntrinsicCall<kFunction>::CleanRetType>(
-        [this]<typename ResType>() {
+        []<typename ResType>() {
           if constexpr (std::is_integral_v<ResType> || std::is_pointer_v<ResType>) {
-            return AllocTempReg();
+            return MachineReg{};
           } else {
-            return AllocTempSimdReg();
+            return FpRegister{};
           }
         });
 
@@ -517,6 +517,15 @@ class HeavyOptimizerFrontend {
         return result;
       }
     }
+
+    result = TypesToValues::Map<typename x86_64::IntrinsicCall<kFunction>::CleanRetType>(
+        [this]<typename ResType>() {
+          if constexpr (std::is_integral_v<ResType> || std::is_pointer_v<ResType>) {
+            return AllocTempReg();
+          } else {
+            return AllocTempSimdReg();
+          }
+        });
 
     if constexpr (std::tuple_size_v<typename x86_64::IntrinsicCall<kFunction>::CleanRetType> == 1) {
       auto single_result = std::get<0>(result);
@@ -675,13 +684,13 @@ HeavyOptimizerFrontend::GetCsr<CsrName::kCycle>() {
 template <>
 [[nodiscard]] inline HeavyOptimizerFrontend::Register
 HeavyOptimizerFrontend::GetCsr<CsrName::kFCsr>() {
-  auto tmp = AllocTempReg();
+  std::tuple<MachineReg> tmp;
   InlineIntrinsicForHeavyOptimizer<&intrinsics::FeGetExceptions>(
-      &builder_, std::tuple{tmp}, GetFlagsRegister());
+      &builder_, tmp, GetFlagsRegister());
   auto [csr_reg] = Gen<x86_64::MovzxbqRegOp>(
       {.base = x86_64::kMachineRegRBP, .disp = kCsrFieldOffset<CsrName::kFrm>});
   auto [shifted_reg, shl_flags] = Gen<x86_64::ShlbRegImm>(csr_reg, int8_t{5});
-  auto [ored_reg, or_flags] = Gen<x86_64::OrbRegReg>(shifted_reg, tmp);
+  auto [ored_reg, or_flags] = Gen<x86_64::OrbRegReg>(shifted_reg, std::get<0>(tmp));
   return ored_reg;
 }
 
