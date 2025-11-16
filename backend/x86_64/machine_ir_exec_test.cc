@@ -153,11 +153,7 @@ TEST(ExecMachineIR, Smoke) {
   EXPECT_EQ(1ULL, data.y);
 }
 
-std::tuple<uint64_t> IntrinsicCallTestFunc(uint64_t arg) {
-  return ~arg;
-}
-
-TEST(ExecMachineIR, IntrinsicCall) {
+TEST(ExecMachineIR, IntrinsicCallByPointer) {
   Arena arena;
   x86_64::MachineIR machine_ir(&arena);
 
@@ -173,7 +169,12 @@ TEST(ExecMachineIR, IntrinsicCall) {
 
   std::array<MachineReg, 1> args = {arg};
   std::array<MachineReg, 1> results;
-  builder.GenIntrinsicCall<&IntrinsicCallTestFunc>(flag_register, args, results);
+  // Note: such case wouldn't be allowed in constexpr context (e.g. as parameter of template), but
+  // since we pass pointer to JIT everything works fine with bit_cast here.
+  builder.GenIntrinsicCall<void* (*)(void*)>(
+      flag_register, args, results, bit_cast<void* (*)(void*)>(+[](uint64_t arg) -> uint64_t {
+        return ~arg;
+      }));
 
   uint64_t result = 0;
   MachineReg result_ptr_reg = machine_ir.AllocVReg();

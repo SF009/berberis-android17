@@ -20,6 +20,48 @@ namespace berberis::x86_64 {
 
 namespace {
 
+// Non-tuple return values.
+
+// Most integer types are unmodified.
+static_assert(std::is_same_v<IntrinsicCall<static_cast<int8_t (*)()>(nullptr)>::CleanRetType,
+                             std::tuple<int8_t>>);
+static_assert(std::is_same_v<IntrinsicCall<static_cast<uint8_t (*)()>(nullptr)>::CleanRetType,
+                             std::tuple<uint8_t>>);
+static_assert(std::is_same_v<IntrinsicCall<static_cast<int16_t (*)()>(nullptr)>::CleanRetType,
+                             std::tuple<int16_t>>);
+static_assert(std::is_same_v<IntrinsicCall<static_cast<uint16_t (*)()>(nullptr)>::CleanRetType,
+                             std::tuple<uint16_t>>);
+static_assert(std::is_same_v<IntrinsicCall<static_cast<int32_t (*)()>(nullptr)>::CleanRetType,
+                             std::tuple<int32_t>>);
+static_assert(std::is_same_v<IntrinsicCall<static_cast<uint32_t (*)()>(nullptr)>::CleanRetType,
+                             std::tuple<uint32_t>>);
+static_assert(std::is_same_v<IntrinsicCall<static_cast<int64_t (*)()>(nullptr)>::CleanRetType,
+                             std::tuple<int64_t>>);
+static_assert(std::is_same_v<IntrinsicCall<static_cast<uint64_t (*)()>(nullptr)>::CleanRetType,
+                             std::tuple<uint64_t>>);
+static_assert(std::is_same_v<IntrinsicCall<static_cast<__int128_t (*)()>(nullptr)>::CleanRetType,
+                             std::tuple<__int128_t>>);
+static_assert(std::is_same_v<IntrinsicCall<static_cast<__uint128_t (*)()>(nullptr)>::CleanRetType,
+                             std::tuple<__uint128_t>>);
+// Float16/Float32/Float64 qre unmodified.
+static_assert(
+    std::is_same_v<IntrinsicCall<static_cast<intrinsics::Float16 (*)()>(nullptr)>::CleanRetType,
+                   std::tuple<intrinsics::Float16>>);
+static_assert(
+    std::is_same_v<IntrinsicCall<static_cast<intrinsics::Float32 (*)()>(nullptr)>::CleanRetType,
+                   std::tuple<intrinsics::Float32>>);
+static_assert(
+    std::is_same_v<IntrinsicCall<static_cast<intrinsics::Float64 (*)()>(nullptr)>::CleanRetType,
+                   std::tuple<intrinsics::Float64>>);
+// SIMD128Register and __m128 are treated as __m128.
+static_assert(
+    std::is_same_v<IntrinsicCall<static_cast<SIMD128Register (*)()>(nullptr)>::CleanRetType,
+                   std::tuple<__m128>>);
+static_assert(std::is_same_v<IntrinsicCall<static_cast<__m128 (*)()>(nullptr)>::CleanRetType,
+                             std::tuple<__m128>>);
+
+// Tuple return values.
+
 // Most integer types are unmodified.
 static_assert(std::is_same_v<
               IntrinsicCall<static_cast<std::tuple<const int8_t> (*)()>(nullptr)>::CleanRetType,
@@ -70,6 +112,7 @@ static_assert(
 static_assert(std::is_same_v<
               IntrinsicCall<static_cast<std::tuple<const __m128> (*)()>(nullptr)>::CleanRetType,
               std::tuple<__m128>>);
+
 // Smoke test for Parameters.
 static_assert(
     std::is_same_v<IntrinsicCall<static_cast<void (*)(const __int128_t, const intrinsics::Float16)>(
