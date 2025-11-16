@@ -404,6 +404,9 @@ class VRegLifetime {
 
       // Recompute the end of the first range.
       int new_end = 0;
+      // Since we erase after the begin, there must be at least one access
+      // left in the front.
+      CHECK(!split_pos.range_it->access_list().empty());
       for (auto access : split_pos.range_it->access_list()) {
         new_end = std::max(new_end, access.end());
       }
