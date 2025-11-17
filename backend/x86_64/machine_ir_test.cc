@@ -40,7 +40,7 @@ TEST(MachineIR, SplitBasicBlock) {
   builder.Gen<x86_64::MovqRegImm>(x86_64::kMachineRegRBP, 1);
   builder.Gen<x86_64::MovqRegImm>(x86_64::kMachineRegRBP, 1);
   builder.Gen<x86_64::MovqRegImm>(x86_64::kMachineRegRBP, 1);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   auto insn_it = bb->insn_list().begin();
   std::advance(insn_it, 2);
@@ -49,7 +49,7 @@ TEST(MachineIR, SplitBasicBlock) {
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
   EXPECT_TRUE(machine_ir.bb_list().size() == 2);
   EXPECT_EQ(bb->insn_list().size(), static_cast<unsigned int>(3));
-  EXPECT_EQ(bb->insn_list().back()->opcode(), kMachineOpPseudoBranch);
+  EXPECT_EQ(bb->insn_list().back()->opcode(), kMachineOpBranch);
   EXPECT_EQ(new_bb->insn_list().size(), static_cast<unsigned int>(4));
 }
 
@@ -68,15 +68,15 @@ TEST(MachineIR, SplitBasicBlockWithOutcomingEdges) {
   builder.StartBasicBlock(bb1);
   builder.Gen<x86_64::MovqRegImm>(vreg, 0);
   builder.Gen<x86_64::MovqRegImm>(vreg, 0);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb2);
   builder.Gen<x86_64::MovqRegImm>(vreg, 0);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   builder.StartBasicBlock(bb3);
   builder.Gen<x86_64::MovqRegImm>(vreg, 0);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   auto insn_it = std::next(bb1->insn_list().begin());
   MachineBasicBlock* new_bb = machine_ir.SplitBasicBlock(bb1, insn_it);

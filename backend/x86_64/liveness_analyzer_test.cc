@@ -75,7 +75,7 @@ TEST(MachineLivenessAnalyzerTest, UseProducesLiveIn) {
 
   builder.StartBasicBlock(bb);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   x86_64::LivenessAnalyzer liveness(&machine_ir);
   liveness.Run();
@@ -127,7 +127,7 @@ TEST(MachineLivenessAnalyzerTest, DefEarlyClobberDoesNotProduceLiveIn) {
 
   builder.StartBasicBlock(bb);
   builder.Gen<FakeInsnWithDefEarlyClobber>(vreg);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   x86_64::LivenessAnalyzer liveness(&machine_ir);
   liveness.Run();
@@ -147,7 +147,7 @@ TEST(MachineLivenessAnalyzerTest, DefKillsUse) {
   builder.StartBasicBlock(bb);
   builder.Gen<x86_64::MovqRegImm>(vreg, 0);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   x86_64::LivenessAnalyzer liveness(&machine_ir);
   liveness.Run();
@@ -166,7 +166,7 @@ TEST(MachineLivenessAnalyzerTest, DefDoesNotKillUseInSameInstruction) {
 
   builder.StartBasicBlock(bb);
   builder.Gen<x86_64::MovqRegReg>(vreg, vreg);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   x86_64::LivenessAnalyzer liveness(&machine_ir);
   liveness.Run();
@@ -187,7 +187,7 @@ TEST(MachineLivenessAnalyzerTest, DefDoesNotKillAnotherVReg) {
   builder.StartBasicBlock(bb);
   builder.Gen<x86_64::MovqRegImm>(vreg1, 0);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg2);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   x86_64::LivenessAnalyzer liveness(&machine_ir);
   liveness.Run();

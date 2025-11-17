@@ -18,6 +18,7 @@
 #define BERBERIS_BACKEND_COMMON_LIFETIME_H_
 
 #include <string>
+#include <tuple>
 
 #include "berberis/base/arena_alloc.h"
 #include "berberis/base/arena_list.h"
@@ -50,7 +51,7 @@ class VRegAccess {
           CHECK_EQ(1, index_);
           pos_.insn()->SetRegAt(1, spill);
         } else {
-          pos_.InsertBefore(machine_ir->NewInsn<PseudoCopy>(reg, spill, size));
+          pos_.InsertBefore(machine_ir->NewInsn<Copy>(reg, spill, size));
         }
       }
       if (IsDef()) {
@@ -59,7 +60,7 @@ class VRegAccess {
           CHECK_EQ(0, index_);
           pos_.insn()->SetRegAt(0, spill);
         } else {
-          pos_.InsertAfter(machine_ir->NewInsn<PseudoCopy>(spill, reg, size));
+          pos_.InsertAfter(machine_ir->NewInsn<Copy>(spill, reg, size));
         }
       }
     }
@@ -120,8 +121,9 @@ class VRegLiveRange {
 
   int end() const { return end_; }
 
+  template <bool kAllowShrink = false>
   void set_end(int end) {
-    CHECK_LE(end_, end);
+    if (!kAllowShrink) { CHECK_LE(end_, end);}
     end_ = end;
   }
 
@@ -380,30 +382,33 @@ class VRegLifetime {
     return SPLIT_OK;
   }
 
-  void Split(const SplitPos& split_pos, ArenaList<VRegLifetime>* out) {
-    VRegLiveRangeList::iterator range_it = split_pos.range_it;
-    if (range_it == range_list_.end()) {
+  void Split(const SplitPos& split_pos, ArenaList<VRegLifetime>* tiny_lifetimes) {
+    if (split_pos.range_it == range_list_.end()) {
       return;
     }
-
     // Create tiny lifetime from each use after split pos.
-    VRegAccessList::iterator access_it = split_pos.access_it;
-    for (;;) {
+    for (auto [range_it, access_it] = std::tuple{split_pos.range_it, split_pos.access_it};
+         range_it != range_list_.end();
+         access_it = (++range_it)->access_list().begin()) {
       for (; access_it != range_it->access_list().end(); ++access_it) {
-        out->push_back(VRegLifetime(arena_, *access_it));
-        out->back().SetSpill(GetSpill());
+        tiny_lifetimes->emplace_back(arena_, *access_it);
+        tiny_lifetimes->back().SetSpill(GetSpill());
       }
-      if (++range_it == range_list_.end()) {
-        break;
-      }
-      access_it = range_it->access_list().begin();
     }
 
     // Erase transferred accesses (so they are not rewritten twice).
     VRegLiveRangeList::iterator first_range_to_erase = split_pos.range_it;
-    if (split_pos.access_it != first_range_to_erase->access_list().begin()) {
+    if (split_pos.access_it != split_pos.range_it->access_list().begin()) {
       // Erase only tail of the first range.
       split_pos.range_it->access_list().erase(split_pos.access_it, split_pos.range_it->access_list().end());
+
+      // Recompute the end of the first range.
+      int new_end = 0;
+      for (auto access : split_pos.range_it->access_list()) {
+        new_end = std::max(new_end, access.end());
+      }
+      split_pos.range_it->set_end</* kAllowShrink */ true>(new_end);
+
       ++first_range_to_erase;
     }
     range_list_.erase(first_range_to_erase, range_list_.end());

@@ -26,6 +26,8 @@ namespace x86_64 {
 enum MachineIRCheckStatus {
   kMachineIRCheckSuccess,
   kMachineIRCheckFail,
+  kMachineIRMislinkedEdge,
+  kMachineIRInconsistentEdgesAndInterLiveVRegs,
   kMachineIRCheckDanglingEdge,
   kMachineIRCheckDanglingBasicBlock,
   kMachineIRWrongControlFlowInsnLocation,

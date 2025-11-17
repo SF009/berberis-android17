@@ -61,6 +61,16 @@ MachineIRCheckStatus CheckNoDanglingEdgesOrBasicBlocks(const MachineIR& machine_
   return kMachineIRCheckSuccess;
 }
 
+bool CheckEdgesAndInterLiveVRegsConsistency(const MachineBasicBlock* bb) {
+  if (bb->in_edges().empty() && !bb->live_in().empty()) {
+    return false;
+  }
+  if (bb->out_edges().empty() && !bb->live_out().empty()) {
+    return false;
+  }
+  return true;
+}
+
 bool CheckInOutEdgesLinksToBasicBlock(const MachineBasicBlock* bb) {
   for (auto* edge : bb->in_edges()) {
     if (edge->dst() != bb) {
@@ -104,24 +114,27 @@ MachineIRCheckStatus CheckInsnListIntegrity(const MachineIR* ir, const MachineBa
           return kMachineIRWrongEnterInsnLocation;
         };
         break;
-      case MachineOpcode::kMachineOpPseudoIndirectJump:
-      case MachineOpcode::kMachineOpPseudoJump:
-        return insn == bb->insn_list().back() ? kMachineIRCheckSuccess
-                                              : kMachineIRWrongControlFlowInsnLocation;
-      case MachineOpcode::kMachineOpPseudoBranch: {
+      case MachineOpcode::kMachineOpIndirectJump:
+      case MachineOpcode::kMachineOpJump:
         if (insn != bb->insn_list().back()) {
           return kMachineIRWrongControlFlowInsnLocation;
         }
-        const PseudoBranch* branch = reinterpret_cast<const PseudoBranch*>(insn);
+        return bb->out_edges().empty() ? kMachineIRCheckSuccess
+                                       : kMachineIRControlFlowInsnSuccessorMismatch;
+      case MachineOpcode::kMachineOpBranch: {
+        if (insn != bb->insn_list().back()) {
+          return kMachineIRWrongControlFlowInsnLocation;
+        }
+        const Branch* branch = reinterpret_cast<const Branch*>(insn);
         return IsBasicBlockSuccessor(bb, branch->then_bb())
                    ? kMachineIRCheckSuccess
                    : kMachineIRControlFlowInsnSuccessorMismatch;
       }
-      case MachineOpcode::kMachineOpPseudoCondBranch: {
+      case MachineOpcode::kMachineOpCondBranch: {
         if (insn != bb->insn_list().back()) {
           return kMachineIRWrongControlFlowInsnLocation;
         }
-        const PseudoCondBranch* cond_branch = reinterpret_cast<const PseudoCondBranch*>(insn);
+        const CondBranch* cond_branch = reinterpret_cast<const CondBranch*>(insn);
         return (IsBasicBlockSuccessor(bb, cond_branch->then_bb()) &&
                 IsBasicBlockSuccessor(bb, cond_branch->else_bb()))
                    ? kMachineIRCheckSuccess
@@ -137,8 +150,11 @@ MachineIRCheckStatus CheckInsnListIntegrity(const MachineIR* ir, const MachineBa
 
 MachineIRCheckStatus CheckCFG(const MachineIR& machine_ir) {
   for (auto* bb : machine_ir.bb_list()) {
+    if (!CheckEdgesAndInterLiveVRegsConsistency(bb)) {
+      return kMachineIRInconsistentEdgesAndInterLiveVRegs;
+    }
     if (!CheckInOutEdgesLinksToBasicBlock(bb)) {
-      return kMachineIRCheckFail;
+      return kMachineIRMislinkedEdge;
     }
     auto status = CheckNoDanglingEdgesOrBasicBlocks(machine_ir, bb);
     if (status != kMachineIRCheckSuccess) {

@@ -51,7 +51,7 @@ class SemanticsPlayer {
   using MetaValue = SemanticsListener::template MetaValue<ValueParam>;
   // Syntax sugar to eliminate {} from value conversion.
   template <auto ValueParam>
-  static constexpr MetaValue<ValueParam> kValue{};
+  static constexpr MetaValue<ValueParam> kMeta{};
   template <typename TypeName>
   static constexpr MetaValue<static_cast<int>(sizeof(TypeName))> kSize{};
 
@@ -98,27 +98,27 @@ class SemanticsPlayer {
   Register Amo(typename Decoder::AmoOpcode opcode, Register arg1, Register arg2) {
     switch (opcode) {
       case Decoder::AmoOpcode::kLr:
-        return listener_->Lr(arg1, kType<IntType>, kValue<aq>, kValue<rl>);
+        return listener_->Lr(arg1, kType<IntType>, kMeta<aq>, kMeta<rl>);
       case Decoder::AmoOpcode::kSc:
-        return listener_->Sc(arg1, arg2, kType<IntType>, kValue<aq>, kValue<rl>);
+        return listener_->Sc(arg1, arg2, kType<IntType>, kMeta<aq>, kMeta<rl>);
       case Decoder::AmoOpcode::kAmoswap:
-        return listener_->AmoSwap(arg1, arg2, kType<IntType>, kValue<aq>, kValue<rl>);
+        return listener_->AmoSwap(arg1, arg2, kType<IntType>, kMeta<aq>, kMeta<rl>);
       case Decoder::AmoOpcode::kAmoadd:
-        return listener_->AmoAdd(arg1, arg2, kType<IntType>, kValue<aq>, kValue<rl>);
+        return listener_->AmoAdd(arg1, arg2, kType<IntType>, kMeta<aq>, kMeta<rl>);
       case Decoder::AmoOpcode::kAmoxor:
-        return listener_->AmoXor(arg1, arg2, kType<IntType>, kValue<aq>, kValue<rl>);
+        return listener_->AmoXor(arg1, arg2, kType<IntType>, kMeta<aq>, kMeta<rl>);
       case Decoder::AmoOpcode::kAmoand:
-        return listener_->AmoAnd(arg1, arg2, kType<IntType>, kValue<aq>, kValue<rl>);
+        return listener_->AmoAnd(arg1, arg2, kType<IntType>, kMeta<aq>, kMeta<rl>);
       case Decoder::AmoOpcode::kAmoor:
-        return listener_->AmoOr(arg1, arg2, kType<IntType>, kValue<aq>, kValue<rl>);
+        return listener_->AmoOr(arg1, arg2, kType<IntType>, kMeta<aq>, kMeta<rl>);
       case Decoder::AmoOpcode::kAmomin:
-        return listener_->AmoMin(arg1, arg2, ToSigned(kType<IntType>), kValue<aq>, kValue<rl>);
+        return listener_->AmoMin(arg1, arg2, ToSigned(kType<IntType>), kMeta<aq>, kMeta<rl>);
       case Decoder::AmoOpcode::kAmomax:
-        return listener_->AmoMax(arg1, arg2, ToSigned(kType<IntType>), kValue<aq>, kValue<rl>);
+        return listener_->AmoMax(arg1, arg2, ToSigned(kType<IntType>), kMeta<aq>, kMeta<rl>);
       case Decoder::AmoOpcode::kAmominu:
-        return listener_->AmoMin(arg1, arg2, ToUnsigned(kType<IntType>), kValue<aq>, kValue<rl>);
+        return listener_->AmoMin(arg1, arg2, ToUnsigned(kType<IntType>), kMeta<aq>, kMeta<rl>);
       case Decoder::AmoOpcode::kAmomaxu:
-        return listener_->AmoMax(arg1, arg2, ToUnsigned(kType<IntType>), kValue<aq>, kValue<rl>);
+        return listener_->AmoMax(arg1, arg2, ToUnsigned(kType<IntType>), kMeta<aq>, kMeta<rl>);
       default:
         Undefined();
         return no_register;

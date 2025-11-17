@@ -47,15 +47,15 @@ BuildDataFlowAcrossBasicBlocks(x86_64::MachineIR* machine_ir) {
   builder.StartBasicBlock(bb1);
   builder.Gen<x86_64::MovqRegImm>(vreg1, 0);
   builder.Gen<x86_64::MovqRegImm>(vreg2, 0);
-  builder.Gen<PseudoBranch>(bb2);
+  builder.Gen<Branch>(bb2);
 
   builder.StartBasicBlock(bb2);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg2);
-  builder.Gen<PseudoBranch>(bb3);
+  builder.Gen<Branch>(bb3);
 
   builder.StartBasicBlock(bb3);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg1);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   return {bb1, bb2, bb3, vreg1, vreg2};
 }
@@ -78,15 +78,15 @@ BuildDataFlowFromTwoPreds(x86_64::MachineIR* machine_ir) {
 
   builder.StartBasicBlock(bb1);
   builder.Gen<x86_64::MovqRegImm>(vreg, 0);
-  builder.Gen<PseudoBranch>(bb3);
+  builder.Gen<Branch>(bb3);
 
   builder.StartBasicBlock(bb2);
   builder.Gen<x86_64::MovqRegImm>(vreg, 1);
-  builder.Gen<PseudoBranch>(bb3);
+  builder.Gen<Branch>(bb3);
 
   builder.StartBasicBlock(bb3);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   return {bb1, bb2, bb3, vreg};
 }
@@ -109,15 +109,15 @@ BuildDataFlowToTwoSuccs(x86_64::MachineIR* machine_ir) {
 
   builder.StartBasicBlock(bb1);
   builder.Gen<x86_64::MovqRegImm>(vreg, 0);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb2);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   builder.StartBasicBlock(bb3);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   return {bb1, bb2, bb3, vreg};
 }
@@ -149,16 +149,16 @@ BuildDiamondControlFlow(x86_64::MachineIR* machine_ir) {
 
   builder.StartBasicBlock(bb1);
   builder.Gen<x86_64::MovqRegImm>(vreg, 0);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb2);
-  builder.Gen<PseudoBranch>(bb4);
+  builder.Gen<Branch>(bb4);
 
   builder.StartBasicBlock(bb3);
-  builder.Gen<PseudoBranch>(bb4);
+  builder.Gen<Branch>(bb4);
 
   builder.StartBasicBlock(bb4);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   return {bb1, bb2, bb3, bb4};
 }
@@ -191,17 +191,17 @@ BuildDataFlowAcrossEmptyLoop(x86_64::MachineIR* machine_ir) {
 
   builder.StartBasicBlock(bb1);
   builder.Gen<x86_64::MovqRegImm>(vreg, 0);
-  builder.Gen<PseudoBranch>(bb2);
+  builder.Gen<Branch>(bb2);
 
   builder.StartBasicBlock(bb2);
-  builder.Gen<PseudoCondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, x86_64::kMachineRegFLAGS);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, x86_64::kMachineRegFLAGS);
 
   builder.StartBasicBlock(bb3);
-  builder.Gen<PseudoBranch>(bb2);
+  builder.Gen<Branch>(bb2);
 
   builder.StartBasicBlock(bb4);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   return {bb1, bb2, bb3, bb4, vreg};
 }

@@ -3618,7 +3618,7 @@
         "Vpinsrw": { "feature": "AVX", "opcodes": [ "C4", "01", "01", "C4" ], "type": "vex_rm_to_reg" }
       },
       "args": [
-        { "class": "VecReg128", "usage": "use_def" },
+        { "class": "VecReg128", "usage": "def" },
         { "class": "VecReg128", "usage": "use" },
         { "class": "GeneralReg32", "usage": "use" },
         { "class": "Imm8" }
@@ -3629,7 +3629,7 @@
         "Vpinsrb": { "feature": "AVX", "opcodes": [ "C4", "03", "01", "20" ], "type": "vex_rm_to_reg" }
       },
       "args": [
-        { "class": "VecReg128", "usage": "use_def" },
+        { "class": "VecReg128", "usage": "def" },
         { "class": "VecReg128", "usage": "use" },
         { "class": "Mem8", "usage": "use" },
         { "class": "Imm8" }
@@ -3640,7 +3640,7 @@
         "Vpinsrd": { "feature": "AVX", "opcodes": [ "C4", "03", "01", "22" ], "type": "vex_rm_to_reg" }
       },
       "args": [
-        { "class": "VecReg128", "usage": "use_def" },
+        { "class": "VecReg128", "usage": "def" },
         { "class": "VecReg128", "usage": "use" },
         { "class": "Mem32", "usage": "use" },
         { "class": "Imm8" }
@@ -3651,7 +3651,7 @@
         "Vpinsrw": { "feature": "AVX", "opcodes": [ "C4", "01", "01", "C4" ], "type": "vex_rm_to_reg" }
       },
       "args": [
-        { "class": "VecReg128", "usage": "use_def" },
+        { "class": "VecReg128", "usage": "def" },
         { "class": "VecReg128", "usage": "use" },
         { "class": "Mem16", "usage": "use" },
         { "class": "Imm8" }

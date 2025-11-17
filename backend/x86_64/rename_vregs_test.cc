@@ -42,7 +42,7 @@ TEST(MachineRenameVRegsTest, AssignNewVRegsInSameBasicBlock) {
   builder.StartBasicBlock(bb);
   builder.Gen<x86_64::MovqRegImm>(vreg, 0);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   x86_64::VRegMap vreg_map(&machine_ir);
   vreg_map.AssignNewVRegs();
@@ -71,11 +71,11 @@ TEST(MachineRenameVRegsTest, AssignNewVRegsAcrossBasicBlocks) {
 
   builder.StartBasicBlock(bb1);
   builder.Gen<x86_64::MovqRegImm>(vreg, 0);
-  builder.Gen<PseudoBranch>(bb2);
+  builder.Gen<Branch>(bb2);
 
   builder.StartBasicBlock(bb2);
   builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, vreg);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   x86_64::VRegMap vreg_map(&machine_ir);
   vreg_map.AssignNewVRegs();
@@ -122,12 +122,12 @@ TEST(MachineRenameVRegsTest, DataFlowAcrossBasicBlocks) {
   ASSERT_EQ(bb2->insn_list().size(), 4U);
   MachineReg vreg1_in_bb2, vreg2_in_bb2;
   it = bb2->insn_list().begin();
-  EXPECT_EQ((*it)->opcode(), kMachineOpPseudoCopy);
+  EXPECT_EQ((*it)->opcode(), kMachineOpCopy);
   // Pseudo-moves order is not guaranteed. So consider both cases.
   if ((*it)->RegAt(1) == vreg1_in_bb1) {
     vreg1_in_bb2 = (*it)->RegAt(0);
     it++;
-    EXPECT_EQ((*it)->opcode(), kMachineOpPseudoCopy);
+    EXPECT_EQ((*it)->opcode(), kMachineOpCopy);
     EXPECT_EQ((*it)->RegAt(1), vreg2_in_bb1);
     vreg2_in_bb2 = (*it)->RegAt(0);
   } else {
@@ -135,7 +135,7 @@ TEST(MachineRenameVRegsTest, DataFlowAcrossBasicBlocks) {
 
     vreg2_in_bb2 = (*it)->RegAt(0);
     it++;
-    EXPECT_EQ((*it)->opcode(), kMachineOpPseudoCopy);
+    EXPECT_EQ((*it)->opcode(), kMachineOpCopy);
     EXPECT_EQ((*it)->RegAt(1), vreg1_in_bb1);
     vreg1_in_bb2 = (*it)->RegAt(0);
   }
@@ -149,7 +149,7 @@ TEST(MachineRenameVRegsTest, DataFlowAcrossBasicBlocks) {
   // JUMP
   ASSERT_EQ(bb3->insn_list().size(), 3U);
   it = bb3->insn_list().begin();
-  EXPECT_EQ((*it)->opcode(), kMachineOpPseudoCopy);
+  EXPECT_EQ((*it)->opcode(), kMachineOpCopy);
   EXPECT_EQ((*it)->RegAt(1), vreg1_in_bb2);
   MachineReg vreg1_in_bb3 = (*it)->RegAt(0);
   it++;
@@ -174,7 +174,7 @@ TEST(MachineRenameVRegsTest, DataFlowFromTwoPreds) {
   EXPECT_EQ((*it)->opcode(), kMachineOpMovqRegImm);
   auto vreg_in_bb1 = (*it)->RegAt(0);
   it++;
-  EXPECT_EQ((*it)->opcode(), kMachineOpPseudoCopy);
+  EXPECT_EQ((*it)->opcode(), kMachineOpCopy);
   EXPECT_EQ(vreg_in_bb1, (*it)->RegAt(1));
   auto vreg_in_bb3 = (*it)->RegAt(0);
 
@@ -187,7 +187,7 @@ TEST(MachineRenameVRegsTest, DataFlowFromTwoPreds) {
   EXPECT_EQ((*it)->opcode(), kMachineOpMovqRegImm);
   auto vreg_in_bb2 = (*it)->RegAt(0);
   it++;
-  EXPECT_EQ((*it)->opcode(), kMachineOpPseudoCopy);
+  EXPECT_EQ((*it)->opcode(), kMachineOpCopy);
   EXPECT_EQ(vreg_in_bb2, (*it)->RegAt(1));
   EXPECT_EQ(vreg_in_bb3, (*it)->RegAt(0));
 
@@ -222,7 +222,7 @@ TEST(MachineRenameVRegsTest, DataFlowToTwoSuccs) {
   // JUMP
   ASSERT_EQ(bb2->insn_list().size(), 3U);
   it = bb2->insn_list().begin();
-  EXPECT_EQ((*it)->opcode(), kMachineOpPseudoCopy);
+  EXPECT_EQ((*it)->opcode(), kMachineOpCopy);
   EXPECT_EQ(vreg_in_bb1, (*it)->RegAt(1));
   auto vreg_in_bb2 = (*it)->RegAt(0);
   it++;
@@ -235,7 +235,7 @@ TEST(MachineRenameVRegsTest, DataFlowToTwoSuccs) {
   // JUMP
   ASSERT_EQ(bb3->insn_list().size(), 3U);
   it = bb3->insn_list().begin();
-  EXPECT_EQ((*it)->opcode(), kMachineOpPseudoCopy);
+  EXPECT_EQ((*it)->opcode(), kMachineOpCopy);
   EXPECT_EQ(vreg_in_bb1, (*it)->RegAt(1));
   auto vreg_in_bb3 = (*it)->RegAt(0);
   it++;
@@ -260,7 +260,7 @@ TEST(MachineRenameVRegsTest, DataFlowAcrossEmptyLoop) {
   EXPECT_EQ((*it)->opcode(), kMachineOpMovqRegImm);
   auto vreg_in_bb1 = (*it)->RegAt(0);
   it++;
-  EXPECT_EQ((*it)->opcode(), kMachineOpPseudoCopy);
+  EXPECT_EQ((*it)->opcode(), kMachineOpCopy);
   EXPECT_EQ(vreg_in_bb1, (*it)->RegAt(1));
   auto vreg_in_bb2 = (*it)->RegAt(0);
 
@@ -274,11 +274,11 @@ TEST(MachineRenameVRegsTest, DataFlowAcrossEmptyLoop) {
   // BRAND BB2
   ASSERT_EQ(bb4->insn_list().size(), 3U);
   it = bb3->insn_list().begin();
-  EXPECT_EQ((*it)->opcode(), kMachineOpPseudoCopy);
+  EXPECT_EQ((*it)->opcode(), kMachineOpCopy);
   EXPECT_EQ(vreg_in_bb2, (*it)->RegAt(1));
   auto vreg_in_bb3 = (*it)->RegAt(0);
   it++;
-  EXPECT_EQ((*it)->opcode(), kMachineOpPseudoCopy);
+  EXPECT_EQ((*it)->opcode(), kMachineOpCopy);
   EXPECT_EQ(vreg_in_bb3, (*it)->RegAt(1));
   EXPECT_EQ(vreg_in_bb2, (*it)->RegAt(0));
 
@@ -288,7 +288,7 @@ TEST(MachineRenameVRegsTest, DataFlowAcrossEmptyLoop) {
   // JUMP
   ASSERT_EQ(bb4->insn_list().size(), 3U);
   it = bb4->insn_list().begin();
-  EXPECT_EQ((*it)->opcode(), kMachineOpPseudoCopy);
+  EXPECT_EQ((*it)->opcode(), kMachineOpCopy);
   EXPECT_EQ(vreg_in_bb2, (*it)->RegAt(1));
   auto vreg_in_bb4 = (*it)->RegAt(0);
   it++;

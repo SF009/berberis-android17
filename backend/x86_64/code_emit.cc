@@ -228,7 +228,7 @@ void CallImm::Emit(CodeEmitter* as) const {
 
 }  // namespace x86_64
 
-void PseudoBranch::Emit(CodeEmitter* as) const {
+void Branch::Emit(CodeEmitter* as) const {
   const Assembler::Label* then_label = as->GetLabelAt(then_bb()->id());
 
   if (as->next_label() == then_label) {
@@ -240,7 +240,7 @@ void PseudoBranch::Emit(CodeEmitter* as) const {
   as->Jmp(*then_label);
 }
 
-void PseudoCondBranch::Emit(CodeEmitter* as) const {
+void CondBranch::Emit(CodeEmitter* as) const {
   const Assembler::Label* then_label = as->GetLabelAt(then_bb()->id());
   const Assembler::Label* else_label = as->GetLabelAt(else_bb()->id());
 
@@ -263,7 +263,7 @@ void PseudoCondBranch::Emit(CodeEmitter* as) const {
 
 // Note that we don't emit ABI arguments. They only help to connect IR's data flow with the next
 // region.
-void PseudoJump::Emit(CodeEmitter* as) const {
+void Jump::Emit(CodeEmitter* as) const {
   EmitFreeStackFrame(as, as->frame_size());
 
   if (as->exit_label_for_testing()) {
@@ -291,7 +291,7 @@ void PseudoJump::Emit(CodeEmitter* as) const {
 
 // Note that we don't emit ABI arguments. They only help to connect IR's data flow with the next
 // region.
-void PseudoIndirectJump::Emit(CodeEmitter* as) const {
+void IndirectJump::Emit(CodeEmitter* as) const {
   EmitFreeStackFrame(as, as->frame_size());
   if (as->exit_label_for_testing()) {
     as->Movq(as->rax, x86_64::GetGReg(RegAt(0)));
@@ -301,7 +301,7 @@ void PseudoIndirectJump::Emit(CodeEmitter* as) const {
   EmitIndirectDispatch(as, x86_64::GetGReg(RegAt(0)));
 }
 
-void PseudoCopy::Emit(CodeEmitter* as) const {
+void Copy::Emit(CodeEmitter* as) const {
   MachineReg dst = RegAt(0);
   MachineReg src = RegAt(1);
   if (src == dst) {
@@ -314,25 +314,6 @@ void PseudoCopy::Emit(CodeEmitter* as) const {
   x86_64::EmitCopy(as, dst, src, size);
 }
 
-void PseudoReadFlags::Emit(CodeEmitter* as) const {
-  as->Lahf();
-  if (with_overflow()) {
-    as->Setcc(CodeEmitter::Condition::kOverflow, as->rax);
-  } else {
-    // Still need to fill overflow with zero.
-    as->Movb(as->rax, int8_t{0});
-  }
-}
-
-void PseudoWriteFlags::Emit(CodeEmitter* as) const {
-  as->Addb(as->rax, int8_t{0x7f});
-  as->Sahf();
-}
-
-void SSAPseudoWriteFlags::Emit(CodeEmitter* /*as*/) const {
-  FATAL("SSAPseudoWriteFlags couldn't be emitted");
-}
-
 void MachineIR::Emit(CodeEmitter* as) const {
   EmitAllocStackFrame(as, as->frame_size());
   ArenaVector<std::pair<CodeEmitter::Label*, GuestAddr>> recovery_labels(arena());
@@ -342,8 +323,8 @@ void MachineIR::Emit(CodeEmitter* as) const {
     as->Bind(as->GetLabelAt(bb->id()));
 
     // Let CodeEmitter know the label of the next basic block, if any.
-    // This label can be used e.g. used by PseudoBranch and
-    // PseudoCondBranch to avoid generating jumps to the next basic
+    // This label can be used e.g. used by Branch and
+    // CondBranch to avoid generating jumps to the next basic
     // block.
     auto next_bb_it = std::next(bb_it);
     if (next_bb_it == bb_list().end()) {

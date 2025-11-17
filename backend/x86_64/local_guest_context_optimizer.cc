@@ -16,6 +16,7 @@
 
 #include "berberis/backend/x86_64/local_guest_context_optimizer.h"
 
+#include <cstddef>
 #include <optional>
 #include <variant>
 
@@ -23,105 +24,118 @@
 
 namespace berberis::x86_64 {
 
-namespace {
-
 using OffsetCounterMap = ArenaVector<std::pair<size_t, int>>;
 
-class LocalGuestContextOptimizer {
- public:
-  explicit LocalGuestContextOptimizer(x86_64::MachineIR* machine_ir)
-      : machine_ir_(machine_ir),
-        mem_reg_map_(sizeof(CPUState), std::nullopt, machine_ir->arena()) {}
+void LocalGuestContextOptimizer::UnmapOlderThan(size_t pos, RegType reg_type) {
+  for (auto& mapping : mem_reg_map_) {
+    if (!mapping.has_value()) {
+      continue;
+    }
+    auto reg_usage = mapping.value();
+    // Ignore immediates.
+    if (std::holds_alternative<uint64_t>(reg_usage.value)) {
+      continue;
+    }
 
-  void RemoveLocalGuestContextAccesses(const OptimizeLocalParams& params);
+    MachineReg reg = std::get<MachineReg>(reg_usage.value);
+    const auto& lifetime_map = reg_lifetime_counter_.GetMap();
+    CHECK(lifetime_map.contains(reg));
+    if (lifetime_map.at(reg).reg_type != reg_type) {
+      continue;
+    }
 
- private:
-  using MappedValue = std::variant<MachineReg, uint64_t>;
-  struct MappedRegUsage {
-    MappedValue value;
-    std::optional<MachineInsnList::iterator> last_store;
-  };
-
-  void ReplaceGetAndUpdateMap(const MachineInsnList::iterator insn_it);
-  void ReplacePutAndUpdateMap(MachineInsnList& insn_list, const MachineInsnList::iterator insn_it);
-
-  MachineIR* machine_ir_;
-  ArenaVector<std::optional<MappedRegUsage>> mem_reg_map_;
-};
-
-ArenaVector<int> CountGuestRegAccesses(const MachineIR* ir, MachineBasicBlock* bb) {
-  ArenaVector<int> guest_access_count(sizeof(CPUState), 0, ir->arena());
-  for (auto* base_insn : bb->insn_list()) {
-    if (ir->IsCPUStateGet(base_insn) || ir->IsCPUStatePut(base_insn)) {
-      auto insn = AsMachineInsnX86_64(base_insn);
-      guest_access_count.at(insn->disp())++;
+    if (lifetime_map.at(reg).end_pos <= pos) {
+      mapping = std::nullopt;
     }
   }
-  return guest_access_count;
 }
 
-OffsetCounterMap GetSortedOffsetCounters(MachineIR* ir, MachineBasicBlock* bb) {
-  auto guest_access_count = CountGuestRegAccesses(ir, bb);
-
-  OffsetCounterMap offset_counter_map(ir->arena());
-  for (size_t offset = 0; offset < sizeof(CPUState); offset++) {
-    int cnt = guest_access_count.at(offset);
-    if (cnt > 0) {
-      offset_counter_map.push_back({offset, cnt});
-    }
+void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(OptimizeLocalParams params) {
+  if (machine_ir_->abi() == MachineIR::ABI::kOptimizedEnabled) {
+    params.general_reg_limit = params.general_reg_limit <= 6 ? 0 : params.general_reg_limit - 6;
   }
 
-  std::sort(offset_counter_map.begin(), offset_counter_map.end(), [](auto pair1, auto pair2) {
-    return std::get<1>(pair1) > std::get<1>(pair2);
-  });
-
-  return offset_counter_map;
-}
-
-void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(
-    const OptimizeLocalParams& params) {
   for (auto* bb : machine_ir_->bb_list()) {
     std::fill(mem_reg_map_.begin(), mem_reg_map_.end(), std::nullopt);
+    reg_lifetime_counter_.Count(bb);
 
-    auto sorted_offsets = GetSortedOffsetCounters(machine_ir_, bb);
-    ArenaVector<bool> optimized_offsets(sizeof(CPUState), false, machine_ir_->arena());
-
-    size_t general_reg_count = machine_ir_->abi() == MachineIR::ABI::kOptimizedEnabled ? 6 : 0;
-    size_t simd_reg_count = 0;
-    for (auto [offset, unused_counter] : sorted_offsets) {
-      // TODO(b/232598137): Account for f and v register classes.
-      // Simd regs.
-      if (IsSimdOffset(offset)) {
-        if (simd_reg_count++ < params.simd_reg_limit) {
-          optimized_offsets[offset] = true;
+    int pos = 0;
+    for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end();
+         insn_it++, pos++) {
+      // TODO(b/459820538): optimize this.
+      // TODO(b/460161775): Don't clear regs with last_use >= pos.
+      // If the register pressure at the current instruction is too big, then cancel
+      // all active mappings. So that we don't prolong lifetimes through this
+      // instruction.
+      if (reg_lifetime_counter_.RegCountAt(pos, RegType::kGeneral) >= params.general_reg_limit) {
+        for (size_t i = 0; i < mem_reg_map_.size(); i++) {
+          if (!IsSimdOffset(i)) {
+            mem_reg_map_[i] = std::nullopt;
+          }
         }
-        continue;
       }
-      // General regs and flags.
-      if (general_reg_count++ < params.general_reg_limit) {
-        optimized_offsets[offset] = true;
+      if (reg_lifetime_counter_.RegCountAt(pos, RegType::kXmm) >= params.simd_reg_limit) {
+        for (size_t i = 0; i < mem_reg_map_.size(); i++) {
+          if (IsSimdOffset(i)) {
+            mem_reg_map_[i] = std::nullopt;
+          }
+        }
       }
-    }
 
-    for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end(); insn_it++) {
-      // Skip insn if it accesses regs with low priority
       if (machine_ir_->IsCPUStateGet(*insn_it) || machine_ir_->IsCPUStatePut(*insn_it)) {
         auto* insn = AsMachineInsnX86_64(*insn_it);
-        if (!optimized_offsets.at(insn->disp())) {
-          continue;
-        }
 
-        if (machine_ir_->IsCPUStateGet(insn)) {
-          ReplaceGetAndUpdateMap(insn_it);
-        } else if (machine_ir_->IsCPUStatePut(insn)) {
+        if (machine_ir_->IsCPUStatePut(insn)) {
+          // Replacing PUT doesn't prolong the lifetime of its argument. It will
+          // only be prolonged if we optimize next GET.
           ReplacePutAndUpdateMap(bb->insn_list(), insn_it);
+        } else if (machine_ir_->IsCPUStateGet(insn)) {
+          std::optional<MachineReg> src_reg_opt = ReplaceGetAndUpdateMap(insn_it);
+          if (!src_reg_opt.has_value()) {
+            continue;
+          }
+
+          // If GET replacement is successful, it means there was an allowed
+          // active mapping, the lifetime for which is now prolonged, which
+          // we need to reflect in reg_lifetimes_counter_.
+          auto src_reg = src_reg_opt.value();
+          if (reg_lifetime_counter_.LifetimeAt(src_reg).reg_type == RegType::kUnknown) {
+            continue;
+          }
+          size_t old_end_pos = reg_lifetime_counter_.LifetimeAt(src_reg).end_pos;
+          // TODO(b/459820538): UpdateLastUse could return positions where we go
+          // over the limit so we don't have to recompute it again below.
+          reg_lifetime_counter_.UpdateLastUse(src_reg, *std::next(insn_it), pos + 1);
+
+          // TODO(b/459820538): optimize this.
+          // Now, with the prolonged lifetime, the pressure may be reaching the
+          // limit at one of the previous instructions. If that happens, cancel
+          // all active mappings to make sure the next optimization doesn't
+          // overflow that limit.
+          auto reg_type = reg_lifetime_counter_.LifetimeAt(src_reg).reg_type;
+          const size_t kLimit =
+              reg_type == RegType::kGeneral ? params.general_reg_limit : params.simd_reg_limit;
+
+          for (size_t i = pos; i >= old_end_pos; i--) {
+            size_t count = reg_type == RegType::kGeneral
+                               ? reg_lifetime_counter_.RegCountAt(i, RegType::kGeneral)
+                               : reg_lifetime_counter_.RegCountAt(i, RegType::kXmm);
+            if (count >= kLimit) {
+              UnmapOlderThan(i, reg_type);
+              break;
+            }
+          }
         }
       }
     }
   }
 }
 
-void LocalGuestContextOptimizer::ReplaceGetAndUpdateMap(const MachineInsnList::iterator insn_it) {
+// Optimizes a GET instruction if possible by replacing with PSEUDOCOPY, while
+// also setting up the mapping for future optimizations. On successful
+// optimization, returns the source register we made a copy from.
+std::optional<MachineReg> LocalGuestContextOptimizer::ReplaceGetAndUpdateMap(
+    const MachineInsnList::iterator insn_it) {
   auto* insn = AsMachineInsnX86_64(*insn_it);
   auto dst = insn->RegAt(0);
   auto disp = insn->disp();
@@ -130,19 +144,21 @@ void LocalGuestContextOptimizer::ReplaceGetAndUpdateMap(const MachineInsnList::i
   // the guest context at disp.
   if (!mem_reg_map_[disp].has_value()) {
     mem_reg_map_[disp] = {dst, {}};
-    return;
+    return std::nullopt;
   }
 
   auto copy_size = insn->opcode() == kMachineOpMovdqaXRegMemBaseDisp ? 16 : 8;
   if (std::holds_alternative<MachineReg>(mem_reg_map_[disp].value().value)) {
-    *insn_it = machine_ir_->NewInsn<PseudoCopy>(
-        dst, std::get<MachineReg>(mem_reg_map_[disp].value().value), copy_size);
+    MachineReg ret = std::get<MachineReg>(mem_reg_map_[disp].value().value);
+    *insn_it = machine_ir_->NewInsn<Copy>(dst, ret, copy_size);
+    return ret;
   } else {
     CHECK(insn->opcode() != kMachineOpMovdqaXRegMemBaseDisp &&
           insn->opcode() != kMachineOpMovsdXRegMemBaseDisp);
     *insn_it =
         machine_ir_->NewInsn<MovqRegImm>(dst, std::get<uint64_t>(mem_reg_map_[disp].value().value));
   }
+  return std::nullopt;
 }
 
 void LocalGuestContextOptimizer::ReplacePutAndUpdateMap(MachineInsnList& insn_list,
@@ -164,8 +180,6 @@ void LocalGuestContextOptimizer::ReplacePutAndUpdateMap(MachineInsnList& insn_li
   }
   mem_reg_map_[disp] = {new_value, {insn_it}};
 }
-
-}  // namespace
 
 void RemoveLocalGuestContextAccesses(x86_64::MachineIR* machine_ir,
                                      const OptimizeLocalParams& params) {

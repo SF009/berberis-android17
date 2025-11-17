@@ -58,7 +58,7 @@ void ReplaceGetAndUpdateMap(MachineIR* ir,
 
   auto dst = insn->RegAt(0);
   auto copy_size = insn->opcode() == kMachineOpMovdqaXRegMemBaseDisp ? 16 : 8;
-  auto* new_insn = ir->NewInsn<PseudoCopy>(dst, mem_reg_map[disp].value().reg, copy_size);
+  auto* new_insn = ir->NewInsn<Copy>(dst, mem_reg_map[disp].value().reg, copy_size);
   *insn_it = new_insn;
 }
 
@@ -103,7 +103,7 @@ void ReplacePutAndUpdateMap(MachineIR* ir,
     MachineReg src = insn->RegAt(1);
     auto copy_size = insn->opcode() == kMachineOpMovdqaMemBaseDispXReg ? 16 : 8;
     auto* new_insn = static_cast<berberis::MachineInsn*>(
-        ir->NewInsn<PseudoCopy>(mem_reg_map[disp].value().reg, src, copy_size));
+        ir->NewInsn<Copy>(mem_reg_map[disp].value().reg, src, copy_size));
     *insn_it = new_insn;
   }
 }

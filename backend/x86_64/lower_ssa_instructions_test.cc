@@ -35,18 +35,19 @@ TEST(LowerSSAInstructionsTest, PseudoWriteFlags) {
 
   MachineIRBuilder builder(&machine_ir);
 
-  MachineReg vreg_in = machine_ir.AllocVReg();
-  MachineReg vreg_out = machine_ir.AllocVReg();
+  MachineReg vreg_dest = machine_ir.AllocVReg();
+  MachineReg vreg_src1 = machine_ir.AllocVReg();
+  MachineReg vreg_src2 = machine_ir.AllocVReg();
   MachineReg flags = machine_ir.AllocVReg();
 
   builder.StartBasicBlock(bb);
-  builder.Gen<SSAPseudoWriteFlags>(vreg_out, vreg_in, flags);
+  builder.Gen<AddqRegReg, kSSA>(vreg_dest, vreg_src1, vreg_src2, flags);
 
   LowerSSAInstructions(&machine_ir);
 
   EXPECT_EQ(bb->insn_list().size(), 2UL);
-  EXPECT_EQ(bb->insn_list().front()->opcode(), kMachineOpPseudoCopy);
-  EXPECT_EQ(bb->insn_list().back()->opcode(), kMachineOpPseudoWriteFlags);
+  EXPECT_EQ(bb->insn_list().front()->opcode(), kMachineOpCopy);
+  EXPECT_EQ(bb->insn_list().back()->opcode(), kMachineOpAddqRegReg);
 }
 
 }  // namespace

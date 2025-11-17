@@ -23,6 +23,7 @@
 #include <bit>
 #include <cstdint>
 #include <string>
+#include <tuple>
 
 #include "berberis/assembler/x86_64.h"
 #include "berberis/backend/code_emitter.h"
@@ -56,15 +57,12 @@ enum MachineOpcode : int {
   kMachineOpEnter,
   kMachineOpCallImm,
   kMachineOpCallImmArg,
-  kMachineOpPseudoBranch,
-  kMachineOpPseudoCondBranch,
-  kMachineOpPseudoCopy,
+  kMachineOpBranch,
+  kMachineOpCondBranch,
+  kMachineOpCopy,
   kMachineOpPseudoDefReg,
-  kMachineOpPseudoDefXReg,
-  kMachineOpPseudoIndirectJump,
-  kMachineOpPseudoJump,
-  kMachineOpPseudoReadFlags,
-  kMachineOpPseudoWriteFlags,
+  kMachineOpIndirectJump,
+  kMachineOpJump,
 #include "machine_opcode_x86_64-inl.h"  // NOLINT generated file!
 };
 
@@ -356,8 +354,8 @@ class MachineInsn final : public MachineInsnX86_64 {
   static_assert(
       std::is_same_v<decltype(kSSAMode), enum SSAMode> ||
           !TypesToValues::Any<typename DeviceInsnInfo_::Operands>([]<typename Operand> {
-            return MetaValue<device_arch_info::kIsRegister<Operand> &&
-                             Operand::kUsage == device_arch_info::kUseDef>{};
+            return device_arch_info::kIsRegister<Operand> &&
+                   Operand::kUsage == device_arch_info::kUseDef;
           }),
       "Only instructions without kUseDef operands can be used without kSSAMode specification");
 
@@ -576,8 +574,8 @@ class MachineInsn final : public MachineInsnX86_64 {
   void Emit(CodeEmitter* as) const override {
     if constexpr (kSSAMode == kSSA &&
                   TypesToValues::Any<typename DeviceInsnInfo::Operands>([]<typename Operand> {
-                    return MetaValue<device_arch_info::kIsRegister<Operand> &&
-                                     Operand::kUsage == device_arch_info::kUseDef>{};
+                    return device_arch_info::kIsRegister<Operand> &&
+                           Operand::kUsage == device_arch_info::kUseDef;
                   })) {
       FATAL("Attempt to emit SSA pseudo-instruction");
     } else {
@@ -706,7 +704,7 @@ class MachineInsn final : public MachineInsnX86_64 {
                         kind_idx++;
                         auto src = MachineInsnX86_64::RegAt(reg_idx++);
                         if (dst != src) {
-                          result.push_back(NewInArena<PseudoCopy>(
+                          result.push_back(NewInArena<Copy>(
                               arena, dst, src, kInfo.reg_kinds[kind_idx++].RegClass()->reg_size));
                         }
                         return dst;
@@ -780,8 +778,8 @@ constexpr auto MachineInsn<DeviceInsnInfo, kSSAMode>::GenMachineInsnInfo()
       .opcode = static_cast<MachineOpcode>(
           DeviceInsnInfo::template kOpcode<MachineOpcode> |
           (kSSAMode && TypesToValues::Any<typename DeviceInsnInfo::Operands>([]<typename Operand> {
-             return MetaValue<device_arch_info::kIsRegister<Operand> &&
-                              Operand::kUsage == device_arch_info::kUseDef>{};
+             return device_arch_info::kIsRegister<Operand> &&
+                    Operand::kUsage == device_arch_info::kUseDef;
            })) << kSSAOpcodeBit),
       .kind = GetInsnKind()};
   TypesToValues::ForEachWithTemporary<typename DeviceInsnInfo::Operands,
@@ -963,7 +961,7 @@ class MachineIR : public berberis::MachineIR {
 
     new_bb->insn_list().splice(
         new_bb->insn_list().begin(), bb->insn_list(), insn_it, bb->insn_list().end());
-    bb->insn_list().push_back(NewInsn<PseudoBranch>(new_bb));
+    bb->insn_list().push_back(NewInsn<Branch>(new_bb));
 
     // Relink out edges from bb.
     for (auto out_edge : bb->out_edges()) {
@@ -977,9 +975,8 @@ class MachineIR : public berberis::MachineIR {
   }
 
   [[nodiscard]] static bool IsControlTransfer(berberis::MachineInsn* insn) {
-    return insn->opcode() == kMachineOpPseudoBranch ||
-           insn->opcode() == kMachineOpPseudoCondBranch ||
-           insn->opcode() == kMachineOpPseudoIndirectJump || insn->opcode() == kMachineOpPseudoJump;
+    return insn->opcode() == kMachineOpBranch || insn->opcode() == kMachineOpCondBranch ||
+           insn->opcode() == kMachineOpIndirectJump || insn->opcode() == kMachineOpJump;
   }
 
   [[nodiscard]] BasicBlockOrder bb_order() const { return bb_order_; }

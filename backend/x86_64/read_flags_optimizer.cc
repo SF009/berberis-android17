@@ -35,7 +35,7 @@ bool CheckRegsUnusedWithinInsnRange(MachineInsnList::iterator insn_it,
   for (; insn_it != end; ++insn_it) {
     for (auto i = 0; i < (*insn_it)->NumRegOperands(); i++) {
       if (Contains(regs, (*insn_it)->RegAt(i))) {
-        if (AsMachineInsnX86_64(*insn_it)->opcode() != kMachineOpPseudoCopy || i != 1) {
+        if (AsMachineInsnX86_64(*insn_it)->opcode() != kMachineOpCopy || i != 1) {
           return false;
         }
         regs.push_back((*insn_it)->RegAt(0));
@@ -121,7 +121,7 @@ bool CheckPostLoopNode(MachineBasicBlock* bb, const MachineRegVector& regs) {
   // CheckRegsUnusedWithinInsnRange.
   MachineRegVector copies(regs.get_allocator());
   for (auto* insn : bb->insn_list()) {
-    if ((insn->opcode() == kMachineOpPseudoCopy) && Contains(regs, insn->RegAt(1))) {
+    if ((insn->opcode() == kMachineOpCopy) && Contains(regs, insn->RegAt(1))) {
       copies.push_back(insn->RegAt(0));
     }
   }
@@ -157,7 +157,8 @@ bool RegsLiveInBasicBlock(MachineBasicBlock* bb, const MachineRegVector& regs) {
 bool SupportedInsn(MachineOpcode opcode) {
   switch (opcode) {
     case kMachineOpAddqRegReg:
-    case kMachineOpPseudoReadFlags:
+    case kMachineOpReadFlagsWithOverflow:
+    case kMachineOpReadFlagsWithoutOverflow:
     case kMachineOpCmplRegImm:
     case kMachineOpCmplRegReg:
     case kMachineOpCmpqRegImm:
@@ -187,7 +188,8 @@ void RemoveEligibleReadFlagsInLoopTree(MachineIR* machine_ir, LoopTreeNode* loop
   // TODO(b/417284998): We could skip the nodes which were already scanned in inner loops.
   for (auto* bb : *loop) {
     for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end(); insn_it++) {
-      if (AsMachineInsnX86_64(*insn_it)->opcode() == kMachineOpPseudoReadFlags) {
+      if (AsMachineInsnX86_64(*insn_it)->opcode() == kMachineOpReadFlagsWithOverflow ||
+          AsMachineInsnX86_64(*insn_it)->opcode() == kMachineOpReadFlagsWithoutOverflow) {
         auto flag_set_opt = IsEligibleReadFlag(machine_ir, loop, bb, insn_it);
         if (flag_set_opt.has_value()) {
           RemoveReadFlags(machine_ir, ReadFlagsOptContext{bb, insn_it, flag_set_opt.value()});
@@ -232,9 +234,7 @@ void InsertFlagGenInstructions(MachineIR* machine_ir,
   if (flag_reg_used.has_value()) {
     flag_copy = machine_ir->AllocVReg();
     context.bb->insn_list().insert(
-        insn_it,
-        machine_ir->NewInsn<PseudoReadFlags>(
-            PseudoReadFlags::kWithOverflow, flag_copy, flag_reg_used.value()));
+        insn_it, machine_ir->NewInsn<ReadFlagsWithOverflow>(flag_copy, flag_reg_used.value()));
   }
   MachineReg flag_reg;
   // First add instruction that sets flags register.
@@ -247,7 +247,7 @@ void InsertFlagGenInstructions(MachineIR* machine_ir,
         // If it gets overwritten by the instruction, we need to make a new copy.
         input_reg = machine_ir->AllocVReg();
         context.bb->insn_list().insert(
-            insn_it, machine_ir->NewInsn<PseudoCopy>(input_reg, reg_map.at(insn->RegAt(i)), 8));
+            insn_it, machine_ir->NewInsn<Copy>(input_reg, reg_map.at(insn->RegAt(i)), 8));
       } else {
         // if it's not def we can just reuse the copy from before.
         input_reg = reg_map.at(insn->RegAt(i));
@@ -277,7 +277,7 @@ void InsertFlagGenInstructions(MachineIR* machine_ir,
 
   if (flag_reg_used.has_value()) {
     context.bb->insn_list().insert(
-        insn_it, machine_ir->NewInsn<PseudoWriteFlags>(flag_copy, flag_reg_used.value()));
+        insn_it, machine_ir->NewInsn<WriteFlags, kNoSSA>(flag_copy, flag_reg_used.value()));
   }
 }
 
@@ -309,7 +309,8 @@ std::optional<FlagSettingInsn> IsEligibleReadFlag(MachineIR* machine_ir,
                                                   Loop* loop,
                                                   MachineBasicBlock* bb,
                                                   MachineInsnList::iterator insn_it) {
-  CHECK_EQ(AsMachineInsnX86_64(*insn_it)->opcode(), kMachineOpPseudoReadFlags);
+  CHECK(AsMachineInsnX86_64(*insn_it)->opcode() == kMachineOpReadFlagsWithOverflow ||
+        AsMachineInsnX86_64(*insn_it)->opcode() == kMachineOpReadFlagsWithoutOverflow);
   auto flag_register = (*insn_it)->RegAt(1);
   // We use a set here because the original register will be pseudocopy'd when
   // used as live_out. So long as these new registers adhere to the same
@@ -413,7 +414,7 @@ void RemoveReadFlags(MachineIR* machine_ir, ReadFlagsOptContext context) {
       MachineReg copy = machine_ir->AllocVReg();
       reg_map[insn->RegAt(i)] = copy;
       context.bb->insn_list().insert(insn_it,
-                                     machine_ir->NewInsn<PseudoCopy>(copy, insn->RegAt(i), 8));
+                                     machine_ir->NewInsn<Copy>(copy, insn->RegAt(i), 8));
     }
   }
 
@@ -460,7 +461,7 @@ void ReplaceFlagRegisters(MachineIR* machine_ir,
   }
 
   while (insn_it != context.bb->insn_list().end()) {
-    if (AsMachineInsnX86_64(*insn_it)->opcode() == kMachineOpPseudoCopy &&
+    if (AsMachineInsnX86_64(*insn_it)->opcode() == kMachineOpCopy &&
         Contains(flags_regs, (*insn_it)->RegAt(1))) {
       // If flags register was copied we add the copy to flags_regs and delete instruction.
       flags_regs.push_back((*insn_it)->RegAt(0));

@@ -23,6 +23,7 @@
 #include "berberis/assembler/machine_code.h"
 #include "berberis/backend/code_emitter.h"
 #include "berberis/backend/common/reg_alloc.h"
+#include "berberis/backend/x86_64/lower_ssa_instructions.h"
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/backend/x86_64/machine_ir_builder.h"
 #include "berberis/backend/x86_64/machine_ir_check.h"
@@ -40,6 +41,10 @@ constexpr auto kMachineRegRBP = x86_64::MachineRegs::kRBP;
 constexpr auto kMachineRegRDI = x86_64::MachineRegs::kRDI;
 constexpr auto kMachineRegXMM0 = x86_64::MachineRegs::kXMM0;
 
+using Float16 = intrinsics::Float16;
+using Float32 = intrinsics::Float32;
+using Float64 = intrinsics::Float64;
+
 // TODO(b/232598137): Maybe share with
 // heavy_optimizer/<guest>_to_<host>/call_intrinsic_tests.cc.
 class ExecTest {
@@ -50,7 +55,7 @@ class ExecTest {
     // Add exiting jump if not already.
     auto* last_insn = machine_ir.bb_list().back()->insn_list().back();
     if (!machine_ir.IsControlTransfer(last_insn)) {
-      auto* jump = machine_ir.template NewInsn<PseudoJump>(0);
+      auto* jump = machine_ir.template NewInsn<Jump>(0);
       machine_ir.bb_list().back()->insn_list().push_back(jump);
     }
 
@@ -146,6 +151,444 @@ TEST(ExecMachineIR, Smoke) {
   test.Exec();
   EXPECT_EQ(1ULL, data.x);
   EXPECT_EQ(1ULL, data.y);
+}
+
+TEST(ExecMachineIR, IntrinsicCallByPointer) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+  builder.StartBasicBlock(machine_ir.NewBasicBlock());
+
+  MachineReg flag_register = machine_ir.AllocVReg();
+
+  MachineReg arg = machine_ir.AllocVReg();
+
+  uint64_t data = 0xfeed'f00d'feed'f00dULL;
+  builder.Gen<x86_64::MovqRegImm>(arg, data);
+
+  std::array<MachineReg, 1> args = {arg};
+  std::array<MachineReg, 1> results;
+  // Note: such case wouldn't be allowed in constexpr context (e.g. as parameter of template), but
+  // since we pass pointer to JIT everything works fine with bit_cast here.
+  builder.GenIntrinsicCall<void* (*)(void*)>(
+      flag_register, args, results, bit_cast<void* (*)(void*)>(+[](uint64_t arg) -> uint64_t {
+        return ~arg;
+      }));
+
+  uint64_t result = 0;
+  MachineReg result_ptr_reg = machine_ir.AllocVReg();
+  builder.Gen<x86_64::MovqRegImm>(result_ptr_reg, reinterpret_cast<uintptr_t>(&result));
+  builder.Gen<x86_64::MovqOpReg>({.base = result_ptr_reg}, results[0]);
+
+  AllocRegs(&machine_ir);
+
+  ExecTest test;
+  test.Init(machine_ir);
+  test.Exec();
+  EXPECT_EQ(result, ~data);
+}
+
+std::tuple<uint64_t, uint64_t> IntrinsicCallInt64OperandsTestFunc(uint64_t arg0,
+                                                                  uint64_t arg1,
+                                                                  uint64_t arg2,
+                                                                  uint64_t arg3,
+                                                                  uint64_t arg4,
+                                                                  uint64_t arg5) {
+  uint64_t res = arg0 + arg1 + arg2 + arg3 + arg4 + arg5;
+  return std::tuple<uint64_t, uint64_t>{res, res * 2};
+}
+
+TEST(ExecMachineIR, IntrinsicCallInt64Operands) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+  builder.StartBasicBlock(machine_ir.NewBasicBlock());
+
+  uint64_t data = 0xfeed'f00d'feed'f00dULL;
+  MachineReg data_reg = machine_ir.AllocVReg();
+  MachineReg flag_register = machine_ir.AllocVReg();
+
+  builder.Gen<x86_64::MovqRegImm>(data_reg, data);
+  std::array<MachineReg, 6> args = {data_reg, data_reg, data_reg, data_reg, data_reg, data_reg};
+  std::array<MachineReg, 2> results;
+  builder.GenIntrinsicCall<IntrinsicCallInt64OperandsTestFunc>(flag_register, args, results);
+
+  std::tuple<uint64_t, uint64_t> result = {0, 0};
+  MachineReg result_ptr_reg = machine_ir.AllocVReg();
+  builder.Gen<x86_64::MovqRegImm>(result_ptr_reg, bit_cast<uintptr_t>(&result));
+  builder.Gen<x86_64::MovqOpReg>({.base = result_ptr_reg}, results[0]);
+  builder.Gen<x86_64::MovqOpReg>({.base = result_ptr_reg, .disp = 8}, results[1]);
+
+  AllocRegs(&machine_ir);
+
+  ExecTest test;
+  test.Init(machine_ir);
+  test.Exec();
+  EXPECT_EQ(std::get<0>(result), data * 6);
+  EXPECT_EQ(std::get<1>(result), data * 12);
+}
+
+std::tuple<uint32_t, uint32_t> IntrinsicCallInt32OperandsTestFunc(uint32_t arg0,
+                                                                  uint32_t arg1,
+                                                                  uint32_t arg2,
+                                                                  uint32_t arg3,
+                                                                  uint32_t arg4,
+                                                                  uint32_t arg5) {
+  uint32_t res = arg0 + arg1 + arg2 + arg3 + arg4 + arg5;
+  return std::tuple<uint32_t, uint32_t>{res, res * 2};
+}
+
+TEST(ExecMachineIR, IntrinsicCallInt32Operands) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+  builder.StartBasicBlock(machine_ir.NewBasicBlock());
+
+  uint64_t data = 0xfeed'f00d'feed'f00dULL;
+  MachineReg data_reg = machine_ir.AllocVReg();
+  MachineReg flag_register = machine_ir.AllocVReg();
+
+  builder.Gen<x86_64::MovqRegImm>(data_reg, data);
+  std::array<MachineReg, 6> args = {data_reg, data_reg, data_reg, data_reg, data_reg, data_reg};
+  std::array<MachineReg, 2> results;
+  builder.GenIntrinsicCall<IntrinsicCallInt32OperandsTestFunc>(flag_register, args, results);
+
+  std::tuple<uint32_t, uint32_t> result = {0, 0};
+  MachineReg result_ptr_reg = machine_ir.AllocVReg();
+  builder.Gen<x86_64::MovqRegImm>(result_ptr_reg, bit_cast<uintptr_t>(&result));
+  builder.Gen<x86_64::MovlOpReg>({.base = result_ptr_reg}, results[0]);
+  builder.Gen<x86_64::MovlOpReg>({.base = result_ptr_reg, .disp = 4}, results[1]);
+
+  LowerSSAInstructions(&machine_ir);
+  AllocRegs(&machine_ir);
+
+  ExecTest test;
+  test.Init(machine_ir);
+  test.Exec();
+  EXPECT_EQ(std::get<0>(result), static_cast<uint32_t>(data * 6));
+  EXPECT_EQ(std::get<1>(result), static_cast<uint32_t>(data * 12));
+}
+
+std::tuple<Float64, Float64> IntrinsicCallFloat64OperandsTestFunc(Float64 arg0,
+                                                                  Float64 arg1,
+                                                                  Float64 arg2,
+                                                                  Float64 arg3,
+                                                                  Float64 arg4,
+                                                                  Float64 arg5,
+                                                                  Float64 arg6,
+                                                                  Float64 arg7) {
+  Float64 res = arg0 + arg1 + arg2 + arg3 + arg4 + arg5 + arg6 + arg7;
+  return std::tuple{res, res * Float64{2.0}};
+}
+
+TEST(ExecMachineIR, IntrinsicCallFloat64Operands) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+  builder.StartBasicBlock(machine_ir.NewBasicBlock());
+
+  Float64 data{42.0};
+  MachineReg data_reg = machine_ir.AllocVReg();
+  MachineReg data_xreg = machine_ir.AllocVReg();
+  MachineReg flag_register = machine_ir.AllocVReg();
+
+  builder.Gen<x86_64::MovqRegImm>(data_reg, bit_cast<uint64_t>(data));
+  builder.Gen<x86_64::MovqXRegReg>(data_xreg, data_reg);
+  std::array<MachineReg, 8> args = {
+      data_xreg, data_xreg, data_xreg, data_xreg, data_xreg, data_xreg, data_xreg, data_xreg};
+  std::array<MachineReg, 2> results;
+  builder.GenIntrinsicCall<IntrinsicCallFloat64OperandsTestFunc>(flag_register, args, results);
+
+  std::tuple result = {Float64{0.0}, Float64{0.0}};
+  MachineReg result_ptr_reg = machine_ir.AllocVReg();
+  builder.Gen<x86_64::MovqRegImm>(result_ptr_reg, bit_cast<uintptr_t>(&result));
+  builder.Gen<x86_64::MovqOpXReg>({.base = result_ptr_reg}, results[0]);
+  builder.Gen<x86_64::MovqOpXReg>({.base = result_ptr_reg, .disp = 8}, results[1]);
+
+  AllocRegs(&machine_ir);
+
+  ExecTest test;
+  test.Init(machine_ir);
+  test.Exec();
+  EXPECT_EQ(std::get<0>(result), data * Float64{8.0});
+  EXPECT_EQ(std::get<1>(result), data * Float64{16.0});
+}
+
+std::tuple<Float64, Float64, Float64> IntrinsicCallFloat64OperandsMemResultTestFunc(Float64 arg0,
+                                                                                    Float64 arg1,
+                                                                                    Float64 arg2,
+                                                                                    Float64 arg3,
+                                                                                    Float64 arg4,
+                                                                                    Float64 arg5,
+                                                                                    Float64 arg6,
+                                                                                    Float64 arg7) {
+  Float64 res = arg0 + arg1 + arg2 + arg3 + arg4 + arg5 + arg6 + arg7;
+  return std::tuple{res, res * Float64{2.0}, res * Float64{3.0}};
+}
+
+TEST(ExecMachineIR, IntrinsicCallFloat64MemResultOperands) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+  builder.StartBasicBlock(machine_ir.NewBasicBlock());
+
+  Float64 data{42.0};
+  MachineReg data_reg = machine_ir.AllocVReg();
+  MachineReg data_xreg = machine_ir.AllocVReg();
+  MachineReg flag_register = machine_ir.AllocVReg();
+
+  builder.Gen<x86_64::MovqRegImm>(data_reg, bit_cast<uint64_t>(data));
+  builder.Gen<x86_64::MovqXRegReg>(data_xreg, data_reg);
+  std::tuple result = {Float64{0.0}, Float64{0.0}, Float64{0.0}};
+  MachineReg result_ptr_reg = machine_ir.AllocVReg();
+  builder.Gen<x86_64::MovqRegImm>(result_ptr_reg, bit_cast<uintptr_t>(&result));
+  std::array<MachineReg, 9> args = {result_ptr_reg,
+                                    data_xreg,
+                                    data_xreg,
+                                    data_xreg,
+                                    data_xreg,
+                                    data_xreg,
+                                    data_xreg,
+                                    data_xreg,
+                                    data_xreg};
+  std::array<MachineReg, 1> results;
+  builder.GenIntrinsicCall<IntrinsicCallFloat64OperandsMemResultTestFunc>(
+      flag_register, args, results);
+
+  AllocRegs(&machine_ir);
+
+  ExecTest test;
+  test.Init(machine_ir);
+  test.Exec();
+  EXPECT_EQ(std::get<0>(result), data * Float64{8.0});
+  EXPECT_EQ(std::get<1>(result), data * Float64{16.0});
+  EXPECT_EQ(std::get<2>(result), data * Float64{24.0});
+}
+
+std::tuple<Float32, Float32> IntrinsicCallFloat32OperandsTestFunc(Float32 arg0,
+                                                                  Float32 arg1,
+                                                                  Float32 arg2,
+                                                                  Float32 arg3,
+                                                                  Float32 arg4,
+                                                                  Float32 arg5,
+                                                                  Float32 arg6,
+                                                                  Float32 arg7) {
+  Float32 res = arg0 + arg1 + arg2 + arg3 + arg4 + arg5 + arg6 + arg7;
+  return std::tuple{res, res * Float32{2.0}};
+}
+
+TEST(ExecMachineIR, IntrinsicCallFloat32Operands) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+  builder.StartBasicBlock(machine_ir.NewBasicBlock());
+
+  Float32 data{42.0};
+  MachineReg data_reg = machine_ir.AllocVReg();
+  MachineReg data_xreg = machine_ir.AllocVReg();
+  MachineReg flag_register = machine_ir.AllocVReg();
+
+  builder.Gen<x86_64::MovqRegImm>(data_reg, bit_cast<uint32_t>(data));
+  builder.Gen<x86_64::MovdXRegReg>(data_xreg, data_reg);
+  std::array<MachineReg, 8> args = {
+      data_xreg, data_xreg, data_xreg, data_xreg, data_xreg, data_xreg, data_xreg, data_xreg};
+  std::array<MachineReg, 2> results;
+  builder.GenIntrinsicCall<IntrinsicCallFloat32OperandsTestFunc>(flag_register, args, results);
+
+  std::tuple result = {Float32{0.0}, Float32{0.0}};
+  MachineReg result_ptr_reg = machine_ir.AllocVReg();
+  builder.Gen<x86_64::MovqRegImm>(result_ptr_reg, bit_cast<uintptr_t>(&result));
+  builder.Gen<x86_64::MovdOpXReg>({.base = result_ptr_reg}, results[0]);
+  builder.Gen<x86_64::MovdOpXReg>({.base = result_ptr_reg, .disp = 4}, results[1]);
+
+  LowerSSAInstructions(&machine_ir);
+  AllocRegs(&machine_ir);
+
+  ExecTest test;
+  test.Init(machine_ir);
+  test.Exec();
+  EXPECT_EQ(std::get<0>(result), data * Float32{8.0});
+  EXPECT_EQ(std::get<1>(result), data * Float32{16.0});
+}
+
+// RAX+RDX, Float16 have to be moved to SSE registers properly, even from 0 position.
+std::tuple<Float16, uint16_t, Float16, uint16_t, Float16, uint16_t>
+IntrinsicCallFloat16InIntResistersTestFunc() {
+  return std::tuple{
+      Float16{1.0}, uint16_t{2}, Float16{3.0}, uint16_t{4}, Float16{5.0}, uint16_t{6}};
+}
+
+TEST(ExecMachineIR, IntrinsicCallFloat16InIntResisters) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+  builder.StartBasicBlock(machine_ir.NewBasicBlock());
+
+  MachineReg flag_register = machine_ir.AllocVReg();
+
+  std::array<MachineReg, 0> args;
+  std::array<MachineReg, 6> results;
+  builder.GenIntrinsicCall<IntrinsicCallFloat16InIntResistersTestFunc>(
+      flag_register, args, results);
+
+  std::tuple result{
+      Float16{0.0}, uint16_t{0}, Float16{0.0}, uint16_t{0}, Float16{0.0}, uint16_t{0}};
+  MachineReg result_ptr_reg = machine_ir.AllocVReg();
+  builder.Gen<x86_64::MovqRegImm>(result_ptr_reg, bit_cast<uintptr_t>(&result));
+  builder.Gen<x86_64::PextrwOpXRegImm>({.base = result_ptr_reg}, results[0], int8_t{0});
+  builder.Gen<x86_64::MovwOpReg>({.base = result_ptr_reg, .disp = 2}, results[1]);
+  builder.Gen<x86_64::PextrwOpXRegImm>({.base = result_ptr_reg, .disp = 4}, results[2], int8_t{0});
+  builder.Gen<x86_64::MovwOpReg>({.base = result_ptr_reg, .disp = 6}, results[3]);
+  builder.Gen<x86_64::PextrwOpXRegImm>({.base = result_ptr_reg, .disp = 8}, results[4], int8_t{0});
+  builder.Gen<x86_64::MovwOpReg>({.base = result_ptr_reg, .disp = 10}, results[5]);
+
+  LowerSSAInstructions(&machine_ir);
+  AllocRegs(&machine_ir);
+
+  ExecTest test;
+  test.Init(machine_ir);
+  test.Exec();
+  EXPECT_EQ(bit_cast<_Float16>(std::get<0>(result)), 1.0);
+  EXPECT_EQ(std::get<1>(result), 2);
+  EXPECT_EQ(bit_cast<_Float16>(std::get<2>(result)), 3.0);
+  EXPECT_EQ(std::get<3>(result), 4);
+  EXPECT_EQ(bit_cast<_Float16>(std::get<4>(result)), 5.0);
+  EXPECT_EQ(std::get<5>(result), 6);
+}
+
+// RAX+XMM0. The call returns 3rd and 4th floats in XMM0. The 4th float is shifted and must be
+// properly extracted into a separate SSE register by our intrinsic-call embedding machinery.
+std::tuple<Float16, uint16_t, Float16, uint16_t, Float16, Float16>
+IntrinsicCallFloat16InIntandSSEResistersTestFunc() {
+  return std::tuple{Float16{1.0}, 2, Float16{3.0}, 4, Float16{5.0}, Float16{6}};
+}
+
+TEST(ExecMachineIR, IntrinsicCallFloat16InIntAndSSEResisters) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+  builder.StartBasicBlock(machine_ir.NewBasicBlock());
+
+  MachineReg flag_register = machine_ir.AllocVReg();
+
+  std::array<MachineReg, 0> args;
+  std::array<MachineReg, 6> results;
+  builder.GenIntrinsicCall<IntrinsicCallFloat16InIntandSSEResistersTestFunc>(
+      flag_register, args, results);
+
+  std::tuple result{
+      Float16{0.0}, uint16_t{0}, Float16{0.0}, uint16_t{0}, Float16{0.0}, Float16{0.0}};
+  MachineReg result_ptr_reg = machine_ir.AllocVReg();
+  builder.Gen<x86_64::MovqRegImm>(result_ptr_reg, bit_cast<uintptr_t>(&result));
+  builder.Gen<x86_64::PextrwOpXRegImm>({.base = result_ptr_reg}, results[0], int8_t{0});
+  builder.Gen<x86_64::MovwOpReg>({.base = result_ptr_reg, .disp = 2}, results[1]);
+  builder.Gen<x86_64::PextrwOpXRegImm>({.base = result_ptr_reg, .disp = 4}, results[2], int8_t{0});
+  builder.Gen<x86_64::MovwOpReg>({.base = result_ptr_reg, .disp = 6}, results[3]);
+  builder.Gen<x86_64::PextrwOpXRegImm>({.base = result_ptr_reg, .disp = 8}, results[4], int8_t{0});
+  builder.Gen<x86_64::PextrwOpXRegImm>({.base = result_ptr_reg, .disp = 10}, results[5], int8_t{0});
+
+  LowerSSAInstructions(&machine_ir);
+  AllocRegs(&machine_ir);
+
+  ExecTest test;
+  test.Init(machine_ir);
+  test.Exec();
+  EXPECT_EQ(bit_cast<_Float16>(std::get<0>(result)), 1.0);
+  EXPECT_EQ(std::get<1>(result), 2);
+  EXPECT_EQ(bit_cast<_Float16>(std::get<2>(result)), 3.0);
+  EXPECT_EQ(std::get<3>(result), 4);
+  EXPECT_EQ(bit_cast<_Float16>(std::get<4>(result)), 5.0);
+  EXPECT_EQ(bit_cast<_Float16>(std::get<5>(result)), 6.0);
+}
+
+// RAX+RDX, Float32 have to be moved to SSE registers properly, from 0 and non-0 positions.
+std::tuple<Float32, uint32_t, uint32_t, Float32> IntrinsicCallFloat32InIntResistersTestFunc() {
+  return std::tuple<Float32, uint32_t, uint32_t, Float32>{Float32{1.0}, 2, 3, Float32{4.0}};
+}
+
+TEST(ExecMachineIR, IntrinsicCallFloat32InIntResisters) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+  builder.StartBasicBlock(machine_ir.NewBasicBlock());
+
+  MachineReg flag_register = machine_ir.AllocVReg();
+
+  std::array<MachineReg, 0> args;
+  std::array<MachineReg, 4> results;
+  builder.GenIntrinsicCall<IntrinsicCallFloat32InIntResistersTestFunc>(
+      flag_register, args, results);
+
+  std::tuple<Float32, uint32_t, uint32_t, Float32> result = {Float32{0.0}, 0, 0, Float32{0.0}};
+  MachineReg result_ptr_reg = machine_ir.AllocVReg();
+  builder.Gen<x86_64::MovqRegImm>(result_ptr_reg, bit_cast<uintptr_t>(&result));
+  builder.Gen<x86_64::MovdOpXReg>({.base = result_ptr_reg}, results[0]);
+  builder.Gen<x86_64::MovlOpReg>({.base = result_ptr_reg, .disp = 4}, results[1]);
+  builder.Gen<x86_64::MovlOpReg>({.base = result_ptr_reg, .disp = 8}, results[2]);
+  builder.Gen<x86_64::MovdOpXReg>({.base = result_ptr_reg, .disp = 12}, results[3]);
+
+  LowerSSAInstructions(&machine_ir);
+  AllocRegs(&machine_ir);
+
+  ExecTest test;
+  test.Init(machine_ir);
+  test.Exec();
+  EXPECT_EQ(std::get<0>(result), Float32{1.0});
+  EXPECT_EQ(std::get<1>(result), 2U);
+  EXPECT_EQ(std::get<2>(result), 3U);
+  EXPECT_EQ(std::get<3>(result), Float32{4.0});
+}
+
+// Two inputs would occupy 4 registers and one result would occupy RAX+RDX.
+std::tuple<__uint128_t> IntrinsicCallInt128ValuesTestFunc(__uint128_t x, __uint128_t y) {
+  return std::tuple<__uint128_t>{x + y};
+}
+
+TEST(ExecMachineIR, IntrinsicCallInt128Values) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+  builder.StartBasicBlock(machine_ir.NewBasicBlock());
+
+  MachineReg flag_register = machine_ir.AllocVReg();
+
+  std::array<MachineReg, 4> args;
+  for (auto& arg : args) {
+    arg = machine_ir.AllocVReg();
+  }
+
+  uint64_t data = 0xfeed'f00d'feed'f00dULL;
+  builder.Gen<x86_64::MovqRegImm>(args[0], data);
+  builder.Gen<x86_64::LeaqRegOp>(args[1], {.index = args[0], .scale = CodeEmitter::kTimesTwo});
+  builder.Gen<x86_64::LeaqRegOp>(args[2], {.index = args[0], .scale = CodeEmitter::kTimesFour});
+  builder.Gen<x86_64::LeaqRegOp>(args[3], {.index = args[0], .scale = CodeEmitter::kTimesEight});
+
+  std::array<MachineReg, 2> results;
+  builder.GenIntrinsicCall<IntrinsicCallInt128ValuesTestFunc>(flag_register, args, results);
+
+  __uint128_t result = 0;
+  MachineReg result_ptr_reg = machine_ir.AllocVReg();
+  builder.Gen<x86_64::MovqRegImm>(result_ptr_reg, bit_cast<uintptr_t>(&result));
+  builder.Gen<x86_64::MovqOpReg>({.base = result_ptr_reg}, results[0]);
+  builder.Gen<x86_64::MovqOpReg>({.base = result_ptr_reg, .disp = 8}, results[1]);
+
+  LowerSSAInstructions(&machine_ir);
+  AllocRegs(&machine_ir);
+
+  ExecTest test;
+  test.Init(machine_ir);
+  test.Exec();
+  EXPECT_EQ(result, data + (__uint128_t{data} << 65) + (data << 2) + (__uint128_t{data} << 67));
 }
 
 TEST(ExecMachineIR, CallImm) {
@@ -421,7 +864,7 @@ void TestRegAlloc() {
   MachineReg v0 = machine_ir.AllocVReg();
   builder.Gen<x86_64::MovqRegImm>(v0, 0);
   MachineReg vx0 = machine_ir.AllocVReg();
-  builder.Gen<PseudoDefXReg>(vx0);
+  builder.Gen<PseudoDefReg>(vx0);
   builder.Gen<x86_64::XorpdXRegXReg, x86_64::kNoSSA>(vx0, vx0);
 
   for (int i = 0; i < N; ++i) {
@@ -622,7 +1065,7 @@ class ExecMachineIRTest : public ::testing::Test {
           kMachineRegXMM0,
           {.base = kMachineRegRBP,
            .disp = static_cast<int32_t>(offsetof(Data, slots) + i * sizeof(data_.slots[0]))});
-      builder_.Gen<PseudoCopy>(slots_[i], kMachineRegXMM0, 16);
+      builder_.Gen<Copy>(slots_[i], kMachineRegXMM0, 16);
     }
 
     for (size_t i = 0; i < std::size(kXmms); ++i) {
@@ -656,7 +1099,7 @@ class ExecMachineIRTest : public ::testing::Test {
     }
 
     for (size_t i = 0; i < std::size(data_.slots); ++i) {
-      builder_.Gen<PseudoCopy>(kMachineRegXMM0, slots_[i], 16);
+      builder_.Gen<Copy>(kMachineRegXMM0, slots_[i], 16);
       builder_.Gen<x86_64::MovdquOpXReg>(
           {.base = kMachineRegRBP,
            .disp = static_cast<int32_t>(offsetof(Data, slots) + i * sizeof(data_.slots[0]))},
@@ -679,25 +1122,25 @@ TEST_F(ExecMachineIRTest, Copy) {
   InitData(&data_);
   Data dst_data = data_;
 
-  builder_.Gen<PseudoCopy>(kGRegs[1], kGRegs[0], 8);
+  builder_.Gen<Copy>(kGRegs[1], kGRegs[0], 8);
   dst_data.gregs[1] = data_.gregs[0];
 
-  builder_.Gen<PseudoCopy>(slots_[0], kXmms[0], 8);
+  builder_.Gen<Copy>(slots_[0], kXmms[0], 8);
   dst_data.slots[0].lo = data_.xmms[0].lo;
 
-  builder_.Gen<PseudoCopy>(slots_[1], kXmms[1], 16);
+  builder_.Gen<Copy>(slots_[1], kXmms[1], 16);
   dst_data.slots[1] = data_.xmms[1];
 
-  builder_.Gen<PseudoCopy>(kXmms[3], kXmms[2], 16);
+  builder_.Gen<Copy>(kXmms[3], kXmms[2], 16);
   dst_data.xmms[3] = data_.xmms[2];
 
-  // The minimum copy amount is 8 bytes. PseudoCopy of a smaller size will copy
+  // The minimum copy amount is 8 bytes. Copy of a smaller size will copy
   // garbage in upper bytes. This is in compliance with MachineIR assumptions,
   // but we cannot reliably test it.
-  builder_.Gen<PseudoCopy>(slots_[5], slots_[4], 8);
+  builder_.Gen<Copy>(slots_[5], slots_[4], 8);
   dst_data.slots[5].lo = data_.slots[4].lo;
 
-  builder_.Gen<PseudoCopy>(slots_[7], slots_[6], 16);
+  builder_.Gen<Copy>(slots_[7], slots_[6], 16);
   dst_data.slots[7] = data_.slots[6];
 
   Finalize();
@@ -741,6 +1184,7 @@ TEST(ExecMachineIR, RecoveryBlock) {
   x86_64::MachineIR machine_ir(&arena);
   constexpr auto kScratchReg = kMachineRegRBP;
   auto* main_bb = machine_ir.NewBasicBlock();
+  auto* exit_bb = machine_ir.NewBasicBlock();
   auto* recovery_bb = machine_ir.NewBasicBlock();
 
   x86_64::MachineIRBuilder builder(&machine_ir);
@@ -750,12 +1194,16 @@ TEST(ExecMachineIR, RecoveryBlock) {
       kScratchReg, kScratchReg, x86_64::kMachineRegFLAGS);
   builder.Gen<x86_64::MovqOpReg>({.base = kScratchReg}, kScratchReg);
   builder.SetRecoveryPointAtLastInsn(recovery_bb);
-  builder.Gen<PseudoJump>(21ULL);
+  builder.Gen<Branch>(exit_bb);
+
+  builder.StartBasicBlock(exit_bb);
+  builder.Gen<Jump>(42ULL);
 
   builder.StartBasicBlock(recovery_bb);
-  builder.Gen<PseudoJump>(42ULL);
+  builder.Gen<Jump>(42ULL);
 
   machine_ir.AddEdge(main_bb, recovery_bb);
+  machine_ir.AddEdge(main_bb, exit_bb);
 
   ExecTest test;
   test.Init(machine_ir);
@@ -792,7 +1240,58 @@ TEST(ExecMachineIR, RecoveryWithGuestPC) {
   EXPECT_EQ(test.returned_rax(), 42ULL);
 }
 
-TEST(ExecMachineIR, PseudoReadFlags) {
+TEST(ExecMachineIR, RecoveryWithGuestPCAndSpills) {
+  ScopedSignalHandler handler(SIGSEGV, SigsegvHandler);
+
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+  builder.StartBasicBlock(machine_ir.NewBasicBlock());
+
+  // Create a lot of virtual registers to force spilling, which in turn will
+  // create a non-zero stack frame.
+  constexpr int kNumVRegs = 32;
+  MachineReg vregs[kNumVRegs];
+  for (int i = 0; i < kNumVRegs; ++i) {
+    vregs[i] = machine_ir.AllocVReg();
+    builder.Gen<x86_64::MovqRegImm>(vregs[i], i);
+  }
+
+  // Cause a SIGSEGV by dereferencing a null pointer.
+  // Use one of the virtual registers to hold the null pointer.
+  MachineReg zero_reg = machine_ir.AllocVReg();
+  builder.Gen<x86_64::MovqRegImm>(zero_reg, 0);
+  builder.Gen<x86_64::MovqOpReg>({.base = zero_reg}, zero_reg);
+  builder.SetRecoveryWithGuestPCAtLastInsn(123ULL);
+
+  // Use the other vregs after the faulting instruction to ensure they are live
+  // across it. This forces the register allocator to spill them if necessary.
+  // This code path is not expected to be executed but is needed for liveness
+  // analysis.
+  MachineReg sum = machine_ir.AllocVReg();
+  builder.Gen<x86_64::MovqRegImm>(sum, 0);
+  for (int i = 0; i < kNumVRegs; ++i) {
+    MachineReg vflags = machine_ir.AllocVReg();
+    builder.Gen<x86_64::AddqRegReg, x86_64::kNoSSA>(sum, vregs[i], vflags);
+  }
+
+  AllocRegs(&machine_ir);
+  EXPECT_GT(machine_ir.FrameSize(), 0u);
+
+  ExecTest test;
+  test.Init(machine_ir);
+  g_recovery_map = &test.recovery_map();
+
+  test.Exec();
+
+  // Verify that recovery was successful and the correct guest PC was returned.
+  // A successful execution implies the stack was correctly restored by
+  // EmitFreeStackFrame in the recovery path.
+  EXPECT_EQ(test.returned_rax(), 123ULL);
+}
+
+TEST(ExecMachineIR, ReadFlagsWithOverflow) {
   struct Data {
     uint64_t x;
     uint64_t y;
@@ -813,8 +1312,7 @@ TEST(ExecMachineIR, PseudoReadFlags) {
       kMachineRegRAX,
       {.base = kMachineRegRBP, .disp = offsetof(Data, y)},
       x86_64::kMachineRegFLAGS);
-  builder.Gen<PseudoReadFlags>(
-      PseudoReadFlags::kWithOverflow, kMachineRegRAX, x86_64::kMachineRegFLAGS);
+  builder.Gen<x86_64::ReadFlagsWithOverflow>(kMachineRegRAX, x86_64::kMachineRegFLAGS);
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&res_flags));
   builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP}, kMachineRegRAX);
 
@@ -837,7 +1335,7 @@ TEST(ExecMachineIR, PseudoReadFlags) {
   EXPECT_EQ(res_flags & MakeFlags(0b1111), MakeFlags(0b1001));
 }
 
-TEST(ExecMachineIR, PseudoReadFlagsWithoutOverflow) {
+TEST(ExecMachineIR, ReadFlagsWithoutOverflow) {
   struct Data {
     uint64_t x;
     uint64_t y;
@@ -860,8 +1358,8 @@ TEST(ExecMachineIR, PseudoReadFlagsWithoutOverflow) {
       x86_64::kMachineRegFLAGS);
   // ReadFlags must reset overflow to zero, even if it's set in RAX.
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRAX, MakeFlags(0b0001));
-  builder.Gen<PseudoReadFlags>(
-      PseudoReadFlags::kWithoutOverflow, kMachineRegRAX, x86_64::kMachineRegFLAGS);
+  builder.Gen<x86_64::ReadFlagsWithoutOverflow, x86_64::kNoSSA>(kMachineRegRAX,
+                                                                x86_64::kMachineRegFLAGS);
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&res_flags));
   builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP}, kMachineRegRAX);
 
@@ -875,7 +1373,7 @@ TEST(ExecMachineIR, PseudoReadFlagsWithoutOverflow) {
   EXPECT_EQ(res_flags & MakeFlags(0b1111), MakeFlags(0b1000));
 }
 
-TEST(ExecMachineIR, PseudoWriteFlags) {
+TEST(ExecMachineIR, WriteFlags) {
   uint64_t arg_flags;
   uint64_t res_flags;
 
@@ -887,10 +1385,10 @@ TEST(ExecMachineIR, PseudoWriteFlags) {
 
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&arg_flags));
   builder.Gen<x86_64::MovqRegOp>(kMachineRegRAX, {.base = kMachineRegRBP});
-  builder.Gen<PseudoWriteFlags>(kMachineRegRAX, x86_64::kMachineRegFLAGS);
+  builder.Gen<x86_64::WriteFlags, x86_64::kNoSSA>(kMachineRegRAX, x86_64::kMachineRegFLAGS);
   // Assume PseudoReadFlags is verified by another test.
-  builder.Gen<PseudoReadFlags>(
-      PseudoReadFlags::kWithOverflow, kMachineRegRAX, x86_64::kMachineRegFLAGS);
+  builder.Gen<x86_64::ReadFlagsWithOverflow, x86_64::kNoSSA>(kMachineRegRAX,
+                                                             x86_64::kMachineRegFLAGS);
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&res_flags));
   builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP}, kMachineRegRAX);
 

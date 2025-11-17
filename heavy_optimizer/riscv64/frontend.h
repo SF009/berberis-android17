@@ -115,7 +115,7 @@ class HeavyOptimizerFrontend {
   [[nodiscard]] Register GetImm(int64_t imm);
   [[nodiscard]] Register Copy(Register value) {
     Register result = AllocTempReg();
-    builder_.Gen<PseudoCopy>(result, value, 8);
+    builder_.Gen<berberis::Copy>(result, value, 8);
     return result;
   }
 
@@ -382,7 +382,7 @@ class HeavyOptimizerFrontend {
 
   FpRegister Fmv(FpRegister arg) {
     auto res = AllocTempSimdReg();
-    builder_.Gen<PseudoCopy>(res.machine_reg(), arg.machine_reg(), 16);
+    builder_.Gen<berberis::Copy>(res.machine_reg(), arg.machine_reg(), 16);
     return res;
   }
 
@@ -499,36 +499,33 @@ class HeavyOptimizerFrontend {
             typename... AssemblerArgType,
             std::enable_if_t<!std::is_same_v<std::decay_t<AssemblerResType>, void>, bool> = true>
   AssemblerResType CallIntrinsic(AssemblerArgType... args) {
-    AssemblerResType result;
-
-    if constexpr (std::is_same_v<AssemblerResType, Register>) {
-      result = AllocTempReg();
-    } else if constexpr (std::is_same_v<AssemblerResType, SimdReg>) {
-      result = AllocTempSimdReg();
-    } else if constexpr (std::is_same_v<AssemblerResType, std::tuple<Register, Register>>) {
-      result = {AllocTempReg(), AllocTempReg()};
-    } else if constexpr (std::is_same_v<AssemblerResType, std::tuple<SimdReg, Register>>) {
-      result = {AllocTempSimdReg(), AllocTempReg()};
-    } else if constexpr (std::is_same_v<AssemblerResType, std::tuple<SimdReg, SimdReg>>) {
-      result = {AllocTempSimdReg(), AllocTempSimdReg()};
-    } else if constexpr (std::is_same_v<AssemblerResType, std::tuple<SimdReg, SimdReg, SimdReg>>) {
-      result = {AllocTempSimdReg(), AllocTempSimdReg(), AllocTempSimdReg()};
-    } else if constexpr (std::is_same_v<AssemblerResType,
-                                        std::tuple<SimdReg, SimdReg, SimdReg, SimdReg>>) {
-      result = {AllocTempSimdReg(), AllocTempSimdReg(), AllocTempSimdReg(), AllocTempSimdReg()};
-    } else {
-      // This should not be reached by the compiler. If it is - there is a new result type that
-      // needs to be supported.
-      static_assert(kDependentTypeFalse<AssemblerResType>, "Unsupported result type");
-    }
+    auto result = TypesToValues::Map<typename x86_64::IntrinsicCall<kFunction>::CleanRetType>(
+        [this]<typename ResType>() {
+          if constexpr (std::is_integral_v<ResType> || std::is_pointer_v<ResType>) {
+            return AllocTempReg();
+          } else {
+            return AllocTempSimdReg();
+          }
+        });
 
     if (TryInlineIntrinsicForHeavyOptimizer<kFunction>(
             &builder_, result, GetFlagsRegister(), args...)) {
-      return result;
+      if constexpr (std::tuple_size_v<typename x86_64::IntrinsicCall<kFunction>::CleanRetType> ==
+                    1) {
+        return std::get<0>(result);
+      } else {
+        return result;
+      }
     }
 
-    CallIntrinsicImpl(&builder_, kFunction, result, GetFlagsRegister(), args...);
-    return result;
+    if constexpr (std::tuple_size_v<typename x86_64::IntrinsicCall<kFunction>::CleanRetType> == 1) {
+      auto single_result = std::get<0>(result);
+      CallIntrinsicImpl(&builder_, kFunction, single_result, GetFlagsRegister(), args...);
+      return single_result;
+    } else {
+      CallIntrinsicImpl(&builder_, kFunction, result, GetFlagsRegister(), args...);
+      return result;
+    }
   }
 
   void MemoryRegionReservationLoad(Register aligned_addr);
@@ -602,7 +599,7 @@ class HeavyOptimizerFrontend {
                 // as input for shift.
                 auto dst = AllocTempReg();
                 auto src = std::get<kOperand.arg_index>(args_tuple);
-                builder_.Gen<PseudoCopy>(dst, src, kOperand.pseudo_copy_size);
+                builder_.Gen<berberis::Copy>(dst, src, kOperand.pseudo_copy_size);
                 return dst;
               } else {
                 static_assert(kOperand.process_way == kPassthroughOperand);
@@ -644,7 +641,7 @@ class HeavyOptimizerFrontend {
     auto* cont_bb = builder_.ir()->NewBasicBlock();
     builder_.ir()->AddEdge(region_entry_bb, cont_bb);
     builder_.StartBasicBlock(region_entry_bb);
-    builder_.Gen<PseudoBranch>(cont_bb);
+    builder_.Gen<berberis::Branch>(cont_bb);
     builder_.StartBasicBlock(cont_bb);
   }
 
@@ -680,7 +677,7 @@ template <>
 HeavyOptimizerFrontend::GetCsr<CsrName::kFCsr>() {
   auto tmp = AllocTempReg();
   InlineIntrinsicForHeavyOptimizer<&intrinsics::FeGetExceptions>(
-      &builder_, tmp, GetFlagsRegister());
+      &builder_, std::tuple{tmp}, GetFlagsRegister());
   auto [csr_reg] = Gen<x86_64::MovzxbqRegOp>(
       {.base = x86_64::kMachineRegRBP, .disp = kCsrFieldOffset<CsrName::kFrm>});
   auto [shifted_reg, shl_flags] = Gen<x86_64::ShlbRegImm>(csr_reg, int8_t{5});

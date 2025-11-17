@@ -66,7 +66,7 @@ TEST(MachineIRReadFlagsOptimizer, CountLifetimeCounts) {
   builder.Gen<AddqRegReg, kNoSSA>(reg1, reg2, machine_ir.AllocVReg());
   builder.Gen<PxorXRegXReg, kNoSSA>(xreg0, xreg1);
   builder.Gen<MovqRegReg>(reg3, reg2);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   RegLifetimeCounter counter(&machine_ir);
   counter.Count(bb);
@@ -116,40 +116,40 @@ TEST(MachineIRReadFlagsOptimizer, CountRegLifetimeMap) {
   auto* reg0_end = builder.Gen<AddqRegReg, kNoSSA>(reg1, reg1, machine_ir.AllocVReg());
   auto* reg3_start = builder.Gen<MovqRegReg>(reg3, reg1);
   auto* reg1_end = builder.Gen<PxorXRegXReg, kNoSSA>(reg2, reg2);
-  builder.Gen<PseudoJump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   RegLifetimeCounter counter(&machine_ir);
   counter.Count(bb);
-  auto& lifetime_map = counter.GetMap();
-  ASSERT_TRUE(std::holds_alternative<LiveIn>(lifetime_map[reg0].start));
-  ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map[reg0].end), reg0_end);
-  ASSERT_EQ(lifetime_map[reg0].start_pos, 0);
-  ASSERT_EQ(lifetime_map[reg0].end_pos, 1);
-  ASSERT_EQ(lifetime_map[reg0].reg_type, RegType::kGeneral);
+  const auto& lifetime_map = counter.GetMap();
+  ASSERT_TRUE(std::holds_alternative<LiveIn>(lifetime_map.at(reg0).start));
+  ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map.at(reg0).end), reg0_end);
+  ASSERT_EQ(lifetime_map.at(reg0).start_pos, 0UL);
+  ASSERT_EQ(lifetime_map.at(reg0).end_pos, 1UL);
+  ASSERT_EQ(lifetime_map.at(reg0).reg_type, RegType::kGeneral);
 
-  ASSERT_TRUE(std::holds_alternative<LiveIn>(lifetime_map[reg1].start));
-  ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map[reg1].end), reg1_end);
-  ASSERT_EQ(lifetime_map[reg1].start_pos, 0);
-  ASSERT_EQ(lifetime_map[reg1].end_pos, 3);
-  ASSERT_EQ(lifetime_map[reg1].reg_type, RegType::kGeneral);
+  ASSERT_TRUE(std::holds_alternative<LiveIn>(lifetime_map.at(reg1).start));
+  ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map.at(reg1).end), reg1_end);
+  ASSERT_EQ(lifetime_map.at(reg1).start_pos, 0UL);
+  ASSERT_EQ(lifetime_map.at(reg1).end_pos, 3UL);
+  ASSERT_EQ(lifetime_map.at(reg1).reg_type, RegType::kGeneral);
 
-  ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map[reg2].start), reg1_end);
-  ASSERT_TRUE(std::holds_alternative<LiveOut>(lifetime_map[reg2].end));
-  ASSERT_EQ(lifetime_map[reg2].start_pos, 3);
-  ASSERT_EQ(lifetime_map[reg2].end_pos, 5);
-  ASSERT_EQ(lifetime_map[reg2].reg_type, RegType::kXmm);
+  ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map.at(reg2).start), reg1_end);
+  ASSERT_TRUE(std::holds_alternative<LiveOut>(lifetime_map.at(reg2).end));
+  ASSERT_EQ(lifetime_map.at(reg2).start_pos, 3UL);
+  ASSERT_EQ(lifetime_map.at(reg2).end_pos, 5UL);
+  ASSERT_EQ(lifetime_map.at(reg2).reg_type, RegType::kXmm);
 
-  ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map[reg3].start), reg3_start);
-  ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map[reg3].end), reg1_end);
-  ASSERT_EQ(lifetime_map[reg3].start_pos, 2);
-  ASSERT_EQ(lifetime_map[reg3].end_pos, 3);
-  ASSERT_EQ(lifetime_map[reg3].reg_type, RegType::kGeneral);
+  ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map.at(reg3).start), reg3_start);
+  ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime_map.at(reg3).end), reg1_end);
+  ASSERT_EQ(lifetime_map.at(reg3).start_pos, 2UL);
+  ASSERT_EQ(lifetime_map.at(reg3).end_pos, 3UL);
+  ASSERT_EQ(lifetime_map.at(reg3).reg_type, RegType::kGeneral);
 
-  ASSERT_TRUE(std::holds_alternative<LiveIn>(lifetime_map[reg4].start));
-  ASSERT_TRUE(std::holds_alternative<LiveOut>(lifetime_map[reg4].end));
-  ASSERT_EQ(lifetime_map[reg4].start_pos, 0);
-  ASSERT_EQ(lifetime_map[reg4].end_pos, 5);
-  ASSERT_EQ(lifetime_map[reg4].reg_type, RegType::kUnknown);
+  ASSERT_TRUE(std::holds_alternative<LiveIn>(lifetime_map.at(reg4).start));
+  ASSERT_TRUE(std::holds_alternative<LiveOut>(lifetime_map.at(reg4).end));
+  ASSERT_EQ(lifetime_map.at(reg4).start_pos, 0UL);
+  ASSERT_EQ(lifetime_map.at(reg4).end_pos, 5UL);
+  ASSERT_EQ(lifetime_map.at(reg4).reg_type, RegType::kUnknown);
 }
 
 TEST(MachineIRReadFlagsOptimizer, UpdateLastUse) {
@@ -168,23 +168,23 @@ TEST(MachineIRReadFlagsOptimizer, UpdateLastUse) {
   builder.Gen<AddqRegReg, kNoSSA>(reg0, reg1, kMachineRegFLAGS);
   builder.Gen<MovqRegImm>(reg2, 2);
   builder.Gen<AddqRegReg, kNoSSA>(reg0, reg2, kMachineRegFLAGS);
-  auto* new_end = builder.Gen<PseudoJump>(kNullGuestAddr);
+  auto* new_end = builder.Gen<Jump>(kNullGuestAddr);
 
   RegLifetimeCounter counter(&machine_ir);
   counter.Count(bb);
   auto& counts = counter.GetCounts();
 
   ASSERT_EQ(counts.size(), 6UL);
-  EXPECT_EQ(counts[2].general, 2);
-  EXPECT_EQ(counts[3].general, 2);
-  EXPECT_EQ(counts[4].general, 2);
-  EXPECT_EQ(counts[5].general, 0);
+  EXPECT_EQ(counts[2].general, 2UL);
+  EXPECT_EQ(counts[3].general, 2UL);
+  EXPECT_EQ(counts[4].general, 2UL);
+  EXPECT_EQ(counts[5].general, 0UL);
 
   counter.UpdateLastUse(reg1, new_end, 5);
-  EXPECT_EQ(counts[2].general, 2);
-  EXPECT_EQ(counts[3].general, 3);
-  EXPECT_EQ(counts[4].general, 3);
-  EXPECT_EQ(counts[5].general, 0);
+  EXPECT_EQ(counts[2].general, 2UL);
+  EXPECT_EQ(counts[3].general, 3UL);
+  EXPECT_EQ(counts[4].general, 3UL);
+  EXPECT_EQ(counts[5].general, 0UL);
 }
 
 }  // namespace

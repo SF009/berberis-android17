@@ -138,11 +138,11 @@ std::string MachineIR::GetDebugStringAsDot() const {
   return str;
 }
 
-std::string PseudoBranch::GetDebugString() const {
+std::string Branch::GetDebugString() const {
   return StringPrintf("PSEUDO_BRANCH %d", then_bb()->id());
 }
 
-std::string PseudoCondBranch::GetDebugString() const {
+std::string CondBranch::GetDebugString() const {
   std::string out("PSEUDO_COND_BRANCH ");
   out += GetCondName(cond());
   out += ", ";
@@ -152,7 +152,7 @@ std::string PseudoCondBranch::GetDebugString() const {
   return out;
 }
 
-std::string PseudoJump::GetDebugString() const {
+std::string Jump::GetDebugString() const {
   const char* suffix;
   switch (kind_) {
     case Kind::kJumpWithPendingSignalsCheck:
@@ -180,7 +180,7 @@ std::string PseudoJump::GetDebugString() const {
   return out;
 }
 
-std::string PseudoIndirectJump::GetDebugString() const {
+std::string IndirectJump::GetDebugString() const {
   std::string out("PSEUDO_INDIRECT_JUMP ");
   for (int i = 0; i < NumRegOperands(); ++i) {
     if (i != 0) {
@@ -191,7 +191,7 @@ std::string PseudoIndirectJump::GetDebugString() const {
   return out;
 }
 
-std::string PseudoCopy::GetDebugString() const {
+std::string Copy::GetDebugString() const {
   std::string out("PSEUDO_COPY ");
   out += GetRegOperandDebugString(this, 0);
   out += ", ";
@@ -199,39 +199,8 @@ std::string PseudoCopy::GetDebugString() const {
   return out;
 }
 
-std::string PseudoDefXReg::GetDebugString() const {
-  return std::string("PSEUDO_DEF ") + GetRegOperandDebugString(this, 0);
-}
-
 std::string PseudoDefReg::GetDebugString() const {
   return std::string("PSEUDO_DEF ") + GetRegOperandDebugString(this, 0);
-}
-
-std::string PseudoReadFlags::GetDebugString() const {
-  std::string out("PSEUDO_READ_FLAGS ");
-  out += with_overflow() ? "" : "(skip overflow) ";
-  out += GetRegOperandDebugString(this, 0);
-  out += ", ";
-  out += GetRegOperandDebugString(this, 1);
-  return out;
-}
-
-std::string PseudoWriteFlags::GetDebugString() const {
-  std::string out("PSEUDO_WRITE_FLAGS ");
-  out += GetRegOperandDebugString(this, 1);
-  out += ", ";
-  out += GetRegOperandDebugString(this, 0);
-  return out;
-}
-
-std::string SSAPseudoWriteFlags::GetDebugString() const {
-  std::string out("PSEUDO_WRITE_FLAGS ");
-  out += GetRegOperandDebugString(this, 2);
-  out += ", ";
-  out += GetRegOperandDebugString(this, 0);
-  out += "/";
-  out += GetRegOperandDebugString(this, 1);
-  return out;
 }
 
 }  // namespace berberis

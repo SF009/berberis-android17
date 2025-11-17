@@ -29,7 +29,7 @@ void ApplyMerge(MachineBasicBlock* bb_to, MachineBasicBlock* bb_from) {
   // BB merges should occur at the stage where BB's have no live_out registers.
   CHECK_EQ(bb_to->live_out().size(), 0);
 
-  CHECK_EQ(bb_to->insn_list().back()->opcode(), kMachineOpPseudoBranch);
+  CHECK_EQ(bb_to->insn_list().back()->opcode(), kMachineOpBranch);
   bb_to->insn_list().pop_back();
   bb_to->insn_list().splice(bb_to->insn_list().end(), bb_from->insn_list());
 

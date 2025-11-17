@@ -27,14 +27,14 @@ namespace berberis::x86_64 {
 
 inline MachineReg CheckCopyGetInsnAndObtainMappedReg(berberis::MachineInsn* get_insn,
                                                      MachineReg expected_dst) {
-  EXPECT_EQ(get_insn->opcode(), kMachineOpPseudoCopy);
+  EXPECT_EQ(get_insn->opcode(), kMachineOpCopy);
   EXPECT_EQ(get_insn->RegAt(0), expected_dst);
   return get_insn->RegAt(1);
 }
 
 inline MachineReg CheckCopyPutInsnAndObtainMappedReg(berberis::MachineInsn* put_insn,
                                                      MachineReg expected_src) {
-  EXPECT_EQ(put_insn->opcode(), kMachineOpPseudoCopy);
+  EXPECT_EQ(put_insn->opcode(), kMachineOpCopy);
   EXPECT_EQ(put_insn->RegAt(1), expected_src);
   return put_insn->RegAt(0);
 }

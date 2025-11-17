@@ -16,6 +16,7 @@
 
 #include "berberis/backend/x86_64/reg_lifetime.h"
 
+#include <cstddef>
 #include <iterator>
 #include <variant>
 
@@ -28,6 +29,12 @@ namespace berberis::x86_64 {
 void RegLifetimeCounter::Count(MachineBasicBlock* bb) {
   CountRegLifetimeMap(bb);
   CountRegLifetimes(bb);
+}
+
+size_t RegLifetimeCounter::RegCountAt(size_t pos, RegType reg_type) const {
+  CHECK(reg_type != RegType::kUnknown);
+  return reg_type == RegType::kGeneral ? lifetime_counts_.at(pos).general
+                                       : lifetime_counts_.at(pos).xmm;
 }
 
 void RegLifetimeCounter::UpdateLastUse(MachineReg reg, berberis::MachineInsn* end, int end_pos) {
@@ -52,6 +59,7 @@ void RegLifetimeCounter::UpdateLastUse(MachineReg reg, berberis::MachineInsn* en
 
 void RegLifetimeCounter::CountRegLifetimeMap(MachineBasicBlock* bb) {
   CHECK(!bb->insn_list().empty());
+  lifetime_map_.clear();
   // First get all live_ins.
   for (auto reg : bb->live_in()) {
     lifetime_map_[reg] = RegLifetime{
@@ -71,7 +79,7 @@ void RegLifetimeCounter::CountRegLifetimeMap(MachineBasicBlock* bb) {
   //   ... # Here v1 can actually be discarded but our algorithm considers it alive.
   //   v1 = 5
   std::variant<LiveOut, berberis::MachineInsn*> next_insn;
-  int pos = 0;
+  size_t pos = 0;
   for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end(); insn_it++, pos++) {
     auto insn = *insn_it;
     if (std::next(insn_it) == bb->insn_list().end()) {
@@ -148,6 +156,7 @@ void RegLifetimeCount::Increment(RegType reg_type) {
 void RegLifetimeCounter::CountRegLifetimes(MachineBasicBlock* bb) {
   CHECK(!bb->insn_list().empty());
   lifetime_counts_.resize(bb->insn_list().size());
+  std::fill(lifetime_counts_.begin(), lifetime_counts_.end(), RegLifetimeCount{});
   ArenaVector<RegLifetimeCount> increment_map(
       // size+1 to make handling live_outs simpler.
       bb->insn_list().size() + 1,
