@@ -188,6 +188,52 @@ TEST(ExecMachineIR, IntrinsicCallByPointer) {
   EXPECT_EQ(result, ~data);
 }
 
+template <typename IntType>
+class IntrinsicCallSmallIntegerExpansionTest : public ExecTest {
+ public:
+  IntrinsicCallSmallIntegerExpansionTest() {
+    Arena arena;
+    x86_64::MachineIR machine_ir(&arena);
+
+    x86_64::MachineIRBuilder builder(&machine_ir);
+    builder.StartBasicBlock(machine_ir.NewBasicBlock());
+
+    MachineReg flags_register = machine_ir.AllocVReg();
+
+    MachineReg arg = machine_ir.AllocVReg();
+
+    uint64_t data = 0xaaaa'aaaa'aaaa'aaaaULL;
+    builder.Gen<x86_64::MovqRegImm>(arg, data);
+
+    std::array<MachineReg, 1> args = {arg};
+    auto [call_insn, results] = builder.GenIntrinsicCall(
+        +[](IntType arg) -> uint64_t { return ~static_cast<uint64_t>(arg); }, flags_register, args);
+
+    uint64_t result = 0;
+    MachineReg result_ptr_reg = machine_ir.AllocVReg();
+    builder.Gen<x86_64::MovqRegImm>(result_ptr_reg, reinterpret_cast<uintptr_t>(&result));
+    builder.Gen<x86_64::MovqOpReg>({.base = result_ptr_reg}, results[0]);
+
+    AllocRegs(&machine_ir);
+
+    Init(machine_ir);
+    Exec();
+    CHECK_EQ(result, ~static_cast<uint64_t>(static_cast<IntType>(data)));
+  }
+};
+
+// Verify that our workaround for https://github.com/llvm/llvm-project/issues/43573 works.
+TEST(ExecMachineIR, IntrinsicCallSmallIntegerExpansion) {
+  IntrinsicCallSmallIntegerExpansionTest<int8_t>{};
+  IntrinsicCallSmallIntegerExpansionTest<uint8_t>{};
+  IntrinsicCallSmallIntegerExpansionTest<int16_t>{};
+  IntrinsicCallSmallIntegerExpansionTest<uint16_t>{};
+  IntrinsicCallSmallIntegerExpansionTest<int32_t>{};
+  IntrinsicCallSmallIntegerExpansionTest<uint32_t>{};
+  IntrinsicCallSmallIntegerExpansionTest<int64_t>{};
+  IntrinsicCallSmallIntegerExpansionTest<uint64_t>{};
+}
+
 std::tuple<uint64_t, uint64_t> IntrinsicCallInt64OperandsTestFunc(uint64_t arg0,
                                                                   uint64_t arg1,
                                                                   uint64_t arg2,
