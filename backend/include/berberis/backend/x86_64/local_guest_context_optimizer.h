@@ -51,7 +51,7 @@ class LocalGuestContextOptimizer {
   void UnmapOlderThan(size_t pos, RegType reg_type);
   const RegLifetimeCounter& GetLifetimeCounterForTesting() const { return reg_lifetime_counter_; }
   const MemRegUsageMap& GetMemRegUsageMapForTesting() const { return mem_reg_map_; }
-  void RemoveLocalGuestContextAccesses(OptimizeLocalParams params);
+  void RemoveLocalGuestContextAccesses(const OptimizeLocalParams& params);
 
  private:
   std::optional<MachineReg> ReplaceGetAndUpdateMap(const MachineInsnList::iterator insn_it);

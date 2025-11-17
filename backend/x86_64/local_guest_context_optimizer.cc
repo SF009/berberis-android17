@@ -50,10 +50,13 @@ void LocalGuestContextOptimizer::UnmapOlderThan(size_t pos, RegType reg_type) {
   }
 }
 
-void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(OptimizeLocalParams params) {
-  if (machine_ir_->abi() == MachineIR::ABI::kOptimizedEnabled) {
-    params.general_reg_limit = params.general_reg_limit <= 6 ? 0 : params.general_reg_limit - 6;
-  }
+void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(
+    const OptimizeLocalParams& params) {
+  const size_t kGenRegLimit =
+      machine_ir_->abi() == MachineIR::ABI::kOptimizedEnabled
+          ? (params.general_reg_limit >= 6 ? params.general_reg_limit - 6 : 0UL)
+          : params.general_reg_limit;
+  const size_t kSimdRegLimit = params.simd_reg_limit;
 
   for (auto* bb : machine_ir_->bb_list()) {
     std::fill(mem_reg_map_.begin(), mem_reg_map_.end(), std::nullopt);
@@ -67,14 +70,14 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(OptimizeLocalPa
       // If the register pressure at the current instruction is too big, then cancel
       // all active mappings. So that we don't prolong lifetimes through this
       // instruction.
-      if (reg_lifetime_counter_.RegCountAt(pos, RegType::kGeneral) >= params.general_reg_limit) {
+      if (reg_lifetime_counter_.RegCountAt(pos, RegType::kGeneral) >= kGenRegLimit) {
         for (size_t i = 0; i < mem_reg_map_.size(); i++) {
           if (!IsSimdOffset(i)) {
             mem_reg_map_[i] = std::nullopt;
           }
         }
       }
-      if (reg_lifetime_counter_.RegCountAt(pos, RegType::kXmm) >= params.simd_reg_limit) {
+      if (reg_lifetime_counter_.RegCountAt(pos, RegType::kXmm) >= kSimdRegLimit) {
         for (size_t i = 0; i < mem_reg_map_.size(); i++) {
           if (IsSimdOffset(i)) {
             mem_reg_map_[i] = std::nullopt;
@@ -113,8 +116,7 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(OptimizeLocalPa
           // all active mappings to make sure the next optimization doesn't
           // overflow that limit.
           auto reg_type = reg_lifetime_counter_.LifetimeAt(src_reg).reg_type;
-          const size_t kLimit =
-              reg_type == RegType::kGeneral ? params.general_reg_limit : params.simd_reg_limit;
+          const size_t kLimit = reg_type == RegType::kGeneral ? kGenRegLimit : kSimdRegLimit;
 
           for (size_t i = pos; i >= old_end_pos; i--) {
             size_t count = reg_type == RegType::kGeneral
