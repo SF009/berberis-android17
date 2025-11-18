@@ -33,7 +33,6 @@
 #include "berberis/runtime_primitives/memory_region_reservation.h"
 #include "berberis/runtime_primitives/platform.h"
 
-#include "call_intrinsic.h"
 #include "inline_intrinsic.h"
 #include "simd_register.h"
 
@@ -480,60 +479,45 @@ class HeavyOptimizerFrontend {
       std::size(x86_64::IntrinsicCall<static_cast<FunctionType>(nullptr)>::kResultsElements)>;
 
  private:
-  // Specialization for AssemblerResType=void
-  template <auto kFunction,
-            typename AssemblerResType,
-            typename... AssemblerArgType,
-            std::enable_if_t<std::is_same_v<std::decay_t<AssemblerResType>, void>, bool> = true>
-  void CallIntrinsic(AssemblerArgType... args) {
-    if (TryInlineIntrinsicForHeavyOptimizerVoid<kFunction>(
-            &builder_, GetFlagsRegister(), args...)) {
-      return;
-    }
-
-    CallIntrinsicImpl(&builder_, kFunction, GetFlagsRegister(), args...);
-  }
-
-  template <auto kFunction,
-            typename AssemblerResType,
-            typename... AssemblerArgType,
-            std::enable_if_t<!std::is_same_v<std::decay_t<AssemblerResType>, void>, bool> = true>
+  template <auto kFunction, typename AssemblerResType = void, typename... AssemblerArgType>
   AssemblerResType CallIntrinsic(AssemblerArgType... args) {
-    auto result = TypesToValues::Map<typename x86_64::IntrinsicCall<kFunction>::CleanRetType>(
-        []<typename ResType>() {
-          if constexpr (std::is_integral_v<ResType> || std::is_pointer_v<ResType>) {
-            return MachineReg{};
-          } else {
-            return FpRegister{};
-          }
-        });
+    using IntrinsicCall = x86_64::IntrinsicCall<static_cast<decltype(kFunction)>(nullptr)>;
+    auto result = TypesToValues::Map<typename IntrinsicCall::CleanRetType>([]<typename ResType>() {
+      if constexpr (std::is_integral_v<ResType> || std::is_pointer_v<ResType>) {
+        return MachineReg{};
+      } else {
+        return FpRegister{};
+      }
+    });
 
     if (TryInlineIntrinsicForHeavyOptimizer<kFunction>(
             &builder_, result, GetFlagsRegister(), args...)) {
-      if constexpr (std::tuple_size_v<typename x86_64::IntrinsicCall<kFunction>::CleanRetType> ==
-                    1) {
+      if constexpr (!std::size(IntrinsicCall::kResultsElements)) {
+        return;
+      } else if constexpr (std::tuple_size_v<typename IntrinsicCall::CleanRetType> == 1) {
         return std::get<0>(result);
       } else {
         return result;
       }
     }
 
-    result = TypesToValues::Map<typename x86_64::IntrinsicCall<kFunction>::CleanRetType>(
-        [this]<typename ResType>() {
-          if constexpr (std::is_integral_v<ResType> || std::is_pointer_v<ResType>) {
-            return AllocTempReg();
-          } else {
-            return AllocTempSimdReg();
-          }
-        });
-
-    if constexpr (std::tuple_size_v<typename x86_64::IntrinsicCall<kFunction>::CleanRetType> == 1) {
-      auto single_result = std::get<0>(result);
-      CallIntrinsicImpl(&builder_, kFunction, single_result, GetFlagsRegister(), args...);
-      return single_result;
-    } else {
-      CallIntrinsicImpl(&builder_, kFunction, result, GetFlagsRegister(), args...);
-      return result;
+    auto call_result = CallIntrinsic<decltype(kFunction), AssemblerArgType...>(
+        kFunction, std::forward<AssemblerArgType>(args)...);
+    if constexpr (std::size(IntrinsicCall::kResultsElements)) {
+      result = TypesToValues::MapWithTemporary<typename IntrinsicCall::CleanRetType,
+                                               /* index = */ std::size_t>(
+          [&call_result]<typename ResType>(std::size_t& index) {
+            if constexpr (std::is_integral_v<ResType> || std::is_pointer_v<ResType>) {
+              return call_result[index++];
+            } else {
+              return FpRegister{call_result[index++]};
+            }
+          });
+      if constexpr (std::tuple_size_v<typename IntrinsicCall::CleanRetType> == 1) {
+        return std::get<0>(result);
+      } else {
+        return result;
+      }
     }
   }
 
