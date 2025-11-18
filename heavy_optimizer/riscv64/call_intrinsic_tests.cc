@@ -30,9 +30,140 @@
 #include "berberis/base/arena_alloc.h"
 #include "berberis/base/bit_util.h"
 #include "berberis/code_gen_lib/code_gen_lib.h"
+#include "berberis/guest_state/guest_addr.h"
+#include "berberis/guest_state/guest_state.h"
 #include "berberis/test_utils/scoped_exec_region.h"
+#include "berberis/test_utils/testing_run_generated_code.h"
+
+#include "frontend.h"
 
 namespace berberis {
+
+namespace {
+
+// Upper 16-bits must be zero in a valid address.
+constexpr GuestAddr kStartGuestAddr = 0x0000'aaaa'bbbb'ccccULL;
+
+class HeavyOptimizerCallIntrinsicTest : public ::testing::Test {
+ public:
+  HeavyOptimizerCallIntrinsicTest()
+      : arena_(), machine_ir_(&arena_), state_{}, frontend_(&machine_ir_, kStartGuestAddr) {}
+
+  void RunOneInsn() { RunImpl(kStartGuestAddr + 4); }
+
+  void RunBranch(GuestAddr stop_pc) { RunImpl(stop_pc); }
+
+ private:
+  void RunImpl(GuestAddr stop_pc) {
+    // We can run the same code multiple times, but compile it once.
+    if (machine_code_.install_size() == 0) {
+      frontend_.Finalize(kStartGuestAddr + 4);
+      x86_64::GenCode(&machine_ir_, &machine_code_);
+    }
+
+    ScopedExecRegion exec(&machine_code_);
+
+    TestingRunGeneratedCode(&state_, exec.get(), stop_pc);
+  }
+
+  Arena arena_;
+  x86_64::MachineIR machine_ir_;
+  MachineCode machine_code_;
+
+ protected:
+  ThreadState state_;
+  HeavyOptimizerFrontend frontend_;
+};
+
+#define DEFINE_CALL_INTRINSIC_INT_TEST(IntType)                                               \
+  TEST_F(HeavyOptimizerCallIntrinsicTest, CallIntrinsic_##IntType) {                          \
+    auto [result] = frontend_.CallIntrinsic(                                                  \
+        +[]() -> IntType { return static_cast<IntType>(0xaaaa'aaaa'aaaa'aaaa); });            \
+                                                                                              \
+    frontend_.SetReg(3, result);                                                              \
+                                                                                              \
+    RunOneInsn();                                                                             \
+    EXPECT_EQ(state_.cpu.x[3], ExpectedResult<IntType>(0xaaaa'aaaa'aaaa'aaaa));               \
+  }                                                                                           \
+                                                                                              \
+  TEST_F(HeavyOptimizerCallIntrinsicTest, CallIntrinsic_##IntType##_x2) {                     \
+    auto [result1, result2] = frontend_.CallIntrinsic(+[]() -> std::tuple<IntType, IntType> { \
+      return {static_cast<IntType>(0xaaaa'aaaa'aaaa'aaaa),                                    \
+              static_cast<IntType>(0xbbbb'bbbb'bbbb'bbbb)};                                   \
+    });                                                                                       \
+                                                                                              \
+    frontend_.SetReg(3, result1);                                                             \
+    frontend_.SetReg(4, result2);                                                             \
+                                                                                              \
+    RunOneInsn();                                                                             \
+    EXPECT_EQ(state_.cpu.x[3], ExpectedResult<IntType>(0xaaaa'aaaa'aaaa'aaaa));               \
+    EXPECT_EQ(state_.cpu.x[4], ExpectedResult<IntType>(0xbbbb'bbbb'bbbb'bbbb));               \
+  }                                                                                           \
+                                                                                              \
+  TEST_F(HeavyOptimizerCallIntrinsicTest, CallIntrinsic_##IntType##_x3) {                     \
+    auto [result1, result2, result3] =                                                        \
+        frontend_.CallIntrinsic(+[]() -> std::tuple<uint64_t, uint64_t, IntType> {            \
+          return {0xaaaa'aaaa'aaaa'aaaa,                                                      \
+                  0xbbbb'bbbb'bbbb'bbbb,                                                      \
+                  static_cast<IntType>(0xcccc'cccc'cccc'cccc)};                               \
+        });                                                                                   \
+                                                                                              \
+    frontend_.SetReg(3, result1);                                                             \
+    frontend_.SetReg(4, result2);                                                             \
+    ;                                                                                         \
+    frontend_.SetReg(5, result3);                                                             \
+                                                                                              \
+    RunOneInsn();                                                                             \
+    EXPECT_EQ(state_.cpu.x[3], 0xaaaa'aaaa'aaaa'aaaa);                                        \
+    EXPECT_EQ(state_.cpu.x[4], 0xbbbb'bbbb'bbbb'bbbb);                                        \
+    EXPECT_EQ(state_.cpu.x[5], ExpectedResult<IntType>(0xcccc'cccc'cccc'cccc));               \
+  }                                                                                           \
+                                                                                              \
+  TEST_F(HeavyOptimizerCallIntrinsicTest, CallIntrinsic_##IntType##_x4) {                     \
+    auto [result1, result2, result3, result4] =                                               \
+        frontend_.CallIntrinsic(+[]() -> std::tuple<uint64_t, uint64_t, IntType, IntType> {   \
+          return {0xaaaa'aaaa'aaaa'aaaa,                                                      \
+                  0xbbbb'bbbb'bbbb'bbbb,                                                      \
+                  static_cast<IntType>(0xcccc'cccc'cccc'cccc),                                \
+                  static_cast<IntType>(0xdddd'dddd'dddd'dddd)};                               \
+        });                                                                                   \
+                                                                                              \
+    frontend_.SetReg(3, result1);                                                             \
+    frontend_.SetReg(4, result2);                                                             \
+    frontend_.SetReg(5, result3);                                                             \
+    frontend_.SetReg(6, result4);                                                             \
+                                                                                              \
+    RunOneInsn();                                                                             \
+    EXPECT_EQ(state_.cpu.x[3], 0xaaaa'aaaa'aaaa'aaaa);                                        \
+    EXPECT_EQ(state_.cpu.x[4], 0xbbbb'bbbb'bbbb'bbbb);                                        \
+    EXPECT_EQ(state_.cpu.x[5], ExpectedResult<IntType>(0xcccc'cccc'cccc'cccc));               \
+    EXPECT_EQ(state_.cpu.x[6], ExpectedResult<IntType>(0xdddd'dddd'dddd'dddd));               \
+  }
+
+// Determines what happens when source value is truncated to ResultType and then processed by
+// CallIntrinsic to produce value in 64-bit register.
+template <typename IntermediateIntType>
+uint64_t ExpectedResult(uint64_t original_value) {
+  if constexpr (sizeof(IntermediateIntType) < 8) {
+    return static_cast<uint64_t>(
+        static_cast<int32_t>(static_cast<IntermediateIntType>(original_value)));
+  } else {
+    return original_value;
+  }
+}
+
+DEFINE_CALL_INTRINSIC_INT_TEST(int8_t)
+DEFINE_CALL_INTRINSIC_INT_TEST(uint8_t)
+DEFINE_CALL_INTRINSIC_INT_TEST(int16_t)
+DEFINE_CALL_INTRINSIC_INT_TEST(uint16_t)
+DEFINE_CALL_INTRINSIC_INT_TEST(int32_t)
+DEFINE_CALL_INTRINSIC_INT_TEST(uint32_t)
+DEFINE_CALL_INTRINSIC_INT_TEST(int64_t)
+DEFINE_CALL_INTRINSIC_INT_TEST(uint64_t)
+
+#undef DEFINE_CALL_INTRINSIC_INT_TEST
+
+}  // namespace
 
 namespace {
 
@@ -145,7 +276,7 @@ void CallOneArgumentIntrinsicUseRegister(IntrinsicFunc func, uint64_t argument, 
   test.Exec();
 }
 
-TEST(HeavyOptimizerCallIntrinsicTest, U32Result) {
+TEST(HeavyOptimizerCallIntrinsicTest22, U32Result) {
   uint64_t result = 0;
   CallOneArgumentIntrinsicUseRegister(reinterpret_cast<std::tuple<uint32_t> (*)(uint64_t)>(CopyU64),
                                       0xaaaa'bbbb'cccc'eeffULL,
@@ -159,7 +290,7 @@ TEST(HeavyOptimizerCallIntrinsicTest, U32Result) {
   EXPECT_EQ(result, 0x5ccc'eeffULL);
 }
 
-TEST(HeavyOptimizerCallIntrinsicTest, I32Result) {
+TEST(HeavyOptimizerCallIntrinsicTest22, I32Result) {
   uint64_t result = 0;
   CallOneArgumentIntrinsicUseRegister(reinterpret_cast<std::tuple<int32_t> (*)(uint64_t)>(CopyU64),
                                       0xaaaa'bbbb'cccc'eeffULL,
@@ -172,7 +303,7 @@ TEST(HeavyOptimizerCallIntrinsicTest, I32Result) {
   EXPECT_EQ(result, 0xffff'ffff'cccc'eeffULL);
 }
 
-TEST(HeavyOptimizerCallIntrinsicTest, ZeroExtendU8Arg) {
+TEST(HeavyOptimizerCallIntrinsicTest22, ZeroExtendU8Arg) {
   uint64_t result = 0;
   CallOneArgumentIntrinsicUseRegister(reinterpret_cast<std::tuple<uint64_t> (*)(uint8_t)>(CopyU64),
                                       0xaaaa'bbbb'cccc'eeffULL,
@@ -186,7 +317,7 @@ TEST(HeavyOptimizerCallIntrinsicTest, ZeroExtendU8Arg) {
   EXPECT_EQ(result, 0xffULL);
 }
 
-TEST(HeavyOptimizerCallIntrinsicTest, ZeroExtendU16Arg) {
+TEST(HeavyOptimizerCallIntrinsicTest22, ZeroExtendU16Arg) {
   uint64_t result = 0;
   CallOneArgumentIntrinsicUseRegister(reinterpret_cast<std::tuple<uint64_t> (*)(uint16_t)>(CopyU64),
                                       0xaaaa'bbbb'cccc'eeffULL,
@@ -211,7 +342,7 @@ TEST(HeavyOptimizerCallIntrinsicTest, ZeroExtendU16Arg) {
   EXPECT_EQ(result, 0xeeffULL);
 }
 
-TEST(HeavyOptimizerCallIntrinsicTest, SignExtendU32Arg) {
+TEST(HeavyOptimizerCallIntrinsicTest22, SignExtendU32Arg) {
   uint64_t result = 0;
   CallOneArgumentIntrinsicUseRegister(reinterpret_cast<std::tuple<uint64_t> (*)(uint32_t)>(CopyU64),
                                       0xaaaa'bbbb'cccc'eeffULL,
@@ -225,7 +356,7 @@ TEST(HeavyOptimizerCallIntrinsicTest, SignExtendU32Arg) {
   EXPECT_EQ(result, 0xffff'ffff'cccc'eeffULL);
 }
 
-TEST(HeavyOptimizerCallIntrinsicTest, SignExtendI8Arg) {
+TEST(HeavyOptimizerCallIntrinsicTest22, SignExtendI8Arg) {
   uint64_t result = 0;
   CallOneArgumentIntrinsicUseRegister(reinterpret_cast<std::tuple<uint64_t> (*)(int8_t)>(CopyU64),
                                       0xaaaa'bbbb'cccc'eeffULL,
@@ -239,7 +370,7 @@ TEST(HeavyOptimizerCallIntrinsicTest, SignExtendI8Arg) {
   EXPECT_EQ(result, 0xffff'ffff'ffff'ffffULL);
 }
 
-TEST(HeavyOptimizerCallIntrinsicTest, SignExtendI16Arg) {
+TEST(HeavyOptimizerCallIntrinsicTest22, SignExtendI16Arg) {
   uint64_t result = 0;
   CallOneArgumentIntrinsicUseRegister(reinterpret_cast<std::tuple<uint64_t> (*)(int16_t)>(CopyU64),
                                       0xaaaa'bbbb'cccc'eeffULL,
@@ -253,7 +384,7 @@ TEST(HeavyOptimizerCallIntrinsicTest, SignExtendI16Arg) {
   EXPECT_EQ(result, 0xffff'ffff'ffff'eeffULL);
 }
 
-TEST(HeavyOptimizerCallIntrinsicTest, SignExtendI32Arg) {
+TEST(HeavyOptimizerCallIntrinsicTest22, SignExtendI32Arg) {
   uint64_t result = 0;
   CallOneArgumentIntrinsicUseRegister(reinterpret_cast<std::tuple<uint64_t> (*)(int32_t)>(CopyU64),
                                       0xaaaa'bbbb'cccc'eeffULL,
