@@ -53,19 +53,6 @@ string Enter::GetDebugString() const {
   return out;
 }
 
-string CallImm::GetDebugString() const {
-  string out(StringPrintf("CALL 0x%" PRIx64, imm()));
-  for (int i = 0; i < NumRegOperands(); ++i) {
-    out += ", ";
-    out += GetRegOperandDebugString(this, i);
-  }
-  return out;
-}
-
-string CallImmArg::GetDebugString() const {
-  return "CALL_ARG " + GetRegOperandDebugString(this, 0);
-}
-
 }  // namespace x86_64
 
 }  // namespace berberis

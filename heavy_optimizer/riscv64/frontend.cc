@@ -708,12 +708,7 @@ void HeavyOptimizerFrontend::MemoryRegionReservationLoad(Register aligned_addr) 
   Gen<x86_64::MovqOpReg>({.base = x86_64::kMachineRegRBP, .disp = address_offset}, aligned_addr);
 
   // MemoryRegionReservation::SetOwner(aligned_addr, &(state->cpu)).
-  builder_.GenCallImm(bit_cast<uint64_t>(&MemoryRegionReservation::SetOwner),
-                      GetFlagsRegister(),
-                      std::array<x86_64::CallImm::Arg, 2>{{
-                          {aligned_addr, x86_64::CallImm::kIntRegType},
-                          {x86_64::kMachineRegRBP, x86_64::CallImm::kIntRegType},
-                      }});
+  CallIntrinsic<MemoryRegionReservation::SetOwner>(aligned_addr, x86_64::kMachineRegRBP);
 
   // Load reservation value and store it in CPUState.
   auto [reservation] = Gen<x86_64::MovqRegOp>({.base = aligned_addr});
@@ -782,16 +777,14 @@ void HeavyOptimizerFrontend::MemoryRegionReservationSwapWithLockedOwner(
   ir->AddEdge(lock_success_bb, swap_success_bb);
   ir->AddEdge(lock_success_bb, failure_bb);
 
-  // lock_entry = MemoryRegionReservation::TryLock(aligned_addr, &(state->cpu)).
-  auto* call = builder_.GenCallImm(bit_cast<uint64_t>(&MemoryRegionReservation::TryLock),
-                                   GetFlagsRegister(),
-                                   std::array<x86_64::CallImm::Arg, 2>{{
-                                       {aligned_addr, x86_64::CallImm::kIntRegType},
-                                       {x86_64::kMachineRegRBP, x86_64::CallImm::kIntRegType},
-                                   }});
-  Register lock_entry = AllocTempReg();
+  static_assert(offsetof(ThreadState, cpu) == 0);  // Needed to use x86_64::kMachineRegRBP here.
+  // lock_entry = ExclusiveMonitor::TryLock(aligned_addr, &(state->cpu)).
+  MachineReg result = CallIntrinsic<MemoryRegionReservation::TryLock, MachineReg>(
+      aligned_addr, x86_64::kMachineRegRBP);
+  static_assert(offsetof(ThreadState, cpu) == 0);
   // Limit life-time of a narrow reg-class call result.
-  builder_.Gen<berberis::Copy>(lock_entry, call->IntResultAt(0), 8);
+  Register lock_entry = AllocTempReg();
+  builder_.Gen<berberis::Copy>(lock_entry, result, 8);
   builder_.Gen<CondBranch>(x86_64::Assembler::Condition::kZero,
                                  failure_bb,
                                  lock_success_bb,

@@ -84,42 +84,6 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
     }
   }
 
-  // Please use GenCallImm instead
-  template <typename CallImmType,
-            typename IntegralType,
-            std::enable_if_t<std::is_same_v<std::decay_t<CallImmType>, CallImm> &&
-                                 std::is_integral_v<IntegralType>,
-                             bool> = true>
-  /*may_discard*/ CallImmType* Gen(IntegralType imm) = delete;
-
-  /*may_discard*/ CallImm* GenCallImm(uint64_t imm, MachineReg flag_register) {
-    return GenCallImm(imm, flag_register, std::array<CallImm::Arg, 0>{});
-  }
-
-  template <size_t kNumberOfArguments>
-  /*may_discard*/ CallImm* GenCallImm(uint64_t imm,
-                                      MachineReg flag_register,
-                                      const std::array<CallImm::Arg, kNumberOfArguments>& args) {
-    auto* call = ir()->NewInsn<CallImm>(imm);
-    // Init registers clobbered according to ABI to notify the register allocator.
-    for (int i = 0; i < call->NumRegOperands(); ++i) {
-      call->SetRegAt(i, ir()->AllocVReg());
-    }
-
-    call->SetRegAt(x86_64::CallImm::GetFlagsArgIndex(), flag_register);
-
-    // Now generate CallImmArg instructions for arguments
-    GenCallImmArg(call, args);
-
-    InsertInsn(call);
-    return call;
-  }
-
-  template <typename CallImmArgType,
-            typename... Args,
-            std::enable_if_t<std::is_same_v<std::decay_t<CallImmArgType>, CallImmArg>, bool> = true>
-  /*may_discard*/ CallImmArgType* Gen(Args... args) = delete;
-
   template <typename IntrinsicType>
   /*may_discard*/ auto GenIntrinsicCall(
       IntrinsicType func_ptr,
@@ -325,31 +289,6 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
       });
     }
     return std::pair{call, results};
-  }
-
- private:
-  template <size_t kNumberOfArgumens>
-  void GenCallImmArg(CallImm* call, const std::array<CallImm::Arg, kNumberOfArgumens>& args) {
-    int general_register_position = 0;
-    int xmm_register_position = 0;
-    for (const auto& arg : args) {
-      MachineReg arg_reg = arg.reg;
-      CallImm::RegType reg_type = arg.reg_type;
-
-      // Rename arg vreg in case it's used in several call operands which have non-intersecting
-      // register classes. Reg-alloc will eliminate renaming where possible.
-      MachineReg renamed_arg_reg = ir()->AllocVReg();
-      auto* copy = ir()->NewInsn<Copy>(
-          renamed_arg_reg, arg_reg, (reg_type == CallImm::kIntRegType) ? 8 : 16);
-      auto* call_arg_insn = ir()->NewInsn<CallImmArg>(renamed_arg_reg, reg_type);
-      call->SetRegAt((reg_type == CallImm::kIntRegType)
-                         ? CallImm::GetIntArgIndex(general_register_position++)
-                         : CallImm::GetXmmArgIndex(xmm_register_position++),
-                     renamed_arg_reg);
-
-      InsertInsn(copy);
-      InsertInsn(call_arg_insn);
-    }
   }
 };
 

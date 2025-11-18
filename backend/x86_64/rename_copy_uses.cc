@@ -36,10 +36,7 @@ MachineReg RenameCopyUsesMap::Get(MachineReg reg) const {
 }
 
 void RenameCopyUsesMap::RenameUseIfMapped(berberis::MachineInsn* insn, int i) {
-  // Narrow type uses may require a copy for register allocator to successfully handle them.
-  // TODO(b/200327919): It'd better to make CallImmArg specify the exact narrow class for
-  // the corresponding call argument. Then we wouldn't need to special case it.
-  if (insn->opcode() == kMachineOpCallImmArg || insn->RegKindAt(i).RegClass()->NumRegs() == 1) {
+  if (insn->RegKindAt(i).RegClass()->NumRegs() == 1) {
     return;
   }
   MachineReg reg = insn->RegAt(i);
