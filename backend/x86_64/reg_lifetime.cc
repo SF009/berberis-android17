@@ -62,13 +62,15 @@ void RegLifetimeCounter::CountRegLifetimeMap(MachineBasicBlock* bb) {
   lifetime_map_.clear();
   // First get all live_ins.
   for (auto reg : bb->live_in()) {
-    lifetime_map_[reg] = RegLifetime{
-        .start = LiveIn{},
-        .end = bb->insn_list().front(),
-        .start_pos = 0,
-        .end_pos = 0,
-        .reg_type = RegType::kUnknown,
-    };
+    if (reg.IsVReg()) {
+      lifetime_map_[reg] = RegLifetime{
+          .start = LiveIn{},
+          .end = bb->insn_list().front(),
+          .start_pos = 0,
+          .end_pos = 0,
+          .reg_type = RegType::kUnknown,
+      };
+    }
   }
 
   // Note that we don't account for the same register being redefined which
@@ -94,6 +96,10 @@ void RegLifetimeCounter::CountRegLifetimeMap(MachineBasicBlock* bb) {
       }
       // If this is the first time we are seeing this register set start.
       auto reg = insn->RegAt(i);
+      // Only count vregs.
+      if (!reg.IsVReg()) {
+        continue;
+      }
       if (!lifetime_map_.contains(reg)) {
         lifetime_map_[reg] = RegLifetime{
             .start = insn,
@@ -120,9 +126,11 @@ void RegLifetimeCounter::CountRegLifetimeMap(MachineBasicBlock* bb) {
 
   // Finally check live_outs.
   for (auto reg : bb->live_out()) {
-    CHECK(lifetime_map_.contains(reg));
-    lifetime_map_[reg].end = LiveOut{};
-    lifetime_map_[reg].end_pos = pos;
+    if (reg.IsVReg()) {
+      CHECK(lifetime_map_.contains(reg));
+      lifetime_map_[reg].end = LiveOut{};
+      lifetime_map_[reg].end_pos = pos;
+    }
   }
 }
 
