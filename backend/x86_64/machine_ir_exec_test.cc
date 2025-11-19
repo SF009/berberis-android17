@@ -134,7 +134,7 @@ TEST(ExecMachineIR, Smoke) {
   builder.StartBasicBlock(machine_ir.NewBasicBlock());
 
   // Let RBP point to 'data'.
-  builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&data));
+  builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, bit_cast<uintptr_t>(&data));
 
   // data.y = data.x;
   builder.Gen<x86_64::MovqRegOp>(kMachineRegRAX,
@@ -176,7 +176,7 @@ TEST(ExecMachineIR, IntrinsicCallByPointer) {
 
   uint64_t result = 0;
   MachineReg result_ptr_reg = machine_ir.AllocVReg();
-  builder.Gen<x86_64::MovqRegImm>(result_ptr_reg, reinterpret_cast<uintptr_t>(&result));
+  builder.Gen<x86_64::MovqRegImm>(result_ptr_reg, bit_cast<uintptr_t>(&result));
   builder.Gen<x86_64::MovqOpReg>({.base = result_ptr_reg}, results[0]);
 
   AllocRegs(&machine_ir);
@@ -185,6 +185,37 @@ TEST(ExecMachineIR, IntrinsicCallByPointer) {
   test.Init(machine_ir);
   test.Exec();
   EXPECT_EQ(result, ~data);
+}
+
+TEST(ExecMachineIR, IntrinsicCallByPointerImmediate) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+  builder.StartBasicBlock(machine_ir.NewBasicBlock());
+
+  MachineReg flags_register = machine_ir.AllocVReg();
+
+  uint64_t data = 0xfeed'f00d'feed'f00dULL;
+
+  std::array<__int128_t, 1> args = {__int128_t{data} | (~__int128_t{data}) << 64};
+  auto [call_insn, results] = builder.GenIntrinsicCall(
+      bit_cast<__int128_t (*)(__int128_t)>(+[](__int128_t arg) -> __int128_t { return ~arg; }),
+      flags_register,
+      args);
+
+  __int128_t result = 0;
+  MachineReg result_ptr_reg = machine_ir.AllocVReg();
+  builder.Gen<x86_64::MovqRegImm>(result_ptr_reg, bit_cast<uintptr_t>(&result));
+  builder.Gen<x86_64::MovqOpReg>({.base = result_ptr_reg}, results[0]);
+  builder.Gen<x86_64::MovqOpReg>({.base = result_ptr_reg, .disp = 8}, results[1]);
+
+  AllocRegs(&machine_ir);
+
+  ExecTest test;
+  test.Init(machine_ir);
+  test.Exec();
+  EXPECT_EQ(result, __int128_t{~data} | __int128_t{data} << 64);
 }
 
 template <typename IntType>
@@ -210,7 +241,7 @@ class IntrinsicCallSmallIntegerExpansionTest : public ExecTest {
 
     uint64_t result = 0;
     MachineReg result_ptr_reg = machine_ir.AllocVReg();
-    builder.Gen<x86_64::MovqRegImm>(result_ptr_reg, reinterpret_cast<uintptr_t>(&result));
+    builder.Gen<x86_64::MovqRegImm>(result_ptr_reg, bit_cast<uintptr_t>(&result));
     builder.Gen<x86_64::MovqOpReg>({.base = result_ptr_reg}, results[0]);
 
     AllocRegs(&machine_ir);
@@ -231,6 +262,49 @@ TEST(ExecMachineIR, IntrinsicCallSmallIntegerExpansion) {
   IntrinsicCallSmallIntegerExpansionTest<uint32_t>{};
   IntrinsicCallSmallIntegerExpansionTest<int64_t>{};
   IntrinsicCallSmallIntegerExpansionTest<uint64_t>{};
+}
+
+template <typename IntType>
+class IntrinsicCallSmallIntegerImmediateExpansionTest : public ExecTest {
+ public:
+  IntrinsicCallSmallIntegerImmediateExpansionTest() {
+    Arena arena;
+    x86_64::MachineIR machine_ir(&arena);
+
+    x86_64::MachineIRBuilder builder(&machine_ir);
+    builder.StartBasicBlock(machine_ir.NewBasicBlock());
+
+    MachineReg flags_register = machine_ir.AllocVReg();
+
+    uint64_t data = 0xaaaa'aaaa'aaaa'aaaaULL;
+
+    std::array<IntType, 1> args = {static_cast<IntType>(data)};
+    auto [call_insn, results] = builder.GenIntrinsicCall(
+        +[](IntType arg) -> uint64_t { return ~static_cast<uint64_t>(arg); }, flags_register, args);
+
+    uint64_t result = 0;
+    MachineReg result_ptr_reg = machine_ir.AllocVReg();
+    builder.Gen<x86_64::MovqRegImm>(result_ptr_reg, bit_cast<uintptr_t>(&result));
+    builder.Gen<x86_64::MovqOpReg>({.base = result_ptr_reg}, results[0]);
+
+    AllocRegs(&machine_ir);
+
+    Init(machine_ir);
+    Exec();
+    CHECK_EQ(result, ~static_cast<uint64_t>(static_cast<IntType>(data)));
+  }
+};
+
+// Verify that our workaround for https://github.com/llvm/llvm-project/issues/43573 works.
+TEST(ExecMachineIR, IntrinsicCallSmallIntegerImmediateExpansion) {
+  IntrinsicCallSmallIntegerImmediateExpansionTest<int8_t>{};
+  IntrinsicCallSmallIntegerImmediateExpansionTest<uint8_t>{};
+  IntrinsicCallSmallIntegerImmediateExpansionTest<int16_t>{};
+  IntrinsicCallSmallIntegerImmediateExpansionTest<uint16_t>{};
+  IntrinsicCallSmallIntegerImmediateExpansionTest<int32_t>{};
+  IntrinsicCallSmallIntegerImmediateExpansionTest<uint32_t>{};
+  IntrinsicCallSmallIntegerImmediateExpansionTest<int64_t>{};
+  IntrinsicCallSmallIntegerImmediateExpansionTest<uint64_t>{};
 }
 
 std::tuple<uint64_t, uint64_t> IntrinsicCallInt64OperandsTestFunc(uint64_t arg0,
@@ -711,7 +785,7 @@ void TestRegAlloc() {
   builder.StartBasicBlock(machine_ir.NewBasicBlock());
 
   // Let rbp point to 'data'.
-  builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&data));
+  builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, bit_cast<uintptr_t>(&data));
 
   // Read data.in_array into vregs, xor and write to data.out.
 
@@ -736,7 +810,7 @@ void TestRegAlloc() {
     // Ideally we should have allocated hard-regs around the call explicitly and verify that
     // reg-alloc would spill/fill them, but reg-alloc doesn't support that.
     MachineReg flag_register = machine_ir.AllocVReg();
-    builder.GenIntrinsicCall<ClobberAllCallerSaved>(flag_register, {});
+    builder.GenIntrinsicCall<ClobberAllCallerSaved>(flag_register, std::tuple<>{});
   }
 
   MachineReg v0 = machine_ir.AllocVReg();
@@ -805,7 +879,7 @@ TEST(ExecMachineIR, MemoryOperand) {
 
   // Base address.
   MachineReg base_reg = machine_ir.AllocVReg();
-  builder.Gen<x86_64::MovqRegImm>(base_reg, reinterpret_cast<uintptr_t>(&data));
+  builder.Gen<x86_64::MovqRegImm>(base_reg, bit_cast<uintptr_t>(&data));
 
   MachineReg data_reg;
 
@@ -819,7 +893,7 @@ TEST(ExecMachineIR, MemoryOperand) {
   // IndexDisp
   MachineReg index_reg = machine_ir.AllocVReg();
   static_assert(alignof(struct Data) >= 2);
-  builder.Gen<x86_64::MovqRegImm>(index_reg, reinterpret_cast<uintptr_t>(&data) / 2);
+  builder.Gen<x86_64::MovqRegImm>(index_reg, bit_cast<uintptr_t>(&data) / 2);
   x86_64::MemoryOperand mem_index_disp = {
       .index = index_reg, .scale = CodeEmitter::kTimesTwo, offsetof(Data, in_index_disp)};
   data_reg = machine_ir.AllocVReg();
@@ -829,8 +903,7 @@ TEST(ExecMachineIR, MemoryOperand) {
 
   // BaseIndexDisp
   MachineReg tmp_base_reg = machine_ir.AllocVReg();
-  builder.Gen<x86_64::MovqRegImm>(tmp_base_reg,
-                                  reinterpret_cast<uintptr_t>(&data.in_base_index_disp[0]));
+  builder.Gen<x86_64::MovqRegImm>(tmp_base_reg, bit_cast<uintptr_t>(&data.in_base_index_disp[0]));
   MachineReg tmp_index_reg = machine_ir.AllocVReg();
   builder.Gen<x86_64::MovqRegImm>(tmp_index_reg, 2);
   x86_64::MemoryOperand mem_base_index_disp = {
@@ -933,7 +1006,7 @@ class ExecMachineIRTest : public ::testing::Test {
     builder_.StartBasicBlock(bb_);
 
     // Let rbp point to 'data'.
-    builder_.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&data_));
+    builder_.Gen<x86_64::MovqRegImm>(kMachineRegRBP, bit_cast<uintptr_t>(&data_));
 
     for (size_t i = 0; i < std::size(data_.slots); ++i) {
       slots_[i] = MachineReg::CreateSpilledRegFromIndex(
@@ -1183,7 +1256,7 @@ TEST(ExecMachineIR, ReadFlagsWithOverflow) {
   builder.StartBasicBlock(machine_ir.NewBasicBlock());
 
   // Let RBP point to 'data'.
-  builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&data));
+  builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, bit_cast<uintptr_t>(&data));
   builder.Gen<x86_64::MovqRegOp>(kMachineRegRAX,
                                  {.base = kMachineRegRBP, .disp = offsetof(Data, x)});
   builder.Gen<x86_64::AddqRegOp, x86_64::kNoSSA>(
@@ -1191,7 +1264,7 @@ TEST(ExecMachineIR, ReadFlagsWithOverflow) {
       {.base = kMachineRegRBP, .disp = offsetof(Data, y)},
       x86_64::kMachineRegFLAGS);
   builder.Gen<x86_64::ReadFlagsWithOverflow>(kMachineRegRAX, x86_64::kMachineRegFLAGS);
-  builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&res_flags));
+  builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, bit_cast<uintptr_t>(&res_flags));
   builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP}, kMachineRegRAX);
 
   ExecTest test;
@@ -1227,7 +1300,7 @@ TEST(ExecMachineIR, ReadFlagsWithoutOverflow) {
   builder.StartBasicBlock(machine_ir.NewBasicBlock());
 
   // Let RBP point to 'data'.
-  builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&data));
+  builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, bit_cast<uintptr_t>(&data));
   builder.Gen<x86_64::MovqRegOp>(kMachineRegRAX,
                                  {.base = kMachineRegRBP, .disp = offsetof(Data, x)});
   builder.Gen<x86_64::AddqRegOp, x86_64::kNoSSA>(
@@ -1238,7 +1311,7 @@ TEST(ExecMachineIR, ReadFlagsWithoutOverflow) {
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRAX, MakeFlags(0b0001));
   builder.Gen<x86_64::ReadFlagsWithoutOverflow, x86_64::kNoSSA>(kMachineRegRAX,
                                                                 x86_64::kMachineRegFLAGS);
-  builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&res_flags));
+  builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, bit_cast<uintptr_t>(&res_flags));
   builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP}, kMachineRegRAX);
 
   ExecTest test;
@@ -1261,13 +1334,13 @@ TEST(ExecMachineIR, WriteFlags) {
   x86_64::MachineIRBuilder builder(&machine_ir);
   builder.StartBasicBlock(machine_ir.NewBasicBlock());
 
-  builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&arg_flags));
+  builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, bit_cast<uintptr_t>(&arg_flags));
   builder.Gen<x86_64::MovqRegOp>(kMachineRegRAX, {.base = kMachineRegRBP});
   builder.Gen<x86_64::WriteFlags, x86_64::kNoSSA>(kMachineRegRAX, x86_64::kMachineRegFLAGS);
   // Assume PseudoReadFlags is verified by another test.
   builder.Gen<x86_64::ReadFlagsWithOverflow, x86_64::kNoSSA>(kMachineRegRAX,
                                                              x86_64::kMachineRegFLAGS);
-  builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, reinterpret_cast<uintptr_t>(&res_flags));
+  builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, bit_cast<uintptr_t>(&res_flags));
   builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP}, kMachineRegRAX);
 
   ExecTest test;

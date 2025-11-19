@@ -232,8 +232,9 @@ TEST(MachineIRRemoveDeadCodeTest, CallImmIsLive) {
   x86_64::MachineIRBuilder builder(&machine_ir);
 
   builder.StartBasicBlock(bb);
-  builder.GenIntrinsicCall(
-      static_cast<void (*)(uint64_t)>(nullptr), machine_ir.AllocVReg(), {machine_ir.AllocVReg()});
+  builder.GenIntrinsicCall(static_cast<void (*)(uint64_t)>(nullptr),
+                           machine_ir.AllocVReg(),
+                           std::tuple{machine_ir.AllocVReg()});
   builder.Gen<Jump>(kNullGuestAddr);
 
   EXPECT_EQ(bb->insn_list().size(), 3UL);

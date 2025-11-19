@@ -663,37 +663,29 @@ auto HeavyOptimizerFrontend::CallIntrinsic(FunctionType func_ptr, AssemblerArgTy
     builder_.ir()->ReserveArgs(sizeof(typename IntrinsicCall::CleanRetType));
   }
 
-  std::array<MachineReg, std::tuple_size_v<typename IntrinsicCall::ArgumentRegisters>> raw_args;
-  if constexpr ((std::tuple_size_v<typename IntrinsicCall::ArgumentRegisters> +
-                 (IntrinsicCall::kIsImplicitPointerResult ? 1 : 0)) > 0) {
-    raw_args = ToArray(std::tuple_cat(
-        TypesToValues::FlatMap<std::tuple<MetaValue<IntrinsicCall::kIsImplicitPointerResult>>>(
-            []<typename IsImplicitPointerResult>() {
-              if constexpr (IsImplicitPointerResult{}) {
-                return std::tuple{x86_64::kMachineRegRSP};
-              } else {
-                return std::tuple{};
-              }
-            }),
-        ValuesToValues::Map(std::tuple{args...}, [this]<typename ArgType>(ArgType arg) {
-          // Suppress spurious warnings.
-          // See  https://github.com/llvm/llvm-project/issues/34798#issuecomment-980989495
-          (void)this;
-          if constexpr (std::is_integral_v<ArgType> || std::is_pointer_v<ArgType>) {
-            static_assert(sizeof(arg) <= sizeof(int32_t));
-            return std::get<0>(Gen<x86_64::MovlRegImm>(arg));
-          } else if constexpr (std::is_same_v<ArgType, SimdReg>) {
-            return arg.machine_reg();
-          } else {
-            return arg;
-          }
-        })));
-  }
   std::array<MachineReg,
              IntrinsicCall::kIsImplicitPointerResult ? 1
                                                      : std::size(IntrinsicCall::kResultsElements)>
-      register_results =
-          std::get<1>(builder_.GenIntrinsicCall(func_ptr, GetFlagsRegister(), raw_args));
+      register_results = std::get<1>(builder_.GenIntrinsicCall(
+          func_ptr,
+          GetFlagsRegister(),
+          std::tuple_cat(
+              TypesToValues::FlatMap<
+                  std::tuple<MetaValue<IntrinsicCall::kIsImplicitPointerResult>>>(
+                  []<typename IsImplicitPointerResult>() {
+                    if constexpr (IsImplicitPointerResult{}) {
+                      return std::tuple{x86_64::kMachineRegRSP};
+                    } else {
+                      return std::tuple{};
+                    }
+                  }),
+              ValuesToValues::Map(std::tuple{args...}, []<typename ArgType>(ArgType arg) {
+                if constexpr (std::is_same_v<ArgType, SimdReg>) {
+                  return arg.machine_reg();
+                } else {
+                  return arg;
+                }
+              }))));
 
   std::array<MachineReg, std::size(IntrinsicCall::kResultsElements)> result;
   if constexpr (std::size(IntrinsicCall::kResultsElements) > 0) {
