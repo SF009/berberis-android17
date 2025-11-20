@@ -741,9 +741,6 @@ constexpr auto MachineInsn<DeviceInsnInfo, kSSAMode>::GenMachineInsnInfo()
                 static_cast<MachineRegKind::StandardAccess>(Operand::kUsage)};
           }
         } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
-          // Note: normally size of array should match number of memory operands, but that's not
-          // true for kInfo where it's zero.
-          // TODO(399130034): remove std::size when kInfo is removed.
           if (kBaseIndexRegistersUsed[mem_operand_bit_pos]) {
             reg_kinds[num_reg_operands++] = {&kGeneralReg64, MachineRegKind::kUse};
             opcode = static_cast<MachineOpcode>(
