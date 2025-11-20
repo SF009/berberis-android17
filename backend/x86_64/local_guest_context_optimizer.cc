@@ -39,7 +39,6 @@ void LocalGuestContextOptimizer::UnmapOlderThan(size_t pos, RegType reg_type) {
 
     MachineReg reg = std::get<MachineReg>(reg_usage.value);
     const auto& lifetime_map = reg_lifetime_counter_.GetMap();
-    CHECK(lifetime_map.contains(reg));
     if (lifetime_map.at(reg).reg_type != reg_type) {
       continue;
     }
@@ -62,27 +61,17 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(
     std::fill(mem_reg_map_.begin(), mem_reg_map_.end(), std::nullopt);
     reg_lifetime_counter_.Count(bb);
 
-    int pos = 0;
+    size_t pos = 0;
     for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end();
          insn_it++, pos++) {
-      // TODO(b/459820538): optimize this.
-      // TODO(b/460161775): Don't clear regs with last_use >= pos.
       // If the register pressure at the current instruction is too big, then cancel
       // all active mappings. So that we don't prolong lifetimes through this
       // instruction.
       if (reg_lifetime_counter_.RegCountAt(pos, RegType::kGeneral) >= kGenRegLimit) {
-        for (size_t i = 0; i < mem_reg_map_.size(); i++) {
-          if (!IsSimdOffset(i)) {
-            mem_reg_map_[i] = std::nullopt;
-          }
-        }
+        UnmapOlderThan(pos, RegType::kGeneral);
       }
       if (reg_lifetime_counter_.RegCountAt(pos, RegType::kXmm) >= kSimdRegLimit) {
-        for (size_t i = 0; i < mem_reg_map_.size(); i++) {
-          if (IsSimdOffset(i)) {
-            mem_reg_map_[i] = std::nullopt;
-          }
-        }
+        UnmapOlderThan(pos, RegType::kXmm);
       }
 
       if (machine_ir_->IsCPUStateGet(*insn_it) || machine_ir_->IsCPUStatePut(*insn_it)) {

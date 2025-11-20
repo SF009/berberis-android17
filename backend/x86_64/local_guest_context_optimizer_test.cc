@@ -361,16 +361,20 @@ TEST(MachineIRLocalGuestContextOptimizer, LimitRegistersAfterOptimizing) {
   auto reg2 = machine_ir.AllocVReg();
 
   builder.StartBasicBlock(bb);
-  builder.GenGet(reg0, GetThreadStateRegOffset(1));
-  builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(2));
-  builder.Gen<x86_64::AddqRegReg, x86_64::kNoSSA>(reg1, reg2, x86_64::kMachineRegFLAGS);
+  builder.GenGet(reg0, GetThreadStateRegOffset(0));
+  builder.GenGet(reg1, GetThreadStateRegOffset(1));
+  builder.GenGet(reg2, GetThreadStateRegOffset(2));
+  builder.Gen<x86_64::AddqRegReg, x86_64::kNoSSA>(
+      machine_ir.AllocVReg(), machine_ir.AllocVReg(), x86_64::kMachineRegFLAGS);
+  builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(0));
   builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(1));
   builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(2));
+  builder.Gen<Copy>(machine_ir.AllocVReg(), reg2, 8);
   builder.Gen<Jump>(kNullGuestAddr);
 
   x86_64::RemoveLocalGuestContextAccesses(&machine_ir,
                                           x86_64::OptimizeLocalParams{
-                                              .general_reg_limit = 4,
+                                              .general_reg_limit = 5,
                                               .simd_reg_limit = 2,
                                           });
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
@@ -379,11 +383,16 @@ TEST(MachineIRLocalGuestContextOptimizer, LimitRegistersAfterOptimizing) {
   auto insn_it = bb->insn_list().begin();
   ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegMemBaseDisp);
   ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegMemBaseDisp);
+  ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegMemBaseDisp);
   insn_it++;
   ASSERT_EQ((*insn_it++)->opcode(), kMachineOpCopy);
   // This shouldn't be optimized as we should have hit the limit after the
-  // previous optimization with reg0, reg1, reg2, and rbp.
+  // previous optimization with reg0, reg1, reg2, rbp, and the two from Addq.
   ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegMemBaseDisp);
+  // This one should be optimized still because reg1 lifetime wouldn't be
+  // extended.
+  ASSERT_EQ((*insn_it++)->opcode(), kMachineOpCopy);
+  ASSERT_EQ((*insn_it++)->opcode(), kMachineOpCopy);
   ASSERT_EQ((*insn_it)->opcode(), kMachineOpJump);
 }
 
@@ -427,6 +436,46 @@ TEST(MachineIRLocalGuestContextOptimizer, LimitRegistersWithOptimizedABI) {
   ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegImm);
   // Nothing else should be optimized as we hit reg limit with rbp, reg0, and reg1.
   ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegMemBaseDisp);
+  ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegMemBaseDisp);
+  ASSERT_EQ((*insn_it++)->opcode(), kMachineOpXorqRegReg);
+  ASSERT_EQ((*insn_it)->opcode(), kMachineOpJump);
+}
+
+// Test that we correctly clear mappings when the block uses too many registers
+// not caused by optimizations.
+TEST(MachineIRLocalGuestContextOptimizer, UnmapWhenOverused) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  auto bb = machine_ir.NewBasicBlock();
+  auto reg0 = machine_ir.AllocVReg();
+  auto reg1 = machine_ir.AllocVReg();
+
+  builder.StartBasicBlock(bb);
+  builder.GenGet(reg0, GetThreadStateRegOffset(0));
+  builder.GenGet(reg1, GetThreadStateRegOffset(1));
+  builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(0));
+  builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(1));
+  builder.Gen<x86_64::XorqRegReg, x86_64::kNoSSA>(reg0, reg0, x86_64::kMachineRegFLAGS);
+  builder.Gen<Jump>(kNullGuestAddr);
+
+  ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+
+  x86_64::RemoveLocalGuestContextAccesses(&machine_ir,
+                                          x86_64::OptimizeLocalParams{
+                                              .general_reg_limit = 2,
+                                              .simd_reg_limit = 0,
+                                          });
+
+  auto insn_it = bb->insn_list().begin();
+  ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+
+  ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegMemBaseDisp);
+  ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegMemBaseDisp);
+  // First copy should still work because reg0 lifetime not extended.
+  ASSERT_EQ((*insn_it++)->opcode(), kMachineOpCopy);
+  // This shouldn't be optimized since this would extend reg1's lifetime.
   ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegMemBaseDisp);
   ASSERT_EQ((*insn_it++)->opcode(), kMachineOpXorqRegReg);
   ASSERT_EQ((*insn_it)->opcode(), kMachineOpJump);
