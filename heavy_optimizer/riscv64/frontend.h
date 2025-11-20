@@ -307,7 +307,8 @@ class HeavyOptimizerFrontend {
   }
 
   template <typename FloatType>
-  void NanBoxFpReg(FpRegister value) {
+  FpRegister NanBoxFpReg(FpRegister value) {
+    FpRegister result = AllocTempSimdReg();
     if (host_platform::kHasAVX) {
       // This code is defined as intrinsic but if we would call it as intrinsic it would be called
       // recursively.
@@ -323,7 +324,7 @@ class HeavyOptimizerFrontend {
                          device_arch_info::OperandInfo<x86_64::device_arch_info::FpReg32,
                                                        device_arch_info::kUseDef>>>,
           x86_64::kSSA>>(
-          std::tuple{value.machine_reg(), AllocTempSimdReg().machine_reg(), value.machine_reg()});
+          std::tuple{result.machine_reg(), AllocTempSimdReg().machine_reg(), value.machine_reg()});
     } else {
       // This code is defined as intrinsic but if we would call it as intrinsic it would be called
       // recursively.
@@ -336,16 +337,17 @@ class HeavyOptimizerFrontend {
               device_arch_info::NoCPUIDRestriction,
               std::tuple<device_arch_info::OperandInfo<x86_64::device_arch_info::FpReg64,
                                                        device_arch_info::kUseDef>>>,
-          x86_64::kSSA>>(std::tuple{AllocTempSimdReg().machine_reg(), value.machine_reg()});
+          x86_64::kSSA>>(std::tuple{result.machine_reg(), value.machine_reg()});
     }
+    return result;
   }
 
   template <typename FloatType>
   void NanBoxAndSetFpReg(uint8_t reg, FpRegister value) {
     CHECK_LE(reg, kNumGuestFpRegs);
     if (success()) {
-      NanBoxFpReg<FloatType>(value);
-      builder_.GenSetSimd<8>(GetThreadStateFRegOffset(reg), value.machine_reg());
+      FpRegister boxed_reg = NanBoxFpReg<FloatType>(value);
+      builder_.GenSetSimd<8>(GetThreadStateFRegOffset(reg), boxed_reg.machine_reg());
     }
   }
 
@@ -767,7 +769,10 @@ HeavyOptimizerFrontend::GetFRegAndUnboxNan<intrinsics::Float64>(uint8_t reg) {
 }
 
 template <>
-inline void HeavyOptimizerFrontend::NanBoxFpReg<intrinsics::Float64>(FpRegister) {}
+inline HeavyOptimizerFrontend::FpRegister HeavyOptimizerFrontend::NanBoxFpReg<intrinsics::Float64>(
+    FpRegister value) {
+  return value;
+}
 
 template <>
 [[nodiscard]] inline HeavyOptimizerFrontend::Register

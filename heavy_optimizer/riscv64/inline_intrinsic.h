@@ -499,7 +499,9 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
       if constexpr (std::is_same_v<ReturnType, int32_t> || std::is_same_v<ReturnType, uint32_t>) {
         // Expands 32 bit values as signed. Even if actual results are processed as unsigned!
         // TODO(b/308951522) replace with Expand node when it's created.
-        builder_->Gen<x86_64::MovsxlqRegReg>(std::get<0>(result_), std::get<0>(result_));
+        MachineReg expanded_reg = builder_->ir()->AllocVReg();
+        builder_->Gen<x86_64::MovsxlqRegReg>(expanded_reg, std::get<0>(result_));
+        std::get<0>(result_) = expanded_reg;
       } else if constexpr (std::is_integral_v<ReturnType> &&
                            sizeof(ReturnType) == sizeof(int64_t)) {
         // Do nothing, we have already produced expanded value.
