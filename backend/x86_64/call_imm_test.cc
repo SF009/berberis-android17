@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "berberis/backend/x86_64/intrinsic_call.h"
+#include "berberis/backend/x86_64/call_imm.h"
 
 namespace berberis::x86_64 {
 

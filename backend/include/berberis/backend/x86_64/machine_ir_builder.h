@@ -23,7 +23,7 @@
 #include <utility>
 
 #include "berberis/backend/common/machine_ir_builder.h"
-#include "berberis/backend/x86_64/intrinsic_call.h"
+#include "berberis/backend/x86_64/call_imm.h"
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/base/logging.h"
 #include "berberis/base/tuple_processing.h"
