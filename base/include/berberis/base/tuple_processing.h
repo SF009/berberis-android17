@@ -87,6 +87,8 @@ class ValuesToValues;
 // on the types within a tuple.
 class TypesToTypes {
  private:
+  template <auto kLambda>
+  class FilterHelper;
   template <typename Type, auto kLambda>
   class FlatMapHelper;
   template <typename Type>
@@ -116,14 +118,7 @@ class TypesToTypes {
   using Enumerate = Zip<Indexes<TupleType>, TupleType>;
 
   template <typename TupleType, auto kLambda>
-  using Filter = typename FlatMapHelper<TupleType, []<typename Type>() {
-    constexpr bool kAccepted = kLambda.template operator()<Type>();
-    if constexpr (kAccepted) {
-      return kTypes<Type>;
-    } else {
-      return kTypes<>;
-    }
-  }>::Result;
+  using Filter = typename FlatMapHelper<TupleType, FilterHelper<kLambda>{}>::Result;
 
   template <typename TupleType, auto kLambda>
   using All =
@@ -182,6 +177,20 @@ class TypesToTypes {
    public:
     template <std::size_t... Is>
     static constexpr std::tuple<MetaValue<Is>...> Indexes(std::index_sequence<Is...>);
+  };
+
+  template <auto kLambda>
+  class FilterHelper {
+   public:
+    template <typename Type>
+    constexpr auto operator()() const {
+      constexpr bool kAccepted = kLambda.template operator()<Type>();
+      if constexpr (kAccepted) {
+        return kTypes<Type>;
+      } else {
+        return kTypes<>;
+      }
+    }
   };
 
   template <typename... Types, auto kLambda>
@@ -549,17 +558,17 @@ class TypesToTypes::TakeSkipHelper {
     std::size_t size = 0;
     // Note: we don't really need the return value of TypesToValues::All here, instead we rely on
     // the fact that TypesToValues::All stops calculations when it finds first false.
-    TypesToValues::All<TupleType>(
-        []<typename Type>(std::size_t& size) {
-          if (kLambda.template operator()<Type>(extra_lambda_values...)) {
-            size++;
-            return true;
-          } else {
-            return false;
-          }
-        },
-        size);
+    TypesToValues::All<TupleType>(TakeSkipHelper{}, size);
     return size;
+  }
+  template <typename Type>
+  constexpr auto operator()(std::size_t& size) const {
+    if (kLambda.template operator()<Type>(extra_lambda_values...)) {
+      size++;
+      return true;
+    } else {
+      return false;
+    }
   }
 };
 
