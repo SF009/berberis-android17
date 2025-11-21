@@ -16,14 +16,73 @@
 
 #include "berberis/backend/x86_64/lower_ssa_instructions.h"
 
+#include <cstddef>
 #include <utility>
 
 #include "berberis/backend/x86_64/machine_ir.h"
+#include "berberis/base/arena_vector.h"
 #include "berberis/base/checks.h"
+#include "berberis/base/tracing.h"
 
 namespace berberis::x86_64 {
 
+bool CheckSSA(MachineIR* machine_ir) {
+  ArenaVector<bool> set_registers(machine_ir->NumVReg(), false, machine_ir->arena());
+  for (auto* bb : machine_ir->bb_list()) {
+    std::fill(begin(set_registers), end(set_registers), false);
+    for (auto reg : bb->live_in()) {
+      if (!reg.IsVReg()) {
+        TRACE("Non-vreg living-%s in before lowering", GetMachineRegDebugString(reg).c_str());
+        return false;
+      }
+      int vreg_idx = reg.GetVRegIndex();
+      if (set_registers.at(vreg_idx)) {
+        TRACE("Register %s set twice in live_in array", GetMachineRegDebugString(reg).c_str());
+        return false;
+      }
+      set_registers[vreg_idx] = true;
+    }
+    for (auto* insn : bb->insn_list()) {
+      for (int reg_idx = 0; reg_idx < insn->NumRegOperands(); ++reg_idx) {
+        auto& reg_kind = insn->RegKindAt(reg_idx);
+        if (!reg_kind.IsDef()) {
+          continue;
+        }
+        if (reg_kind.IsInput()) {
+          TRACE("use_def register detected before lowering: %s",
+                GetRegOperandDebugString(insn, reg_idx).c_str());
+          return false;
+        }
+        auto reg = insn->RegAt(reg_idx);
+        if (!reg.IsVReg()) {
+          TRACE("Non-vreg def-%s defore lowering: %s",
+                GetRegOperandDebugString(insn, reg_idx).c_str(),
+                insn->GetDebugString().c_str());
+          return false;
+        }
+        if (reg_kind.RegClass() == &x86_64::kFLAGS) {
+          continue;
+        }
+        int vreg_idx = reg.GetVRegIndex();
+        if (set_registers.at(vreg_idx)) {
+          TRACE("Register %s written to twice in %s",
+                GetRegOperandDebugString(insn, reg_idx).c_str(),
+                insn->GetDebugString().c_str());
+          return false;
+        }
+        set_registers[vreg_idx] = true;
+      }
+    }
+  }
+  return true;
+}
+
 void LowerSSAInstructions(MachineIR* machine_ir) {
+  if (!IsConfigFlagSet(kOptimizedInterRegionABI)) {
+    if (!CheckSSA(machine_ir)) {
+      FATAL("Uncorrect IR:\n%s", machine_ir->GetDebugString().c_str());
+    }
+  }
   for (auto* bb : machine_ir->bb_list()) {
     auto& insn_list = bb->insn_list();
     for (auto insn_it = insn_list.begin(); insn_it != insn_list.end();) {
