@@ -85,51 +85,46 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
   }
 
   template <typename IntrinsicType, typename ArgsType>
-  /*may_discard*/ auto GenIntrinsicCall(IntrinsicType func_ptr,
-                                        MachineReg flags_register,
-                                        ArgsType&& args) {
-    return GenIntrinsicCall<static_cast<IntrinsicType>(nullptr)>(
+  /*may_discard*/ auto GenCallImm(IntrinsicType func_ptr,
+                                  MachineReg flags_register,
+                                  ArgsType&& args) {
+    return GenCallImm<static_cast<IntrinsicType>(nullptr)>(
         flags_register, std::forward<ArgsType>(args), func_ptr);
   }
 
   template <auto kIntrinsic, typename ArgsType, typename... AddrType>
-  /*may_discard*/ auto GenIntrinsicCall(MachineReg flags_register,
-                                        ArgsType&& args,
-                                        AddrType... func_ptr);
+  /*may_discard*/ auto GenCallImm(MachineReg flags_register, ArgsType&& args, AddrType... func_ptr);
 
   template <auto kIntrinsic, typename... AddrType>
-  /*may_discard*/ auto GenIntrinsicCallImpl(
+  /*may_discard*/ auto GenCallImmImpl(
       MachineReg flags_register,
-      std::array<MachineReg,
-                 std::tuple_size_v<typename IntrinsicCall<kIntrinsic>::ArgumentRegisters>> args,
+      std::array<MachineReg, std::tuple_size_v<typename CallImm<kIntrinsic>::ArgumentRegisters>>
+          args,
       AddrType... func_ptr);
 };
 
 template <auto kIntrinsic, typename ArgsType, typename... AddrType>
-/*may_discard*/ auto MachineIRBuilder::GenIntrinsicCall(MachineReg flags_register,
-                                                        ArgsType&& args,
-                                                        AddrType... func_ptr) {
-  using IntrinsicCall = x86_64::IntrinsicCall<kIntrinsic>;
+/*may_discard*/ auto MachineIRBuilder::GenCallImm(MachineReg flags_register,
+                                                  ArgsType&& args,
+                                                  AddrType... func_ptr) {
+  using CallImm = x86_64::CallImm<kIntrinsic>;
   if constexpr (std::tuple_size_v<std::remove_reference_t<ArgsType>> == 0) {
-    return GenIntrinsicCallImpl<kIntrinsic>(flags_register, {}, func_ptr...);
+    return GenCallImmImpl<kIntrinsic>(flags_register, {}, func_ptr...);
   } else {
     // Split the intrinsic parameters if it has int128_t types.
     using SplitParamTypes =
-        TypesToTypes::FlatMap<typename IntrinsicCall::CleanParamTypes,
-                              []<typename CleanParamType>() {
-                                if constexpr (std::is_same_v<CleanParamType, __int128_t> ||
-                                              std::is_same_v<CleanParamType, __uint128_t>) {
-                                  return kTypes<int64_t, int64_t>;
-                                } else {
-                                  return kTypes<CleanParamType>;
-                                }
-                              }>;
-    using ExpandedParamTypes =
-        TypesToTypes::Concat<std::conditional_t<IntrinsicCall::kIsImplicitPointerResult,
-                                                std::tuple<int64_t>,
-                                                std::tuple<>>,
-                             SplitParamTypes>;
-    // Split GenIntrinsicCall argument values.
+        TypesToTypes::FlatMap<typename CallImm::CleanParamTypes, []<typename CleanParamType>() {
+          if constexpr (std::is_same_v<CleanParamType, __int128_t> ||
+                        std::is_same_v<CleanParamType, __uint128_t>) {
+            return kTypes<int64_t, int64_t>;
+          } else {
+            return kTypes<CleanParamType>;
+          }
+        }>;
+    using ExpandedParamTypes = TypesToTypes::Concat<
+        std::conditional_t<CallImm::kIsImplicitPointerResult, std::tuple<int64_t>, std::tuple<>>,
+        SplitParamTypes>;
+    // Split GenCallImm argument values.
     auto split_args = ValuesToValues::FlatMap(args, []<typename Arg>(Arg arg) {
       if constexpr (std::is_same_v<Arg, __int128_t> || std::is_same_v<Arg, __uint128_t>) {
         return std::tuple{static_cast<int64_t>(arg), static_cast<int64_t>(arg >> 64)};
@@ -181,23 +176,21 @@ template <auto kIntrinsic, typename ArgsType, typename... AddrType>
           }
           return physical_register;
         }));
-    return GenIntrinsicCallImpl<kIntrinsic>(flags_register, array, func_ptr...);
+    return GenCallImmImpl<kIntrinsic>(flags_register, array, func_ptr...);
   }
 }
 
 template <auto kIntrinsic, typename... AddrType>
-/*may_discard*/ auto MachineIRBuilder::GenIntrinsicCallImpl(
+/*may_discard*/ auto MachineIRBuilder::GenCallImmImpl(
     MachineReg flags_register,
-    std::array<MachineReg, std::tuple_size_v<typename IntrinsicCall<kIntrinsic>::ArgumentRegisters>>
-        args,
+    std::array<MachineReg, std::tuple_size_v<typename CallImm<kIntrinsic>::ArgumentRegisters>> args,
     AddrType... func_ptr) {
-  using IntrinsicCall = x86_64::IntrinsicCall<kIntrinsic>;
+  using CallImm = x86_64::CallImm<kIntrinsic>;
   std::array<MachineReg,
-             IntrinsicCall::kIsImplicitPointerResult ? 1
-                                                     : std::size(IntrinsicCall::kResultsElements)>
+             CallImm::kIsImplicitPointerResult ? 1 : std::size(CallImm::kResultsElements)>
       results;
   // We may need one extra argument if function address and type are passed separately.
-  if constexpr (IntrinsicCall::kDynamicFunction) {
+  if constexpr (CallImm::kDynamicFunction) {
     // If we have a dynamic intrinsic then we accept one address as 64-bit immediate.
     static_assert(sizeof...(AddrType) == 1);
     static_assert((std::is_same_v<decltype(kIntrinsic), AddrType> && ...));
@@ -205,24 +198,24 @@ template <auto kIntrinsic, typename... AddrType>
     // Otherwise address is part of the type.
     static_assert(sizeof...(AddrType) == 0);
   }
-  std::array<MachineReg, std::tuple_size_v<typename IntrinsicCall::ResultRegisters>> call_outs;
+  std::array<MachineReg, std::tuple_size_v<typename CallImm::ResultRegisters>> call_outs;
   // Each register receives result for some elements, but in some cases more than one. If that
   // happens then we always have argument that receives some other argument in the same register
   // in position zero. We copy value into target register and then either Shrq or Psrlq/Vpsrlq to
   // put result into the position. Note: we don't do zero or sign extension and don't load results
   // from memory. This part may depend on the frontend needs and thus is not done in the backend.
   constexpr bool kNeedExtraProcessing =
-      !IntrinsicCall::kIsImplicitPointerResult &&
-      ValuesToValues::Any(IntrinsicCall::kResultsElements,
+      !CallImm::kIsImplicitPointerResult &&
+      ValuesToValues::Any(CallImm::kResultsElements,
                           []<typename ResultElement>(ResultElement result_element) {
                             return result_element.element_offset != 0;
                           });
   if constexpr (kNeedExtraProcessing) {
     std::size_t call_outs_index = 0;
-    for (std::size_t index = 0; index < std::size(IntrinsicCall::kResultsElements); ++index) {
+    for (std::size_t index = 0; index < std::size(CallImm::kResultsElements); ++index) {
       MachineReg reg = ir()->AllocVReg();
       results[index] = reg;
-      auto& result_element = IntrinsicCall::kResultsElements[index];
+      auto& result_element = CallImm::kResultsElements[index];
       if (result_element.element_offset == 0) {
         call_outs[call_outs_index++] = reg;
       }
@@ -233,11 +226,11 @@ template <auto kIntrinsic, typename... AddrType>
     }
     results = call_outs;
   }
-  auto* call = ir()->NewInsn<typename IntrinsicCall::MachineInsn>(
+  auto* call = ir()->NewInsn<typename CallImm::MachineInsn>(
       std::tuple_cat(std::tuple{bit_cast<int64_t>(func_ptr)...},
                      call_outs,
                      args,
-                     TypesToValues::Map<typename IntrinsicCall::ClobberRegisters>(
+                     TypesToValues::Map<typename CallImm::ClobberRegisters>(
                          [flags_register, this]<typename RegisterClass>() {
                            if constexpr (std::is_same_v<RegisterClass, device_arch_info::FLAGS>) {
                              return flags_register;
@@ -248,10 +241,10 @@ template <auto kIntrinsic, typename... AddrType>
   InsertInsn(call);
   if constexpr (kNeedExtraProcessing) {
     MachineReg last_zero_based_register;
-    TypesToValues::ForEach<TypesToTypes::Enumerate<typename IntrinsicCall::CleanRetType>>(
+    TypesToValues::ForEach<TypesToTypes::Enumerate<typename CallImm::CleanRetType>>(
         [&last_zero_based_register, &results, flags_register, this]<typename IndexAndResultType>() {
           constexpr std::size_t kIdx = std::tuple_element_t<0, IndexAndResultType>{};
-          constexpr auto result_element = IntrinsicCall::kResultsElements[kIdx];
+          constexpr auto result_element = CallImm::kResultsElements[kIdx];
           if constexpr (result_element.element_offset == 0) {
             last_zero_based_register = results[kIdx];
           }
