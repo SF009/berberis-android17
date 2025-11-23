@@ -20,14 +20,12 @@
 #include <array>
 #include <cstdint>
 #include <tuple>
+#include <type_traits>
 
-#include "berberis/backend/code_emitter.h"
-#include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/base/bit_util.h"
 #include "berberis/base/stringprintf.h"
 #include "berberis/base/tuple_processing.h"
-#include "berberis/intrinsics/simd_register.h"
-#include "berberis/runtime_primitives/host_code.h"
+#include "berberis/device_arch_info/x86_64/device_arch_info.h"
 
 namespace berberis {
 
@@ -151,7 +149,8 @@ using SplitTypes = TypesToTypes::FlatMap<ArgumentsTuple, []<typename Type>() {
   }
 }>;
 
-inline void DynamicEmit(CodeEmitter& as, int64_t func_addr) {
+template <typename MacroAssemblers>
+inline void DynamicEmit(MacroAssemblers& as, int64_t func_addr) {
   // Note that a call to AVX-compiled code may touch YMM bits above 128, which
   // would require `vzeroupper` before we come back to generated code. This is
   // to make sure there is no performance penalty. ABI requires such `vzeroupper`s
@@ -161,8 +160,8 @@ inline void DynamicEmit(CodeEmitter& as, int64_t func_addr) {
   as.Call(bit_cast<void*>(func_addr));
 }
 
-template <auto kFunction>
-inline void StaticEmit(CodeEmitter& as) {
+template <auto kFunction, typename MacroAssemblers>
+inline void StaticEmit(MacroAssemblers& as) {
   // Note that a call to AVX-compiled code may touch YMM bits above 128, which
   // would require `vzeroupper` before we come back to generated code. This is
   // to make sure there is no performance penalty. ABI requires such `vzeroupper`s
@@ -263,32 +262,36 @@ class CallImm<kFunction> {
 
   static constexpr bool kDynamicFunction =
       kFunction == static_cast<IntrinsicRetType (*)(IntrinsicParamTypes...)>(nullptr);
-  using MachineInsn = x86_64::MachineInsn<device_arch_info::DeviceInsnInfo<
-      std::conditional_t<kDynamicFunction,
-                         MetaValue<call_imm_impl::DynamicEmit>,
-                         MetaValue<call_imm_impl::StaticEmit<kFunction>>>{},
-      "CALL",
-      true,
-      []<typename Opcode> { return Opcode::kMachineOpCallImm; },
-      device_arch_info::NoCPUIDRestriction,
-      TypesToTypes::Concat<
-          std::conditional_t<kDynamicFunction,
-                             std::tuple<device_arch_info::OperandInfo<device_arch_info::Imm64,
-                                                                      device_arch_info::kUse>>,
-                             std::tuple<>>,
-          TypesToTypes::Map<ResultRegisters,
-                            []<typename RegisterClass>(RegisterClass) {
-                              return device_arch_info::OperandInfo<RegisterClass,
-                                                                   device_arch_info::kDef>{};
-                            }>,
-          TypesToTypes::Map<ArgumentRegisters,
-                            []<typename RegisterClass>(RegisterClass) {
-                              return device_arch_info::OperandInfo<RegisterClass,
-                                                                   device_arch_info::kUse>{};
-                            }>,
-          TypesToTypes::Map<ClobberRegisters, []<typename RegisterClass>(RegisterClass) {
-            return device_arch_info::OperandInfo<RegisterClass, device_arch_info::kDef>{};
-          }>>>>;
+  template <typename MacroAssemblers>
+  class MachineInsn {
+   public:
+    using DeviceInsnInfo = device_arch_info::DeviceInsnInfo<
+        std::conditional_t<kDynamicFunction,
+                           MetaValue<call_imm_impl::DynamicEmit<MacroAssemblers>>,
+                           MetaValue<call_imm_impl::StaticEmit<kFunction, MacroAssemblers>>>{},
+        "CALL",
+        true,
+        []<typename Opcode> { return Opcode::kMachineOpCallImm; },
+        device_arch_info::NoCPUIDRestriction,
+        TypesToTypes::Concat<
+            std::conditional_t<kDynamicFunction,
+                               std::tuple<device_arch_info::OperandInfo<device_arch_info::Imm64,
+                                                                        device_arch_info::kUse>>,
+                               std::tuple<>>,
+            TypesToTypes::Map<ResultRegisters,
+                              []<typename RegisterClass>(RegisterClass) {
+                                return device_arch_info::OperandInfo<RegisterClass,
+                                                                     device_arch_info::kDef>{};
+                              }>,
+            TypesToTypes::Map<ArgumentRegisters,
+                              []<typename RegisterClass>(RegisterClass) {
+                                return device_arch_info::OperandInfo<RegisterClass,
+                                                                     device_arch_info::kUse>{};
+                              }>,
+            TypesToTypes::Map<ClobberRegisters, []<typename RegisterClass>(RegisterClass) {
+              return device_arch_info::OperandInfo<RegisterClass, device_arch_info::kDef>{};
+            }>>>;
+  };
 };
 
 // Short description of the algorithm used and why it's correct.
