@@ -20,6 +20,12 @@ namespace berberis::x86_64 {
 
 namespace {
 
+using Float16 = intrinsics::WrappedFloatType<_Float16>;
+using Float32 = intrinsics::WrappedFloatType<float>;
+using Float64 = intrinsics::WrappedFloatType<double>;
+
+using Float32x4 = float __attribute__((__vector_size__(16), __aligned__(16), may_alias));
+
 // Non-tuple return values.
 
 // Most integer types are unmodified.
@@ -44,21 +50,18 @@ static_assert(std::is_same_v<IntrinsicCall<static_cast<__int128_t (*)()>(nullptr
 static_assert(std::is_same_v<IntrinsicCall<static_cast<__uint128_t (*)()>(nullptr)>::CleanRetType,
                              std::tuple<__uint128_t>>);
 // Float16/Float32/Float64 qre unmodified.
-static_assert(
-    std::is_same_v<IntrinsicCall<static_cast<intrinsics::Float16 (*)()>(nullptr)>::CleanRetType,
-                   std::tuple<intrinsics::Float16>>);
-static_assert(
-    std::is_same_v<IntrinsicCall<static_cast<intrinsics::Float32 (*)()>(nullptr)>::CleanRetType,
-                   std::tuple<intrinsics::Float32>>);
-static_assert(
-    std::is_same_v<IntrinsicCall<static_cast<intrinsics::Float64 (*)()>(nullptr)>::CleanRetType,
-                   std::tuple<intrinsics::Float64>>);
+static_assert(std::is_same_v<IntrinsicCall<static_cast<Float16 (*)()>(nullptr)>::CleanRetType,
+                             std::tuple<Float16>>);
+static_assert(std::is_same_v<IntrinsicCall<static_cast<Float32 (*)()>(nullptr)>::CleanRetType,
+                             std::tuple<Float32>>);
+static_assert(std::is_same_v<IntrinsicCall<static_cast<Float64 (*)()>(nullptr)>::CleanRetType,
+                             std::tuple<Float64>>);
 // SIMD128Register and __m128 are treated as __m128.
 static_assert(
     std::is_same_v<IntrinsicCall<static_cast<SIMD128Register (*)()>(nullptr)>::CleanRetType,
-                   std::tuple<__m128>>);
-static_assert(std::is_same_v<IntrinsicCall<static_cast<__m128 (*)()>(nullptr)>::CleanRetType,
-                             std::tuple<__m128>>);
+                   std::tuple<Float32x4>>);
+static_assert(std::is_same_v<IntrinsicCall<static_cast<Float32x4 (*)()>(nullptr)>::CleanRetType,
+                             std::tuple<Float32x4>>);
 
 // Tuple return values.
 
@@ -95,29 +98,28 @@ static_assert(
         IntrinsicCall<static_cast<std::tuple<const __uint128_t> (*)()>(nullptr)>::CleanRetType,
         std::tuple<__uint128_t>>);
 // Float16/Float32/Float64 qre unmodified.
-static_assert(std::is_same_v<IntrinsicCall<static_cast<std::tuple<const intrinsics::Float16> (*)()>(
-                                 nullptr)>::CleanRetType,
-                             std::tuple<intrinsics::Float16>>);
-static_assert(std::is_same_v<IntrinsicCall<static_cast<std::tuple<const intrinsics::Float32> (*)()>(
-                                 nullptr)>::CleanRetType,
-                             std::tuple<intrinsics::Float32>>);
-static_assert(std::is_same_v<IntrinsicCall<static_cast<std::tuple<const intrinsics::Float64> (*)()>(
-                                 nullptr)>::CleanRetType,
-                             std::tuple<intrinsics::Float64>>);
+static_assert(std::is_same_v<
+              IntrinsicCall<static_cast<std::tuple<const Float16> (*)()>(nullptr)>::CleanRetType,
+              std::tuple<Float16>>);
+static_assert(std::is_same_v<
+              IntrinsicCall<static_cast<std::tuple<const Float32> (*)()>(nullptr)>::CleanRetType,
+              std::tuple<Float32>>);
+static_assert(std::is_same_v<
+              IntrinsicCall<static_cast<std::tuple<const Float64> (*)()>(nullptr)>::CleanRetType,
+              std::tuple<Float64>>);
 // SIMD128Register and __m128 are treated as __m128.
 static_assert(
     std::is_same_v<
         IntrinsicCall<static_cast<std::tuple<const SIMD128Register> (*)()>(nullptr)>::CleanRetType,
-        std::tuple<__m128>>);
+        std::tuple<Float32x4>>);
 static_assert(std::is_same_v<
-              IntrinsicCall<static_cast<std::tuple<const __m128> (*)()>(nullptr)>::CleanRetType,
-              std::tuple<__m128>>);
+              IntrinsicCall<static_cast<std::tuple<const Float32x4> (*)()>(nullptr)>::CleanRetType,
+              std::tuple<Float32x4>>);
 
 // Smoke test for Parameters.
-static_assert(
-    std::is_same_v<IntrinsicCall<static_cast<void (*)(const __int128_t, const intrinsics::Float16)>(
-                       nullptr)>::CleanParamTypes,
-                   std::tuple<__int128_t, intrinsics::Float16>>);
+static_assert(std::is_same_v<IntrinsicCall<static_cast<void (*)(const __int128_t, const Float16)>(
+                                 nullptr)>::CleanParamTypes,
+                             std::tuple<__int128_t, Float16>>);
 
 // Small ints are returned in RAX.
 static_assert(
@@ -171,39 +173,30 @@ static_assert(
                    std::tuple<device_arch_info::RAX, device_arch_info::RDX>>);
 // If you pass mix of ints and floats these are returned in RAX/RDX.
 static_assert(
-    std::is_same_v<IntrinsicCall<static_cast<
-                       std::tuple<intrinsics::Float16, int8_t, intrinsics::Float16, int8_t> (*)()>(
+    std::is_same_v<IntrinsicCall<static_cast<std::tuple<Float16, int8_t, Float16, int8_t> (*)()>(
                        nullptr)>::ResultRegisters,
                    std::tuple<device_arch_info::RAX>>);
 static_assert(
-    std::is_same_v<IntrinsicCall<static_cast<std::tuple<intrinsics::Float16,
-                                                        int8_t,
-                                                        intrinsics::Float16,
-                                                        int8_t,
-                                                        intrinsics::Float16,
-                                                        int8_t> (*)()>(nullptr)>::ResultRegisters,
+    std::is_same_v<IntrinsicCall<static_cast<
+                       std::tuple<Float16, int8_t, Float16, int8_t, Float16, int8_t> (*)()>(
+                       nullptr)>::ResultRegisters,
                    std::tuple<device_arch_info::RAX, device_arch_info::RDX>>);
 // If the only element that comes in the second eightbyte is float it's passed in XMM0, even though
 // the first eightbyte is in RAX.
 static_assert(
     std::is_same_v<
-        IntrinsicCall<static_cast<std::tuple<intrinsics::Float16,
-                                             int8_t,
-                                             intrinsics::Float16,
-                                             int8_t,
-                                             intrinsics::Float16> (*)()>(nullptr)>::ResultRegisters,
+        IntrinsicCall<static_cast<std::tuple<Float16, int8_t, Float16, int8_t, Float16> (*)()>(
+            nullptr)>::ResultRegisters,
         std::tuple<device_arch_info::RAX, device_arch_info::XMM0>>);
 // Couple of Float32 can be put in XMM0.
-static_assert(std::is_same_v<
-              IntrinsicCall<static_cast<std::tuple<intrinsics::Float32, intrinsics::Float32> (*)()>(
-                  nullptr)>::ResultRegisters,
-              std::tuple<device_arch_info::XMM0>>);
+static_assert(
+    std::is_same_v<
+        IntrinsicCall<static_cast<std::tuple<Float32, Float32> (*)()>(nullptr)>::ResultRegisters,
+        std::tuple<device_arch_info::XMM0>>);
 // Bunch of Float32 would occupy both XMM0 and XMM1
-static_assert(std::is_same_v<
-              IntrinsicCall<static_cast<
-                  std::tuple<intrinsics::Float16, intrinsics::Float32, intrinsics::Float16> (*)()>(
-                  nullptr)>::ResultRegisters,
-              std::tuple<device_arch_info::XMM0, device_arch_info::XMM1>>);
+static_assert(std::is_same_v<IntrinsicCall<static_cast<std::tuple<Float16, Float32, Float16> (*)()>(
+                                 nullptr)>::ResultRegisters,
+                             std::tuple<device_arch_info::XMM0, device_arch_info::XMM1>>);
 // One SIMD128Register would go in XMM0.
 static_assert(
     std::is_same_v<
@@ -217,15 +210,15 @@ static_assert(
 
 // Verify that types properly go into proper register types.
 static_assert(
-    std::is_same_v<IntrinsicCall<static_cast<void (*)(intrinsics::Float16,
+    std::is_same_v<IntrinsicCall<static_cast<void (*)(Float16,
                                                       int8_t,
-                                                      intrinsics::Float32,
+                                                      Float32,
                                                       int16_t,
-                                                      intrinsics::Float64,
+                                                      Float64,
                                                       int32_t,
                                                       SIMD128Register,
                                                       int64_t,
-                                                      __m128,
+                                                      Float32x4,
                                                       __int128_t)>(nullptr)>::ArgumentRegisters,
                    std::tuple<device_arch_info::XMM0,
                               device_arch_info::RDI,
@@ -241,15 +234,15 @@ static_assert(
 // If result is returned in memory then first integer register is used for pointer to result.
 static_assert(
     std::is_same_v<IntrinsicCall<static_cast<std::tuple<SIMD128Register, SIMD128Register> (*)(
-                       intrinsics::Float16,
+                       Float16,
                        int16_t,
-                       intrinsics::Float16,
+                       Float16,
                        int32_t,
-                       intrinsics::Float64,
+                       Float64,
                        int64_t,
                        SIMD128Register,
                        __int128_t,
-                       __m128)>(nullptr)>::ArgumentRegisters,
+                       Float32x4)>(nullptr)>::ArgumentRegisters,
                    std::tuple<device_arch_info::RDI,
                               device_arch_info::XMM0,
                               device_arch_info::RSI,
@@ -263,36 +256,34 @@ static_assert(
                               device_arch_info::XMM4>>);
 
 // both RAX and XMM0 are properly removed from ClobberRegisters
-static_assert(std::is_same_v<IntrinsicCall<static_cast<std::tuple<intrinsics::Float16,
-                                                                  int8_t,
-                                                                  intrinsics::Float16,
-                                                                  int8_t,
-                                                                  intrinsics::Float16> (*)()>(
-                                 nullptr)>::ClobberRegisters,
-                             std::tuple<device_arch_info::RDI,
-                                        device_arch_info::RSI,
-                                        device_arch_info::RDX,
-                                        device_arch_info::RCX,
-                                        device_arch_info::R8,
-                                        device_arch_info::R9,
-                                        device_arch_info::R10,
-                                        device_arch_info::R11,
-                                        device_arch_info::XMM1,
-                                        device_arch_info::XMM2,
-                                        device_arch_info::XMM3,
-                                        device_arch_info::XMM4,
-                                        device_arch_info::XMM5,
-                                        device_arch_info::XMM6,
-                                        device_arch_info::XMM7,
-                                        device_arch_info::XMM8,
-                                        device_arch_info::XMM9,
-                                        device_arch_info::XMM10,
-                                        device_arch_info::XMM11,
-                                        device_arch_info::XMM12,
-                                        device_arch_info::XMM13,
-                                        device_arch_info::XMM14,
-                                        device_arch_info::XMM15,
-                                        device_arch_info::FLAGS>>);
+static_assert(
+    std::is_same_v<
+        IntrinsicCall<static_cast<std::tuple<Float16, int8_t, Float16, int8_t, Float16> (*)()>(
+            nullptr)>::ClobberRegisters,
+        std::tuple<device_arch_info::RDI,
+                   device_arch_info::RSI,
+                   device_arch_info::RDX,
+                   device_arch_info::RCX,
+                   device_arch_info::R8,
+                   device_arch_info::R9,
+                   device_arch_info::R10,
+                   device_arch_info::R11,
+                   device_arch_info::XMM1,
+                   device_arch_info::XMM2,
+                   device_arch_info::XMM3,
+                   device_arch_info::XMM4,
+                   device_arch_info::XMM5,
+                   device_arch_info::XMM6,
+                   device_arch_info::XMM7,
+                   device_arch_info::XMM8,
+                   device_arch_info::XMM9,
+                   device_arch_info::XMM10,
+                   device_arch_info::XMM11,
+                   device_arch_info::XMM12,
+                   device_arch_info::XMM13,
+                   device_arch_info::XMM14,
+                   device_arch_info::XMM15,
+                   device_arch_info::FLAGS>>);
 
 }  // namespace
 
