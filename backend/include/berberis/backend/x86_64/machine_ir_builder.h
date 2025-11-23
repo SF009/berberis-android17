@@ -111,20 +111,11 @@ template <auto kIntrinsic, typename ArgsType, typename... AddrType>
   if constexpr (std::tuple_size_v<std::remove_reference_t<ArgsType>> == 0) {
     return GenCallImmImpl<kIntrinsic>(flags_register, {}, func_ptr...);
   } else {
-    // Split the intrinsic parameters if it has int128_t types.
-    using SplitParamTypes =
-        TypesToTypes::FlatMap<typename CallImm::CleanParamTypes, []<typename CleanParamType>() {
-          if constexpr (std::is_same_v<CleanParamType, __int128_t> ||
-                        std::is_same_v<CleanParamType, __uint128_t>) {
-            return kTypes<int64_t, int64_t>;
-          } else {
-            return kTypes<CleanParamType>;
-          }
-        }>;
+    // If result comes in caller-provided buffer then there's hidden argument before first one.
     using ExpandedParamTypes = TypesToTypes::Concat<
         std::conditional_t<CallImm::kIsImplicitPointerResult, std::tuple<int64_t>, std::tuple<>>,
-        SplitParamTypes>;
-    // Split GenCallImm argument values.
+        typename CallImm::CleanParamTypes>;
+    // Split GenCallImm argument values: 128-bit immediates have to come as two arguments.
     auto split_args = ValuesToValues::FlatMap(args, []<typename Arg>(Arg arg) {
       if constexpr (std::is_same_v<Arg, __int128_t> || std::is_same_v<Arg, __uint128_t>) {
         return std::tuple{static_cast<int64_t>(arg), static_cast<int64_t>(arg >> 64)};
@@ -252,13 +243,12 @@ template <auto kIntrinsic, typename... AddrType>
           // We need to special handle even the first register if we receive results in RAX/RDX but
           // then have to move it into SSE register as per caller expectations.
           if constexpr (result_element.element_offset != 0 ||
-                        ((result_element.register_class == &kRegisterClass<device_arch_info::RAX> ||
-                          result_element.register_class ==
-                              &kRegisterClass<device_arch_info::RDX>) &&
+                        ((result_element.clobber_class_index <=
+                          std::tuple_size_v<call_imm_impl::SSEArgumentetersRegisters>) &&
                          (std::is_same_v<ElementType, intrinsics::Float16> ||
                           std::is_same_v<ElementType, intrinsics::Float32>))) {
-            if constexpr (result_element.register_class == &kRegisterClass<device_arch_info::RAX> ||
-                          result_element.register_class == &kRegisterClass<device_arch_info::RDX>) {
+            if constexpr (result_element.clobber_class_index <=
+                          std::tuple_size_v<call_imm_impl::SSEArgumentetersRegisters>) {
               if constexpr (result_element.element_offset != 0) {
                 InsertInsn(ir()->NewInsn<ShrqRegImm, kSSA>(
                     results[kIdx],

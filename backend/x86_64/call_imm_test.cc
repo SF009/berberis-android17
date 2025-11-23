@@ -56,11 +56,11 @@ static_assert(std::is_same_v<CallImm<static_cast<Float32 (*)()>(nullptr)>::Clean
                              std::tuple<Float32>>);
 static_assert(std::is_same_v<CallImm<static_cast<Float64 (*)()>(nullptr)>::CleanRetType,
                              std::tuple<Float64>>);
-// SIMD128Register and __m128 are treated as __m128.
+// SIMD128Register and __m128 are treated as SIMD128Register.
 static_assert(std::is_same_v<CallImm<static_cast<SIMD128Register (*)()>(nullptr)>::CleanRetType,
-                             std::tuple<Float32x4>>);
+                             std::tuple<SIMD128Register>>);
 static_assert(std::is_same_v<CallImm<static_cast<Float32x4 (*)()>(nullptr)>::CleanRetType,
-                             std::tuple<Float32x4>>);
+                             std::tuple<SIMD128Register>>);
 
 // Tuple return values.
 
@@ -105,21 +105,21 @@ static_assert(
 static_assert(
     std::is_same_v<CallImm<static_cast<std::tuple<const Float64> (*)()>(nullptr)>::CleanRetType,
                    std::tuple<Float64>>);
-// SIMD128Register and __m128 are treated as __m128.
+// SIMD128Register and __m128 are treated as SIMD128Register.
 static_assert(std::is_same_v<
               CallImm<static_cast<std::tuple<const SIMD128Register> (*)()>(nullptr)>::CleanRetType,
-              std::tuple<Float32x4>>);
+              std::tuple<SIMD128Register>>);
 static_assert(
     std::is_same_v<CallImm<static_cast<std::tuple<const float __attribute__((__vector_size__(16),
                                                                              may_alias))> (*)()>(
                        nullptr)>::CleanRetType,
-                   std::tuple<Float32x4>>);
+                   std::tuple<SIMD128Register>>);
 
 // Smoke test for Parameters.
 static_assert(
     std::is_same_v<
         CallImm<static_cast<void (*)(const __int128_t, const Float16)>(nullptr)>::CleanParamTypes,
-        std::tuple<__int128_t, Float16>>);
+        std::tuple<int64_t, int64_t, Float16>>);
 
 // Small ints are returned in RAX.
 static_assert(

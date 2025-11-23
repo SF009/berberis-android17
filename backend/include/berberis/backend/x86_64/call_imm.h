@@ -29,20 +29,17 @@
 #include "berberis/intrinsics/simd_register.h"
 #include "berberis/runtime_primitives/host_code.h"
 
-namespace berberis::x86_64 {
+namespace berberis {
+
+class SIMD128Register;
+
+namespace x86_64 {
 
 namespace call_imm_impl {
 
-// Helper to go from a tuple of register classes to an array of values.
-template <typename RegistersClassesTuple>
-inline constexpr auto kTokRegisterClass = ToArray(TypesToValues::Map<RegistersClassesTuple>(
-    []<typename RegisterClass>() { return &kRegisterClass<RegisterClass>; }));
-
 using GpResultRegisters = std::tuple<device_arch_info::RAX, device_arch_info::RDX>;
-inline constexpr auto kGpResultRegisters = kTokRegisterClass<GpResultRegisters>;
 
 using SSEResultRegisters = std::tuple<device_arch_info::XMM0, device_arch_info::XMM1>;
-inline constexpr auto kSSEResultRegisters = kTokRegisterClass<SSEResultRegisters>;
 
 using GpArgumentetersRegisters = std::tuple<device_arch_info::RDI,
                                             device_arch_info::RSI,
@@ -50,7 +47,6 @@ using GpArgumentetersRegisters = std::tuple<device_arch_info::RDI,
                                             device_arch_info::RCX,
                                             device_arch_info::R8,
                                             device_arch_info::R9>;
-inline constexpr auto kGpArgumentetersRegisters = kTokRegisterClass<GpArgumentetersRegisters>;
 
 using SSEArgumentetersRegisters = std::tuple<device_arch_info::XMM0,
                                              device_arch_info::XMM1,
@@ -60,11 +56,9 @@ using SSEArgumentetersRegisters = std::tuple<device_arch_info::XMM0,
                                              device_arch_info::XMM5,
                                              device_arch_info::XMM6,
                                              device_arch_info::XMM7>;
-inline constexpr auto kSSEArgumentetersRegisters = kTokRegisterClass<SSEArgumentetersRegisters>;
 
 using ArgumentetersRegisters =
     TypesToTypes::Concat<GpArgumentetersRegisters, SSEArgumentetersRegisters>;
-inline constexpr auto kArgumentetersRegisters = kTokRegisterClass<ArgumentetersRegisters>;
 
 using ClobberRegisters = std::tuple<device_arch_info::RAX,
                                     device_arch_info::RDI,
@@ -92,55 +86,68 @@ using ClobberRegisters = std::tuple<device_arch_info::RAX,
                                     device_arch_info::XMM14,
                                     device_arch_info::XMM15,
                                     device_arch_info::FLAGS>;
-inline constexpr auto kClobberRegisters = kTokRegisterClass<ClobberRegisters>;
-
-// Helper convertor to go from kRegisterClass variable back to Register's class.
-template <auto kRegisterClass>
-class kRegisterClassChecker {
- public:
-  // Use empty class and explicit operator() here because some compiler don't work correctly
-  // with lambda in the unevaluted contexts. See: b/461358523
-  template <typename RegisterClass>
-  constexpr auto operator()() const {
-    return kRegisterClass == &x86_64::kRegisterClass<RegisterClass>;
-  }
-};
-template <auto kRegisterClass, typename RegistersClassesList>
-using kRegisterClassToClassTuple =
-    TypesToTypes::Filter<RegistersClassesList, kRegisterClassChecker<kRegisterClass>{}>;
 
 // Information about intrinsic call results.
 struct ResultsElementInfo {
-  // Register class for elements passed in register. Note that ABI permits coalescion of few
-  // elements of tuple in one register. Note: nullptr means everything is passed in memory.
-  const MachineRegClass* register_class;
+  // All results are in the clobber list—they are either returned or simply destroyed.
+  // We store index in the ClobberRegisters here.
+  std::size_t clobber_class_index;
   // Position in register or memory from the beginning of the register (or struct if memory is
   // used).
   std::size_t element_offset;
 };
 
-// Information about intrinsic call arguments.
-// Note: we don't support aggregates, which means most parameters go into one register.
-// We also don't support stack-passed parameters for now. But __int128_t uses two registers.
-enum ArgumentElementType { kInteger, kSSE, kInt128 };
-struct ArgumentsElementInfo {
-  ArgumentElementType param_type;
-  std::array<const MachineRegClass*, 2> register_classes;
-};
-
 template <typename ArgumentsTuple>
 using CleanTypes = TypesToTypes::FlatMap<ArgumentsTuple, []<typename RawType> {
   using Type = std::remove_cvref_t<RawType>;
-  if constexpr (std::is_integral_v<Type> || std::is_same_v<Type, intrinsics::Float16> ||
-                std::is_same_v<Type, intrinsics::Float32> ||
-                std::is_same_v<Type, intrinsics::Float64>) {
+  if constexpr (std::is_integral_v<Type> ||
+                std::is_same_v<Type, intrinsics::WrappedFloatType<_Float16>> ||
+                std::is_same_v<Type, intrinsics::WrappedFloatType<float>> ||
+                std::is_same_v<Type, intrinsics::WrappedFloatType<double>>) {
     return kTypes<Type>;
   } else if constexpr (std::is_pointer_v<Type>) {
     return kTypes<uint64_t>;
-  } else if constexpr (std::is_same_v<Type, SIMD128Register> || std::is_same_v<Type, __m128>) {
-    return kTypes<__m128>;
+  } else if constexpr (std::is_same_v<Type, SIMD128Register> ||
+                       std::is_same_v<Type,
+                                      float __attribute__((__vector_size__(16), may_alias))>) {
+    return kTypes<SIMD128Register>;
   } else {
     static_assert(kDependentTypeFalse<Type>);
+  }
+}>;
+
+template <typename ArgumentsTuple>
+using RawTypes = TypesToTypes::FlatMap<ArgumentsTuple, []<typename RawType> {
+  using Type = std::remove_cvref_t<RawType>;
+  if constexpr (std::is_integral_v<Type>) {
+    return kTypes<Type>;
+  } else if constexpr (std::is_same_v<Type, intrinsics::WrappedFloatType<_Float16>>) {
+    return kTypes<_Float16>;
+  } else if constexpr (std::is_same_v<Type, intrinsics::WrappedFloatType<float>>) {
+    return kTypes<float>;
+  } else if constexpr (std::is_same_v<Type, intrinsics::WrappedFloatType<double>>) {
+    return kTypes<double>;
+  } else if constexpr (std::is_pointer_v<Type>) {
+    return kTypes<uint64_t>;
+  } else if constexpr (std::is_same_v<Type, SIMD128Register> ||
+                       std::is_same_v<Type,
+                                      float __attribute__((__vector_size__(16), may_alias))>) {
+    return kTypes<float __attribute__((__vector_size__(16), may_alias))>;
+  } else {
+    static_assert(kDependentTypeFalse<Type>);
+  }
+}>;
+
+// When passed as arguments __int128_t and __uint128_t are split in two register, except when they
+// are passed in memory (which we don't support currently). But when they are reeturned they are
+// only split if there are no other types. So we split arguments, but don't split results. Results
+// of type std::tuple<__int128_t> and std::tuple<__uint128_t> are handled separately.
+template <typename ArgumentsTuple>
+using SplitTypes = TypesToTypes::FlatMap<ArgumentsTuple, []<typename Type>() {
+  if constexpr (std::is_same_v<Type, __int128_t> || std::is_same_v<Type, __uint128_t>) {
+    return kTypes<int64_t, int64_t>;
+  } else {
+    return kTypes<Type>;
   }
 }>;
 
@@ -151,7 +158,7 @@ inline void DynamicEmit(CodeEmitter& as, int64_t func_addr) {
   // done by the callee unless the result in returned in full YMM register.
   // Since we don't support full YMM results here, we don't need extra
   // `vzeroupper`s here.
-  as.Call(bit_cast<HostCode>(func_addr));
+  as.Call(bit_cast<void*>(func_addr));
 }
 
 template <auto kFunction>
@@ -162,7 +169,7 @@ inline void StaticEmit(CodeEmitter& as) {
   // done by the callee unless the result in returned in full YMM register.
   // Since we don't support full YMM results here, we don't need extra
   // `vzeroupper`s here.
-  as.Call(bit_cast<HostCode>(kFunction));
+  as.Call(bit_cast<void*>(kFunction));
 }
 
 }  // namespace call_imm_impl
@@ -178,16 +185,18 @@ class CallImm<kFunction> {
   using CleanRetType = call_imm_impl::CleanTypes<std::conditional_t<
       std::is_same_v<IntrinsicRetType, void>,
       std::tuple<>,
-      std::conditional_t<std::is_integral_v<IntrinsicRetType> ||
-                             std::is_pointer_v<IntrinsicRetType> ||
-                             std::is_same_v<IntrinsicRetType, intrinsics::Float16> ||
-                             std::is_same_v<IntrinsicRetType, intrinsics::Float32> ||
-                             std::is_same_v<IntrinsicRetType, intrinsics::Float64> ||
-                             std::is_same_v<IntrinsicRetType, SIMD128Register> ||
-                             std::is_same_v<IntrinsicRetType, __m128>,
-                         std::tuple<IntrinsicRetType>,
-                         IntrinsicRetType>>>;
-  using CleanParamTypes = call_imm_impl::CleanTypes<std::tuple<IntrinsicParamTypes...>>;
+      std::conditional_t<
+          std::is_integral_v<IntrinsicRetType> || std::is_pointer_v<IntrinsicRetType> ||
+              std::is_same_v<IntrinsicRetType, intrinsics::WrappedFloatType<_Float16>> ||
+              std::is_same_v<IntrinsicRetType, intrinsics::WrappedFloatType<float>> ||
+              std::is_same_v<IntrinsicRetType, intrinsics::WrappedFloatType<double>> ||
+              std::is_same_v<IntrinsicRetType, SIMD128Register> ||
+              std::is_same_v<IntrinsicRetType,
+                             float __attribute__((__vector_size__(16), may_alias))>,
+          std::tuple<IntrinsicRetType>,
+          IntrinsicRetType>>>;
+  using CleanParamTypes =
+      call_imm_impl::SplitTypes<call_imm_impl::CleanTypes<std::tuple<IntrinsicParamTypes...>>>;
 
  private:
   static constexpr std::array<call_imm_impl::ResultsElementInfo,
@@ -197,14 +206,15 @@ class CallImm<kFunction> {
                                        ? 1
                                        : 0)>
   GenResultsElements();
-  static constexpr std::array<call_imm_impl::ArgumentsElementInfo,
-                              std::tuple_size_v<CleanParamTypes>>
+  // The same as with ResultsElementInfo: we store indexes to ClobberRegisters here.
+  static constexpr std::array<std::size_t, std::tuple_size_v<CleanParamTypes>>
   GenArgumentElements();
 
  public:
   // Whether the result is returned in memory. In the absence of unions or unaligned fields this
   // happens when and only when size of result is larger than 16 bytes.
-  static constexpr bool kIsImplicitPointerResult = sizeof(CleanRetType) > 16;
+  static constexpr bool kIsImplicitPointerResult =
+      sizeof(call_imm_impl::RawTypes<CleanRetType>) > 16;
   // Note: we need kResultsElements mostly to calculate ResultRegisters but frontend can use it to
   // unpack values that are returned in one register.
   static constexpr auto kResultsElements = GenResultsElements();
@@ -218,14 +228,11 @@ class CallImm<kFunction> {
         // structs with arbitrary bitfields that may include padding.
         if constexpr (kResultElementInfo.element_offset != 0) {
           return kTypes<>;
-        } else if constexpr (kResultElementInfo.register_class == nullptr) {
+        } else if constexpr (kResultElementInfo.clobber_class_index == ~std::size_t{0}) {
           return kTypes<device_arch_info::RAX>;
         } else {
-          using RegisterClassTuple =
-              call_imm_impl::kRegisterClassToClassTuple<kResultElementInfo.register_class,
-                                                        call_imm_impl::ClobberRegisters>;
-          static_assert(std::tuple_size_v<RegisterClassTuple> == 1);
-          return kTypes<std::tuple_element_t<0, RegisterClassTuple>>;
+          return kTypes<std::tuple_element_t<kResultElementInfo.clobber_class_index,
+                                             call_imm_impl::ClobberRegisters>>;
         }
       }>;
   // Note: we need kArgumentElements mostly to calculate ArgumentRegisters but frontend can use it
@@ -235,30 +242,9 @@ class CallImm<kFunction> {
       std::conditional_t<kIsImplicitPointerResult, std::tuple<device_arch_info::RDI>, std::tuple<>>,
       TypesToTypes::FlatMap<ValuesToTypes::MetaValues<kArgumentElements>,
                             []<typename ArgumentElementInfo> {
-                              constexpr call_imm_impl::ArgumentsElementInfo kArgumentElementInfo =
-                                  ArgumentElementInfo::kValue;
-                              if constexpr (kArgumentElementInfo.param_type ==
-                                            call_imm_impl::kInt128) {
-                                using RegisterClassTuple1 =
-                                    call_imm_impl::kRegisterClassToClassTuple<
-                                        kArgumentElementInfo.register_classes[0],
-                                        call_imm_impl::ArgumentetersRegisters>;
-                                using RegisterClassTuple2 =
-                                    call_imm_impl::kRegisterClassToClassTuple<
-                                        kArgumentElementInfo.register_classes[1],
-                                        call_imm_impl::ArgumentetersRegisters>;
-                                static_assert(std::tuple_size_v<RegisterClassTuple1> == 1);
-                                static_assert(std::tuple_size_v<RegisterClassTuple2> == 1);
-                                return kTypes<std::tuple_element_t<0, RegisterClassTuple1>,
-                                              std::tuple_element_t<0, RegisterClassTuple2>>;
-                              } else {
-                                using RegisterClassTuple =
-                                    call_imm_impl::kRegisterClassToClassTuple<
-                                        kArgumentElementInfo.register_classes[0],
-                                        call_imm_impl::ArgumentetersRegisters>;
-                                static_assert(std::tuple_size_v<RegisterClassTuple> == 1);
-                                return kTypes<std::tuple_element_t<0, RegisterClassTuple>>;
-                              }
+                              constexpr std::size_t kArgumentElementInfo = ArgumentElementInfo{};
+                              return kTypes<std::tuple_element_t<kArgumentElementInfo,
+                                                                 call_imm_impl::ClobberRegisters>>;
                             }>>;
   // Clobber registers are registers that a function is allowed to modify. According to the x86-64
   // psABI, these are the caller-saved registers. The registers used to return values are also
@@ -360,28 +346,29 @@ constexpr auto CallImm<kFunction>::GenResultsElements()
   } else if constexpr (std::is_same_v<CleanRetType, std::tuple<__int128>> ||
                        std::is_same_v<CleanRetType, std::tuple<__uint128_t>>) {
     return std::array{
-        call_imm_impl::ResultsElementInfo{.register_class = &kRegisterClass<device_arch_info::RAX>,
-                                          .element_offset = 0},
-        call_imm_impl::ResultsElementInfo{.register_class = &kRegisterClass<device_arch_info::RDX>,
-                                          .element_offset = 0}};
-  } else if constexpr (std::is_same_v<CleanRetType, std::tuple<__m128>>) {
-    return std::array{call_imm_impl::ResultsElementInfo{
-        .register_class = &kRegisterClass<device_arch_info::XMM0>, .element_offset = 0}};
+        call_imm_impl::ResultsElementInfo{.clobber_class_index = 0, .element_offset = 0},
+        call_imm_impl::ResultsElementInfo{.clobber_class_index = 3, .element_offset = 0}};
+  } else if constexpr (std::is_same_v<
+                           CleanRetType,
+                           std::tuple<float __attribute__((__vector_size__(16), may_alias))>>) {
+    return std::array{
+        call_imm_impl::ResultsElementInfo{.clobber_class_index = 9, .element_offset = 0}};
   } else {
     std::array<call_imm_impl::ResultsElementInfo, std::tuple_size_v<CleanRetType>> result =
-        ToArray(TypesToValues::MapWithTemporary<CleanRetType, /* offset = */ std::size_t>(
+        ToArray(TypesToValues::MapWithTemporary<call_imm_impl::RawTypes<CleanRetType>,
+                                                /* offset = */ std::size_t>(
             []<typename Type>(std::size_t& offset) {
               static_assert(IsPowerOf2(sizeof(Type)));
               std::size_t current_offset = AlignUp<sizeof(Type)>(offset);
               offset = current_offset + sizeof(Type);
               if constexpr (kIsImplicitPointerResult) {
-                return call_imm_impl::ResultsElementInfo{.register_class = nullptr,
+                return call_imm_impl::ResultsElementInfo{.clobber_class_index = ~std::size_t{0},
                                                          .element_offset = current_offset};
               } else if constexpr (std::is_integral_v<Type>) {
-                return call_imm_impl::ResultsElementInfo{.register_class = &kGeneralReg64,
+                return call_imm_impl::ResultsElementInfo{.clobber_class_index = ~std::size_t{1},
                                                          .element_offset = current_offset};
               } else {
-                return call_imm_impl::ResultsElementInfo{.register_class = &kXmmReg,
+                return call_imm_impl::ResultsElementInfo{.clobber_class_index = ~std::size_t{2},
                                                          .element_offset = current_offset};
               }
             }));
@@ -394,21 +381,21 @@ constexpr auto CallImm<kFunction>::GenResultsElements()
       bool use_integer_register = false;
       for (auto& element : result) {
         if (element.element_offset >= offset && element.element_offset < offset + 8 &&
-            element.register_class == &kGeneralReg64) {
+            element.clobber_class_index == ~std::size_t{1}) {
           use_integer_register = true;
           break;
         }
       }
-      const MachineRegClass* register_class;
+      std::size_t clobber_class_index;
       if (use_integer_register) {
-        register_class = call_imm_impl::kGpResultRegisters[int_register++];
+        clobber_class_index = std::array<std::size_t, 2>{0, 3}[int_register++];
       } else {
-        register_class = call_imm_impl::kSSEResultRegisters[sse_register++];
+        clobber_class_index = std::array<std::size_t, 2>{9, 10}[sse_register++];
       }
       for (auto& element : result) {
         if (element.element_offset >= offset && element.element_offset < offset + 8) {
+          element.clobber_class_index = clobber_class_index;
           element.element_offset = element.element_offset % 8;
-          element.register_class = register_class;
         }
       }
     }
@@ -420,35 +407,28 @@ template <typename IntrinsicRetType,
           typename... IntrinsicParamTypes,
           IntrinsicRetType (*kFunction)(IntrinsicParamTypes...)>
 constexpr auto CallImm<kFunction>::GenArgumentElements()
-    -> std::array<call_imm_impl::ArgumentsElementInfo, std::tuple_size_v<CleanParamTypes>> {
+    -> std::array<std::size_t, std::tuple_size_v<CleanParamTypes>> {
   if constexpr (std::tuple_size_v<CleanParamTypes> == 0) {
-    return std::array<call_imm_impl::ArgumentsElementInfo, 0>{};
+    return std::array<std::size_t, 0>{};
   } else {
     return ToArray(TypesToValues::MapWithTemporary<CleanParamTypes>(
         /* integer_index, sse_index = */ std::tuple{std::size_t{kIsImplicitPointerResult ? 1 : 0},
                                                     std::size_t{0}},
         []<typename CleanArgumentType>(std::tuple<std::size_t, std::size_t>& indexes) {
           auto& [integer_index, sse_index] = indexes;
-          if constexpr (std::is_same_v<CleanArgumentType, __int128> ||
-                        std::is_same_v<CleanArgumentType, __uint128_t>) {
-            std::size_t first_integer_index = integer_index++;
-            std::size_t second_integer_index = integer_index++;
-            return call_imm_impl::ArgumentsElementInfo{
-                call_imm_impl::kInt128,
-                {call_imm_impl::kGpArgumentetersRegisters[first_integer_index],
-                 call_imm_impl::kGpArgumentetersRegisters[second_integer_index]}};
-          } else if constexpr (std::is_integral_v<CleanArgumentType>) {
-            return call_imm_impl::ArgumentsElementInfo{
-                call_imm_impl::kInteger,
-                {call_imm_impl::kGpArgumentetersRegisters[integer_index++]}};
+          if constexpr (std::is_integral_v<CleanArgumentType>) {
+            CHECK_LE(++integer_index, 6);  // There are maximum 6 integer parameters.
+            return integer_index;
           } else {
-            return call_imm_impl::ArgumentsElementInfo{
-                call_imm_impl::kSSE, {call_imm_impl::kSSEArgumentetersRegisters[sse_index++]}};
+            CHECK_LE(++sse_index, 8);  // There are maximum 8 SSE parameters.
+            return 8 + sse_index;
           }
         }));
   }
 }
 
-}  // namespace berberis::x86_64
+}  // namespace x86_64
+
+}  // namespace berberis
 
 #endif  // BERBERIS_BACKEND_X86_64_CALL_IMM_H_
