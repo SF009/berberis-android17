@@ -56,7 +56,6 @@ enum MachineOpcode : int {
   kMachineOpUndefined = 0,
   kMachineOpEnter,
   kMachineOpCallImm,
-  kMachineOpCallImmArg,
   kMachineOpBranch,
   kMachineOpCondBranch,
   kMachineOpCopy,
@@ -247,72 +246,6 @@ class Enter final : public MachineInsnX86_64 {
 
   friend Enter* NewInArena<Enter, const Enter&>(Arena*, const Enter&);
   Enter(const Enter&);
-  MachineInsn* Clone(Arena* arena) const override;
-  MachineInsnList Lower(Arena* arena) const override;
-};
-
-// Clobbered registers are described as DEF'ed.
-// TODO(b/232598137): implement simpler support for clobbered registers?
-class CallImm final : public MachineInsnX86_64 {
- public:
-  enum class RegType {
-    kIntType,
-    kXmmType,
-  };
-
-  static constexpr RegType kIntRegType = RegType::kIntType;
-  static constexpr RegType kXmmRegType = RegType::kXmmType;
-
-  struct Arg {
-    MachineReg reg;
-    RegType reg_type;
-  };
-
-  explicit CallImm(uint64_t imm);
-
-  [[nodiscard]] static int GetIntArgIndex(int i);
-  [[nodiscard]] static int GetXmmArgIndex(int i);
-  [[nodiscard]] static int GetFlagsArgIndex();
-
-  [[nodiscard]] MachineReg IntResultAt(int i) const;
-  [[nodiscard]] MachineReg XmmResultAt(int i) const;
-
-  [[nodiscard]] std::string GetDebugString() const override;
-  void Emit(CodeEmitter* as) const override;
-
- private:
-  // rax, rdi, rsi, rdx, rcx, r8-r11, xmm0-xmm15, flags
-  static constexpr int kMaxMachineRegOperands = 26;
-  struct {
-    MachineReg regs_[kMaxMachineRegOperands];
-  } x86_64_insn_info_;
-
-  friend CallImm* NewInArena<CallImm, const CallImm&>(Arena*, const CallImm&);
-  CallImm(const CallImm&);
-  MachineInsn* Clone(Arena* arena) const override;
-  MachineInsnList Lower(Arena* arena) const override;
-};
-
-// An auxiliary instruction to express data-flow for CallImm arguments.  It uses the same vreg as
-// the corresponding operand in CallImm. The specific hard register assigned is defined by the
-// register class of CallImm operand. MachineIRBuilder adds an extra PseudoCopy before this insn in
-// case the same vreg holds values for several arguments (with non-intersecting register classes).
-class CallImmArg final : public MachineInsnX86_64 {
- public:
-  explicit CallImmArg(MachineReg arg, CallImm::RegType reg_type);
-
-  std::string GetDebugString() const override;
-  void Emit(CodeEmitter*) const override{
-      // It's an auxiliary instruction. Do not emit.
-  };
-
- private:
-  struct {
-    MachineReg regs_[1];
-  } x86_64_insn_info_;
-
-  friend CallImmArg* NewInArena<CallImmArg, const CallImmArg&>(Arena*, const CallImmArg&);
-  CallImmArg(const CallImmArg&);
   MachineInsn* Clone(Arena* arena) const override;
   MachineInsnList Lower(Arena* arena) const override;
 };
@@ -808,9 +741,6 @@ constexpr auto MachineInsn<DeviceInsnInfo, kSSAMode>::GenMachineInsnInfo()
                 static_cast<MachineRegKind::StandardAccess>(Operand::kUsage)};
           }
         } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
-          // Note: normally size of array should match number of memory operands, but that's not
-          // true for kInfo where it's zero.
-          // TODO(399130034): remove std::size when kInfo is removed.
           if (kBaseIndexRegistersUsed[mem_operand_bit_pos]) {
             reg_kinds[num_reg_operands++] = {&kGeneralReg64, MachineRegKind::kUse};
             opcode = static_cast<MachineOpcode>(

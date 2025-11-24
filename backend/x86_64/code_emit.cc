@@ -216,16 +216,6 @@ void Enter::Emit(CodeEmitter*) const {
   // Enter is a pseudo instruction to connect ABI to IR. We don't emit it.
 }
 
-void CallImm::Emit(CodeEmitter* as) const {
-  // Note that a call to AVX-compiled code may touch YMM bits above 128, which
-  // would require `vzeroupper` before we come back to generated code. This is
-  // to make/ sure there is no performance penalty. ABI requires such `vzeroupper`s
-  // done by the callee unless the result in returned in full YMM register.
-  // Since we don't support full YMM results here, we don't need extra
-  // `vzeroupper`s here.
-  as->Call(AsHostCode(imm()));
-}
-
 }  // namespace x86_64
 
 void Branch::Emit(CodeEmitter* as) const {

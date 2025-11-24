@@ -179,21 +179,15 @@ TEST(MachineIRRenameCopyUsesTest, DoNotRenameNarrowRegClass) {
   builder.StartBasicBlock(bb);
   builder.Gen<Copy>(vreg1, vreg2, 8);
   auto* shift_insn = builder.Gen<x86_64::ShrqRegReg, kNoSSA>(vreg3, vreg1, kMachineRegFLAGS);
-  // Builder normally doesn't allow constructing CallImmArg without CallImm, so we construct in IR
-  // directly.
-  auto* call_arg_insn = builder.ir()->NewInsn<CallImmArg>(vreg1, CallImm::RegType::kIntType);
-  bb->insn_list().push_back(call_arg_insn);
   builder.Gen<Jump>(kNullGuestAddr);
 
-  ASSERT_EQ(bb->insn_list().size(), 4u);
-
+  ASSERT_EQ(bb->insn_list().size(), 3u);
   ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
 
   RenameCopyUses(&machine_ir);
+
   // vreg1 is not renamed since Shrq second operand is CL register - narrow class.
   EXPECT_EQ(shift_insn->RegAt(1), vreg1);
-  // vreg1 is not renamed since CallImmArg implicitly has narrow class.
-  EXPECT_EQ(call_arg_insn->RegAt(0), vreg1);
 }
 
 TEST(MachineIRRenameCopyUsesTest, GracefullyIgnoreHardwareRegs) {

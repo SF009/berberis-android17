@@ -225,22 +225,22 @@ TEST(MachineIRRemoveDeadCodeTest, HardRegisterAccess) {
   EXPECT_EQ(bb->insn_list().size(), 2UL);
 }
 
-TEST(MachineIRRemoveDeadCodeTest, CallImmArgIsLive) {
+TEST(MachineIRRemoveDeadCodeTest, CallImmIsLive) {
   Arena arena;
   x86_64::MachineIR machine_ir(&arena);
   auto* bb = machine_ir.NewBasicBlock();
   x86_64::MachineIRBuilder builder(&machine_ir);
 
   builder.StartBasicBlock(bb);
-  builder.GenCallImm(0,
-                     machine_ir.AllocVReg(),
-                     std::array<x86_64::CallImm::Arg, 1>{
-                         {{machine_ir.AllocVReg(), x86_64::CallImm::kIntRegType}}});
+  builder.GenIntrinsicCall(
+      static_cast<void (*)(uint64_t)>(nullptr), machine_ir.AllocVReg(), {machine_ir.AllocVReg()});
   builder.Gen<Jump>(kNullGuestAddr);
+
+  EXPECT_EQ(bb->insn_list().size(), 3UL);
 
   x86_64::RemoveDeadCode(&machine_ir);
 
-  EXPECT_EQ(bb->insn_list().size(), 4UL);
+  EXPECT_EQ(bb->insn_list().size(), 3UL);
 }
 
 int GetInEdgeIndex(MachineBasicBlock* dst_bb, MachineBasicBlock* src_bb) {

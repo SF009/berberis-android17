@@ -95,12 +95,21 @@ using ClobberRegisters = std::tuple<device_arch_info::RAX,
 inline constexpr auto kClobberRegisters = kTokRegisterClass<ClobberRegisters>;
 
 // Helper convertor to go from kRegisterClass variable back to Register's class.
-template <auto kRegisterClass_, typename RegistersClassesList_>
+template <auto kRegisterClass>
+class kRegisterClassChecker {
+ public:
+  // Use empty class and explicit operator() here because some compiler don't work correctly
+  // with lambda in the unevaluted contexts. See: b/461358523
+  template <typename RegisterClass>
+  constexpr auto operator()() const {
+    return kRegisterClass == &x86_64::kRegisterClass<RegisterClass>;
+  }
+};
+template <auto kRegisterClass, typename RegistersClassesList>
 using kRegisterClassToClassTuple =
-    TypesToTypes::Filter<RegistersClassesList_, []<typename RegisterClass>() {
-      return kRegisterClass_ == &kRegisterClass<RegisterClass>;
-    }>;
+    TypesToTypes::Filter<RegistersClassesList, kRegisterClassChecker<kRegisterClass>{}>;
 
+// Information about intrinsic call results.
 struct ResultsElementInfo {
   // Register class for elements passed in register. Note that ABI permits coalescion of few
   // elements of tuple in one register. Note: nullptr means everything is passed in memory.
@@ -110,6 +119,7 @@ struct ResultsElementInfo {
   std::size_t element_offset;
 };
 
+// Information about intrinsic call arguments.
 // Note: we don't support aggregates, which means most parameters go into one register.
 // We also don't support stack-passed parameters for now. But __int128_t uses two registers.
 enum ArgumentElementType { kInteger, kSSE, kInt128 };

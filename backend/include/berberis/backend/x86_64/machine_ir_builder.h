@@ -19,11 +19,14 @@
 
 #include <array>
 #include <iterator>
+#include <tuple>
+#include <utility>
 
 #include "berberis/backend/common/machine_ir_builder.h"
 #include "berberis/backend/x86_64/intrinsic_call.h"
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/base/logging.h"
+#include "berberis/base/tuple_processing.h"
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state_opaque.h"
 
@@ -81,70 +84,27 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
     }
   }
 
-  // Please use GenCallImm instead
-  template <typename CallImmType,
-            typename IntegralType,
-            std::enable_if_t<std::is_same_v<std::decay_t<CallImmType>, CallImm> &&
-                                 std::is_integral_v<IntegralType>,
-                             bool> = true>
-  /*may_discard*/ CallImmType* Gen(IntegralType imm) = delete;
-
-  /*may_discard*/ CallImm* GenCallImm(uint64_t imm, MachineReg flag_register) {
-    return GenCallImm(imm, flag_register, std::array<CallImm::Arg, 0>{});
-  }
-
-  template <size_t kNumberOfArguments>
-  /*may_discard*/ CallImm* GenCallImm(uint64_t imm,
-                                      MachineReg flag_register,
-                                      const std::array<CallImm::Arg, kNumberOfArguments>& args) {
-    auto* call = ir()->NewInsn<CallImm>(imm);
-    // Init registers clobbered according to ABI to notify the register allocator.
-    for (int i = 0; i < call->NumRegOperands(); ++i) {
-      call->SetRegAt(i, ir()->AllocVReg());
-    }
-
-    call->SetRegAt(x86_64::CallImm::GetFlagsArgIndex(), flag_register);
-
-    // Now generate CallImmArg instructions for arguments
-    GenCallImmArg(call, args);
-
-    InsertInsn(call);
-    return call;
-  }
-
-  template <typename CallImmArgType,
-            typename... Args,
-            std::enable_if_t<std::is_same_v<std::decay_t<CallImmArgType>, CallImmArg>, bool> = true>
-  /*may_discard*/ CallImmArgType* Gen(Args... args) = delete;
-
-  template <typename IntrinsicType, typename... AddrType>
+  template <typename IntrinsicType>
   /*may_discard*/ auto GenIntrinsicCall(
-      MachineReg flag_register,
-      const std::array<MachineReg,
-                       std::tuple_size_v<typename IntrinsicCall<
-                           static_cast<IntrinsicType>(nullptr)>::ArgumentRegisters>>& args,
-      std::array<
-          MachineReg,
-          IntrinsicCall<static_cast<IntrinsicType>(nullptr)>::kIsImplicitPointerResult
-              ? 1
-              : std::size(IntrinsicCall<static_cast<IntrinsicType>(nullptr)>::kResultsElements)>&
-          results,
-      IntrinsicType func_ptr) {
-    return GenIntrinsicCall<static_cast<IntrinsicType>(nullptr)>(
-        flag_register, args, results, func_ptr);
+      IntrinsicType func_ptr,
+      MachineReg flags_register,
+      std::array<MachineReg,
+                 std::tuple_size_v<typename IntrinsicCall<
+                     static_cast<IntrinsicType>(nullptr)>::ArgumentRegisters>> args) {
+    return GenIntrinsicCall<static_cast<IntrinsicType>(nullptr)>(flags_register, args, func_ptr);
   }
 
   template <auto kIntrinsic, typename... AddrType>
   /*may_discard*/ auto GenIntrinsicCall(
-      MachineReg flag_register,
-      const std::array<MachineReg,
-                       std::tuple_size_v<typename IntrinsicCall<kIntrinsic>::ArgumentRegisters>>&
-          args,
+      MachineReg flags_register,
       std::array<MachineReg,
-                 IntrinsicCall<kIntrinsic>::kIsImplicitPointerResult
-                     ? 1
-                     : std::size(IntrinsicCall<kIntrinsic>::kResultsElements)>& results,
+                 std::tuple_size_v<typename IntrinsicCall<kIntrinsic>::ArgumentRegisters>> args,
       AddrType... func_ptr) {
+    std::array<MachineReg,
+               IntrinsicCall<kIntrinsic>::kIsImplicitPointerResult
+                   ? 1
+                   : std::size(IntrinsicCall<kIntrinsic>::kResultsElements)>
+        results;
     // We may need one extra argument if function address and type are passed separately.
     if constexpr (IntrinsicCall<kIntrinsic>::kDynamicFunction) {
       // If we have a dynamic intrinsic then we accept one address as 64-bit immediate.
@@ -249,14 +209,14 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
                   InsertInsn(ir()->NewInsn<Copy>(physical_register,
                                                  args[index++],
                                                  kElementInfo.register_classes[0]->reg_size));
-                  return std::tuple{physical_register};
                 }
+                return std::tuple{physical_register};
               }
             }),
         TypesToValues::Map<typename IntrinsicCall<kIntrinsic>::ClobberRegisters>(
-            [flag_register, this]<typename RegisterClass>() {
+            [flags_register, this]<typename RegisterClass>() {
               if constexpr (std::is_same_v<RegisterClass, device_arch_info::FLAGS>) {
-                return flag_register;
+                return flags_register;
               } else {
                 return ir()->AllocVReg();
               }
@@ -267,7 +227,7 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
       TypesToValues::ForEach<TypesToTypes::Enumerate<
           typename IntrinsicCall<kIntrinsic>::CleanRetType>>([&last_zero_based_register,
                                                               &results,
-                                                              flag_register,
+                                                              flags_register,
                                                               this]<typename IndexAndResultType>() {
         constexpr std::size_t kIdx = std::tuple_element_t<0, IndexAndResultType>{};
         constexpr auto result_element = IntrinsicCall<kIntrinsic>::kResultsElements[kIdx];
@@ -289,7 +249,7 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
                   results[kIdx],
                   last_zero_based_register,
                   static_cast<int8_t>(result_element.element_offset * 8),
-                  flag_register));
+                  flags_register));
             }
             if constexpr (std::is_same_v<ElementType, intrinsics::Float16>) {
               MachineReg empty_xmm_register = ir()->AllocVReg();
@@ -328,32 +288,7 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
         }
       });
     }
-    return call;
-  }
-
- private:
-  template <size_t kNumberOfArgumens>
-  void GenCallImmArg(CallImm* call, const std::array<CallImm::Arg, kNumberOfArgumens>& args) {
-    int general_register_position = 0;
-    int xmm_register_position = 0;
-    for (const auto& arg : args) {
-      MachineReg arg_reg = arg.reg;
-      CallImm::RegType reg_type = arg.reg_type;
-
-      // Rename arg vreg in case it's used in several call operands which have non-intersecting
-      // register classes. Reg-alloc will eliminate renaming where possible.
-      MachineReg renamed_arg_reg = ir()->AllocVReg();
-      auto* copy = ir()->NewInsn<Copy>(
-          renamed_arg_reg, arg_reg, (reg_type == CallImm::kIntRegType) ? 8 : 16);
-      auto* call_arg_insn = ir()->NewInsn<CallImmArg>(renamed_arg_reg, reg_type);
-      call->SetRegAt((reg_type == CallImm::kIntRegType)
-                         ? CallImm::GetIntArgIndex(general_register_position++)
-                         : CallImm::GetXmmArgIndex(xmm_register_position++),
-                     renamed_arg_reg);
-
-      InsertInsn(copy);
-      InsertInsn(call_arg_insn);
-    }
+    return std::pair{call, results};
   }
 };
 
