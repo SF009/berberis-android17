@@ -288,10 +288,11 @@ class TryBindingBasedInlineIntrinsic {
       using ReturnType = std::tuple_element_t<0, typename IntrinsicBindingInfo::OutputArguments>;
       if constexpr (std::is_integral_v<ReturnType>) {
         if (implicit_reg_for_result_ != x86_64::Assembler::no_register) {
-          Mov<ReturnType>(as_, result_, implicit_reg_for_result_);
+          Mov<ReturnType>(as_, std::get<0>(result_), implicit_reg_for_result_);
           CHECK_EQ(xmm_for_gp_result_, x86_64::Assembler::no_xmm_register);
         } else if (xmm_for_gp_result_ != x86_64::Assembler::no_xmm_register) {
-          Mov<typename TypeTraits<ReturnType>::Float>(as_, result_, xmm_for_gp_result_);
+          Mov<typename TypeTraits<ReturnType>::Float>(
+              as_, std::get<0>(result_), xmm_for_gp_result_);
           CHECK_EQ(implicit_reg_for_result_, x86_64::Assembler::no_register);
         }
       } else {
@@ -305,7 +306,8 @@ class TryBindingBasedInlineIntrinsic {
       }
       if constexpr (std::is_same_v<ReturnType, int32_t> || std::is_same_v<ReturnType, uint32_t>) {
         // Expans 32 bit values as signed. Even if actual results are processed as unsigned!
-        as_.Expand<int64_t, std::make_signed_t<ReturnType>>(result_, result_);
+        as_.Expand<int64_t, std::make_signed_t<ReturnType>>(std::get<0>(result_),
+                                                            std::get<0>(result_));
       } else if constexpr (std::is_integral_v<ReturnType> &&
                            sizeof(ReturnType) == sizeof(std::int64_t)) {
         // Do nothing, we have already produced expanded value.
@@ -377,7 +379,7 @@ class TryBindingBasedInlineIntrinsic {
         } else {
           Mov<std::tuple_element_t<ArgBinding::kArgInfo.from,
                                    typename IntrinsicBindingInfo::InputArguments>>(
-              as_, result_, std::get<ArgBinding::kArgInfo.from>(input_args_));
+              as_, std::get<0>(result_), std::get<ArgBinding::kArgInfo.from>(input_args_));
           return std::tuple{result_};
         }
       } else if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::IN_TMP_ARG) {

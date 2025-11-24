@@ -137,6 +137,21 @@ using SplitTypes = TypesToTypes::FlatMap<ArgumentsTuple, []<typename Type>() {
   }
 }>;
 
+// Frontend may need to use different register types for integer results and for SSE results.
+// Map spit types to GpRegisters and SSERegisters.
+template <typename GpRegister, typename SSERegister>
+class ResultRegisterTypesHelper {
+ public:
+  template <typename ResultType>
+  constexpr auto operator()() const {
+    if constexpr (std::is_integral_v<ResultType>) {
+      return kTypes<GpRegister>;
+    } else {
+      return kTypes<SSERegister>;
+    }
+  }
+};
+
 template <typename MacroAssemblers>
 inline void DynamicEmit(MacroAssemblers& as, int64_t func_addr) {
   // Note that a call to AVX-compiled code may touch YMM bits above 128, which
@@ -222,6 +237,10 @@ class CallImm<kFunction> {
                                              call_imm_impl::ClobberRegisters>>;
         }
       }>;
+  template <typename GpRegister, typename SSERegister>
+  using ResultRegiesterTypes =
+      TypesToTypes::FlatMap<call_imm_impl::SplitTypes<CleanRetType>,
+                            call_imm_impl::ResultRegisterTypesHelper<GpRegister, SSERegister>{}>;
   // Note: we need kArgumentElements mostly to calculate ArgumentRegisters but frontend can use it
   // to unpack values that are supposed to be passed in register.
   static constexpr auto kArgumentElements = GenArgumentElements();

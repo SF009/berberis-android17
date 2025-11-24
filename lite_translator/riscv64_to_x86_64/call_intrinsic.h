@@ -311,24 +311,24 @@ StoredRegsInfo ForwardResults(MacroAssembler<x86_64::Assembler>& as, AssemblerRe
                               .simd_regs_on_stack = kSimdRegOffsetsOnStack};
 
   if constexpr (Assembler::kFormatIs<IntrinsicResType, std::tuple<int32_t>, std::tuple<uint32_t>> &&
-                std::is_same_v<AssemblerResType, Register>) {
+                std::is_same_v<AssemblerResType, std::tuple<Register>>) {
     // Note: even unsigned 32-bit results are sign-extended to 64bit register on RV64.
-    regs_info.regs_on_stack[result.GetPhysicalIndex()] = kRegIsNotOnStack;
-    as.Expand<int64_t, int32_t>(result, Assembler::rax);
+    regs_info.regs_on_stack[std::get<0>(result).GetPhysicalIndex()] = kRegIsNotOnStack;
+    as.Expand<int64_t, int32_t>(std::get<0>(result), Assembler::rax);
   } else if constexpr (Assembler::
                            kFormatIs<IntrinsicResType, std::tuple<int64_t>, std::tuple<uint64_t>> &&
-                       std::is_same_v<AssemblerResType, Register>) {
-    regs_info.regs_on_stack[result.GetPhysicalIndex()] = kRegIsNotOnStack;
-    as.Mov<int64_t>(result, Assembler::rax);
+                       std::is_same_v<AssemblerResType, std::tuple<Register>>) {
+    regs_info.regs_on_stack[std::get<0>(result).GetPhysicalIndex()] = kRegIsNotOnStack;
+    as.Mov<int64_t>(std::get<0>(result), Assembler::rax);
   } else if constexpr (Assembler::
                            kFormatIs<IntrinsicResType, std::tuple<Float32>, std::tuple<Float64>> &&
-                       std::is_same_v<AssemblerResType, XMMRegister>) {
+                       std::is_same_v<AssemblerResType, std::tuple<XMMRegister>>) {
     using ResType0 = std::tuple_element_t<0, IntrinsicResType>;
-    regs_info.simd_regs_on_stack[result.GetPhysicalIndex()] = kRegIsNotOnStack;
+    regs_info.simd_regs_on_stack[std::get<0>(result).GetPhysicalIndex()] = kRegIsNotOnStack;
     if (host_platform::kHasAVX) {
-      as.Vmovs<ResType0>(result, result, Assembler::xmm0);
+      as.Vmovs<ResType0>(std::get<0>(result), std::get<0>(result), Assembler::xmm0);
     } else {
-      as.Movs<ResType0>(result, Assembler::xmm0);
+      as.Movs<ResType0>(std::get<0>(result), Assembler::xmm0);
     }
   } else if constexpr (std::tuple_size_v<IntrinsicResType> == 2) {
     using ResType0 = std::tuple_element_t<0, IntrinsicResType>;
