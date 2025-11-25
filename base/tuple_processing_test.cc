@@ -58,10 +58,20 @@ constexpr bool TestFunc() {
   static_assert(TypesToTypes::Count<TupleType<char, const char>, char>{} == 1);
   static_assert(TypesToTypes::Count<TupleType<char, char>, char>{} == 2);
 
+  static_assert(TypesToValues::Count<TupleType<const char, const char>, char>() == 0);
+  static_assert(TypesToValues::Count<TupleType<const char, char>, char>() == 1);
+  static_assert(TypesToValues::Count<TupleType<char, const char>, char>() == 1);
+  static_assert(TypesToValues::Count<TupleType<char, char>, char>() == 2);
+
   static_assert(TypesToTypes::Count<TupleType<char&, char&>, char>{} == 0);
   static_assert(TypesToTypes::Count<TupleType<char&, char>, char>{} == 1);
   static_assert(TypesToTypes::Count<TupleType<char, char&>, char>{} == 1);
   static_assert(TypesToTypes::Count<TupleType<char, char>, char>{} == 2);
+
+  static_assert(TypesToValues::Count<TupleType<char&, char&>, char>() == 0);
+  static_assert(TypesToValues::Count<TupleType<char&, char>, char>() == 1);
+  static_assert(TypesToValues::Count<TupleType<char, char&>, char>() == 1);
+  static_assert(TypesToValues::Count<TupleType<char, char>, char>() == 2);
 
   static_assert(TypesToTypes::CountIf<TupleType<int, int>,
                                       []<typename T>() { return sizeof(T) < sizeof(int); }>{} == 0);
@@ -176,8 +186,29 @@ constexpr bool TestFunc() {
           TypesToTypes::TakeWhile<TupleType<char, const int>, []<typename T>() { return true; }>,
           std::tuple<char, const int>>);
 
+  static_assert(std::is_same_v<TypesToTypes::Zip<TupleType<char, int&>>,
+                               std::tuple<std::tuple<char>, std::tuple<int&>>>);
+
   static_assert(std::is_same_v<TypesToTypes::Zip<TupleType<char, int&>, std::array<long, 2>>,
                                std::tuple<std::pair<char, long>, std::pair<int&, long>>>);
+
+  static_assert(
+      std::is_same_v<
+          TypesToTypes::Zip<TupleType<char, int&>, std::array<long, 2>, TupleType<long&, short>>,
+          std::tuple<std::tuple<char, long, long&>, std::tuple<int&, long, short>>>);
+
+  static_assert(std::is_same_v<TypesToTypes::ZipShortest<TupleType<char, int&>>,
+                               std::tuple<std::tuple<char>, std::tuple<int&>>>);
+
+  static_assert(
+      std::is_same_v<TypesToTypes::ZipShortest<TupleType<char, int&>, std::array<long, 2>>,
+                     std::tuple<std::pair<char, long>, std::pair<int&, long>>>);
+
+  static_assert(
+      std::is_same_v<TypesToTypes::ZipShortest<TupleType<char, int&>,
+                                               std::array<long, 2>,
+                                               TupleType<long&, short>>,
+                     std::tuple<std::tuple<char, long, long&>, std::tuple<int&, long, short>>>);
 
   constexpr std::tuple<const int&, char> kForEachTupleIn{kForEachInt1, 'A'};
 
@@ -1518,8 +1549,21 @@ constexpr bool TestFunc() {
   static_assert(kTakeResult20 == std::tuple{kForEachInt1, 'A'});
   static_assert(std::is_same_v<decltype(kTakeResult20), const std::tuple<const int&, char>>);
 
+  static_assert(ValuesToValues::Zip(TupleType{'a', 3.00}) ==
+                std::tuple{std::tuple{'a'}, std::tuple{3.00}});
   static_assert(ValuesToValues::Zip(std::array{2, 42}, TupleType{'a', 3.00}) ==
                 std::tuple{std::pair{2, 'a'}, std::pair{42, 3.00}});
+  static_assert(
+      ValuesToValues::Zip(std::array{2, 42}, TupleType{'a', 3.00}, TupleType{true, 1ULL}) ==
+      std::tuple{std::tuple{2, 'a', true}, std::tuple{42, 3.00, 1ULL}});
+
+  static_assert(ValuesToValues::ZipShortest(TupleType{'a', 3.00}) ==
+                std::tuple{std::tuple{'a'}, std::tuple{3.00}});
+  static_assert(ValuesToValues::ZipShortest(std::array{2}, TupleType{'a', 3.00}) ==
+                std::tuple<std::pair<int, char>>{std::pair{2, 'a'}});
+  static_assert(
+      ValuesToValues::ZipShortest(std::array{2}, TupleType{'a', 3.00}, TupleType{true, 1ULL}) ==
+      std::tuple<std::tuple<int, char, bool>>{std::tuple{2, 'a', true}});
 
   return true;
 }
