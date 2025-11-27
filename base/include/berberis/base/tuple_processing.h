@@ -93,8 +93,8 @@ class TypesToTypes {
   class FilterHelper;
   template <typename Type, auto kLambda>
   class FlatMapHelper;
-  template <typename Type>
-  class IndexedHelper;
+  template <std::size_t... Is>
+  static constexpr std::tuple<MetaValue<Is>...> IndexesHelper(std::index_sequence<Is...>);
   template <typename Type, auto kLambda>
   class MapHelper;
   template <typename Type>
@@ -107,18 +107,20 @@ class TypesToTypes {
   class TakeHelper;
   template <typename TupleType, auto kLambda, auto... extra_lambda_values>
   class TakeSkipHelper;
-  template <typename TypeLeft, typename TypeRight>
+  template <typename... Types>
   class ZipHelper;
+  template <typename... Types>
+  class ZipShortestHelper;
 
   friend class ValuesToValues;
 
  public:
   template <typename TupleType>
-  using Indexes = decltype(IndexedHelper<TupleType>::Indexes(
+  using Indexes = decltype(IndexesHelper(
       std::declval<std::make_index_sequence<std::tuple_size_v<TupleType>>>()));
 
-  template <typename TypeLeft, typename TypeRight>
-  using Zip = typename ZipHelper<TypeLeft, TypeRight>::Result;
+  template <typename... Types>
+  using Zip = typename ZipHelper<Types...>::Result;
 
   template <typename TupleType>
   using Enumerate = Zip<Indexes<TupleType>, TupleType>;
@@ -187,6 +189,9 @@ class TypesToTypes {
   template <typename TupleType, auto kLambda>
   using TakeWhile = Take<TupleType, TakeSkipHelper<TupleType, kLambda>::Produce()>;
 
+  template <typename... Types>
+  using ZipShortest = typename ZipShortestHelper<Types...>::Result;
+
  private:
   template <typename Type>
   class CountHelper {
@@ -195,13 +200,6 @@ class TypesToTypes {
     constexpr auto operator()() const {
       return std::is_same_v<Type, TypeToCheck>;
     }
-  };
-
-  template <typename TupleType>
-  class IndexedHelper {
-   public:
-    template <std::size_t... Is>
-    static constexpr std::tuple<MetaValue<Is>...> Indexes(std::index_sequence<Is...>);
   };
 
   template <auto kLambda>
@@ -303,17 +301,71 @@ class TypesToTypes {
     }
   };
 
+  template <typename... Types>
+  class ZipHelper<std::tuple<Types...>> {
+   public:
+    using Result = std::tuple<std::tuple<Types>...>;
+  };
   template <typename... TypesLeft, typename... TypesRight>
   class ZipHelper<std::tuple<TypesLeft...>, std::tuple<TypesRight...>> {
    public:
+    static_assert(sizeof...(TypesLeft) == sizeof...(TypesRight));
     using Result = std::tuple<std::pair<TypesLeft, TypesRight>...>;
   };
-  template <typename TypeLeft, typename TypeRight>
+  template <typename... Types>
+  class ZipHelperWithIndexes;
+  template <typename... TypesLeft, typename... TypesRight, typename... Tuples>
+  class ZipHelper<std::tuple<TypesLeft...>, std::tuple<TypesRight...>, Tuples...> {
+   public:
+    static_assert(sizeof...(TypesLeft) == sizeof...(TypesRight));
+    static_assert(((sizeof...(TypesLeft) == std::tuple_size_v<Tuples>) && ...));
+    using Result = typename ZipHelperWithIndexes<
+        Indexes<std::tuple<TypesLeft...>>,
+        std::tuple<std::tuple<TypesLeft...>, std::tuple<TypesRight...>, Tuples...>>::Result;
+  };
+  template <typename... Types>
   class ZipHelper {
    public:
     // Note: Concat here ensures that we would use the specialization above and wouldn't cause
     // endless recursion here.
-    using Result = typename ZipHelper<Concat<TypeLeft>, Concat<TypeRight>>::Result;
+    using Result = typename ZipHelper<Concat<Types>...>::Result;
+  };
+  template <typename... Types>
+  class ZipShortestHelper<std::tuple<Types...>> {
+   public:
+    using Result = std::tuple<std::tuple<Types>...>;
+  };
+  template <typename... TypesLeft, typename... Tuples>
+  class ZipShortestHelper<std::tuple<TypesLeft...>, Tuples...> {
+   public:
+    using Result = typename ZipHelperWithIndexes<
+        decltype(IndexesHelper(std::declval<std::make_index_sequence<std::min(
+                                   {sizeof...(TypesLeft), std::tuple_size_v<Tuples>...})>>())),
+        std::tuple<std::tuple<TypesLeft...>, Tuples...>>::Result;
+  };
+  template <typename... Types>
+  class ZipShortestHelper {
+   public:
+    // Note: Concat here ensures that we would use the specialization above and wouldn't cause
+    // endless recursion here.
+    using Result = typename ZipShortestHelper<Concat<Types>...>::Result;
+  };
+  template <std::size_t... kIndexes, typename Tuples>
+  class ZipHelperWithIndexes<std::tuple<MetaValue<kIndexes>...>, Tuples> {
+   public:
+    using Result =
+        std::tuple<typename ZipHelperWithIndexes<MetaValue<kIndexes>, Tuples>::Result...>;
+  };
+  template <std::size_t kIndex, typename TupleLeft, typename TupleRight>
+  class ZipHelperWithIndexes<MetaValue<kIndex>, std::tuple<TupleLeft, TupleRight>> {
+   public:
+    using Result = std::pair<std::tuple_element_t<kIndex, TupleLeft>,
+                             std::tuple_element_t<kIndex, TupleRight>>;
+  };
+  template <std::size_t kIndex, typename... Tuples>
+  class ZipHelperWithIndexes<MetaValue<kIndex>, std::tuple<Tuples...>> {
+   public:
+    using Result = std::tuple<std::tuple_element_t<kIndex, Tuples>...>;
   };
 };
 
@@ -386,6 +438,11 @@ class TypesToValues {
         std::make_index_sequence<std::tuple_size_v<TupleType>>{},
         tmp,
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+
+  template <typename TupleType, typename Type>
+  static constexpr std::size_t Count() {
+    return TypesToTypes::Count<TupleType, Type>{};
   }
 
   template <typename TupleType, typename... ExtraLambdaArgTypes, typename Lambda>
@@ -1276,15 +1333,23 @@ class ValuesToValues {
     return Take<kCount, TupleType>(tuple);
   }
 
-  template <typename TupleTypeLeft, typename TupleTypeRight>
-  static constexpr TypesToTypes::Zip<std::remove_cvref_t<TupleTypeLeft>,
-                                     std::remove_cvref_t<TupleTypeRight>>
-  Zip(TupleTypeLeft&& tuple_left, TupleTypeRight&& tuple_right) {
-    return ZipHelper(tuple_left,
-                     tuple_right,
-                     std::make_index_sequence<std::min(
-                         std::tuple_size_v<std::remove_reference_t<TupleTypeLeft>>,
-                         std::tuple_size_v<std::remove_reference_t<TupleTypeRight>>)>{});
+  template <typename... TupleTypes>
+  static constexpr TypesToTypes::Zip<std::remove_cvref_t<TupleTypes>...> Zip(
+      TupleTypes&&... tuples) {
+    return ZipHelper<TypesToTypes::Zip<std::remove_cvref_t<TupleTypes>...>>(
+        std::tuple<std::remove_cvref_t<TupleTypes>...>{tuples...},
+        std::make_index_sequence<std::min(
+            {std::tuple_size_v<std::remove_reference_t<TupleTypes>>...})>{},
+        std::make_index_sequence<sizeof...(TupleTypes)>{});
+  }
+  template <typename... TupleTypes>
+  static constexpr TypesToTypes::ZipShortest<std::remove_cvref_t<TupleTypes>...> ZipShortest(
+      TupleTypes&&... tuples) {
+    return ZipHelper<TypesToTypes::ZipShortest<std::remove_cvref_t<TupleTypes>...>>(
+        std::tuple<std::remove_cvref_t<TupleTypes>...>{tuples...},
+        std::make_index_sequence<std::min(
+            {std::tuple_size_v<std::remove_reference_t<TupleTypes>>...})>{},
+        std::make_index_sequence<sizeof...(TupleTypes)>{});
   }
 
  private:
@@ -1408,14 +1473,26 @@ class ValuesToValues {
     return size;
   }
 
-  template <typename TupleTypeLeft, typename TupleTypeRight, std::size_t... Is>
-  static constexpr TypesToTypes::Zip<TupleTypeLeft, TupleTypeRight>
-  ZipHelper(TupleTypeLeft&& tuple_left, TupleTypeRight&& tuple_right, std::index_sequence<Is...>) {
-    using ZipType = TypesToTypes::Zip<TupleTypeLeft, TupleTypeRight>;
+  template <typename ZipType, typename TupleTypeLeft, typename TupleTypeRight, std::size_t... Is>
+  static constexpr ZipType ZipHelper(std::tuple<TupleTypeLeft, TupleTypeRight>&& tuples,
+                                     std::index_sequence<Is...>,
+                                     std::index_sequence<std::size_t{0}, std::size_t{1}>) {
     return ZipType{std::pair<std::tuple_element_t<Is, std::remove_cvref_t<TupleTypeLeft>>,
                              std::tuple_element_t<Is, std::remove_cvref_t<TupleTypeRight>>>{
-        std::get<Is>(std::forward<TupleTypeLeft>(tuple_left)),
-        std::get<Is>(std::forward<TupleTypeRight>(tuple_right))}...};
+        std::get<Is>(std::forward<TupleTypeLeft>(std::get<0>(tuples))),
+        std::get<Is>(std::forward<TupleTypeRight>(std::get<1>(tuples)))}...};
+  }
+  template <typename ZipType, typename TupleTypes, std::size_t... Is, std::size_t... Ts>
+  static constexpr ZipType ZipHelper(TupleTypes&& tuples,
+                                     std::index_sequence<Is...>,
+                                     std::index_sequence<Ts...> ts) {
+    return ZipType{
+        ZipHelper<Is, std::tuple_element_t<Is, ZipType>>(std::forward<TupleTypes>(tuples), ts)...};
+  }
+  template <std::size_t I, typename ZipType, typename TupleTypes, std::size_t... Ts>
+  static constexpr ZipType ZipHelper(TupleTypes&& tuples, std::index_sequence<Ts...>) {
+    return ZipType{
+        std::get<I>(std::forward<std::tuple_element_t<Ts, TupleTypes>>(std::get<Ts>(tuples)))...};
   }
 };
 
