@@ -76,13 +76,13 @@ class TryInlineIntrinsicWithTestParams<Result (*)(Args...)> {
                   std::is_same_v<Result, std::tuple<int32_t>> ||
                   std::is_same_v<Result, std::tuple<uint64_t>> ||
                   std::is_same_v<Result, std::tuple<int64_t>>) {
-      return x86_64::Assembler::rax;
+      return std::tuple{x86_64::Assembler::rax};
     } else if constexpr (std::is_same_v<Result, std::tuple<SIMD128Register, uint32_t>>) {
-      return std::make_tuple(x86_64::Assembler::xmm0, x86_64::Assembler::rax);
+      return std::tuple{x86_64::Assembler::xmm0, x86_64::Assembler::rax};
     } else if constexpr (std::is_same_v<Result, std::tuple<SIMD128Register>> ||
                          std::is_same_v<Result, std::tuple<Float32>> ||
                          std::is_same_v<Result, std::tuple<Float64>>) {
-      return x86_64::Assembler::xmm0;
+      return std::tuple{x86_64::Assembler::xmm0};
     } else {
       static_assert(kDependentTypeFalse<Result>);
     }

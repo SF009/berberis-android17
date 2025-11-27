@@ -475,13 +475,7 @@ class HeavyOptimizerFrontend {
   template <auto kFunction, typename AssemblerResType = void, typename... AssemblerArgType>
   auto CallIntrinsic(AssemblerArgType... args) {
     using CallImm = x86_64::CallImm<static_cast<decltype(kFunction)>(nullptr)>;
-    auto result = TypesToValues::Map<typename CallImm::CleanRetType>([]<typename ResType>() {
-      if constexpr (std::is_integral_v<ResType> || std::is_pointer_v<ResType>) {
-        return MachineReg{};
-      } else {
-        return FpRegister{};
-      }
-    });
+    typename CallImm::template ResultRegiesterTypes<MachineReg, FpRegister> result;
 
     if (TryInlineIntrinsicForHeavyOptimizer<kFunction>(
             &builder_, result, GetFlagsRegister(), args...)) {
