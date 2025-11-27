@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef BERBERIS_BACKEND_X86_64_CALL_IMM_H_
-#define BERBERIS_BACKEND_X86_64_CALL_IMM_H_
+#ifndef BERBERIS_DEVICE_ARCH_INFO_X86_64_CALL_IMM_H_
+#define BERBERIS_DEVICE_ARCH_INFO_X86_64_CALL_IMM_H_
 
 #include <array>
 #include <cstdint>
@@ -31,59 +31,47 @@ namespace berberis {
 
 class SIMD128Register;
 
-namespace x86_64 {
+namespace x86_64::device_arch_info {
 
 namespace call_imm_impl {
 
-using GpResultRegisters = std::tuple<device_arch_info::RAX, device_arch_info::RDX>;
+using GpResultRegisters = std::tuple<RAX, RDX>;
 
-using SSEResultRegisters = std::tuple<device_arch_info::XMM0, device_arch_info::XMM1>;
+using SSEResultRegisters = std::tuple<XMM0, XMM1>;
 
-using GpArgumentetersRegisters = std::tuple<device_arch_info::RDI,
-                                            device_arch_info::RSI,
-                                            device_arch_info::RDX,
-                                            device_arch_info::RCX,
-                                            device_arch_info::R8,
-                                            device_arch_info::R9>;
+using GpArgumentetersRegisters = std::tuple<RDI, RSI, RDX, RCX, R8, R9>;
 
-using SSEArgumentetersRegisters = std::tuple<device_arch_info::XMM0,
-                                             device_arch_info::XMM1,
-                                             device_arch_info::XMM2,
-                                             device_arch_info::XMM3,
-                                             device_arch_info::XMM4,
-                                             device_arch_info::XMM5,
-                                             device_arch_info::XMM6,
-                                             device_arch_info::XMM7>;
+using SSEArgumentetersRegisters = std::tuple<XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7>;
 
 using ArgumentetersRegisters =
     TypesToTypes::Concat<GpArgumentetersRegisters, SSEArgumentetersRegisters>;
 
-using ClobberRegisters = std::tuple<device_arch_info::RAX,
-                                    device_arch_info::RDI,
-                                    device_arch_info::RSI,
-                                    device_arch_info::RDX,
-                                    device_arch_info::RCX,
-                                    device_arch_info::R8,
-                                    device_arch_info::R9,
-                                    device_arch_info::R10,
-                                    device_arch_info::R11,
-                                    device_arch_info::XMM0,
-                                    device_arch_info::XMM1,
-                                    device_arch_info::XMM2,
-                                    device_arch_info::XMM3,
-                                    device_arch_info::XMM4,
-                                    device_arch_info::XMM5,
-                                    device_arch_info::XMM6,
-                                    device_arch_info::XMM7,
-                                    device_arch_info::XMM8,
-                                    device_arch_info::XMM9,
-                                    device_arch_info::XMM10,
-                                    device_arch_info::XMM11,
-                                    device_arch_info::XMM12,
-                                    device_arch_info::XMM13,
-                                    device_arch_info::XMM14,
-                                    device_arch_info::XMM15,
-                                    device_arch_info::FLAGS>;
+using ClobberRegisters = std::tuple<RAX,
+                                    RDI,
+                                    RSI,
+                                    RDX,
+                                    RCX,
+                                    R8,
+                                    R9,
+                                    R10,
+                                    R11,
+                                    XMM0,
+                                    XMM1,
+                                    XMM2,
+                                    XMM3,
+                                    XMM4,
+                                    XMM5,
+                                    XMM6,
+                                    XMM7,
+                                    XMM8,
+                                    XMM9,
+                                    XMM10,
+                                    XMM11,
+                                    XMM12,
+                                    XMM13,
+                                    XMM14,
+                                    XMM15,
+                                    FLAGS>;
 
 // Information about intrinsic call results.
 struct ResultsElementInfo {
@@ -228,7 +216,7 @@ class CallImm<kFunction> {
         if constexpr (kResultElementInfo.element_offset != 0) {
           return kTypes<>;
         } else if constexpr (kResultElementInfo.clobber_class_index == ~std::size_t{0}) {
-          return kTypes<device_arch_info::RAX>;
+          return kTypes<RAX>;
         } else {
           return kTypes<std::tuple_element_t<kResultElementInfo.clobber_class_index,
                                              call_imm_impl::ClobberRegisters>>;
@@ -238,7 +226,7 @@ class CallImm<kFunction> {
   // to unpack values that are supposed to be passed in register.
   static constexpr auto kArgumentElements = GenArgumentElements();
   using ArgumentRegisters = TypesToTypes::Concat<
-      std::conditional_t<kIsImplicitPointerResult, std::tuple<device_arch_info::RDI>, std::tuple<>>,
+      std::conditional_t<kIsImplicitPointerResult, std::tuple<RDI>, std::tuple<>>,
       TypesToTypes::FlatMap<ValuesToTypes::MetaValues<kArgumentElements>,
                             []<typename ArgumentElementInfo> {
                               constexpr std::size_t kArgumentElementInfo = ArgumentElementInfo{};
@@ -265,31 +253,27 @@ class CallImm<kFunction> {
   template <typename MacroAssemblers>
   class MachineInsn {
    public:
-    using DeviceInsnInfo = device_arch_info::DeviceInsnInfo<
+    using DeviceInsnInfo = DeviceInsnInfo<
         std::conditional_t<kDynamicFunction,
                            MetaValue<call_imm_impl::DynamicEmit<MacroAssemblers>>,
                            MetaValue<call_imm_impl::StaticEmit<kFunction, MacroAssemblers>>>{},
         "CALL",
         true,
         []<typename Opcode> { return Opcode::kMachineOpCallImm; },
-        device_arch_info::NoCPUIDRestriction,
+        NoCPUIDRestriction,
         TypesToTypes::Concat<
-            std::conditional_t<kDynamicFunction,
-                               std::tuple<device_arch_info::OperandInfo<device_arch_info::Imm64,
-                                                                        device_arch_info::kUse>>,
-                               std::tuple<>>,
+            std::
+                conditional_t<kDynamicFunction, std::tuple<OperandInfo<Imm64, kUse>>, std::tuple<>>,
             TypesToTypes::Map<ResultRegisters,
                               []<typename RegisterClass>(RegisterClass) {
-                                return device_arch_info::OperandInfo<RegisterClass,
-                                                                     device_arch_info::kDef>{};
+                                return OperandInfo<RegisterClass, kDef>{};
                               }>,
             TypesToTypes::Map<ArgumentRegisters,
                               []<typename RegisterClass>(RegisterClass) {
-                                return device_arch_info::OperandInfo<RegisterClass,
-                                                                     device_arch_info::kUse>{};
+                                return OperandInfo<RegisterClass, kUse>{};
                               }>,
             TypesToTypes::Map<ClobberRegisters, []<typename RegisterClass>(RegisterClass) {
-              return device_arch_info::OperandInfo<RegisterClass, device_arch_info::kDef>{};
+              return OperandInfo<RegisterClass, kDef>{};
             }>>>;
   };
 };
@@ -430,8 +414,15 @@ constexpr auto CallImm<kFunction>::GenArgumentElements()
   }
 }
 
-}  // namespace x86_64
+}  // namespace x86_64::device_arch_info
 
 }  // namespace berberis
 
-#endif  // BERBERIS_BACKEND_X86_64_CALL_IMM_H_
+namespace berberis::x86_64 {
+
+template <auto kFunction>
+using CallImm = device_arch_info::CallImm<kFunction>;
+
+}  // namespace berberis::x86_64
+
+#endif  // BERBERIS_DEVICE_ARCH_INFO_X86_64_CALL_IMM_H_

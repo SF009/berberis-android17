@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include "berberis/backend/x86_64/call_imm.h"
+#include "berberis/device_arch_info/x86_64/call_imm.h"
 
-namespace berberis::x86_64 {
+namespace berberis::x86_64::device_arch_info {
 
 namespace {
 
@@ -124,41 +124,41 @@ static_assert(
 // Small ints are returned in RAX.
 static_assert(
     std::is_same_v<CallImm<static_cast<std::tuple<int8_t> (*)()>(nullptr)>::ResultRegisters,
-                   std::tuple<device_arch_info::RAX>>);
+                   std::tuple<RAX>>);
 static_assert(
     std::is_same_v<CallImm<static_cast<std::tuple<uint8_t> (*)()>(nullptr)>::ResultRegisters,
-                   std::tuple<device_arch_info::RAX>>);
+                   std::tuple<RAX>>);
 static_assert(
     std::is_same_v<CallImm<static_cast<std::tuple<int16_t> (*)()>(nullptr)>::ResultRegisters,
-                   std::tuple<device_arch_info::RAX>>);
+                   std::tuple<RAX>>);
 static_assert(
     std::is_same_v<CallImm<static_cast<std::tuple<uint16_t> (*)()>(nullptr)>::ResultRegisters,
-                   std::tuple<device_arch_info::RAX>>);
+                   std::tuple<RAX>>);
 static_assert(
     std::is_same_v<CallImm<static_cast<std::tuple<int32_t> (*)()>(nullptr)>::ResultRegisters,
-                   std::tuple<device_arch_info::RAX>>);
+                   std::tuple<RAX>>);
 static_assert(
     std::is_same_v<CallImm<static_cast<std::tuple<uint32_t> (*)()>(nullptr)>::ResultRegisters,
-                   std::tuple<device_arch_info::RAX>>);
+                   std::tuple<RAX>>);
 static_assert(
     std::is_same_v<CallImm<static_cast<std::tuple<int64_t> (*)()>(nullptr)>::ResultRegisters,
-                   std::tuple<device_arch_info::RAX>>);
+                   std::tuple<RAX>>);
 static_assert(
     std::is_same_v<CallImm<static_cast<std::tuple<uint64_t> (*)()>(nullptr)>::ResultRegisters,
-                   std::tuple<device_arch_info::RAX>>);
+                   std::tuple<RAX>>);
 // Large ints , __int128_t and i__unt128 are returned in RAX:RDX.
 static_assert(
     std::is_same_v<CallImm<static_cast<std::tuple<__int128_t> (*)()>(nullptr)>::ResultRegisters,
-                   std::tuple<device_arch_info::RAX, device_arch_info::RDX>>);
+                   std::tuple<RAX, RDX>>);
 static_assert(
     std::is_same_v<CallImm<static_cast<std::tuple<__uint128_t> (*)()>(nullptr)>::ResultRegisters,
-                   std::tuple<device_arch_info::RAX, device_arch_info::RDX>>);
+                   std::tuple<RAX, RDX>>);
 // Eigth one-byte elements can be put in RAX.
 static_assert(std::is_same_v<
               CallImm<static_cast<
                   std::tuple<int8_t, int8_t, int8_t, int8_t, int8_t, int8_t, int8_t, int8_t> (*)()>(
                   nullptr)>::ResultRegisters,
-              std::tuple<device_arch_info::RAX>>);
+              std::tuple<RAX>>);
 // Nine one-byte elements would require RDX.
 static_assert(
     std::is_same_v<CallImm<static_cast<std::tuple<int8_t,
@@ -170,41 +170,41 @@ static_assert(
                                                   int8_t,
                                                   int8_t,
                                                   int8_t> (*)()>(nullptr)>::ResultRegisters,
-                   std::tuple<device_arch_info::RAX, device_arch_info::RDX>>);
+                   std::tuple<RAX, RDX>>);
 // If you pass mix of ints and floats these are returned in RAX/RDX.
 static_assert(
     std::is_same_v<CallImm<static_cast<std::tuple<Float16, int8_t, Float16, int8_t> (*)()>(
                        nullptr)>::ResultRegisters,
-                   std::tuple<device_arch_info::RAX>>);
+                   std::tuple<RAX>>);
 static_assert(
     std::is_same_v<
         CallImm<static_cast<std::tuple<Float16, int8_t, Float16, int8_t, Float16, int8_t> (*)()>(
             nullptr)>::ResultRegisters,
-        std::tuple<device_arch_info::RAX, device_arch_info::RDX>>);
+        std::tuple<RAX, RDX>>);
 // If the only element that comes in the second eightbyte is float it's passed in XMM0, even though
 // the first eightbyte is in RAX.
 static_assert(
     std::is_same_v<CallImm<static_cast<std::tuple<Float16, int8_t, Float16, int8_t, Float16> (*)()>(
                        nullptr)>::ResultRegisters,
-                   std::tuple<device_arch_info::RAX, device_arch_info::XMM0>>);
+                   std::tuple<RAX, XMM0>>);
 // Couple of Float32 can be put in XMM0.
 static_assert(std::is_same_v<
               CallImm<static_cast<std::tuple<Float32, Float32> (*)()>(nullptr)>::ResultRegisters,
-              std::tuple<device_arch_info::XMM0>>);
+              std::tuple<XMM0>>);
 // Bunch of Float32 would occupy both XMM0 and XMM1
 static_assert(
     std::is_same_v<
         CallImm<static_cast<std::tuple<Float16, Float32, Float16> (*)()>(nullptr)>::ResultRegisters,
-        std::tuple<device_arch_info::XMM0, device_arch_info::XMM1>>);
+        std::tuple<XMM0, XMM1>>);
 // One SIMD128Register would go in XMM0.
 static_assert(std::is_same_v<
               CallImm<static_cast<std::tuple<SIMD128Register> (*)()>(nullptr)>::ResultRegisters,
-              std::tuple<device_arch_info::XMM0>>);
+              std::tuple<XMM0>>);
 // But two would go on stack.
 static_assert(
     std::is_same_v<CallImm<static_cast<std::tuple<SIMD128Register, SIMD128Register> (*)()>(
                        nullptr)>::ResultRegisters,
-                   std::tuple<device_arch_info::RAX>>);
+                   std::tuple<RAX>>);
 
 // Verify that types properly go into proper register types.
 static_assert(std::is_same_v<CallImm<static_cast<void (*)(Float16,
@@ -217,17 +217,7 @@ static_assert(std::is_same_v<CallImm<static_cast<void (*)(Float16,
                                                           int64_t,
                                                           Float32x4,
                                                           __int128_t)>(nullptr)>::ArgumentRegisters,
-                             std::tuple<device_arch_info::XMM0,
-                                        device_arch_info::RDI,
-                                        device_arch_info::XMM1,
-                                        device_arch_info::RSI,
-                                        device_arch_info::XMM2,
-                                        device_arch_info::RDX,
-                                        device_arch_info::XMM3,
-                                        device_arch_info::RCX,
-                                        device_arch_info::XMM4,
-                                        device_arch_info::R8,
-                                        device_arch_info::R9>>);
+                             std::tuple<XMM0, RDI, XMM1, RSI, XMM2, RDX, XMM3, RCX, XMM4, R8, R9>>);
 // If result is returned in memory then first integer register is used for pointer to result.
 static_assert(std::is_same_v<CallImm<static_cast<std::tuple<SIMD128Register, SIMD128Register> (*)(
                                  Float16,
@@ -239,47 +229,37 @@ static_assert(std::is_same_v<CallImm<static_cast<std::tuple<SIMD128Register, SIM
                                  SIMD128Register,
                                  __int128_t,
                                  Float32x4)>(nullptr)>::ArgumentRegisters,
-                             std::tuple<device_arch_info::RDI,
-                                        device_arch_info::XMM0,
-                                        device_arch_info::RSI,
-                                        device_arch_info::XMM1,
-                                        device_arch_info::RDX,
-                                        device_arch_info::XMM2,
-                                        device_arch_info::RCX,
-                                        device_arch_info::XMM3,
-                                        device_arch_info::R8,
-                                        device_arch_info::R9,
-                                        device_arch_info::XMM4>>);
+                             std::tuple<RDI, XMM0, RSI, XMM1, RDX, XMM2, RCX, XMM3, R8, R9, XMM4>>);
 
 // both RAX and XMM0 are properly removed from ClobberRegisters
 static_assert(
     std::is_same_v<CallImm<static_cast<std::tuple<Float16, int8_t, Float16, int8_t, Float16> (*)()>(
                        nullptr)>::ClobberRegisters,
-                   std::tuple<device_arch_info::RDI,
-                              device_arch_info::RSI,
-                              device_arch_info::RDX,
-                              device_arch_info::RCX,
-                              device_arch_info::R8,
-                              device_arch_info::R9,
-                              device_arch_info::R10,
-                              device_arch_info::R11,
-                              device_arch_info::XMM1,
-                              device_arch_info::XMM2,
-                              device_arch_info::XMM3,
-                              device_arch_info::XMM4,
-                              device_arch_info::XMM5,
-                              device_arch_info::XMM6,
-                              device_arch_info::XMM7,
-                              device_arch_info::XMM8,
-                              device_arch_info::XMM9,
-                              device_arch_info::XMM10,
-                              device_arch_info::XMM11,
-                              device_arch_info::XMM12,
-                              device_arch_info::XMM13,
-                              device_arch_info::XMM14,
-                              device_arch_info::XMM15,
-                              device_arch_info::FLAGS>>);
+                   std::tuple<RDI,
+                              RSI,
+                              RDX,
+                              RCX,
+                              R8,
+                              R9,
+                              R10,
+                              R11,
+                              XMM1,
+                              XMM2,
+                              XMM3,
+                              XMM4,
+                              XMM5,
+                              XMM6,
+                              XMM7,
+                              XMM8,
+                              XMM9,
+                              XMM10,
+                              XMM11,
+                              XMM12,
+                              XMM13,
+                              XMM14,
+                              XMM15,
+                              FLAGS>>);
 
 }  // namespace
 
-}  // namespace berberis::x86_64
+}  // namespace berberis::x86_64::device_arch_info

@@ -242,8 +242,9 @@ cc_test_host {
     whole_static_libs: [
         "libberberis_assembler_unit_tests",
         "libberberis_base_unit_tests",
-        "libberberis_elf_backed_exec_region_unit_tests",
         "libberberis_calling_conventions_unit_tests",
+        "libberberis_device_arch_info_tests",
+        "libberberis_elf_backed_exec_region_unit_tests",
         "libberberis_intrinsics_unit_tests",
         "libberberis_intrinsics_unit_tests_riscv64",
         "libberberis_tinyloader_unit_tests",

@@ -23,10 +23,10 @@
 #include <utility>
 
 #include "berberis/backend/common/machine_ir_builder.h"
-#include "berberis/backend/x86_64/call_imm.h"
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/base/logging.h"
 #include "berberis/base/tuple_processing.h"
+#include "berberis/device_arch_info/x86_64/call_imm.h"
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state_opaque.h"
 
@@ -98,7 +98,9 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
   template <auto kIntrinsic, typename... AddrType>
   /*may_discard*/ auto GenCallImmImpl(
       MachineReg flags_register,
-      std::array<MachineReg, std::tuple_size_v<typename CallImm<kIntrinsic>::ArgumentRegisters>>
+      std::array<
+          MachineReg,
+          std::tuple_size_v<typename device_arch_info::CallImm<kIntrinsic>::ArgumentRegisters>>
           args,
       AddrType... func_ptr);
 };
@@ -107,7 +109,7 @@ template <auto kIntrinsic, typename ArgsType, typename... AddrType>
 /*may_discard*/ auto MachineIRBuilder::GenCallImm(MachineReg flags_register,
                                                   ArgsType&& args,
                                                   AddrType... func_ptr) {
-  using CallImm = x86_64::CallImm<kIntrinsic>;
+  using CallImm = device_arch_info::CallImm<kIntrinsic>;
   if constexpr (std::tuple_size_v<std::remove_reference_t<ArgsType>> == 0) {
     return GenCallImmImpl<kIntrinsic>(flags_register, {}, func_ptr...);
   } else {
@@ -174,9 +176,11 @@ template <auto kIntrinsic, typename ArgsType, typename... AddrType>
 template <auto kIntrinsic, typename... AddrType>
 /*may_discard*/ auto MachineIRBuilder::GenCallImmImpl(
     MachineReg flags_register,
-    std::array<MachineReg, std::tuple_size_v<typename CallImm<kIntrinsic>::ArgumentRegisters>> args,
+    std::array<MachineReg,
+               std::tuple_size_v<typename device_arch_info::CallImm<kIntrinsic>::ArgumentRegisters>>
+        args,
     AddrType... func_ptr) {
-  using CallImm = x86_64::CallImm<kIntrinsic>;
+  using CallImm = device_arch_info::CallImm<kIntrinsic>;
   std::array<MachineReg,
              CallImm::kIsImplicitPointerResult ? 1 : std::size(CallImm::kResultsElements)>
       results;
@@ -245,11 +249,13 @@ template <auto kIntrinsic, typename... AddrType>
           // then have to move it into SSE register as per caller expectations.
           if constexpr (result_element.element_offset != 0 ||
                         ((result_element.clobber_class_index <=
-                          std::tuple_size_v<call_imm_impl::SSEArgumentetersRegisters>) &&
+                          std::tuple_size_v<
+                              device_arch_info::call_imm_impl::SSEArgumentetersRegisters>) &&
                          (std::is_same_v<ElementType, intrinsics::Float16> ||
                           std::is_same_v<ElementType, intrinsics::Float32>))) {
             if constexpr (result_element.clobber_class_index <=
-                          std::tuple_size_v<call_imm_impl::SSEArgumentetersRegisters>) {
+                          std::tuple_size_v<
+                              device_arch_info::call_imm_impl::SSEArgumentetersRegisters>) {
               if constexpr (result_element.element_offset != 0) {
                 InsertInsn(ir()->NewInsn<ShrqRegImm, kSSA>(
                     results[kIdx],
