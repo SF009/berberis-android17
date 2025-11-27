@@ -217,19 +217,20 @@ template <auto kIntrinsic, typename... AddrType>
     }
     results = call_outs;
   }
-  auto* call = ir()->NewInsn<typename CallImm::MachineInsn>(
-      std::tuple_cat(std::tuple{bit_cast<int64_t>(func_ptr)...},
-                     call_outs,
-                     args,
-                     TypesToValues::Map<typename CallImm::ClobberRegisters>(
-                         [flags_register, this]<typename RegisterClass>() {
-                           if constexpr (std::is_same_v<RegisterClass, device_arch_info::FLAGS>) {
-                             return flags_register;
-                           } else {
-                             return ir()->AllocVReg();
-                           }
-                         })));
-  InsertInsn(call);
+  auto* call =
+      Gen<MachineInsn<typename CallImm::template MachineInsn<CodeEmitter>::DeviceInsnInfo>>(
+          std::tuple_cat(
+              std::tuple{bit_cast<int64_t>(func_ptr)...},
+              call_outs,
+              args,
+              TypesToValues::Map<typename CallImm::ClobberRegisters>(
+                  [flags_register, this]<typename RegisterClass>() {
+                    if constexpr (std::is_same_v<RegisterClass, device_arch_info::FLAGS>) {
+                      return flags_register;
+                    } else {
+                      return ir()->AllocVReg();
+                    }
+                  })));
   if constexpr (kNeedExtraProcessing) {
     MachineReg last_zero_based_register;
     TypesToValues::ForEach<TypesToTypes::Enumerate<typename CallImm::CleanRetType>>(
