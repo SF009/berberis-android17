@@ -412,24 +412,14 @@ void CallIntrinsic(MacroAssembler<x86_64::Assembler>& as,
 
   as.Call(reinterpret_cast<void*>(function));
 
-  auto regs_info = ForwardResults<IntrinsicResType>(as, result);
+  if constexpr (std::is_same_v<IntrinsicResType, void>) {
+    PopCallerSaved(
+        as, {.regs_on_stack = kRegOffsetsOnStack, .simd_regs_on_stack = kSimdRegOffsetsOnStack});
+  } else {
+    auto regs_info = ForwardResults<IntrinsicResType>(as, result);
 
-  PopCallerSaved(as, regs_info);
-}
-
-template <typename AssemblerResType, typename... IntrinsicArgType, typename... AssemblerArgType>
-void CallIntrinsic(MacroAssembler<x86_64::Assembler>& as,
-                   void (*function)(IntrinsicArgType...),
-                   AssemblerArgType... args) {
-  PushCallerSaved(as);
-
-  InitArgsVerify<void, IntrinsicArgType...>(args...);
-  InitArgs<void, IntrinsicArgType...>(as, host_platform::kHasAVX, args...);
-
-  as.Call(reinterpret_cast<void*>(function));
-
-  PopCallerSaved(
-      as, {.regs_on_stack = kRegOffsetsOnStack, .simd_regs_on_stack = kSimdRegOffsetsOnStack});
+    PopCallerSaved(as, regs_info);
+  }
 }
 
 }  // namespace berberis::call_intrinsic
