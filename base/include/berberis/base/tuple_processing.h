@@ -93,8 +93,6 @@ class TypesToTypes {
   class FilterHelper;
   template <typename Type, auto kLambda>
   class FlatMapHelper;
-  template <std::size_t... Is>
-  static constexpr std::tuple<MetaValue<Is>...> IndexesHelper(std::index_sequence<Is...>);
   template <typename Type, auto kLambda>
   class MapHelper;
   template <typename Type>
@@ -115,6 +113,11 @@ class TypesToTypes {
   friend class ValuesToValues;
 
  public:
+  // Trying to make it private is a compile-time error on clang 13, 14, 15, 16, 17, and 18.
+  // Fixed in clang 19.
+  template <std::size_t... Is>
+  static constexpr std::tuple<MetaValue<Is>...> IndexesHelper(std::index_sequence<Is...>);
+
   template <typename TupleType>
   using Indexes = decltype(IndexesHelper(
       std::declval<std::make_index_sequence<std::tuple_size_v<TupleType>>>()));
