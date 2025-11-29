@@ -464,7 +464,19 @@ class LiteTranslator {
  private:
   template <auto kFunction, typename AssemblerResType = void, typename... AssemblerArgType>
   auto CallIntrinsic(AssemblerArgType... args) {
-    if constexpr (std::is_same_v<AssemblerResType, void>) {
+    using CallImm = x86_64::CallImm<static_cast<decltype(kFunction)>(nullptr)>;
+    using ResultRegiesterTypes =
+        typename CallImm::template ResultRegiesterTypes<Register, SimdRegister>;
+    ResultRegiesterTypes result =
+        TypesToValues::Map<ResultRegiesterTypes>([this]<typename RegisterType>() {
+          if constexpr (std::is_same_v<RegisterType, Register>) {
+            return AllocTempReg();
+          } else {
+            return AllocTempSimdReg();
+          }
+        });
+
+    if constexpr (!std::size(CallImm::kResultsElements)) {
       if (inline_intrinsic::TryInlineIntrinsic<kFunction>(
               as_,
               [this]() { return AllocTempReg(); },
@@ -473,20 +485,8 @@ class LiteTranslator {
               args...)) {
         return;
       }
-      call_intrinsic::CallIntrinsic<AssemblerResType>(as_, kFunction, args...);
+      call_intrinsic::CallIntrinsic(as_, kFunction, result, args...);
     } else {
-      using CallImm = x86_64::CallImm<static_cast<decltype(kFunction)>(nullptr)>;
-      using ResultRegiesterTypes =
-          typename CallImm::template ResultRegiesterTypes<Register, SimdRegister>;
-      ResultRegiesterTypes result =
-          TypesToValues::Map<ResultRegiesterTypes>([this]<typename RegisterType>() {
-            if constexpr (std::is_same_v<RegisterType, Register>) {
-              return AllocTempReg();
-            } else {
-              return AllocTempSimdReg();
-            }
-          });
-
       if (!inline_intrinsic::TryInlineIntrinsic<kFunction>(
               as_,
               [this]() { return AllocTempReg(); },
