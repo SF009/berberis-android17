@@ -47,7 +47,7 @@ namespace berberis {
 inline constexpr int kSSAOpcodeBit = 30;
 
 // The bits starting from kLowMachineOpcodeBits (24) are used to encode variations based on memory
-// operand forms. Since there can be up to two memory operands, up to 4 bits are used for these
+// operand forms. Since there can be up to three memory operands, up to 6 bits are used for these
 // variations (2 bits per memory operand for Base/Index presence)—plus two bits in case we would
 // need three memory operands.
 inline constexpr int kLowMachineOpcodeBits = 24;
@@ -66,6 +66,12 @@ enum MachineOpcode : int {
 };
 
 namespace x86_64 {
+
+constexpr std::pair<bool, bool> OpcodeHasMemoryBaseIndex(MachineOpcode opcode,
+                                                         size_t mem_operand_idx) {
+  int base_index_info = opcode >> (kLowMachineOpcodeBits + mem_operand_idx * 2);
+  return {base_index_info & 1, base_index_info & 2};
+}
 
 class MachineRegs {
  public:
@@ -118,6 +124,18 @@ inline bool IsXReg(MachineReg r) {
 
 // Context loads and stores use rbp as base.
 inline constexpr auto kCPUStatePointer = MachineRegs::kRBP;
+
+// Operands as listed in x86_operands.
+enum class X86Operand : uint8_t {
+  kRegisterOperand = 0,                   // Regular register.
+  kImplicitRegisterOperand = 1,           // Implicit register.
+  kSSAUseDefRegisterOperand = 2,          // SSA-split use+def register operand. Two registers.
+  kImplicitSSAUseDefRegisterOperand = 3,  // SSA-split use+def register implicit operand.
+  kMemoryOperand = 4,  // Memory operand. Zero, one or two registers as opcode signifies.
+  kCondition = 5,      // Contion, like in CMOV.
+  kImmediate = 6,      // Immediate.
+  kComment = 7,        // Comment. Only used for debug print.
+};
 
 template <size_t kMaxMachineRegOperands>
 struct MachineInsnInfo {
@@ -180,9 +198,13 @@ class MachineInsnX86_64 : public MachineInsn {
 
   Assembler::ScaleFactor scale2() const { return x86_64_insn_info_.scale2_; }
 
+  Assembler::ScaleFactor scale3() const { return x86_64_insn_info_.scale3_; }
+
   uint32_t disp() const { return x86_64_insn_info_.disp_; }
 
   uint32_t disp2() const { return x86_64_insn_info_.disp2_; }
+
+  uint32_t disp3() const { return x86_64_insn_info_.disp3_; }
 
   Assembler::Condition cond() const { return x86_64_insn_info_.cond_; }
 
@@ -192,9 +214,13 @@ class MachineInsnX86_64 : public MachineInsn {
 
   void set_scale2(Assembler::ScaleFactor scale2) { x86_64_insn_info_.scale2_ = scale2; }
 
+  void set_scale3(Assembler::ScaleFactor scale3) { x86_64_insn_info_.scale3_ = scale3; }
+
   void set_disp(uint32_t disp) { x86_64_insn_info_.disp_ = disp; }
 
   void set_disp2(uint32_t disp2) { x86_64_insn_info_.disp2_ = disp2; }
+
+  void set_disp3(uint32_t disp3) { x86_64_insn_info_.disp3_ = disp3; }
 
   void set_cond(Assembler::Condition cond) { x86_64_insn_info_.cond_ = cond; }
 
@@ -214,11 +240,13 @@ class MachineInsnX86_64 : public MachineInsn {
 
  private:
   struct {
-    uint32_t disp_;
     Assembler::ScaleFactor scale_ = Assembler::kTimesOne;
     Assembler::ScaleFactor scale2_ = Assembler::kTimesOne;
+    Assembler::ScaleFactor scale3_ = Assembler::kTimesOne;
     Assembler::Condition cond_;
+    uint32_t disp_;
     uint32_t disp2_;
+    uint32_t disp3_;
     uint64_t imm_;
   } x86_64_insn_info_;
 };
@@ -249,6 +277,11 @@ class Enter final : public MachineInsnX86_64 {
   MachineInsn* Clone(Arena* arena) const override;
   MachineInsnList Lower(Arena* arena) const override;
 };
+
+[[clang::noinline]] std::string GetDebugString(const MachineInsnX86_64& insn,
+                                               const char* mnemo,
+                                               size_t x86_operands_count,
+                                               const X86Operand x86_operands[]);
 
 enum SSAMode {
   // We use these for bit encoding so it's important the the specific values are assigned.
@@ -311,6 +344,8 @@ class MachineInsn final : public MachineInsnX86_64 {
   static constexpr std::array<MachineInsnInfo,
                               1 << (2 * device_arch_info::kCountMemoryOperands<OperandsTuple>)>
   GenMachineInsnInfos();
+  static constexpr std::array<X86Operand, std::tuple_size_v<typename DeviceInsnInfo_::Operands>>
+  GenX86Operands();
 
  public:
   using DeviceInsnInfo = DeviceInsnInfo_;
@@ -384,7 +419,7 @@ class MachineInsn final : public MachineInsnX86_64 {
     if constexpr (std::tuple_size_v<ConstructorArgsTuple> > 0) {
       static_assert(device_arch_info::kCountConditions<OperandsTuple> <= 1);
       static_assert(device_arch_info::kCountImmediates<OperandsTuple> <= 1);
-      static_assert(device_arch_info::kCountMemoryOperands<OperandsTuple> <= 2);
+      static_assert(device_arch_info::kCountMemoryOperands<OperandsTuple> <= 3);
       ValuesToValues::ForEachWithTemporary(
           args,
           /* reg_idx, mem_idx = */ std::tuple{size_t{0}, size_t{0}},
@@ -410,6 +445,9 @@ class MachineInsn final : public MachineInsnX86_64 {
               } else if (mem_idx == 2) {
                 MachineInsnX86_64::set_disp2(arg.disp);
                 MachineInsnX86_64::set_scale2(arg.scale);
+              } else if (mem_idx == 3) {
+                MachineInsnX86_64::set_disp3(arg.disp);
+                MachineInsnX86_64::set_scale3(arg.scale);
               }
             } else {
               static_assert(kDependentTypeFalse<ConstructorArg>);
@@ -421,6 +459,8 @@ class MachineInsn final : public MachineInsnX86_64 {
   static constexpr std::array<MachineInsnInfo,
                               1 << (2 * device_arch_info::kCountMemoryOperands<OperandsTuple>)>
       kInfos = GenMachineInsnInfos();
+  static constexpr std::array<X86Operand, std::tuple_size_v<typename DeviceInsnInfo::Operands>>
+      kX86Operands = GenX86Operands();
   // Note: kInfo has well-defined meaning – it's information about intrinsic with all MemoryOperand
   // types ignored.
   // This is useful not only for instructions without operands, but also for SSA form: since these
@@ -437,71 +477,8 @@ class MachineInsn final : public MachineInsnX86_64 {
   }
 
   std::string GetDebugString() const override {
-    // Code below assumes that we have at most two memory operands.
-    static_assert(device_arch_info::kCountMemoryOperands<OperandsTuple> <= 2);
-    std::string s = TypesToValues::ProduceWithTemporary<typename DeviceInsnInfo::Operands>(
-        /* s = */ std::string{DeviceInsnInfo::kMnemo},
-        /* arg_idx, reg_idx, mem_idx = */ std::tuple{size_t{0}, size_t{0}, size_t{0}},
-        [this]<typename Operand>(std::string& s, std::tuple<size_t, size_t, size_t>& indexes) {
-          auto& [arg_idx, reg_idx, mem_idx] = indexes;
-          if (arg_idx == 0) {
-            s += " ";
-          } else {
-            s += ", ";
-          }
-          if constexpr (device_arch_info::kIsCondition<Operand>) {
-            s += GetCondName(cond());
-          } else if constexpr (device_arch_info::kIsImmediate<Operand>) {
-            s += StringPrintf("0x%" PRIx64, imm());
-          } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
-            auto [has_base, has_index] = OpcodeHasMemoryBaseIndex(mem_idx++);
-            int32_t scale;
-            if (has_index) {
-              scale =
-                  1 << (mem_idx == 1 ? MachineInsnX86_64::scale() : MachineInsnX86_64::scale2());
-            }
-            int32_t disp = mem_idx == 1 ? MachineInsnX86_64::disp() : MachineInsnX86_64::disp2();
-            if (has_base) {
-              if (has_index) {
-                s += StringPrintf("[%s + %s * %d + 0x%x]",
-                                  GetRegOperandDebugString(this, reg_idx).c_str(),
-                                  GetRegOperandDebugString(this, reg_idx + 1).c_str(),
-                                  scale,
-                                  disp);
-                reg_idx += 2;
-              } else {
-                s += StringPrintf(
-                    "[%s + 0x%x]", GetRegOperandDebugString(this, reg_idx++).c_str(), disp);
-              }
-            } else if (has_index) {
-              s += StringPrintf("[%s * %d + 0x%x]",
-                                GetRegOperandDebugString(this, reg_idx++).c_str(),
-                                scale,
-                                disp);
-            } else {
-              s += StringPrintf("[0x%x]", disp);
-            }
-          } else if (kSSAMode == kSSA && device_arch_info::kIsImplicitReg<Operand> &&
-                     Operand::kUsage == device_arch_info::kUseDef) {
-            s += StringPrintf("(%s", GetRegOperandDebugString(this, reg_idx++).c_str());
-            s += "/";
-            s += StringPrintf("%s)", GetRegOperandDebugString(this, reg_idx++).c_str());
-          } else if constexpr (device_arch_info::kIsImplicitReg<Operand>) {
-            s += StringPrintf("(%s)", GetRegOperandDebugString(this, reg_idx++).c_str());
-          } else if (kSSAMode == kSSA && device_arch_info::kIsRegister<Operand> &&
-                     Operand::kUsage == device_arch_info::kUseDef) {
-            s += GetRegOperandDebugString(this, reg_idx++);
-            s += "/";
-            s += GetRegOperandDebugString(this, reg_idx++);
-          } else {
-            s += GetRegOperandDebugString(this, reg_idx++);
-          }
-          arg_idx++;
-        });
-    if (MachineInsnX86_64::recovery_pc() && !IsConfigFlagSet(kDeterministicTracing)) {
-      s += StringPrintf(" <0x%" PRIxPTR ">", MachineInsnX86_64::recovery_pc());
-    }
-    return s;
+    const char* kName = DeviceInsnInfo::kMnemo;
+    return x86_64::GetDebugString(*this, kName, std::size(kX86Operands), std::begin(kX86Operands));
   }
 
   void Emit(CodeEmitter* as) const override {
@@ -513,7 +490,7 @@ class MachineInsn final : public MachineInsnX86_64 {
       FATAL("Attempt to emit SSA pseudo-instruction");
     } else {
       // Code below assumes that we have at most two memory operands.
-      static_assert(device_arch_info::kCountMemoryOperands<OperandsTuple> <= 2);
+      static_assert(device_arch_info::kCountMemoryOperands<OperandsTuple> <= 3);
       std::apply(
           DeviceInsnInfo::kEmitInsnFunc,
           std::tuple_cat(
@@ -528,7 +505,7 @@ class MachineInsn final : public MachineInsnX86_64 {
                     } else if constexpr (device_arch_info::kIsImmediate<Operand>) {
                       return std::tuple{MachineInsnX86_64::imm()};
                     } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
-                      auto [has_base, has_index] = OpcodeHasMemoryBaseIndex(mem_idx++);
+                      auto [has_base, has_index] = OpcodeHasMemoryBaseIndex(opcode(), mem_idx++);
                       Assembler::Operand operand;
                       if (has_base) {
                         operand.base = GetGReg(MachineInsnX86_64::RegAt(reg_idx++));
@@ -541,12 +518,17 @@ class MachineInsn final : public MachineInsnX86_64 {
                           operand.scale = scale();
                         }
                         operand.disp = static_cast<int32_t>(disp());
-                      } else /* mem_idx == 2 */ {
-                        CHECK_EQ(mem_idx, 2);
+                      } else if (mem_idx == 2) {
                         if (has_index) {
                           operand.scale = scale2();
                         }
                         operand.disp = static_cast<int32_t>(disp2());
+                      } else /* mem_idx == 3 */ {
+                        CHECK_EQ(mem_idx, 3);
+                        if (has_index) {
+                          operand.scale = scale3();
+                        }
+                        operand.disp = static_cast<int32_t>(disp3());
                       }
                       return std::tuple{operand};
                     } else if constexpr (device_arch_info::kIsImplicitReg<Operand>) {
@@ -595,7 +577,7 @@ class MachineInsn final : public MachineInsnX86_64 {
     if constexpr (kSSAMode == kSSA) {
       MachineInsnList result(arena);
       // Code below assumes that we have at most two memory operands.
-      static_assert(device_arch_info::kCountMemoryOperands<OperandsTuple> <= 2);
+      static_assert(device_arch_info::kCountMemoryOperands<OperandsTuple> <= 3);
       result.push_back(
           NewInArena<MachineInsn<DeviceInsnInfo, kNoSSA>>(
               arena,
@@ -610,7 +592,7 @@ class MachineInsn final : public MachineInsnX86_64 {
                     } else if constexpr (device_arch_info::kIsImmediate<Operand>) {
                       return MachineInsnX86_64::imm();
                     } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
-                      auto [has_base, has_index] = OpcodeHasMemoryBaseIndex(mem_idx++);
+                      auto [has_base, has_index] = OpcodeHasMemoryBaseIndex(opcode(), mem_idx++);
                       MemoryOperand operand;
                       if (has_base) {
                         operand.base = MachineInsnX86_64::RegAt(reg_idx++);
@@ -623,12 +605,17 @@ class MachineInsn final : public MachineInsnX86_64 {
                           operand.scale = scale();
                         }
                         operand.disp = static_cast<int32_t>(disp());
-                      } else /* mem_idx == 2 */ {
-                        CHECK_EQ(mem_idx, 2);
+                      } else if (mem_idx == 2) {
                         if (has_index) {
                           operand.scale = scale2();
                         }
                         operand.disp = static_cast<int32_t>(disp2());
+                      } else /* mem_idx == 3 */ {
+                        CHECK_EQ(mem_idx, 3);
+                        if (has_index) {
+                          operand.scale = scale3();
+                        }
+                        operand.disp = static_cast<int32_t>(disp3());
                       }
                       return operand;
                     } else if constexpr (device_arch_info::kIsRegister<Operand>) {
@@ -669,14 +656,9 @@ class MachineInsn final : public MachineInsnX86_64 {
     }
   }
 
-  constexpr std::pair<bool, bool> OpcodeHasMemoryBaseIndex(size_t mem_operand_idx) const {
-    int base_index_info = opcode() >> (kLowMachineOpcodeBits + mem_operand_idx * 2);
-    return {base_index_info & 1, base_index_info & 2};
-  }
-
   static const MachineInsnInfo& GenMachineInsnInfo(ConstructorArgsTuple args) {
     // Code below assumes that we have at most two memory operands.
-    static_assert(device_arch_info::kCountMemoryOperands<OperandsTuple> <= 2);
+    static_assert(device_arch_info::kCountMemoryOperands<OperandsTuple> <= 3);
     if constexpr (device_arch_info::kCountMemoryOperands<OperandsTuple> == 0) {
       return kInfos[0];
     } else {
@@ -756,6 +738,36 @@ constexpr auto MachineInsn<DeviceInsnInfo, kSSAMode>::GenMachineInsnInfo()
         }
       });
   return result;
+}
+
+template <typename DeviceInsnInfo, auto kSSAMode>
+constexpr auto MachineInsn<DeviceInsnInfo, kSSAMode>::GenX86Operands()
+    -> std::array<X86Operand, std::tuple_size_v<typename DeviceInsnInfo::Operands>> {
+  if constexpr (std::tuple_size_v<typename DeviceInsnInfo::Operands> == 0) {
+    return std::array<X86Operand, 0>{};
+  } else {
+    return ToArray(TypesToValues::Map<typename DeviceInsnInfo::Operands>([]<typename Operand>() {
+      if constexpr (device_arch_info::kIsCondition<Operand>) {
+        return X86Operand::kCondition;
+      } else if constexpr (device_arch_info::kIsImmediate<Operand>) {
+        return X86Operand::kImmediate;
+      } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
+        return X86Operand::kMemoryOperand;
+      } else if constexpr (kSSAMode == kSSA && device_arch_info::kIsImplicitReg<Operand> &&
+                           Operand::kUsage == device_arch_info::kUseDef) {
+        return X86Operand::kImplicitSSAUseDefRegisterOperand;
+      } else if constexpr (device_arch_info::kIsImplicitReg<Operand>) {
+        return X86Operand::kImplicitRegisterOperand;
+      } else if constexpr (kSSAMode == kSSA && device_arch_info::kIsRegister<Operand> &&
+                           Operand::kUsage == device_arch_info::kUseDef) {
+        return X86Operand::kSSAUseDefRegisterOperand;
+      } else if constexpr (device_arch_info::kIsRegister<Operand>) {
+        return X86Operand::kRegisterOperand;
+      } else {
+        static_assert(kDependentTypeFalse<Operand>);
+      }
+    }));
+  }
 }
 
 // Array that represents all possible values of memory operands Base+Index settings; eg it goes from
