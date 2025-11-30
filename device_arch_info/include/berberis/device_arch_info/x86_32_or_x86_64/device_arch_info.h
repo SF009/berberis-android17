@@ -63,6 +63,16 @@ class Imm64 {
   using Type = int64_t;
 };
 
+class ImmPCode {
+ public:
+  using Type = const void*;
+};
+
+class Comment {
+ public:
+  using Type = const char*;
+};
+
 class Mem {
  public:
   // Mem can only be used as fake, non-memory Leal/Leaq argument, but having type here simplifies
@@ -193,6 +203,23 @@ class IsAuthenticAMD;
 
 namespace device_arch_info {
 
+template <typename OperandClass, typename = void>
+inline constexpr bool kIsComment = false;
+
+template <typename OperandClass>
+inline constexpr bool
+    kIsComment<OperandClass, std::enable_if_t<sizeof(typename OperandClass::Class) >= 1>> =
+        kIsComment<typename OperandClass::Class>;
+
+template <typename OperandClassesTuple>
+inline constexpr size_t kCountComments =
+    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
+      return kIsComment<OperandClass>;
+    }>>;
+
+template <>
+inline constexpr bool kIsComment<x86_32_or_x86_64::device_arch_info::Comment> = true;
+
 template <>
 inline constexpr bool kIsCondition<x86_32_or_x86_64::device_arch_info::Cond> = true;
 
@@ -210,6 +237,9 @@ inline constexpr bool kIsImmediate<x86_32_or_x86_64::device_arch_info::Imm32> = 
 
 template <>
 inline constexpr bool kIsImmediate<x86_32_or_x86_64::device_arch_info::Imm64> = true;
+
+template <>
+inline constexpr bool kIsImmediate<x86_32_or_x86_64::device_arch_info::ImmPCode> = true;
 
 template <>
 inline constexpr bool kIsMemoryOperand<x86_32_or_x86_64::device_arch_info::Mem> = true;
