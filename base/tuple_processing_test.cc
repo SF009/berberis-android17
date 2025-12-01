@@ -666,6 +666,69 @@ constexpr bool TestFunc() {
           TypesToTypes::TakeWhile<TupleType<char, const int>&&, []<typename T>() { return true; }>,
           std::tuple<char&&, const int&&>>);
 
+  // Note that array of references is illegal thus all references are removed in transformation.
+  // But you may add or remove const in many ways.
+  static_assert(std::is_same_v<TypesToTypes::ToArray<TupleType<char, char>>, std::array<char, 2>>);
+  static_assert(std::is_same_v<TypesToTypes::ToArray<TupleType<char, char&>>, std::array<char, 2>>);
+  static_assert(std::is_same_v<TypesToTypes::ToArray<TupleType<char&, char>>, std::array<char, 2>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::ToArray<TupleType<char, char&&>>, std::array<char, 2>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::ToArray<TupleType<char&&, char>>, std::array<char, 2>>);
+
+  static_assert(std::is_same_v<TypesToTypes::ToArray<const TupleType<char, char>>,
+                               std::array<const char, 2>>);
+  static_assert(std::is_same_v<TypesToTypes::ToArray<const TupleType<char, char&>>,
+                               std::array<const char, 2>>);
+  static_assert(std::is_same_v<TypesToTypes::ToArray<const TupleType<char&, char>>,
+                               std::array<const char, 2>>);
+  static_assert(std::is_same_v<TypesToTypes::ToArray<const TupleType<char, char&&>>,
+                               std::array<const char, 2>>);
+  static_assert(std::is_same_v<TypesToTypes::ToArray<const TupleType<char&&, char>>,
+                               std::array<const char, 2>>);
+
+  static_assert(
+      std::is_same_v<TypesToTypes::ToArray<char, TupleType<char, char>>, std::array<char, 2>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::ToArray<char, TupleType<char, char&>>, std::array<char, 2>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::ToArray<char, TupleType<char&, char>>, std::array<char, 2>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::ToArray<char, TupleType<char, char&&>>, std::array<char, 2>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::ToArray<char, TupleType<char&&, char>>, std::array<char, 2>>);
+
+  static_assert(std::is_same_v<TypesToTypes::ToArray<const char, TupleType<char, char>>,
+                               std::array<const char, 2>>);
+  static_assert(std::is_same_v<TypesToTypes::ToArray<const char, TupleType<char, char&>>,
+                               std::array<const char, 2>>);
+  static_assert(std::is_same_v<TypesToTypes::ToArray<const char, TupleType<char&, char>>,
+                               std::array<const char, 2>>);
+  static_assert(std::is_same_v<TypesToTypes::ToArray<const char, TupleType<char, char&&>>,
+                               std::array<const char, 2>>);
+  static_assert(std::is_same_v<TypesToTypes::ToArray<const char, TupleType<char&&, char>>,
+                               std::array<const char, 2>>);
+
+  static_assert(std::is_same_v<TypesToTypes::ToArray<char, TupleType<const char, const char>>,
+                               std::array<char, 2>>);
+  static_assert(std::is_same_v<TypesToTypes::ToArray<char, TupleType<const char, const char&>>,
+                               std::array<char, 2>>);
+  static_assert(std::is_same_v<TypesToTypes::ToArray<char, TupleType<const char&, const char>>,
+                               std::array<char, 2>>);
+  static_assert(std::is_same_v<TypesToTypes::ToArray<char, TupleType<const char, const char&&>>,
+                               std::array<char, 2>>);
+  static_assert(std::is_same_v<TypesToTypes::ToArray<char, TupleType<const char&&, const char>>,
+                               std::array<char, 2>>);
+
+  // Conner cases.
+  static_assert(std::is_same_v<TypesToTypes::ToArray<char, std::tuple<>>, std::array<char, 0>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::ToArray<const char, std::tuple<>>, std::array<const char, 0>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::ToArray<char, std::array<const int, 0>>, std::array<char, 0>>);
+  static_assert(std::is_same_v<TypesToTypes::ToArray<const char, std::array<double, 0>>,
+                               std::array<const char, 0>>);
+
   static_assert(std::is_same_v<TypesToTypes::Zip<TupleType<char, int&>>,
                                std::tuple<std::tuple<char>, std::tuple<int&>>>);
 
@@ -2051,6 +2114,15 @@ constexpr bool TestFunc() {
       kMeta<&kForEachInt2>);
   static_assert(kTakeResult20 == std::tuple{kForEachInt1, 'A'});
   static_assert(std::is_same_v<decltype(kTakeResult20), const std::tuple<const int&, char>>);
+
+  static_assert(ValuesToValues::ToArray(TupleType{'A', 'B'}) == std::array{'A', 'B'});
+  static_assert(ValuesToValues::ToArray<char>(TupleType{'A', 'B'}) == std::array{'A', 'B'});
+  static_assert(ValuesToValues::ToArray<const char>(TupleType{'A', 'B'}) ==
+                std::array<const char, 2>{'A', 'B'});
+
+  // Corner cases.
+  static_assert(ValuesToValues::ToArray<char>(std::tuple{}) == std::array<char, 0>{});
+  static_assert(ValuesToValues::ToArray<char>(std::array<const int, 0>{}) == std::array<char, 0>{});
 
   static_assert(ValuesToValues::Zip(TupleType{'a', 3.00}) ==
                 std::tuple{std::tuple{'a'}, std::tuple{3.00}});

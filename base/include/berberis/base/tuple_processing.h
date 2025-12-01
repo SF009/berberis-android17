@@ -108,6 +108,8 @@ class TypesToTypes {
   class TakeHelper;
   template <typename TupleType, auto kLambda, auto... extra_lambda_values>
   class TakeSkipHelper;
+  template <typename ArrayType, typename TupleType>
+  class ToArrayHelper;
   template <typename... Types>
   class ZipHelper;
   template <typename... Types>
@@ -198,6 +200,9 @@ class TypesToTypes {
 
   template <typename TupleType, auto kLambda>
   using TakeWhile = Take<TupleType, TakeSkipHelper<TupleType, kLambda>::Produce()>;
+
+  template <typename ArrayType, typename TupleType = void>
+  using ToArray = typename ToArrayHelper<ArrayType, TupleType>::Result;
 
   template <typename... Types>
   using ZipShortest = typename ZipShortestHelper<Types...>::Result;
@@ -383,6 +388,15 @@ class TypesToTypes {
         return kTypes<>;
       }
     }
+  };
+
+  template <typename ArrayType>
+  class ToConstArrayHelper;
+
+  template <typename Type, std::size_t kSize>
+  class ToConstArrayHelper<std::array<Type, kSize>> {
+   public:
+    using Result = std::array<const Type, kSize>;
   };
 
   template <typename... Types>
@@ -1445,6 +1459,22 @@ class ValuesToValues {
     return Take<kCount, TupleType>(std::forward<TupleType>(tuple));
   }
 
+  template <typename TupleType>
+  static constexpr auto ToArray(TupleType&& tuple) {
+    return std::apply(
+        []<typename... Arg>(Arg&&... arg) { return std::array{std::forward<Arg>(arg)...}; },
+        std::forward<TupleType>(tuple));
+  }
+
+  template <typename ArrayElement, typename TupleType>
+  static constexpr auto ToArray(TupleType&& tuple) {
+    return std::apply(
+        []<typename... Arg>(Arg&&... arg) {
+          return std::array<ArrayElement, sizeof...(Arg)>{std::forward<Arg>(arg)...};
+        },
+        std::forward<TupleType>(tuple));
+  }
+
   template <typename... TupleTypes>
   static constexpr TypesToTypes::Zip<TupleTypes...> Zip(TupleTypes&&... tuples) {
     return ZipHelper<TypesToTypes::Zip<TupleTypes...>>(
@@ -1612,6 +1642,35 @@ class ValuesToValues {
     return ZipType{
         std::get<I>(std::forward<std::tuple_element_t<Ts, TupleTypes>>(std::get<Ts>(tuples)))...};
   }
+};
+
+template <typename TupleType>
+class TypesToTypes::ToArrayHelper<const TupleType, void> {
+ public:
+  using Result = typename ToConstArrayHelper<decltype(ValuesToValues::ToArray(
+      std::declval<TupleType>()))>::Result;
+};
+template <typename TupleType>
+class TypesToTypes::ToArrayHelper<const TupleType&, void> {
+ public:
+  using Result = typename ToConstArrayHelper<decltype(ValuesToValues::ToArray(
+      std::declval<TupleType>()))>::Result;
+};
+template <typename TupleType>
+class TypesToTypes::ToArrayHelper<const TupleType&&, void> {
+ public:
+  using Result = typename ToConstArrayHelper<decltype(ValuesToValues::ToArray(
+      std::declval<TupleType>()))>::Result;
+};
+template <typename TupleType>
+class TypesToTypes::ToArrayHelper<TupleType, void> {
+ public:
+  using Result = decltype(ValuesToValues::ToArray(std::declval<TupleType>()));
+};
+template <typename ArrayType, typename TupleType>
+class TypesToTypes::ToArrayHelper {
+ public:
+  using Result = decltype(ValuesToValues::ToArray<ArrayType>(std::declval<TupleType>()));
 };
 
 }  // namespace berberis
