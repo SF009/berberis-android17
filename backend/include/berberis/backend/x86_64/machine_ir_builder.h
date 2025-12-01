@@ -118,7 +118,7 @@ template <auto kIntrinsic, typename ArgsType, typename... AddrType>
         std::conditional_t<CallImm::kIsImplicitPointerResult, std::tuple<int64_t>, std::tuple<>>,
         typename CallImm::CleanParamTypes>;
     // Split GenCallImm argument values: 128-bit immediates have to come as two arguments.
-    auto split_args = ValuesToValues::FlatMap(args, []<typename Arg>(Arg arg) {
+    auto split_args = ValuesToValues::FlatMap(std::move(args), []<typename Arg>(Arg arg) {
       if constexpr (std::is_same_v<Arg, __int128_t> || std::is_same_v<Arg, __uint128_t>) {
         return std::tuple{static_cast<int64_t>(arg), static_cast<int64_t>(arg >> 64)};
       } else {

@@ -386,7 +386,7 @@ class MachineInsn final : public MachineInsnX86_64 {
       static_assert(device_arch_info::kCountImmediates<OperandsTuple> <= 1);
       static_assert(device_arch_info::kCountMemoryOperands<OperandsTuple> <= 2);
       ValuesToValues::ForEachWithTemporary(
-          args,
+          std::move(args),
           /* reg_idx, mem_idx = */ std::tuple{size_t{0}, size_t{0}},
           [this]<typename ConstructorArg>(ConstructorArg arg, std::tuple<size_t, size_t>& indexes) {
             if constexpr (std::is_same_v<ConstructorArg, Assembler::Condition>) {
@@ -681,7 +681,7 @@ class MachineInsn final : public MachineInsnX86_64 {
       return kInfos[0];
     } else {
       return kInfos[ValuesToValues::ProduceWithTemporary(
-          args,
+          std::move(args),
           /* index = */ size_t{0},
           /* current_bit = */ size_t{1},
           []<typename Arg>(Arg arg, size_t& index, size_t& current_bit) {
