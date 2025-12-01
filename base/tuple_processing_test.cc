@@ -224,6 +224,39 @@ constexpr bool TestFunc() {
                                std::tuple<std::pair<MetaValue<std::size_t{0}>, char&&>,
                                           std::pair<MetaValue<std::size_t{1}>, int&>>>);
 
+  static_assert(
+      std::is_same_v<
+          TypesToTypes::Enumerate<const TupleType<char, int&>,
+                                  const TupleType<char, int&>&,
+                                  const TupleType<char, int&>&&,
+                                  TupleType<char, int&>,
+                                  TupleType<char, int&>&,
+                                  TupleType<char, int&>&&>,
+          std::tuple<std::tuple<MetaValue<std::size_t{0}>,
+                                const char,
+                                const char&,
+                                const char&&,
+                                char,
+                                char&,
+                                char&&>,
+                     std::tuple<MetaValue<std::size_t{1}>, int&, int&, int&, int&, int&, int&>>>);
+
+  static_assert(std::is_same_v<TypesToTypes::EnumerateShortest<const TupleType<char, int&>,
+                                                               const TupleType<char, int&>&,
+                                                               const TupleType<char, int&>&&,
+                                                               TupleType<char, int&>,
+                                                               TupleType<char, int&>&,
+                                                               TupleType<char, int&>&&,
+                                                               std::array<double, 1>&>,
+                               std::tuple<std::tuple<MetaValue<std::size_t{0}>,
+                                                     const char,
+                                                     const char&,
+                                                     const char&&,
+                                                     char,
+                                                     char&,
+                                                     char&&,
+                                                     double&>>>);
+
   static_assert(std::is_same_v<
                 TypesToTypes::Filter<const TupleType<char, int&>,
                                      []<typename T>() { return std::is_same_v<T, const char>; }>,
@@ -1084,16 +1117,44 @@ constexpr bool TestFunc() {
     (defined(__GNUC__) && __GNUC__ > 14)
   static_assert(ValuesToValues::Enumerate(TupleType{'a', 42}) ==
                 std::tuple{std::pair{kMeta<0>, 'a'}, std::pair{kMeta<1>, 42}});
+  static_assert(ValuesToValues::Enumerate(TupleType{'a', 42}, TupleType{true, 1ULL}) ==
+                std::tuple{std::tuple{kMeta<0>, 'a', true}, std::tuple{kMeta<1>, 42, 1ULL}});
+  static_assert(ValuesToValues::EnumerateShortest(
+                    TupleType{'a', 42}, TupleType{true, 1ULL}, std::array{1.0}) ==
+                std::tuple<std::tuple<MetaValue<0>, char, bool, double>>{
+                    std::tuple{kMeta<0>, 'a', true, 1.0}});
 #else
-  constexpr auto kEnumerateResult = ValuesToValues::Enumerate(TupleType{'a', 42});
-  static_assert(std::get<0>(std::get<0>(kEnumerateResult)) == kMeta<0>);
-  static_assert(std::get<1>(std::get<0>(kEnumerateResult)) == 'a');
-  static_assert(std::get<0>(std::get<1>(kEnumerateResult)) == kMeta<1>);
-  static_assert(std::get<1>(std::get<1>(kEnumerateResult)) == 42);
+  constexpr auto kEnumerateResult1 = ValuesToValues::Enumerate(TupleType{'a', 42});
+  static_assert(std::get<0>(std::get<0>(kEnumerateResult1)) == kMeta<0>);
+  static_assert(std::get<1>(std::get<0>(kEnumerateResult1)) == 'a');
+  static_assert(std::get<0>(std::get<1>(kEnumerateResult1)) == kMeta<1>);
+  static_assert(std::get<1>(std::get<1>(kEnumerateResult1)) == 42);
+  constexpr auto kEnumerateResult2 =
+      ValuesToValues::Enumerate(TupleType{'a', 42}, TupleType{true, 1ULL});
+  static_assert(std::get<0>(std::get<0>(kEnumerateResult2)) == kMeta<0>);
+  static_assert(std::get<1>(std::get<0>(kEnumerateResult2)) == 'a');
+  static_assert(std::get<2>(std::get<0>(kEnumerateResult2)) == true);
+  static_assert(std::get<0>(std::get<1>(kEnumerateResult2)) == kMeta<1>);
+  static_assert(std::get<1>(std::get<1>(kEnumerateResult2)) == 42);
+  static_assert(std::get<2>(std::get<1>(kEnumerateResult2)) == 1ULL);
+  constexpr auto kEnumerateResult3 =
+      ValuesToValues::EnumerateShortest(TupleType{'a', 42}, TupleType{true, 1ULL}, std::array{1.0});
+  static_assert(std::get<0>(std::get<0>(kEnumerateResult3)) == kMeta<0>);
+  static_assert(std::get<1>(std::get<0>(kEnumerateResult3)) == 'a');
+  static_assert(std::get<2>(std::get<0>(kEnumerateResult3)) == true);
+  static_assert(std::get<3>(std::get<0>(kEnumerateResult3)) == 1.0);
 #endif
   static_assert(std::is_same_v<decltype(ValuesToValues::Enumerate(TupleType{'a', 42})),
                                std::tuple<std::pair<MetaValue<std::size_t{0}>, char>,
                                           std::pair<MetaValue<std::size_t{1}>, int>>>);
+  static_assert(
+      std::is_same_v<decltype(ValuesToValues::Enumerate(TupleType{'a', 42}, TupleType{true, 1ULL})),
+                     std::tuple<std::tuple<MetaValue<std::size_t{0}>, char, bool>,
+                                std::tuple<MetaValue<std::size_t{1}>, int, unsigned long long>>>);
+  static_assert(
+      std::is_same_v<decltype(ValuesToValues::EnumerateShortest(
+                         TupleType{'a', 42}, TupleType{true, 1ULL}, std::array{1.0})),
+                     std::tuple<std::tuple<MetaValue<std::size_t{0}>, char, bool, double>>>);
 
   // Test FlatMap values to values.
   constexpr std::tuple<const int&> kFilterTupleOut1{kForEachInt1};

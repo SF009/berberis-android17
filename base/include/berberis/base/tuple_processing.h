@@ -124,16 +124,22 @@ class TypesToTypes {
   template <std::size_t... Is>
   static constexpr std::tuple<MetaValue<Is>...> IndexesHelper(std::index_sequence<Is...>);
 
-  template <typename TupleType>
-  using Indexes = decltype(IndexesHelper(
-      std::declval<
-          std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>>()));
+  template <typename... TupleTypes>
+  using Indexes =
+      decltype(IndexesHelper(std::declval<std::make_index_sequence<std::min(
+                                 {std::tuple_size_v<std::remove_reference_t<TupleTypes>>...})>>()));
 
-  template <typename... Types>
-  using Zip = typename ZipHelper<Types...>::Result;
+  template <typename... TupleTypes>
+  using Zip = typename ZipHelper<TupleTypes...>::Result;
 
-  template <typename TupleType>
-  using Enumerate = Zip<Indexes<TupleType>, TupleType>;
+  template <typename... TupleTypes>
+  using ZipShortest = typename ZipShortestHelper<TupleTypes...>::Result;
+
+  template <typename... TupleTypes>
+  using Enumerate = Zip<Indexes<TupleTypes...>, TupleTypes...>;
+
+  template <typename... TupleTypes>
+  using EnumerateShortest = ZipShortest<Indexes<TupleTypes...>, TupleTypes...>;
 
   template <typename TupleType, auto kLambda>
   using Filter = typename FlatMapHelper<TupleType, FilterHelper<kLambda>{}>::Result;
@@ -203,9 +209,6 @@ class TypesToTypes {
 
   template <typename ArrayType, typename TupleType = void>
   using ToArray = typename ToArrayHelper<ArrayType, TupleType>::Result;
-
-  template <typename... Types>
-  using ZipShortest = typename ZipShortestHelper<Types...>::Result;
 
  private:
   template <typename... Types>
@@ -416,10 +419,13 @@ class TypesToTypes {
   class ZipHelper<std::tuple<TypesLeft...>, std::tuple<TypesRight...>, Tuples...> {
    public:
     static_assert(sizeof...(TypesLeft) == sizeof...(TypesRight));
-    static_assert(((sizeof...(TypesLeft) == std::tuple_size_v<Tuples>) && ...));
-    using Result = typename ZipHelperWithIndexes<
-        Indexes<std::tuple<TypesLeft...>>,
-        std::tuple<std::tuple<TypesLeft...>, std::tuple<TypesRight...>, Tuples...>>::Result;
+    static_assert(((sizeof...(TypesLeft) == std::tuple_size_v<std::remove_reference_t<Tuples>>) &&
+                   ...));
+    using Result =
+        typename ZipHelperWithIndexes<Indexes<std::tuple<TypesLeft...>>,
+                                      std::tuple<std::tuple<TypesLeft...>,
+                                                 std::tuple<TypesRight...>,
+                                                 typename ConcatHelper<Tuples>::Result...>>::Result;
   };
   template <typename... Types>
   class ZipHelper {
@@ -438,8 +444,9 @@ class TypesToTypes {
    public:
     using Result = typename ZipHelperWithIndexes<
         decltype(IndexesHelper(std::declval<std::make_index_sequence<std::min(
-                                   {sizeof...(TypesLeft), std::tuple_size_v<Tuples>...})>>())),
-        std::tuple<std::tuple<TypesLeft...>, Tuples...>>::Result;
+                                   {sizeof...(TypesLeft),
+                                    std::tuple_size_v<std::remove_reference_t<Tuples>>...})>>())),
+        std::tuple<std::tuple<TypesLeft...>, typename ConcatHelper<Tuples>::Result...>>::Result;
   };
   template <typename... Types>
   class ZipShortestHelper {
@@ -1002,9 +1009,15 @@ class ValuesToValues {
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
   }
 
-  template <typename TupleType>
-  static constexpr TypesToTypes::Enumerate<TupleType> Enumerate(TupleType&& tuple) {
-    return Zip(TypesToTypes::Indexes<TupleType>{}, std::forward<TupleType>(tuple));
+  template <typename... TupleTypes>
+  static constexpr TypesToTypes::Enumerate<TupleTypes...> Enumerate(TupleTypes&&... tuples) {
+    return Zip(TypesToTypes::Indexes<TupleTypes...>{}, std::forward<TupleTypes>(tuples)...);
+  }
+
+  template <typename... TupleTypes>
+  static constexpr TypesToTypes::EnumerateShortest<TupleTypes...> EnumerateShortest(
+      TupleTypes&&... tuples) {
+    return ZipShortest(TypesToTypes::Indexes<TupleTypes...>{}, std::forward<TupleTypes>(tuples)...);
   }
 
   template <typename... ExtraLambdaArgTypes, typename TupleType, typename Lambda>
