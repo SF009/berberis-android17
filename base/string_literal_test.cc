@@ -31,11 +31,11 @@ static_assert(std::char_traits<char>::compare(StringLiteral("Test"), "Test", 5) 
 static_assert(std::char_traits<char>::compare(StringLiteral(std::to_array("Test")), "Test\0", 6) ==
               0);
 
-static_assert(ToArray(tuple_cat(kGetTemplateName<bool>, std::array{'\0'})) ==
+static_assert(ValuesToValues::ToArray(tuple_cat(kGetTemplateName<bool>, std::array{'\0'})) ==
               std::to_array("bool"));
 
-static_assert(ToArray(tuple_cat(kGetTemplateName<MetaValue<123>>, std::array{'\0'})) ==
-              std::to_array("123"));
+static_assert(ValuesToValues::ToArray(tuple_cat(kGetTemplateName<MetaValue<123>>,
+                                                std::array{'\0'})) == std::to_array("123"));
 
 #pragma GCC diagnostic ignored "-Wunknown-pragmas"
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -44,28 +44,30 @@ static_assert(ToArray(tuple_cat(kGetTemplateName<MetaValue<123>>, std::array{'\0
 void TestFunction(void);
 
 #ifdef __clang__
-static_assert(ToArray(tuple_cat(kGetTemplateName<MetaValue<123U>>, std::array{'\0'})) ==
-              std::to_array("123U"));
+static_assert(ValuesToValues::ToArray(tuple_cat(kGetTemplateName<MetaValue<123U>>,
+                                                std::array{'\0'})) == std::to_array("123U"));
 
-static_assert(ToArray(tuple_cat(kGetTemplateName<MetaValue<123L>>, std::array{'\0'})) ==
-              std::to_array("123L"));
+static_assert(ValuesToValues::ToArray(tuple_cat(kGetTemplateName<MetaValue<123L>>,
+                                                std::array{'\0'})) == std::to_array("123L"));
 
-static_assert(ToArray(tuple_cat(kGetTemplateName<MetaValue<123UL>>, std::array{'\0'})) ==
-              std::to_array("123UL"));
+static_assert(ValuesToValues::ToArray(tuple_cat(kGetTemplateName<MetaValue<123UL>>,
+                                                std::array{'\0'})) == std::to_array("123UL"));
 
-static_assert(ToArray(tuple_cat(kGetTemplateName<MetaValue<TestFunction>>, std::array{'\0'})) ==
+static_assert(ValuesToValues::ToArray(tuple_cat(kGetTemplateName<MetaValue<TestFunction>>,
+                                                std::array{'\0'})) ==
               std::to_array("berberis::(anonymous namespace)::TestFunction"));
 #else
-static_assert(ToArray(tuple_cat(kGetTemplateName<MetaValue<123U>>, std::array{'\0'})) ==
-              std::to_array("123"));
+static_assert(ValuesToValues::ToArray(tuple_cat(kGetTemplateName<MetaValue<123U>>,
+                                                std::array{'\0'})) == std::to_array("123"));
 
-static_assert(ToArray(tuple_cat(kGetTemplateName<MetaValue<123L>>, std::array{'\0'})) ==
-              std::to_array("123"));
+static_assert(ValuesToValues::ToArray(tuple_cat(kGetTemplateName<MetaValue<123L>>,
+                                                std::array{'\0'})) == std::to_array("123"));
 
-static_assert(ToArray(tuple_cat(kGetTemplateName<MetaValue<123UL>>, std::array{'\0'})) ==
-              std::to_array("123"));
+static_assert(ValuesToValues::ToArray(tuple_cat(kGetTemplateName<MetaValue<123UL>>,
+                                                std::array{'\0'})) == std::to_array("123"));
 
-static_assert(ToArray(tuple_cat(kGetTemplateName<MetaValue<TestFunction>>, std::array{'\0'})) ==
+static_assert(ValuesToValues::ToArray(tuple_cat(kGetTemplateName<MetaValue<TestFunction>>,
+                                                std::array{'\0'})) ==
               std::to_array("{anonymous}::TestFunction"));
 #endif
 
