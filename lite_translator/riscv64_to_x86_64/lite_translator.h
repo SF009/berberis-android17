@@ -28,6 +28,7 @@
 #include "berberis/base/macros.h"
 #include "berberis/decoder/riscv64/decoder.h"
 #include "berberis/decoder/riscv64/semantics_player.h"
+#include "berberis/device_arch_info/x86_64/call_imm.h"
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state.h"
 #include "berberis/intrinsics/intrinsics.h"
@@ -371,11 +372,6 @@ class LiteTranslator {
     }
   }
 
-#ifdef BERBERIS_INTRINSICS_HOOKS_INLINE_DEMULTIPLEXER
-#include "berberis/intrinsics/demultiplexer_intrinsics_hooks-inl.h"
-#endif
-#include "berberis/intrinsics/translator_intrinsics_hooks-inl.h"
-
   bool is_region_end_reached() const { return is_region_end_reached_; }
 
   void IncrementInsnAddr(uint8_t insn_size) { pc_ += insn_size; }
@@ -466,9 +462,21 @@ class LiteTranslator {
   }
 
  private:
-  template <auto kFunction, typename AssemblerResType, typename... AssemblerArgType>
-  AssemblerResType CallIntrinsic(AssemblerArgType... args) {
-    if constexpr (std::is_same_v<AssemblerResType, void>) {
+  template <auto kFunction, typename AssemblerResType = void, typename... AssemblerArgType>
+  auto CallIntrinsic(AssemblerArgType... args) {
+    using CallImm = x86_64::CallImm<static_cast<decltype(kFunction)>(nullptr)>;
+    using ResultRegiesterTypes =
+        typename CallImm::template ResultRegiesterTypes<Register, SimdRegister>;
+    ResultRegiesterTypes result =
+        TypesToValues::Map<ResultRegiesterTypes>([this]<typename RegisterType>() {
+          if constexpr (std::is_same_v<RegisterType, Register>) {
+            return AllocTempReg();
+          } else {
+            return AllocTempSimdReg();
+          }
+        });
+
+    if constexpr (!std::size(CallImm::kResultsElements)) {
       if (inline_intrinsic::TryInlineIntrinsic<kFunction>(
               as_,
               [this]() { return AllocTempReg(); },
@@ -477,36 +485,30 @@ class LiteTranslator {
               args...)) {
         return;
       }
-      call_intrinsic::CallIntrinsic<AssemblerResType>(as_, kFunction, args...);
+      call_intrinsic::CallIntrinsic(as_, kFunction, result, args...);
     } else {
-      AssemblerResType result = [this] {
-        if constexpr (std::is_same_v<AssemblerResType, Register>) {
-          return AllocTempReg();
-        } else if constexpr (std::is_same_v<AssemblerResType, std::tuple<Register, Register>>) {
-          return std::tuple{AllocTempReg(), AllocTempReg()};
-        } else if constexpr (std::is_same_v<AssemblerResType, SimdRegister>) {
-          return AllocTempSimdReg();
-        } else {
-          // This should not be reached by the compiler. If it is - there is a new result type that
-          // needs to be supported.
-          static_assert(kDependentTypeFalse<AssemblerResType>, "Unsupported result type");
-        }
-      }();
-
-      if (inline_intrinsic::TryInlineIntrinsic<kFunction>(
+      if (!inline_intrinsic::TryInlineIntrinsic<kFunction>(
               as_,
               [this]() { return AllocTempReg(); },
               [this]() { return AllocTempSimdReg(); },
               result,
               args...)) {
-        return result;
+        call_intrinsic::CallIntrinsic(as_, kFunction, result, args...);
       }
 
-      call_intrinsic::CallIntrinsic<AssemblerResType>(as_, kFunction, result, args...);
-
-      return result;
+      if constexpr (std::tuple_size_v<ResultRegiesterTypes> == 1) {
+        return std::get<0>(result);
+      } else {
+        return result;
+      }
     }
   }
+
+ public:
+#ifdef BERBERIS_INTRINSICS_HOOKS_INLINE_DEMULTIPLEXER
+#include "berberis/intrinsics/demultiplexer_intrinsics_hooks-inl.h"
+#endif
+#include "berberis/intrinsics/translator_intrinsics_hooks-inl.h"
 
   Assembler as_;
   bool success_;
@@ -531,7 +533,7 @@ template <>
       as_,
       [this]() { return AllocTempReg(); },
       [this]() { return AllocTempSimdReg(); },
-      Assembler::rax);
+      std::tuple{Assembler::rax});
   CHECK(inline_succeful);
   as_.Expand<uint64_t, CsrFieldType<CsrName::kFrm>>(
       csr_reg, {.base = Assembler::rbp, .disp = kCsrFieldOffset<CsrName::kFrm>});

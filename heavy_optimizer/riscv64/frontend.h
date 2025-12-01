@@ -402,15 +402,6 @@ class HeavyOptimizerFrontend {
   [[nodiscard]] bool success() const { return success_; }
 
   //
-  // Intrinsic proxy methods.
-  //
-
-#ifdef BERBERIS_INTRINSICS_HOOKS_INLINE_DEMULTIPLEXER
-#include "berberis/intrinsics/demultiplexer_intrinsics_hooks-inl.h"
-#endif
-#include "berberis/intrinsics/translator_intrinsics_hooks-inl.h"
-
-  //
   // Guest state getters/setters.
   //
 
@@ -478,25 +469,19 @@ class HeavyOptimizerFrontend {
   template <typename FunctionType, typename... AssemblerArgType>
   auto CallIntrinsic(FunctionType func_ptr, AssemblerArgType... args) -> std::array<
       MachineReg,
-      std::size(x86_64::IntrinsicCall<static_cast<FunctionType>(nullptr)>::kResultsElements)>;
+      std::size(x86_64::CallImm<static_cast<FunctionType>(nullptr)>::kResultsElements)>;
 
  private:
   template <auto kFunction, typename AssemblerResType = void, typename... AssemblerArgType>
-  AssemblerResType CallIntrinsic(AssemblerArgType... args) {
-    using IntrinsicCall = x86_64::IntrinsicCall<static_cast<decltype(kFunction)>(nullptr)>;
-    auto result = TypesToValues::Map<typename IntrinsicCall::CleanRetType>([]<typename ResType>() {
-      if constexpr (std::is_integral_v<ResType> || std::is_pointer_v<ResType>) {
-        return MachineReg{};
-      } else {
-        return FpRegister{};
-      }
-    });
+  auto CallIntrinsic(AssemblerArgType... args) {
+    using CallImm = x86_64::CallImm<static_cast<decltype(kFunction)>(nullptr)>;
+    typename CallImm::template ResultRegiesterTypes<MachineReg, FpRegister> result;
 
     if (TryInlineIntrinsicForHeavyOptimizer<kFunction>(
             &builder_, result, GetFlagsRegister(), args...)) {
-      if constexpr (!std::size(IntrinsicCall::kResultsElements)) {
+      if constexpr (!std::size(CallImm::kResultsElements)) {
         return;
-      } else if constexpr (std::tuple_size_v<typename IntrinsicCall::CleanRetType> == 1) {
+      } else if constexpr (std::tuple_size_v<typename CallImm::CleanRetType> == 1) {
         return std::get<0>(result);
       } else {
         return result;
@@ -505,8 +490,8 @@ class HeavyOptimizerFrontend {
 
     auto call_result = CallIntrinsic<decltype(kFunction), AssemblerArgType...>(
         kFunction, std::forward<AssemblerArgType>(args)...);
-    if constexpr (std::size(IntrinsicCall::kResultsElements)) {
-      result = TypesToValues::MapWithTemporary<typename IntrinsicCall::CleanRetType,
+    if constexpr (std::size(CallImm::kResultsElements)) {
+      result = TypesToValues::MapWithTemporary<typename CallImm::CleanRetType,
                                                /* index = */ std::size_t>(
           [&call_result]<typename ResType>(std::size_t& index) {
             if constexpr (std::is_integral_v<ResType> || std::is_pointer_v<ResType>) {
@@ -515,7 +500,7 @@ class HeavyOptimizerFrontend {
               return FpRegister{call_result[index++]};
             }
           });
-      if constexpr (std::tuple_size_v<typename IntrinsicCall::CleanRetType> == 1) {
+      if constexpr (std::tuple_size_v<typename CallImm::CleanRetType> == 1) {
         return std::get<0>(result);
       } else {
         return result;
@@ -523,6 +508,17 @@ class HeavyOptimizerFrontend {
     }
   }
 
+ public:
+  //
+  // Intrinsic proxy methods.
+  //
+
+#ifdef BERBERIS_INTRINSICS_HOOKS_INLINE_DEMULTIPLEXER
+#include "berberis/intrinsics/demultiplexer_intrinsics_hooks-inl.h"
+#endif
+#include "berberis/intrinsics/translator_intrinsics_hooks-inl.h"
+
+ private:
   void MemoryRegionReservationLoad(Register aligned_addr);
   Register MemoryRegionReservationExchange(Register aligned_addr, Register curr_reservation_value);
   void MemoryRegionReservationSwapWithLockedOwner(Register aligned_addr,
@@ -656,58 +652,48 @@ template <typename FunctionType, typename... AssemblerArgType>
 auto HeavyOptimizerFrontend::CallIntrinsic(FunctionType func_ptr, AssemblerArgType... args)
     -> std::array<
         MachineReg,
-        std::size(x86_64::IntrinsicCall<static_cast<FunctionType>(nullptr)>::kResultsElements)> {
-  using IntrinsicCall = x86_64::IntrinsicCall<static_cast<FunctionType>(nullptr)>;
+        std::size(x86_64::CallImm<static_cast<FunctionType>(nullptr)>::kResultsElements)> {
+  using CallImm = x86_64::CallImm<static_cast<FunctionType>(nullptr)>;
 
-  if constexpr (IntrinsicCall::kIsImplicitPointerResult) {
-    builder_.ir()->ReserveArgs(sizeof(typename IntrinsicCall::CleanRetType));
+  if constexpr (CallImm::kIsImplicitPointerResult) {
+    builder_.ir()->ReserveArgs(sizeof(typename CallImm::CleanRetType));
   }
 
-  std::array<MachineReg, std::tuple_size_v<typename IntrinsicCall::ArgumentRegisters>> raw_args;
-  if constexpr ((std::tuple_size_v<typename IntrinsicCall::ArgumentRegisters> +
-                 (IntrinsicCall::kIsImplicitPointerResult ? 1 : 0)) > 0) {
-    raw_args = ToArray(std::tuple_cat(
-        TypesToValues::FlatMap<std::tuple<MetaValue<IntrinsicCall::kIsImplicitPointerResult>>>(
-            []<typename IsImplicitPointerResult>() {
-              if constexpr (IsImplicitPointerResult{}) {
-                return std::tuple{x86_64::kMachineRegRSP};
-              } else {
-                return std::tuple{};
-              }
-            }),
-        ValuesToValues::Map(std::tuple{args...}, [this]<typename ArgType>(ArgType arg) {
-          // Suppress spurious warnings.
-          // See  https://github.com/llvm/llvm-project/issues/34798#issuecomment-980989495
-          (void)this;
-          if constexpr (std::is_integral_v<ArgType> || std::is_pointer_v<ArgType>) {
-            static_assert(sizeof(arg) <= sizeof(int32_t));
-            return std::get<0>(Gen<x86_64::MovlRegImm>(arg));
-          } else if constexpr (std::is_same_v<ArgType, SimdReg>) {
-            return arg.machine_reg();
-          } else {
-            return arg;
-          }
-        })));
-  }
   std::array<MachineReg,
-             IntrinsicCall::kIsImplicitPointerResult ? 1
-                                                     : std::size(IntrinsicCall::kResultsElements)>
-      register_results =
-          std::get<1>(builder_.GenIntrinsicCall(func_ptr, GetFlagsRegister(), raw_args));
+             CallImm::kIsImplicitPointerResult ? 1 : std::size(CallImm::kResultsElements)>
+      register_results = std::get<1>(builder_.GenCallImm(
+          func_ptr,
+          GetFlagsRegister(),
+          std::tuple_cat(
+              TypesToValues::FlatMap<std::tuple<MetaValue<CallImm::kIsImplicitPointerResult>>>(
+                  []<typename IsImplicitPointerResult>() {
+                    if constexpr (IsImplicitPointerResult{}) {
+                      return std::tuple{x86_64::kMachineRegRSP};
+                    } else {
+                      return std::tuple{};
+                    }
+                  }),
+              ValuesToValues::Map(std::tuple{args...}, []<typename ArgType>(ArgType arg) {
+                if constexpr (std::is_same_v<ArgType, SimdReg>) {
+                  return arg.machine_reg();
+                } else {
+                  return arg;
+                }
+              }))));
 
-  std::array<MachineReg, std::size(IntrinsicCall::kResultsElements)> result;
-  if constexpr (std::size(IntrinsicCall::kResultsElements) > 0) {
-    result = ToArray(
-        TypesToValues::FlatMap<TypesToTypes::Enumerate<typename IntrinsicCall::CleanRetType>>(
+  std::array<MachineReg, std::size(CallImm::kResultsElements)> result;
+  if constexpr (std::size(CallImm::kResultsElements) > 0) {
+    result =
+        ToArray(TypesToValues::FlatMap<TypesToTypes::Enumerate<typename CallImm::CleanRetType>>(
             [register_results, this]<typename RetElementInfo>() {
               // Suppress spurious warnings.
               // See  https://github.com/llvm/llvm-project/issues/34798#issuecomment-980989495
               (void)register_results;
               constexpr std::size_t kIdx = std::tuple_element_t<0, RetElementInfo>{};
               using ResType = std::tuple_element_t<1, RetElementInfo>;
-              if constexpr (IntrinsicCall::kIsImplicitPointerResult) {
-                const int32_t kElementOffset = IntrinsicCall::kResultsElements[kIdx].element_offset;
-                CHECK(kElementOffset == IntrinsicCall::kResultsElements[kIdx].element_offset);
+              if constexpr (CallImm::kIsImplicitPointerResult) {
+                const int32_t kElementOffset = CallImm::kResultsElements[kIdx].element_offset;
+                CHECK(kElementOffset == CallImm::kResultsElements[kIdx].element_offset);
                 MemoryOperand memory_operand = {.base = x86_64::kMachineRegRSP,
                                                 .disp = kElementOffset};
                 if constexpr (std::is_integral_v<ResType> || std::is_pointer_v<ResType>) {

@@ -80,6 +80,7 @@ class Types {
 template <typename... Types_>
 inline constexpr auto kTypes = Types<Types_...>{};
 
+class TypesToValues;
 class ValuesToValues;
 
 // TypesToTypes provides type-level metaprogramming utilities for std::tuple (with support for
@@ -87,32 +88,47 @@ class ValuesToValues;
 // on the types within a tuple.
 class TypesToTypes {
  private:
+  template <typename TupleType>
+  class ConcatHelper;
+  template <typename Type>
+  class CountHelper;
   template <auto kLambda>
   class FilterHelper;
   template <typename Type, auto kLambda>
   class FlatMapHelper;
-  template <typename Type>
-  class IndexedHelper;
   template <typename Type, auto kLambda>
   class MapHelper;
+  template <typename Type>
+  class RetainHelper;
+  template <typename Type>
+  class RetainIfNotHelper;
   template <typename TupleType, std::size_t kCount>
   class SkipHelper;
   template <typename TupleType, std::size_t kCount>
   class TakeHelper;
   template <typename TupleType, auto kLambda, auto... extra_lambda_values>
   class TakeSkipHelper;
-  template <typename TypeLeft, typename TypeRight>
+  template <typename... Types>
   class ZipHelper;
+  template <typename... Types>
+  class ZipShortestHelper;
 
+  friend class TypesToValues;
   friend class ValuesToValues;
 
  public:
-  template <typename TupleType>
-  using Indexes = decltype(IndexedHelper<TupleType>::Indexes(
-      std::declval<std::make_index_sequence<std::tuple_size_v<TupleType>>>()));
+  // Trying to make it private is a compile-time error on clang 13, 14, 15, 16, 17, and 18.
+  // Fixed in clang 19.
+  template <std::size_t... Is>
+  static constexpr std::tuple<MetaValue<Is>...> IndexesHelper(std::index_sequence<Is...>);
 
-  template <typename TypeLeft, typename TypeRight>
-  using Zip = typename ZipHelper<TypeLeft, TypeRight>::Result;
+  template <typename TupleType>
+  using Indexes = decltype(IndexesHelper(
+      std::declval<
+          std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>>()));
+
+  template <typename... Types>
+  using Zip = typename ZipHelper<Types...>::Result;
 
   template <typename TupleType>
   using Enumerate = Zip<Indexes<TupleType>, TupleType>;
@@ -121,16 +137,22 @@ class TypesToTypes {
   using Filter = typename FlatMapHelper<TupleType, FilterHelper<kLambda>{}>::Result;
 
   template <typename TupleType, auto kLambda>
-  using All =
-      MetaValue<std::equal_to<std::size_t>{}(std::tuple_size_v<TupleType>,
-                                             std::tuple_size_v<Filter<TupleType, kLambda>>)>;
+  using CountIf = MetaValue<std::tuple_size_v<Filter<TupleType, kLambda>>>;
 
   template <typename TupleType, auto kLambda>
-  using Any = MetaValue<std::less<std::size_t>{}(std::size_t{0},
-                                                 std::tuple_size_v<Filter<TupleType, kLambda>>)>;
+  using All =
+      MetaValue<std::equal_to<std::size_t>{}(std::tuple_size_v<std::remove_reference_t<TupleType>>,
+                                             CountIf<TupleType, kLambda>{})>;
 
-  template <typename... TuplesTypes>
-  using Concat = decltype(std::tuple_cat(std::declval<TuplesTypes>()...));
+  template <typename TupleType, auto kLambda>
+  using Any = MetaValue<std::less<std::size_t>{}(std::size_t{0}, CountIf<TupleType, kLambda>{})>;
+
+  template <typename... TupleTypes>
+  using Concat =
+      decltype(std::tuple_cat(std::declval<typename ConcatHelper<TupleTypes>::Result>()...));
+
+  template <typename TupleType, typename Type>
+  using Count = MetaValue<std::tuple_size_v<Filter<TupleType, CountHelper<Type>{}>>>;
 
   // Applies a type-level lambda to each type in the input |Type| tuple.
   // The lambda is expected to return a tuple-like type for each input type.
@@ -157,6 +179,12 @@ class TypesToTypes {
   template <typename TupleType, auto kLambda>
   using Map = typename MapHelper<TupleType, kLambda>::Result;
 
+  template <typename TupleType, typename Type>
+  using Retain = FlatMap<TupleType, RetainHelper<Type>{}>;
+
+  template <typename TupleType, typename Type>
+  using RetainIfNot = FlatMap<TupleType, RetainIfNotHelper<Type>{}>;
+
   template <typename TupleType, std::size_t kCount>
   using Skip =
       typename FlatMapHelper<Enumerate<TupleType>, SkipHelper<TupleType, kCount>{}>::Result;
@@ -171,12 +199,90 @@ class TypesToTypes {
   template <typename TupleType, auto kLambda>
   using TakeWhile = Take<TupleType, TakeSkipHelper<TupleType, kLambda>::Produce()>;
 
+  template <typename... Types>
+  using ZipShortest = typename ZipShortestHelper<Types...>::Result;
+
  private:
-  template <typename TupleType>
-  class IndexedHelper {
+  template <typename... Types>
+  class ConcatHelper<std::tuple<Types...>> {
    public:
-    template <std::size_t... Is>
-    static constexpr std::tuple<MetaValue<Is>...> Indexes(std::index_sequence<Is...>);
+    using Result = std::tuple<Types...>;
+  };
+  class ConcatHelperConst {
+   public:
+    template <typename TypeToProcess>
+    constexpr auto operator()() const {
+      return kTypes<const TypeToProcess>;
+    }
+  };
+  template <typename TupleType>
+  class ConcatHelper<const TupleType> {
+   public:
+    using Result = typename FlatMapHelper<TupleType, ConcatHelperConst{}>::Result;
+  };
+  class ConcatHelperConstLValueReference {
+   public:
+    template <typename TypeToProcess>
+    constexpr auto operator()() const {
+      return kTypes<const TypeToProcess&>;
+    }
+  };
+  template <typename TupleType>
+  class ConcatHelper<const TupleType&> {
+   public:
+    using Result = typename FlatMapHelper<TupleType, ConcatHelperConstLValueReference{}>::Result;
+  };
+  class ConcatHelperConstRValueReference {
+   public:
+    template <typename TypeToProcess>
+    constexpr auto operator()() const {
+      return kTypes<const TypeToProcess&&>;
+    }
+  };
+  template <typename TupleType>
+  class ConcatHelper<const TupleType&&> {
+   public:
+    using Result = typename FlatMapHelper<TupleType, ConcatHelperConstRValueReference{}>::Result;
+  };
+  class ConcatHelperLValueReference {
+   public:
+    template <typename TypeToProcess>
+    constexpr auto operator()() const {
+      return kTypes<TypeToProcess&>;
+    }
+  };
+  template <typename TupleType>
+  class ConcatHelper<TupleType&> {
+   public:
+    using Result = typename FlatMapHelper<TupleType, ConcatHelperLValueReference{}>::Result;
+  };
+  class ConcatHelperRValueReference {
+   public:
+    template <typename TypeToProcess>
+    constexpr auto operator()() const {
+      return kTypes<TypeToProcess&&>;
+    }
+  };
+  template <typename TupleType>
+  class ConcatHelper<TupleType&&> {
+   public:
+    using Result = typename FlatMapHelper<TupleType, ConcatHelperRValueReference{}>::Result;
+  };
+  template <typename TupleType>
+  class ConcatHelper {
+   public:
+    // Note: Concat here ensures that we would use the specialization above and wouldn't cause
+    // endless recursion here.
+    using Result = decltype(std::tuple_cat(std::declval<TupleType>()));
+  };
+
+  template <typename Type>
+  class CountHelper {
+   public:
+    template <typename TypeToCheck>
+    constexpr auto operator()() const {
+      return std::is_same_v<Type, TypeToCheck>;
+    }
   };
 
   template <auto kLambda>
@@ -203,7 +309,8 @@ class TypesToTypes {
    public:
     // Note: Concat here ensures that we would use the specialization above and wouldn't cause
     // endless recursion here.
-    using Result = typename FlatMapHelper<Concat<TupleType>, kLambda>::Result;
+    using Result =
+        typename FlatMapHelper<typename ConcatHelper<TupleType>::Result, kLambda>::Result;
   };
 
   template <typename... Types, auto kLambda>
@@ -217,7 +324,33 @@ class TypesToTypes {
    public:
     // Note: Concat here ensures that we would use the specialization above and wouldn't cause
     // endless recursion here.
-    using Result = typename MapHelper<Concat<TupleType>, kLambda>::Result;
+    using Result = typename MapHelper<typename ConcatHelper<TupleType>::Result, kLambda>::Result;
+  };
+
+  template <typename Type>
+  class RetainHelper {
+   public:
+    template <typename TypeToCheck>
+    constexpr auto operator()() const {
+      if constexpr (std::is_same_v<Type, TypeToCheck>) {
+        return kTypes<TypeToCheck>;
+      } else {
+        return kTypes<>;
+      }
+    }
+  };
+
+  template <typename Type>
+  class RetainIfNotHelper {
+   public:
+    template <typename TypeToCheck>
+    constexpr auto operator()() const {
+      if constexpr (std::is_same_v<Type, TypeToCheck>) {
+        return kTypes<>;
+      } else {
+        return kTypes<TypeToCheck>;
+      }
+    }
   };
 
   template <typename TupleType, std::size_t kCount>
@@ -226,7 +359,7 @@ class TypesToTypes {
     template <typename EnumeratedType>
     constexpr auto operator()() const {
       constexpr std::size_t kIdx = std::tuple_element_t<0, EnumeratedType>{};
-      static_assert(kIdx <= std::tuple_size_v<TupleType>);
+      static_assert(kIdx <= std::tuple_size_v<std::remove_reference_t<TupleType>>);
       constexpr bool kAccepted = kIdx >= kCount;
       if constexpr (kAccepted) {
         return kTypes<std::tuple_element_t<1, EnumeratedType>>;
@@ -242,7 +375,7 @@ class TypesToTypes {
     template <typename EnumeratedType>
     constexpr auto operator()() const {
       constexpr std::size_t kIdx = std::tuple_element_t<0, EnumeratedType>{};
-      static_assert(kIdx <= std::tuple_size_v<TupleType>);
+      static_assert(kIdx <= std::tuple_size_v<std::remove_reference_t<TupleType>>);
       constexpr bool kAccepted = kIdx < kCount;
       if constexpr (kAccepted) {
         return kTypes<std::tuple_element_t<1, EnumeratedType>>;
@@ -252,17 +385,71 @@ class TypesToTypes {
     }
   };
 
+  template <typename... Types>
+  class ZipHelper<std::tuple<Types...>> {
+   public:
+    using Result = std::tuple<std::tuple<Types>...>;
+  };
   template <typename... TypesLeft, typename... TypesRight>
   class ZipHelper<std::tuple<TypesLeft...>, std::tuple<TypesRight...>> {
    public:
+    static_assert(sizeof...(TypesLeft) == sizeof...(TypesRight));
     using Result = std::tuple<std::pair<TypesLeft, TypesRight>...>;
   };
-  template <typename TypeLeft, typename TypeRight>
+  template <typename... Types>
+  class ZipHelperWithIndexes;
+  template <typename... TypesLeft, typename... TypesRight, typename... Tuples>
+  class ZipHelper<std::tuple<TypesLeft...>, std::tuple<TypesRight...>, Tuples...> {
+   public:
+    static_assert(sizeof...(TypesLeft) == sizeof...(TypesRight));
+    static_assert(((sizeof...(TypesLeft) == std::tuple_size_v<Tuples>) && ...));
+    using Result = typename ZipHelperWithIndexes<
+        Indexes<std::tuple<TypesLeft...>>,
+        std::tuple<std::tuple<TypesLeft...>, std::tuple<TypesRight...>, Tuples...>>::Result;
+  };
+  template <typename... Types>
   class ZipHelper {
    public:
     // Note: Concat here ensures that we would use the specialization above and wouldn't cause
     // endless recursion here.
-    using Result = typename ZipHelper<Concat<TypeLeft>, Concat<TypeRight>>::Result;
+    using Result = typename ZipHelper<typename ConcatHelper<Types>::Result...>::Result;
+  };
+  template <typename... Types>
+  class ZipShortestHelper<std::tuple<Types...>> {
+   public:
+    using Result = std::tuple<std::tuple<Types>...>;
+  };
+  template <typename... TypesLeft, typename... Tuples>
+  class ZipShortestHelper<std::tuple<TypesLeft...>, Tuples...> {
+   public:
+    using Result = typename ZipHelperWithIndexes<
+        decltype(IndexesHelper(std::declval<std::make_index_sequence<std::min(
+                                   {sizeof...(TypesLeft), std::tuple_size_v<Tuples>...})>>())),
+        std::tuple<std::tuple<TypesLeft...>, Tuples...>>::Result;
+  };
+  template <typename... Types>
+  class ZipShortestHelper {
+   public:
+    // Note: Concat here ensures that we would use the specialization above and wouldn't cause
+    // endless recursion here.
+    using Result = typename ZipShortestHelper<typename ConcatHelper<Types>::Result...>::Result;
+  };
+  template <std::size_t... kIndexes, typename Tuples>
+  class ZipHelperWithIndexes<std::tuple<MetaValue<kIndexes>...>, Tuples> {
+   public:
+    using Result =
+        std::tuple<typename ZipHelperWithIndexes<MetaValue<kIndexes>, Tuples>::Result...>;
+  };
+  template <std::size_t kIndex, typename TupleLeft, typename TupleRight>
+  class ZipHelperWithIndexes<MetaValue<kIndex>, std::tuple<TupleLeft, TupleRight>> {
+   public:
+    using Result = std::pair<std::tuple_element_t<kIndex, TupleLeft>,
+                             std::tuple_element_t<kIndex, TupleRight>>;
+  };
+  template <std::size_t kIndex, typename... Tuples>
+  class ZipHelperWithIndexes<MetaValue<kIndex>, std::tuple<Tuples...>> {
+   public:
+    using Result = std::tuple<std::tuple_element_t<kIndex, Tuples>...>;
   };
 };
 
@@ -275,7 +462,7 @@ class TypesToValues {
   static constexpr bool All(Lambda&& lambda, ExtraLambdaArgTypes&&... extra_types) {
     return AllHelper<TupleType, ExtraLambdaArgTypes...>(
         std::forward<Lambda>(lambda),
-        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
   }
   template <typename TupleType,
@@ -286,7 +473,7 @@ class TypesToValues {
     TemporaryType tmp{};
     return AllHelper<TupleType, TemporaryType&, ExtraLambdaArgTypes...>(
         std::forward<Lambda>(lambda),
-        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
         tmp,
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
   }
@@ -299,7 +486,7 @@ class TypesToValues {
                                          ExtraLambdaArgTypes&&... extra_types) {
     return AllHelper<TupleType, TemporaryType&, ExtraLambdaArgTypes...>(
         std::forward<Lambda>(lambda),
-        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
         tmp,
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
   }
@@ -308,7 +495,7 @@ class TypesToValues {
   static constexpr bool Any(Lambda&& lambda, ExtraLambdaArgTypes&&... extra_types) {
     return AnyHelper<TupleType, ExtraLambdaArgTypes...>(
         std::forward<Lambda>(lambda),
-        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
   }
   template <typename TupleType,
@@ -319,7 +506,7 @@ class TypesToValues {
     TemporaryType tmp{};
     return AnyHelper<TupleType, TemporaryType&, ExtraLambdaArgTypes...>(
         std::forward<Lambda>(lambda),
-        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
         tmp,
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
   }
@@ -332,7 +519,46 @@ class TypesToValues {
                                          ExtraLambdaArgTypes&&... extra_types) {
     return AnyHelper<TupleType, TemporaryType&, ExtraLambdaArgTypes...>(
         std::forward<Lambda>(lambda),
-        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
+        tmp,
+        std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+
+  template <typename TupleType, typename Type>
+  static constexpr std::size_t Count() {
+    return TypesToTypes::Count<TupleType, Type>{};
+  }
+
+  template <typename TupleType, typename... ExtraLambdaArgTypes, typename Lambda>
+  static constexpr std::size_t CountIf(Lambda&& lambda, ExtraLambdaArgTypes&&... extra_types) {
+    return CountIfHelper<TupleType, ExtraLambdaArgTypes...>(
+        std::forward<Lambda>(lambda),
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
+        std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+  template <typename TupleType,
+            typename TemporaryType,
+            typename... ExtraLambdaArgTypes,
+            typename Lambda>
+  static constexpr std::size_t CountIfWithTemporary(Lambda&& lambda,
+                                                    ExtraLambdaArgTypes&&... extra_types) {
+    TemporaryType tmp{};
+    return CountIfHelper<TupleType, TemporaryType&, ExtraLambdaArgTypes...>(
+        std::forward<Lambda>(lambda),
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
+        tmp,
+        std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+  template <typename TupleType,
+            typename TemporaryType,
+            typename... ExtraLambdaArgTypes,
+            typename Lambda>
+  static constexpr std::size_t CountIfWithTemporary(TemporaryType tmp,
+                                                    Lambda&& lambda,
+                                                    ExtraLambdaArgTypes&&... extra_types) {
+    return CountIfHelper<TupleType, TemporaryType&, ExtraLambdaArgTypes...>(
+        std::forward<Lambda>(lambda),
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
         tmp,
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
   }
@@ -341,7 +567,7 @@ class TypesToValues {
   static constexpr decltype(auto) FlatMap(Lambda&& lambda, ExtraLambdaArgTypes&&... extra_types) {
     return FlatMapHelper<TupleType, ExtraLambdaArgTypes...>(
         std::forward<Lambda>(lambda),
-        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
   }
   template <typename TupleType,
@@ -353,7 +579,7 @@ class TypesToValues {
     TemporaryType tmp{};
     return FlatMapHelper<TupleType, TemporaryType&, ExtraLambdaArgTypes...>(
         std::forward<Lambda>(lambda),
-        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
         tmp,
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
   }
@@ -366,7 +592,7 @@ class TypesToValues {
                                                        ExtraLambdaArgTypes&&... extra_types) {
     return FlatMapHelper<TupleType, TemporaryType&, ExtraLambdaArgTypes...>(
         std::forward<Lambda>(lambda),
-        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
         tmp,
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
   }
@@ -375,7 +601,7 @@ class TypesToValues {
   static constexpr void ForEach(Lambda&& lambda, ExtraLambdaArgTypes&&... extra_types) {
     ForEachHelper<TupleType, ExtraLambdaArgTypes...>(
         std::forward<Lambda>(lambda),
-        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
   }
   template <typename TupleType,
@@ -387,7 +613,7 @@ class TypesToValues {
     TemporaryType tmp{};
     ForEachHelper<TupleType, TemporaryType&, ExtraLambdaArgTypes...>(
         std::forward<Lambda>(lambda),
-        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
         tmp,
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
   }
@@ -400,7 +626,7 @@ class TypesToValues {
                                              ExtraLambdaArgTypes&&... extra_types) {
     ForEachHelper<TupleType, TemporaryType&, ExtraLambdaArgTypes...>(
         std::forward<Lambda>(lambda),
-        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
         tmp,
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
   }
@@ -409,7 +635,7 @@ class TypesToValues {
   static constexpr decltype(auto) Map(Lambda&& lambda, ExtraLambdaArgTypes&&... extra_types) {
     return MapHelper<TupleType, ExtraLambdaArgTypes...>(
         std::forward<Lambda>(lambda),
-        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
   }
   template <typename TupleType,
@@ -421,7 +647,7 @@ class TypesToValues {
     TemporaryType tmp{};
     return MapHelper<TupleType, TemporaryType&, ExtraLambdaArgTypes...>(
         std::forward<Lambda>(lambda),
-        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
         tmp,
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
   }
@@ -434,7 +660,7 @@ class TypesToValues {
                                                    ExtraLambdaArgTypes&&... extra_types) {
     return MapHelper<TupleType, TemporaryType&, ExtraLambdaArgTypes...>(
         std::forward<Lambda>(lambda),
-        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
         tmp,
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
   }
@@ -447,7 +673,7 @@ class TypesToValues {
     OutputType result;
     ForEachHelper<TupleType, OutputType&, ExtraLambdaArgTypes...>(
         std::forward<Lambda>(lambda),
-        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
         result,
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
     return result;
@@ -461,7 +687,7 @@ class TypesToValues {
                                       ExtraLambdaArgTypes&&... extra_types) {
     ForEachHelper<TupleType, OutputType&, ExtraLambdaArgTypes...>(
         std::forward<Lambda>(lambda),
-        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
         result,
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
     return result;
@@ -477,7 +703,7 @@ class TypesToValues {
     TemporaryType tmp{};
     ForEachHelper<TupleType, OutputType&, TemporaryType&, ExtraLambdaArgTypes...>(
         std::forward<Lambda>(lambda),
-        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
         result,
         tmp,
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
@@ -494,7 +720,7 @@ class TypesToValues {
                                                    ExtraLambdaArgTypes&&... extra_types) {
     ForEachHelper<TupleType, OutputType&, TemporaryType&, ExtraLambdaArgTypes...>(
         std::forward<Lambda>(lambda),
-        std::make_index_sequence<std::tuple_size_v<TupleType>>{},
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
         result,
         tmp,
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
@@ -506,33 +732,54 @@ class TypesToValues {
   static constexpr bool AllHelper(Lambda&& lambda,
                                   std::index_sequence<Is...>,
                                   ExtraLambdaArgTypes&&... extra_types) {
-    return (static_cast<bool>(lambda.template operator()<std::tuple_element_t<Is, TupleType>>(
+    return (
+        static_cast<bool>(
+            lambda.template operator()<
+                std::tuple_element_t<Is, typename TypesToTypes::ConcatHelper<TupleType>::Result>>(
                 std::forward<ExtraLambdaArgTypes>(extra_types)...)) &&
-            ... && true);
+        ... && true);
   }
 
   template <typename TupleType, typename... ExtraLambdaArgTypes, std::size_t... Is, typename Lambda>
   static constexpr bool AnyHelper(Lambda&& lambda,
                                   std::index_sequence<Is...>,
                                   ExtraLambdaArgTypes&&... extra_types) {
-    return (static_cast<bool>(lambda.template operator()<std::tuple_element_t<Is, TupleType>>(
+    return (
+        static_cast<bool>(
+            lambda.template operator()<
+                std::tuple_element_t<Is, typename TypesToTypes::ConcatHelper<TupleType>::Result>>(
                 std::forward<ExtraLambdaArgTypes>(extra_types)...)) ||
-            ... || false);
+        ... || false);
+  }
+
+  template <typename TupleType, typename... ExtraLambdaArgTypes, std::size_t... Is, typename Lambda>
+  static constexpr std::size_t CountIfHelper(Lambda&& lambda,
+                                             std::index_sequence<Is...>,
+                                             ExtraLambdaArgTypes&&... extra_types) {
+    return (
+        static_cast<bool>(
+            lambda.template operator()<
+                std::tuple_element_t<Is, typename TypesToTypes::ConcatHelper<TupleType>::Result>>(
+                std::forward<ExtraLambdaArgTypes>(extra_types)...)) +
+        ... + std::size_t{0});
   }
 
   template <typename TupleType, typename... ExtraLambdaArgTypes, typename Lambda, std::size_t... Is>
   static constexpr decltype(auto) FlatMapHelper(Lambda&& lambda,
                                                 std::index_sequence<Is...>,
                                                 ExtraLambdaArgTypes&&... extra_types) {
-    return std::tuple_cat(lambda.template operator()<std::tuple_element_t<Is, TupleType>>(
-        std::forward<ExtraLambdaArgTypes>(extra_types)...)...);
+    return std::tuple_cat(
+        lambda.template operator()<
+            std::tuple_element_t<Is, typename TypesToTypes::ConcatHelper<TupleType>::Result>>(
+            std::forward<ExtraLambdaArgTypes>(extra_types)...)...);
   }
 
   template <typename TupleType, typename... ExtraLambdaArgTypes, typename Lambda, std::size_t... Is>
   static constexpr void ForEachHelper(Lambda&& lambda,
                                       std::index_sequence<Is...>,
                                       ExtraLambdaArgTypes&&... extra_types) {
-    (lambda.template operator()<std::tuple_element_t<Is, TupleType>>(
+    (lambda.template
+     operator()<std::tuple_element_t<Is, typename TypesToTypes::ConcatHelper<TupleType>::Result>>(
          std::forward<ExtraLambdaArgTypes>(extra_types)...),
      ...);
   }
@@ -545,7 +792,8 @@ class TypesToValues {
     // would produce `int` where we want `const int&`.
     return std::tuple<decltype(lambda.template operator()<std::tuple_element_t<Is, TupleType>>(
         std::forward<ExtraLambdaArgTypes>(extra_types)...))...> {
-      lambda.template operator()<std::tuple_element_t<Is, TupleType>>(
+      lambda.template
+      operator()<std::tuple_element_t<Is, typename TypesToTypes::ConcatHelper<TupleType>::Result>>(
           std::forward<ExtraLambdaArgTypes>(extra_types)...)...
     };
   }
@@ -687,6 +935,52 @@ class ValuesToValues {
                                          Lambda&& lambda,
                                          ExtraLambdaArgTypes&&... extra_types) {
     return AnyHelper<TemporaryType&, ExtraLambdaArgTypes...>(
+        tuple,
+        std::forward<Lambda>(lambda),
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
+        tmp,
+        std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+
+  template <typename Type, typename TupleType>
+  static constexpr decltype(auto) Count(TupleType&&) {
+    return TypesToTypes::Count<TupleType, Type>{};
+  }
+
+  template <typename... ExtraLambdaArgTypes, typename TupleType, typename Lambda>
+  static constexpr bool CountIf(TupleType&& tuple,
+                                Lambda&& lambda,
+                                ExtraLambdaArgTypes&&... extra_types) {
+    return CountIfHelper<ExtraLambdaArgTypes...>(
+        tuple,
+        std::forward<Lambda>(lambda),
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
+        std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+  template <typename TemporaryType,
+            typename... ExtraLambdaArgTypes,
+            typename TupleType,
+            typename Lambda>
+  static constexpr bool CountIfWithTemporary(TupleType&& tuple,
+                                             Lambda&& lambda,
+                                             ExtraLambdaArgTypes&&... extra_types) {
+    TemporaryType tmp{};
+    return CountIfHelper<TemporaryType&, ExtraLambdaArgTypes...>(
+        tuple,
+        std::forward<Lambda>(lambda),
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
+        tmp,
+        std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+  template <typename TemporaryType,
+            typename... ExtraLambdaArgTypes,
+            typename TupleType,
+            typename Lambda>
+  static constexpr bool CountIfWithTemporary(TupleType&& tuple,
+                                             TemporaryType tmp,
+                                             Lambda&& lambda,
+                                             ExtraLambdaArgTypes&&... extra_types) {
+    return CountIfHelper<TemporaryType&, ExtraLambdaArgTypes...>(
         tuple,
         std::forward<Lambda>(lambda),
         std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
@@ -941,6 +1235,33 @@ class ValuesToValues {
     return result;
   }
 
+  template <typename Type, typename TupleType>
+  static constexpr decltype(auto) Retain(TupleType&& tuple) {
+    return FlatMapHelper(
+        tuple,
+        []<typename TypeToCheck>(auto&& elem) -> decltype(auto) {
+          if constexpr (std::is_same_v<Type, TypeToCheck>) {
+            return std::tuple<TypeToCheck>{std::forward<decltype(elem)>(elem)};
+          } else {
+            return std::tuple<>{};
+          }
+        },
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{});
+  }
+  template <typename Type, typename TupleType>
+  static constexpr decltype(auto) RetainIfNot(TupleType&& tuple) {
+    return FlatMapHelper(
+        tuple,
+        []<typename TypeToCheck>(auto&& elem) -> decltype(auto) {
+          if constexpr (std::is_same_v<Type, TypeToCheck>) {
+            return std::tuple<>{};
+          } else {
+            return std::tuple<TypeToCheck>{std::forward<decltype(elem)>(elem)};
+          }
+        },
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{});
+  }
+
   template <auto kCount, typename TupleType>
   static constexpr decltype(auto) Skip(TupleType&& tuple) {
     return FlatMapHelper(
@@ -1109,15 +1430,23 @@ class ValuesToValues {
     return Take<kCount, TupleType>(tuple);
   }
 
-  template <typename TupleTypeLeft, typename TupleTypeRight>
-  static constexpr TypesToTypes::Zip<std::remove_cvref_t<TupleTypeLeft>,
-                                     std::remove_cvref_t<TupleTypeRight>>
-  Zip(TupleTypeLeft&& tuple_left, TupleTypeRight&& tuple_right) {
-    return ZipHelper(tuple_left,
-                     tuple_right,
-                     std::make_index_sequence<std::min(
-                         std::tuple_size_v<std::remove_reference_t<TupleTypeLeft>>,
-                         std::tuple_size_v<std::remove_reference_t<TupleTypeRight>>)>{});
+  template <typename... TupleTypes>
+  static constexpr TypesToTypes::Zip<std::remove_cvref_t<TupleTypes>...> Zip(
+      TupleTypes&&... tuples) {
+    return ZipHelper<TypesToTypes::Zip<std::remove_cvref_t<TupleTypes>...>>(
+        std::tuple<std::remove_cvref_t<TupleTypes>...>{tuples...},
+        std::make_index_sequence<std::min(
+            {std::tuple_size_v<std::remove_reference_t<TupleTypes>>...})>{},
+        std::make_index_sequence<sizeof...(TupleTypes)>{});
+  }
+  template <typename... TupleTypes>
+  static constexpr TypesToTypes::ZipShortest<std::remove_cvref_t<TupleTypes>...> ZipShortest(
+      TupleTypes&&... tuples) {
+    return ZipHelper<TypesToTypes::ZipShortest<std::remove_cvref_t<TupleTypes>...>>(
+        std::tuple<std::remove_cvref_t<TupleTypes>...>{tuples...},
+        std::make_index_sequence<std::min(
+            {std::tuple_size_v<std::remove_reference_t<TupleTypes>>...})>{},
+        std::make_index_sequence<sizeof...(TupleTypes)>{});
   }
 
  private:
@@ -1145,6 +1474,19 @@ class ValuesToValues {
                 std::get<Is>(std::forward<TupleType>(tuple)),
                 std::forward<ExtraLambdaArgTypes>(extra_types)...)) ||
         ... || false);
+  }
+
+  template <typename... ExtraLambdaArgTypes, typename TupleType, std::size_t... Is, typename Lambda>
+  static constexpr bool CountIfHelper(TupleType&& tuple,
+                                      Lambda&& lambda,
+                                      std::index_sequence<Is...>,
+                                      ExtraLambdaArgTypes&&... extra_types) {
+    return (
+        static_cast<bool>(
+            lambda.template operator()<std::tuple_element_t<Is, std::remove_cvref_t<TupleType>>>(
+                std::get<Is>(std::forward<TupleType>(tuple)),
+                std::forward<ExtraLambdaArgTypes>(extra_types)...)) +
+        ... + std::size_t{0});
   }
 
   template <typename... ExtraLambdaArgTypes, typename TupleType, std::size_t... Is, typename Lambda>
@@ -1228,14 +1570,26 @@ class ValuesToValues {
     return size;
   }
 
-  template <typename TupleTypeLeft, typename TupleTypeRight, std::size_t... Is>
-  static constexpr TypesToTypes::Zip<TupleTypeLeft, TupleTypeRight>
-  ZipHelper(TupleTypeLeft&& tuple_left, TupleTypeRight&& tuple_right, std::index_sequence<Is...>) {
-    using ZipType = TypesToTypes::Zip<TupleTypeLeft, TupleTypeRight>;
+  template <typename ZipType, typename TupleTypeLeft, typename TupleTypeRight, std::size_t... Is>
+  static constexpr ZipType ZipHelper(std::tuple<TupleTypeLeft, TupleTypeRight>&& tuples,
+                                     std::index_sequence<Is...>,
+                                     std::index_sequence<std::size_t{0}, std::size_t{1}>) {
     return ZipType{std::pair<std::tuple_element_t<Is, std::remove_cvref_t<TupleTypeLeft>>,
                              std::tuple_element_t<Is, std::remove_cvref_t<TupleTypeRight>>>{
-        std::get<Is>(std::forward<TupleTypeLeft>(tuple_left)),
-        std::get<Is>(std::forward<TupleTypeRight>(tuple_right))}...};
+        std::get<Is>(std::forward<TupleTypeLeft>(std::get<0>(tuples))),
+        std::get<Is>(std::forward<TupleTypeRight>(std::get<1>(tuples)))}...};
+  }
+  template <typename ZipType, typename TupleTypes, std::size_t... Is, std::size_t... Ts>
+  static constexpr ZipType ZipHelper(TupleTypes&& tuples,
+                                     std::index_sequence<Is...>,
+                                     std::index_sequence<Ts...> ts) {
+    return ZipType{
+        ZipHelper<Is, std::tuple_element_t<Is, ZipType>>(std::forward<TupleTypes>(tuples), ts)...};
+  }
+  template <std::size_t I, typename ZipType, typename TupleTypes, std::size_t... Ts>
+  static constexpr ZipType ZipHelper(TupleTypes&& tuples, std::index_sequence<Ts...>) {
+    return ZipType{
+        std::get<I>(std::forward<std::tuple_element_t<Ts, TupleTypes>>(std::get<Ts>(tuples)))...};
   }
 };
 

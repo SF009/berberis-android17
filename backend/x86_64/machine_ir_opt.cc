@@ -90,6 +90,19 @@ void SetInsnArgumentsUsed(const berberis::MachineInsn* insn, RegUsageBitSet& is_
 
 }  // namespace
 
+// Remove PSEUDO_COPY and MOVQ instructions which have identical source and destination operands.
+void RemoveNopPseudoCopyAndMovq(MachineIR* machine_ir) {
+  for (auto* machine_bb : machine_ir->bb_list()) {
+    machine_bb->insn_list().remove_if([](berberis::MachineInsn* machine_insn) {
+      if (machine_insn->opcode() != kMachineOpCopy &&
+          machine_insn->opcode() != kMachineOpMovqRegReg) {
+        return false;
+      }
+      return machine_insn->RegAt(0) == machine_insn->RegAt(1);
+    });
+  }
+}
+
 void RemoveDeadCode(MachineIR* machine_ir) {
   RegUsageBitSet is_reg_used(machine_ir);
 

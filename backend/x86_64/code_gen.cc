@@ -76,7 +76,7 @@ void GenCode(MachineIR* machine_ir, MachineCode* machine_code, const GenCodePara
   AllocRegs(machine_ir);
 
   if (!IsConfigFlagSet(kDisableHeavyOptimizations)) {
-    RemoveNopPseudoCopy(machine_ir);
+    RemoveNopPseudoCopyAndMovq(machine_ir);
     x86_64::RemoveForwarderBlocks(machine_ir);
   }
 

@@ -37,14 +37,81 @@ namespace {
 constexpr int kForEachInt1 = 1;
 constexpr int kForEachInt2 = 2;
 
+constexpr std::pair<const int&, char> kForEachPairIn{kForEachInt1, 'A'};
+constexpr std::tuple<const int&, char> kForEachTupleIn{kForEachInt1, 'A'};
+
 template <template <typename...> typename TupleType>
 constexpr bool TestFunc() {
+  constexpr auto& kForEachTupleTypeIn = []() -> auto& {
+    if constexpr (std::is_same_v<TupleType<char, char>, std::pair<char, char>>) {
+      return kForEachPairIn;
+    } else {
+      return kForEachTupleIn;
+    }
+  }();
+
+  static_assert(TypesToTypes::All<const TupleType<char, char>,
+                                  []<typename T>() { return std::is_same_v<T, const char>; }>{});
+  static_assert(!TypesToTypes::All<const TupleType<char, int&>,
+                                   []<typename T>() { return std::is_same_v<T, const char>; }>{});
+  static_assert(!TypesToTypes::All<const TupleType<float, int&>,
+                                   []<typename T>() { return std::is_same_v<T, const char>; }>{});
+
+  static_assert(TypesToTypes::All<const TupleType<char, char>&,
+                                  []<typename T>() { return std::is_same_v<T, const char&>; }>{});
+  static_assert(!TypesToTypes::All<const TupleType<char, int&>&,
+                                   []<typename T>() { return std::is_same_v<T, const char&>; }>{});
+  static_assert(!TypesToTypes::All<const TupleType<float, int&>&,
+                                   []<typename T>() { return std::is_same_v<T, const char&>; }>{});
+
+  static_assert(TypesToTypes::All<const TupleType<char, char>&&,
+                                  []<typename T>() { return std::is_same_v<T, const char&&>; }>{});
+  static_assert(!TypesToTypes::All<const TupleType<char, int&>&&,
+                                   []<typename T>() { return std::is_same_v<T, const char&&>; }>{});
+  static_assert(!TypesToTypes::All<const TupleType<float, int&>&&,
+                                   []<typename T>() { return std::is_same_v<T, const char&&>; }>{});
+
   static_assert(TypesToTypes::All<TupleType<char, char>,
                                   []<typename T>() { return std::is_same_v<T, char>; }>{});
   static_assert(!TypesToTypes::All<TupleType<char, int&>,
                                    []<typename T>() { return std::is_same_v<T, char>; }>{});
   static_assert(!TypesToTypes::All<TupleType<float, int&>,
                                    []<typename T>() { return std::is_same_v<T, char>; }>{});
+
+  static_assert(TypesToTypes::All<TupleType<char, char>&,
+                                  []<typename T>() { return std::is_same_v<T, char&>; }>{});
+  static_assert(!TypesToTypes::All<TupleType<char, int&>&,
+                                   []<typename T>() { return std::is_same_v<T, char&>; }>{});
+  static_assert(!TypesToTypes::All<TupleType<float, int&>&,
+                                   []<typename T>() { return std::is_same_v<T, char&>; }>{});
+
+  static_assert(TypesToTypes::All<TupleType<char, char>&&,
+                                  []<typename T>() { return std::is_same_v<T, char&&>; }>{});
+  static_assert(!TypesToTypes::All<TupleType<char, int&>&&,
+                                   []<typename T>() { return std::is_same_v<T, char&&>; }>{});
+  static_assert(!TypesToTypes::All<TupleType<float, int&>&&,
+                                   []<typename T>() { return std::is_same_v<T, char&&>; }>{});
+
+  static_assert(TypesToTypes::Any<const TupleType<char, char>,
+                                  []<typename T>() { return std::is_same_v<T, const char>; }>{});
+  static_assert(TypesToTypes::Any<const TupleType<char, int&>,
+                                  []<typename T>() { return std::is_same_v<T, const char>; }>{});
+  static_assert(!TypesToTypes::Any<const TupleType<float, int&>,
+                                   []<typename T>() { return std::is_same_v<T, const char>; }>{});
+
+  static_assert(TypesToTypes::Any<const TupleType<char, char>&,
+                                  []<typename T>() { return std::is_same_v<T, const char&>; }>{});
+  static_assert(TypesToTypes::Any<const TupleType<char, int&>&,
+                                  []<typename T>() { return std::is_same_v<T, const char&>; }>{});
+  static_assert(!TypesToTypes::Any<const TupleType<float, int&>&,
+                                   []<typename T>() { return std::is_same_v<T, const char&>; }>{});
+
+  static_assert(TypesToTypes::Any<const TupleType<char, char>&&,
+                                  []<typename T>() { return std::is_same_v<T, const char&&>; }>{});
+  static_assert(TypesToTypes::Any<const TupleType<char, int&>&&,
+                                  []<typename T>() { return std::is_same_v<T, const char&&>; }>{});
+  static_assert(!TypesToTypes::Any<const TupleType<float, int&>&&,
+                                   []<typename T>() { return std::is_same_v<T, const char&&>; }>{});
 
   static_assert(TypesToTypes::Any<TupleType<char, char>,
                                   []<typename T>() { return std::is_same_v<T, char>; }>{});
@@ -53,16 +120,163 @@ constexpr bool TestFunc() {
   static_assert(!TypesToTypes::Any<TupleType<float, int&>,
                                    []<typename T>() { return std::is_same_v<T, char>; }>{});
 
+  static_assert(TypesToTypes::Any<TupleType<char, char>&,
+                                  []<typename T>() { return std::is_same_v<T, char&>; }>{});
+  static_assert(TypesToTypes::Any<TupleType<char, int&>&,
+                                  []<typename T>() { return std::is_same_v<T, char&>; }>{});
+  static_assert(!TypesToTypes::Any<TupleType<float, int&>&,
+                                   []<typename T>() { return std::is_same_v<T, char&>; }>{});
+
+  static_assert(TypesToTypes::Any<TupleType<char, char>&&,
+                                  []<typename T>() { return std::is_same_v<T, char&&>; }>{});
+  static_assert(TypesToTypes::Any<TupleType<char, int&>&&,
+                                  []<typename T>() { return std::is_same_v<T, char&&>; }>{});
+  static_assert(!TypesToTypes::Any<TupleType<float, int&>&&,
+                                   []<typename T>() { return std::is_same_v<T, char&&>; }>{});
+
+  static_assert(TypesToTypes::Count<const TupleType<char&, char&>, const char>{} == 0);
+  static_assert(TypesToTypes::Count<const TupleType<char&, char>, const char>{} == 1);
+  static_assert(TypesToTypes::Count<const TupleType<char, char&>, const char>{} == 1);
+  static_assert(TypesToTypes::Count<const TupleType<char, char>, const char>{} == 2);
+
+  static_assert(TypesToTypes::Count<const TupleType<char&, char&>&, const char&>{} == 0);
+  static_assert(TypesToTypes::Count<const TupleType<char&, char>&, const char&>{} == 1);
+  static_assert(TypesToTypes::Count<const TupleType<char, char&>&, const char&>{} == 1);
+  static_assert(TypesToTypes::Count<const TupleType<char, char>&, const char&>{} == 2);
+
+  static_assert(TypesToTypes::Count<const TupleType<char&, char&>&&, const char&&>{} == 0);
+  static_assert(TypesToTypes::Count<const TupleType<char&, char>&&, const char&&>{} == 1);
+  static_assert(TypesToTypes::Count<const TupleType<char, char&>&&, const char&&>{} == 1);
+  static_assert(TypesToTypes::Count<const TupleType<char, char>&&, const char&&>{} == 2);
+
+  static_assert(TypesToValues::Count<TupleType<const char, const char>, char>() == 0);
+  static_assert(TypesToValues::Count<TupleType<const char, char>, char>() == 1);
+  static_assert(TypesToValues::Count<TupleType<char, const char>, char>() == 1);
+  static_assert(TypesToValues::Count<TupleType<char, char>, char>() == 2);
+
+  static_assert(TypesToTypes::Count<TupleType<char&, char&>, char>{} == 0);
+  static_assert(TypesToTypes::Count<TupleType<char&, char>, char>{} == 1);
+  static_assert(TypesToTypes::Count<TupleType<char, char&>, char>{} == 1);
+  static_assert(TypesToTypes::Count<TupleType<char, char>, char>{} == 2);
+
+  static_assert(TypesToTypes::Count<TupleType<char&&, char&&>, char&&>{} == 2);
+  static_assert(TypesToTypes::Count<TupleType<char&&, char>, char&&>{} == 1);
+  static_assert(TypesToTypes::Count<TupleType<char, char&&>, char&&>{} == 1);
+  static_assert(TypesToTypes::Count<TupleType<char, char>, char&&>{} == 0);
+
+  static_assert(TypesToTypes::Count<TupleType<const char, const char>&, char&>{} == 0);
+  static_assert(TypesToTypes::Count<TupleType<const char, char>&, char&>{} == 1);
+  static_assert(TypesToTypes::Count<TupleType<char, const char>&, char&>{} == 1);
+  static_assert(TypesToTypes::Count<TupleType<char, char>&, char&>{} == 2);
+
+  static_assert(TypesToValues::Count<TupleType<const char, const char>&&, char&&>() == 0);
+  static_assert(TypesToValues::Count<TupleType<const char, char>&&, char&&>() == 1);
+  static_assert(TypesToValues::Count<TupleType<char, const char>&&, char&&>() == 1);
+  static_assert(TypesToValues::Count<TupleType<char, char>&&, char&&>() == 2);
+
+  // Combination of rvalue references and lvalue references lead to lvalue references.
+  static_assert(TypesToTypes::Count<TupleType<char&&, char&&>&, char&&>{} == 0);
+  static_assert(TypesToTypes::Count<TupleType<char&&, char&&>&, char&>{} == 2);
+  static_assert(TypesToTypes::Count<TupleType<char&&, char>&, char&>{} == 2);
+  static_assert(TypesToTypes::Count<TupleType<char&, char&>&&, char&>{} == 2);
+
+  static_assert(TypesToTypes::CountIf<TupleType<int, int>,
+                                      []<typename T>() { return sizeof(T) < sizeof(int); }>{} == 0);
+  static_assert(TypesToTypes::CountIf<TupleType<char, int>,
+                                      []<typename T>() { return sizeof(T) < sizeof(int); }>{} == 1);
+  static_assert(TypesToTypes::CountIf<TupleType<int, char>,
+                                      []<typename T>() { return sizeof(T) < sizeof(int); }>{} == 1);
+  static_assert(TypesToTypes::CountIf<TupleType<char, char>,
+                                      []<typename T>() { return sizeof(T) < sizeof(int); }>{} == 2);
+
+  static_assert(std::is_same_v<TypesToTypes::Enumerate<const TupleType<char, int&>>,
+                               std::tuple<std::pair<MetaValue<std::size_t{0}>, const char>,
+                                          std::pair<MetaValue<std::size_t{1}>, int&>>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Enumerate<const TupleType<char, int&>&>,
+                               std::tuple<std::pair<MetaValue<std::size_t{0}>, const char&>,
+                                          std::pair<MetaValue<std::size_t{1}>, int&>>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Enumerate<const TupleType<char, int&>&&>,
+                               std::tuple<std::pair<MetaValue<std::size_t{0}>, const char&&>,
+                                          std::pair<MetaValue<std::size_t{1}>, int&>>>);
+
   static_assert(std::is_same_v<TypesToTypes::Enumerate<TupleType<char, int&>>,
                                std::tuple<std::pair<MetaValue<std::size_t{0}>, char>,
                                           std::pair<MetaValue<std::size_t{1}>, int&>>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Enumerate<TupleType<char, int&>&>,
+                               std::tuple<std::pair<MetaValue<std::size_t{0}>, char&>,
+                                          std::pair<MetaValue<std::size_t{1}>, int&>>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Enumerate<TupleType<char, int&>&&>,
+                               std::tuple<std::pair<MetaValue<std::size_t{0}>, char&&>,
+                                          std::pair<MetaValue<std::size_t{1}>, int&>>>);
+
+  static_assert(std::is_same_v<
+                TypesToTypes::Filter<const TupleType<char, int&>,
+                                     []<typename T>() { return std::is_same_v<T, const char>; }>,
+                std::tuple<const char>>);
+
+  static_assert(std::is_same_v<
+                TypesToTypes::Filter<const TupleType<char, int&>&,
+                                     []<typename T>() { return std::is_same_v<T, const char&>; }>,
+                std::tuple<const char&>>);
+
+  static_assert(std::is_same_v<
+                TypesToTypes::Filter<const TupleType<char, int&>&&,
+                                     []<typename T>() { return std::is_same_v<T, const char&&>; }>,
+                std::tuple<const char&&>>);
 
   static_assert(
       std::is_same_v<TypesToTypes::Filter<TupleType<char, int&>,
                                           []<typename T>() { return std::is_same_v<T, char>; }>,
                      std::tuple<char>>);
 
+  static_assert(
+      std::is_same_v<TypesToTypes::Filter<TupleType<char, int&>&,
+                                          []<typename T>() { return std::is_same_v<T, char&>; }>,
+                     std::tuple<char&>>);
+
+  static_assert(
+      std::is_same_v<TypesToTypes::Filter<TupleType<char, int&>&&,
+                                          []<typename T>() { return std::is_same_v<T, char&&>; }>,
+                     std::tuple<char&&>>);
+
   // Test mapping by type.
+  static_assert(
+      std::is_same_v<TypesToTypes::FlatMap<const TupleType<char, int&>,
+                                           []<typename T>() -> decltype(auto) {
+                                             if constexpr (std::is_same_v<T, const char>) {
+                                               return kTypes<float, float>;
+                                             } else {
+                                               return kTypes<T>;
+                                             }
+                                           }>,
+                     std::tuple<float, float, int&>>);
+
+  static_assert(
+      std::is_same_v<TypesToTypes::FlatMap<const TupleType<char, int&>&,
+                                           []<typename T>() -> decltype(auto) {
+                                             if constexpr (std::is_same_v<T, const char&>) {
+                                               return kTypes<float, float>;
+                                             } else {
+                                               return kTypes<T>;
+                                             }
+                                           }>,
+                     std::tuple<float, float, int&>>);
+
+  static_assert(
+      std::is_same_v<TypesToTypes::FlatMap<const TupleType<char, int&>&&,
+                                           []<typename T>() -> decltype(auto) {
+                                             if constexpr (std::is_same_v<T, const char&&>) {
+                                               return kTypes<float, float>;
+                                             } else {
+                                               return kTypes<T>;
+                                             }
+                                           }>,
+                     std::tuple<float, float, int&>>);
+
   static_assert(
       std::is_same_v<TypesToTypes::FlatMap<TupleType<char, int&>,
                                            []<typename T>() -> decltype(auto) {
@@ -74,7 +288,57 @@ constexpr bool TestFunc() {
                                            }>,
                      std::tuple<float, float, int&>>);
 
+  static_assert(std::is_same_v<TypesToTypes::FlatMap<TupleType<char, int&>&,
+                                                     []<typename T>() -> decltype(auto) {
+                                                       if constexpr (std::is_same_v<T, char&>) {
+                                                         return kTypes<float, float>;
+                                                       } else {
+                                                         return kTypes<T>;
+                                                       }
+                                                     }>,
+                               std::tuple<float, float, int&>>);
+
+  static_assert(std::is_same_v<TypesToTypes::FlatMap<TupleType<char, int&>&&,
+                                                     []<typename T>() -> decltype(auto) {
+                                                       if constexpr (std::is_same_v<T, char&&>) {
+                                                         return kTypes<float, float>;
+                                                       } else {
+                                                         return kTypes<T>;
+                                                       }
+                                                     }>,
+                               std::tuple<float, float, int&>>);
+
   // Test mapping by value.
+  static_assert(std::is_same_v<TypesToTypes::Map<const TupleType<char, const int&>,
+                                                 []<typename T>(T t) -> decltype(auto) {
+                                                   if constexpr (std::is_same_v<T, const char>) {
+                                                     return float{0.0};
+                                                   } else {
+                                                     return std::forward<T>(t);
+                                                   }
+                                                 }>,
+                               std::tuple<float, const int&>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Map<const TupleType<char, const int&>&,
+                                                 []<typename T>(T t) -> decltype(auto) {
+                                                   if constexpr (std::is_same_v<T, const char&>) {
+                                                     return float{0.0};
+                                                   } else {
+                                                     return std::forward<T>(t);
+                                                   }
+                                                 }>,
+                               std::tuple<float, const int&>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Map<const TupleType<char, const int&>&&,
+                                                 []<typename T>(T t) -> decltype(auto) {
+                                                   if constexpr (std::is_same_v<T, const char&&>) {
+                                                     return float{0.0};
+                                                   } else {
+                                                     return std::forward<T>(t);
+                                                   }
+                                                 }>,
+                               std::tuple<float, const int&>>);
+
   static_assert(std::is_same_v<TypesToTypes::Map<TupleType<char, const int&>,
                                                  []<typename T>(T t) -> decltype(auto) {
                                                    if constexpr (std::is_same_v<T, char>) {
@@ -85,8 +349,175 @@ constexpr bool TestFunc() {
                                                  }>,
                                std::tuple<float, const int&>>);
 
+  static_assert(std::is_same_v<TypesToTypes::Map<TupleType<char, const int&>&,
+                                                 []<typename T>(T t) -> decltype(auto) {
+                                                   if constexpr (std::is_same_v<T, char&>) {
+                                                     return float{0.0};
+                                                   } else {
+                                                     return std::forward<T>(t);
+                                                   }
+                                                 }>,
+                               std::tuple<float, const int&>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Map<TupleType<char, const int&>&&,
+                                                 []<typename T>(T t) -> decltype(auto) {
+                                                   if constexpr (std::is_same_v<T, char&&>) {
+                                                     return float{0.0};
+                                                   } else {
+                                                     return std::forward<T>(t);
+                                                   }
+                                                 }>,
+                               std::tuple<float, const int&>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Retain<const TupleType<char&, char&>, const char>,
+                               std::tuple<>>);
+  static_assert(std::is_same_v<TypesToTypes::Retain<const TupleType<const char, const char>, char&>,
+                               std::tuple<>>);
+  static_assert(std::is_same_v<TypesToTypes::Retain<const TupleType<const char, char&>, char&>,
+                               std::tuple<char&>>);
+  static_assert(std::is_same_v<TypesToTypes::Retain<const TupleType<char&, const char>, char&>,
+                               std::tuple<char&>>);
+  static_assert(std::is_same_v<TypesToTypes::Retain<const TupleType<char&, char&>, char&>,
+                               std::tuple<char&, char&>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Retain<const TupleType<char&, char&>&, const char&>,
+                               std::tuple<>>);
+  static_assert(std::is_same_v<TypesToTypes::Retain<const TupleType<char, char&>&, const char&>,
+                               std::tuple<const char&>>);
+  static_assert(std::is_same_v<TypesToTypes::Retain<const TupleType<char&, char>&, const char&>,
+                               std::tuple<const char&>>);
+  static_assert(std::is_same_v<TypesToTypes::Retain<const TupleType<char, char>&, const char&>,
+                               std::tuple<const char&, const char&>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Retain<const TupleType<char&, char&>&&, const char&>,
+                               std::tuple<>>);
+  static_assert(std::is_same_v<TypesToTypes::Retain<const TupleType<char, char&>&&, const char&&>,
+                               std::tuple<const char&&>>);
+  static_assert(std::is_same_v<TypesToTypes::Retain<const TupleType<char&, char>&&, const char&&>,
+                               std::tuple<const char&&>>);
+  static_assert(std::is_same_v<TypesToTypes::Retain<const TupleType<char, char>&&, const char&&>,
+                               std::tuple<const char&&, const char&&>>);
+
+  static_assert(
+      std::is_same_v<TypesToTypes::Retain<TupleType<const char, const char>, char>, std::tuple<>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::Retain<TupleType<const char, char>, char>, std::tuple<char>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::Retain<TupleType<char, const char>, char>, std::tuple<char>>);
+
+  static_assert(
+      std::is_same_v<TypesToTypes::Retain<const TupleType<char&, char&>, char>, std::tuple<>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::Retain<TupleType<char&, char>, char>, std::tuple<char>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::Retain<TupleType<char, char&>, char>, std::tuple<char>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::Retain<TupleType<char, char>, char>, std::tuple<char, char>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Retain<TupleType<const char&, const char&>&, char&>,
+                               std::tuple<>>);
+  static_assert(std::is_same_v<TypesToTypes::Retain<TupleType<const char&, char>&, char&>,
+                               std::tuple<char&>>);
+  static_assert(std::is_same_v<TypesToTypes::Retain<TupleType<char, const char&>&, char&>,
+                               std::tuple<char&>>);
+  static_assert(std::is_same_v<TypesToTypes::Retain<TupleType<char, char>&, char&>,
+                               std::tuple<char&, char&>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Retain<TupleType<char&, char&>, char>, std::tuple<>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::Retain<TupleType<char&, char>, char>, std::tuple<char>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::Retain<TupleType<char, char&>, char>, std::tuple<char>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::Retain<TupleType<char, char>, char>, std::tuple<char, char>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Retain<TupleType<char&, char&>, char>, std::tuple<>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::Retain<TupleType<char&, char>, char>, std::tuple<char>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::Retain<TupleType<char, char&>, char>, std::tuple<char>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::Retain<TupleType<char, char>, char>, std::tuple<char, char>>);
+
+  static_assert(std::is_same_v<TypesToTypes::RetainIfNot<TupleType<const char, const char>, char>,
+                               std::tuple<const char, const char>>);
+  static_assert(std::is_same_v<TypesToTypes::RetainIfNot<TupleType<const char, char>, char>,
+                               std::tuple<const char>>);
+  static_assert(std::is_same_v<TypesToTypes::RetainIfNot<TupleType<char, const char>, char>,
+                               std::tuple<const char>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::RetainIfNot<TupleType<char, char>, char>, std::tuple<>>);
+
+  static_assert(std::is_same_v<TypesToTypes::RetainIfNot<TupleType<char&, char&>, char>,
+                               std::tuple<char&, char&>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::RetainIfNot<TupleType<char&, char>, char>, std::tuple<char&>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::RetainIfNot<TupleType<char, char&>, char>, std::tuple<char&>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::RetainIfNot<TupleType<char, char>, char>, std::tuple<>>);
+
+  static_assert(std::is_same_v<TypesToTypes::RetainIfNot<TupleType<char&, char>, void>,
+                               std::tuple<char&, char>>);
+  static_assert(std::is_same_v<TypesToTypes::RetainIfNot<TupleType<char, char&>, void>,
+                               std::tuple<char, char&>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Skip<const TupleType<char, const int>, 1>,
+                               std::tuple<const int>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Skip<const TupleType<char, const int>&, 1>,
+                               std::tuple<const int&>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Skip<const TupleType<char, const int&&>, 1>,
+                               std::tuple<const int&&>>);
+
   static_assert(
       std::is_same_v<TypesToTypes::Skip<TupleType<char, const int>, 1>, std::tuple<const int>>);
+
+  static_assert(
+      std::is_same_v<TypesToTypes::Skip<TupleType<char, const int&>, 1>, std::tuple<const int&>>);
+
+  static_assert(
+      std::is_same_v<TypesToTypes::Skip<TupleType<char, const int&&>, 1>, std::tuple<const int&&>>);
+
+  static_assert(std::is_same_v<TypesToTypes::SkipWhile<const TupleType<char, const int>,
+                                                       []<typename T>() { return true; }>,
+                               std::tuple<>>);
+  static_assert(std::is_same_v<
+                TypesToTypes::SkipWhile<const TupleType<char, const int>,
+                                        []<typename T>() { return std::is_same_v<T, const char>; }>,
+                std::tuple<const int>>);
+  static_assert(std::is_same_v<
+                TypesToTypes::SkipWhile<const TupleType<char, const int>,
+                                        []<typename T>() { return std::is_same_v<T, const int>; }>,
+                std::tuple<const char, const int>>);
+
+  static_assert(std::is_same_v<TypesToTypes::SkipWhile<const TupleType<char, const int>&,
+                                                       []<typename T>() { return true; }>,
+                               std::tuple<>>);
+  static_assert(
+      std::is_same_v<
+          TypesToTypes::SkipWhile<const TupleType<char, const int>&,
+                                  []<typename T>() { return std::is_same_v<T, const char&>; }>,
+          std::tuple<const int&>>);
+  static_assert(std::is_same_v<
+                TypesToTypes::SkipWhile<const TupleType<char, const int>&,
+                                        []<typename T>() { return std::is_same_v<T, const int&>; }>,
+                std::tuple<const char&, const int&>>);
+
+  static_assert(std::is_same_v<TypesToTypes::SkipWhile<const TupleType<char, const int>&&,
+                                                       []<typename T>() { return true; }>,
+                               std::tuple<>>);
+  static_assert(
+      std::is_same_v<
+          TypesToTypes::SkipWhile<const TupleType<char, const int>&&,
+                                  []<typename T>() { return std::is_same_v<T, const char&&>; }>,
+          std::tuple<const int&&>>);
+  static_assert(
+      std::is_same_v<
+          TypesToTypes::SkipWhile<const TupleType<char, const int>&&,
+                                  []<typename T>() { return std::is_same_v<T, const int&&>; }>,
+          std::tuple<const char&&, const int&&>>);
 
   static_assert(
       std::is_same_v<
@@ -102,7 +533,87 @@ constexpr bool TestFunc() {
                 std::tuple<char, const int>>);
 
   static_assert(
+      std::is_same_v<
+          TypesToTypes::SkipWhile<TupleType<char, const int>&, []<typename T>() { return true; }>,
+          std::tuple<>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::SkipWhile<TupleType<char, const int>&,
+                                             []<typename T>() { return std::is_same_v<T, char&>; }>,
+                     std::tuple<const int&>>);
+  static_assert(std::is_same_v<
+                TypesToTypes::SkipWhile<TupleType<char, const int>&,
+                                        []<typename T>() { return std::is_same_v<T, const int&>; }>,
+                std::tuple<char&, const int&>>);
+
+  static_assert(
+      std::is_same_v<
+          TypesToTypes::SkipWhile<TupleType<char, const int>&&, []<typename T>() { return true; }>,
+          std::tuple<>>);
+  static_assert(std::is_same_v<
+                TypesToTypes::SkipWhile<TupleType<char, const int>&&,
+                                        []<typename T>() { return std::is_same_v<T, char&&>; }>,
+                std::tuple<const int&&>>);
+  static_assert(
+      std::is_same_v<
+          TypesToTypes::SkipWhile<TupleType<char, const int>&&,
+                                  []<typename T>() { return std::is_same_v<T, const int&&>; }>,
+          std::tuple<char&&, const int&&>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Take<const TupleType<char, const int>, 1>,
+                               std::tuple<const char>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Take<const TupleType<char, const int>&, 1>,
+                               std::tuple<const char&>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Take<const TupleType<char, const int>&&, 1>,
+                               std::tuple<const char&&>>);
+
+  static_assert(
       std::is_same_v<TypesToTypes::Take<TupleType<char, const int>, 1>, std::tuple<char>>);
+
+  static_assert(
+      std::is_same_v<TypesToTypes::Take<TupleType<char, const int>&, 1>, std::tuple<char&>>);
+
+  static_assert(
+      std::is_same_v<TypesToTypes::Take<TupleType<char, const int>&&, 1>, std::tuple<char&&>>);
+
+  static_assert(std::is_same_v<
+                TypesToTypes::TakeWhile<const TupleType<char, const int>,
+                                        []<typename T>() { return std::is_same_v<T, const int>; }>,
+                std::tuple<>>);
+  static_assert(std::is_same_v<
+                TypesToTypes::TakeWhile<const TupleType<char, const int>,
+                                        []<typename T>() { return std::is_same_v<T, const char>; }>,
+                std::tuple<const char>>);
+  static_assert(std::is_same_v<TypesToTypes::TakeWhile<const TupleType<char, const int>,
+                                                       []<typename T>() { return true; }>,
+                               std::tuple<const char, const int>>);
+
+  static_assert(std::is_same_v<
+                TypesToTypes::TakeWhile<const TupleType<char, const int>&,
+                                        []<typename T>() { return std::is_same_v<T, const int>; }>,
+                std::tuple<>>);
+  static_assert(
+      std::is_same_v<
+          TypesToTypes::TakeWhile<const TupleType<char, const int>&,
+                                  []<typename T>() { return std::is_same_v<T, const char&>; }>,
+          std::tuple<const char&>>);
+  static_assert(std::is_same_v<TypesToTypes::TakeWhile<const TupleType<char, const int>&,
+                                                       []<typename T>() { return true; }>,
+                               std::tuple<const char&, const int&>>);
+
+  static_assert(std::is_same_v<
+                TypesToTypes::TakeWhile<const TupleType<char, const int>&&,
+                                        []<typename T>() { return std::is_same_v<T, const int>; }>,
+                std::tuple<>>);
+  static_assert(
+      std::is_same_v<
+          TypesToTypes::TakeWhile<const TupleType<char, const int>&&,
+                                  []<typename T>() { return std::is_same_v<T, const char&&>; }>,
+          std::tuple<const char&&>>);
+  static_assert(std::is_same_v<TypesToTypes::TakeWhile<const TupleType<char, const int>&&,
+                                                       []<typename T>() { return true; }>,
+                               std::tuple<const char&&, const int&&>>);
 
   static_assert(std::is_same_v<
                 TypesToTypes::TakeWhile<TupleType<char, const int>,
@@ -117,12 +628,76 @@ constexpr bool TestFunc() {
           TypesToTypes::TakeWhile<TupleType<char, const int>, []<typename T>() { return true; }>,
           std::tuple<char, const int>>);
 
+  static_assert(std::is_same_v<
+                TypesToTypes::TakeWhile<TupleType<char, const int>&,
+                                        []<typename T>() { return std::is_same_v<T, const int&>; }>,
+                std::tuple<>>);
+  static_assert(
+      std::is_same_v<TypesToTypes::TakeWhile<TupleType<char, const int>&,
+                                             []<typename T>() { return std::is_same_v<T, char&>; }>,
+                     std::tuple<char&>>);
+  static_assert(
+      std::is_same_v<
+          TypesToTypes::TakeWhile<TupleType<char, const int>&, []<typename T>() { return true; }>,
+          std::tuple<char&, const int&>>);
+
+  static_assert(
+      std::is_same_v<
+          TypesToTypes::TakeWhile<TupleType<char, const int>&&,
+                                  []<typename T>() { return std::is_same_v<T, const int&&>; }>,
+          std::tuple<>>);
+  static_assert(std::is_same_v<
+                TypesToTypes::TakeWhile<TupleType<char, const int>&&,
+                                        []<typename T>() { return std::is_same_v<T, char&&>; }>,
+                std::tuple<char&&>>);
+  static_assert(
+      std::is_same_v<
+          TypesToTypes::TakeWhile<TupleType<char, const int>&&, []<typename T>() { return true; }>,
+          std::tuple<char&&, const int&&>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Zip<TupleType<char, int&>>,
+                               std::tuple<std::tuple<char>, std::tuple<int&>>>);
+
+  static_assert(
+      std::is_same_v<TypesToTypes::Zip<const TupleType<char, int&>, const std::array<long, 2>>,
+                     std::tuple<std::pair<const char, const long>, std::pair<int&, const long>>>);
+
+  static_assert(std::is_same_v<
+                TypesToTypes::Zip<const TupleType<char, int&>&, const std::array<long, 2>&>,
+                std::tuple<std::pair<const char&, const long&>, std::pair<int&, const long&>>>);
+
+  static_assert(std::is_same_v<
+                TypesToTypes::Zip<const TupleType<char, int&>&&, const std::array<long, 2>&&>,
+                std::tuple<std::pair<const char&&, const long&&>, std::pair<int&, const long&&>>>);
+
   static_assert(std::is_same_v<TypesToTypes::Zip<TupleType<char, int&>, std::array<long, 2>>,
                                std::tuple<std::pair<char, long>, std::pair<int&, long>>>);
 
-  constexpr std::tuple<const int&, char> kForEachTupleIn{kForEachInt1, 'A'};
+  static_assert(std::is_same_v<TypesToTypes::Zip<TupleType<char, int&>&, std::array<long, 2>&>,
+                               std::tuple<std::pair<char&, long&>, std::pair<int&, long&>>>);
 
-  // Test All and Any types to values.
+  static_assert(std::is_same_v<TypesToTypes::Zip<TupleType<char, int&>&&, std::array<long, 2>&&>,
+                               std::tuple<std::pair<char&&, long&&>, std::pair<int&, long&&>>>);
+
+  static_assert(
+      std::is_same_v<
+          TypesToTypes::Zip<TupleType<char, int&>, std::array<long, 2>, TupleType<long&, short>>,
+          std::tuple<std::tuple<char, long, long&>, std::tuple<int&, long, short>>>);
+
+  static_assert(std::is_same_v<TypesToTypes::ZipShortest<TupleType<char, int&>>,
+                               std::tuple<std::tuple<char>, std::tuple<int&>>>);
+
+  static_assert(
+      std::is_same_v<TypesToTypes::ZipShortest<TupleType<char, int&>, std::array<long, 2>>,
+                     std::tuple<std::pair<char, long>, std::pair<int&, long>>>);
+
+  static_assert(
+      std::is_same_v<TypesToTypes::ZipShortest<TupleType<char, int&>,
+                                               std::array<long, 2>,
+                                               TupleType<long&, short>>,
+                     std::tuple<std::tuple<char, long, long&>, std::tuple<int&, long, short>>>);
+
+  // Test All, Any, and CountIf types to values.
   static_assert([] {
     int extra_arg1 = 0, extra_arg2 = 0;
     bool result = TypesToValues::All<std::tuple<char, const int&>>(
@@ -153,7 +728,22 @@ constexpr bool TestFunc() {
     CHECK_EQ(extra_arg2, -1);
     return result;
   }());
-  // Test All and Any types to values with a temporary.
+  static_assert([] {
+    int extra_arg1 = 0, extra_arg2 = 0;
+    bool result = TypesToValues::CountIf<std::tuple<char, const int&>>(
+        []<typename T>(int& extra_arg1, int& extra_arg2) {
+          extra_arg1 += 1;
+          extra_arg2 -= 1;
+          return std::is_same_v<T, char>;
+        },
+        extra_arg1,
+        extra_arg2);
+    // Short-circuit logic.
+    CHECK_EQ(extra_arg1, 2);
+    CHECK_EQ(extra_arg2, -2);
+    return result;
+  }() == 1);
+  // Test All, Any and CountIf types to values with a temporary.
   static_assert([] {
     int extra_arg1 = 0, extra_arg2 = 0;
     bool result = TypesToValues::AllWithTemporary<std::tuple<char, const int&>, int>(
@@ -186,7 +776,23 @@ constexpr bool TestFunc() {
     CHECK_EQ(extra_arg2, -1);
     return result;
   }());
-  // Test All and Any types to values with an explicitly initialized temporary.
+  static_assert([] {
+    int extra_arg1 = 0, extra_arg2 = 0;
+    bool result = TypesToValues::CountIfWithTemporary<std::tuple<char, const int&>, int>(
+        []<typename T>(int& idx, int& extra_arg1, int& extra_arg2) {
+          extra_arg1 += 1;
+          extra_arg2 -= 1;
+          CHECK_EQ(++idx, extra_arg1);
+          return std::is_same_v<T, const int&>;
+        },
+        extra_arg1,
+        extra_arg2);
+    // Short-circuit logic.
+    CHECK_EQ(extra_arg1, 2);
+    CHECK_EQ(extra_arg2, -2);
+    return result;
+  }() == 1);
+  // Test All, Any, and CountIF types to values with an explicitly initialized temporary.
   static_assert([] {
     int extra_arg1 = 0, extra_arg2 = 0;
     bool result = TypesToValues::AllWithTemporary<std::tuple<char, const int&>>(
@@ -221,11 +827,29 @@ constexpr bool TestFunc() {
     CHECK_EQ(extra_arg2, -1);
     return result;
   }());
-  // Test All and Any values to values.
-  static_assert([kForEachTupleIn] {
+  static_assert([] {
+    int extra_arg1 = 0, extra_arg2 = 0;
+    bool result = TypesToValues::CountIfWithTemporary<std::tuple<char, const int&>>(
+        /* idx = */
+        42,
+        []<typename T>(int& idx, int& extra_arg1, int& extra_arg2) {
+          extra_arg1 += 1;
+          extra_arg2 -= 1;
+          CHECK_EQ(++idx, 42 + extra_arg1);
+          return std::is_same_v<T, char>;
+        },
+        extra_arg1,
+        extra_arg2);
+    // Short-circuit logic.
+    CHECK_EQ(extra_arg1, 2);
+    CHECK_EQ(extra_arg2, -2);
+    return result;
+  }() == 1);
+  // Test All, Any and CountIf values to values.
+  static_assert([] {
     int extra_arg1 = 0, extra_arg2 = 0;
     bool result = ValuesToValues::All(
-        kForEachTupleIn,
+        kForEachTupleTypeIn,
         []<typename T>(T, int& extra_arg1, int& extra_arg2) {
           extra_arg1 += 1;
           extra_arg2 -= 1;
@@ -238,10 +862,10 @@ constexpr bool TestFunc() {
     CHECK_EQ(extra_arg2, -1);
     return !result;
   }());
-  static_assert([kForEachTupleIn] {
+  static_assert([] {
     int extra_arg1 = 0, extra_arg2 = 0;
     bool result = ValuesToValues::Any(
-        kForEachTupleIn,
+        kForEachTupleTypeIn,
         []<typename T>(T, int& extra_arg1, int& extra_arg2) {
           extra_arg1 += 1;
           extra_arg2 -= 1;
@@ -254,11 +878,27 @@ constexpr bool TestFunc() {
     CHECK_EQ(extra_arg2, -1);
     return result;
   }());
-  // Test All and Any values to values with a temporary.
-  static_assert([kForEachTupleIn] {
+  static_assert([] {
+    int extra_arg1 = 0, extra_arg2 = 0;
+    bool result = ValuesToValues::CountIf(
+        kForEachTupleTypeIn,
+        []<typename T>(T, int& extra_arg1, int& extra_arg2) {
+          extra_arg1 += 1;
+          extra_arg2 -= 1;
+          return std::is_same_v<T, const int&>;
+        },
+        extra_arg1,
+        extra_arg2);
+    // Short-circuit logic.
+    CHECK_EQ(extra_arg1, 2);
+    CHECK_EQ(extra_arg2, -2);
+    return result;
+  }() == 1);
+  // Test All, Any and CountIf values to values with a temporary.
+  static_assert([] {
     int extra_arg1 = 0, extra_arg2 = 0;
     bool result = ValuesToValues::AllWithTemporary<int>(
-        kForEachTupleIn,
+        kForEachTupleTypeIn,
         []<typename T>(T, int& idx, int& extra_arg1, int& extra_arg2) {
           extra_arg1 += 1;
           extra_arg2 -= 1;
@@ -272,10 +912,10 @@ constexpr bool TestFunc() {
     CHECK_EQ(extra_arg2, -1);
     return !result;
   }());
-  static_assert([kForEachTupleIn] {
+  static_assert([] {
     int extra_arg1 = 0, extra_arg2 = 0;
     bool result = ValuesToValues::AnyWithTemporary<int>(
-        kForEachTupleIn,
+        kForEachTupleTypeIn,
         []<typename T>(T, int& idx, int& extra_arg1, int& extra_arg2) {
           extra_arg1 += 1;
           extra_arg2 -= 1;
@@ -289,11 +929,28 @@ constexpr bool TestFunc() {
     CHECK_EQ(extra_arg2, -1);
     return result;
   }());
-  // Test All and Any values to values with an explicitly initialized temporary.
-  static_assert([kForEachTupleIn] {
+  static_assert([] {
+    int extra_arg1 = 0, extra_arg2 = 0;
+    bool result = ValuesToValues::CountIfWithTemporary<int>(
+        kForEachTupleTypeIn,
+        []<typename T>(T, int& idx, int& extra_arg1, int& extra_arg2) {
+          extra_arg1 += 1;
+          extra_arg2 -= 1;
+          CHECK_EQ(++idx, extra_arg1);
+          return std::is_same_v<T, const int&>;
+        },
+        extra_arg1,
+        extra_arg2);
+    // Short-circuit logic.
+    CHECK_EQ(extra_arg1, 2);
+    CHECK_EQ(extra_arg2, -2);
+    return result;
+  }() == 1);
+  // Test All, Any, and Count values to values with an explicitly initialized temporary.
+  static_assert([] {
     int extra_arg1 = 0, extra_arg2 = 0;
     bool result = ValuesToValues::AllWithTemporary(
-        kForEachTupleIn,
+        kForEachTupleTypeIn,
         /* idx = */ 42,
         []<typename T>(T, int& idx, int& extra_arg1, int& extra_arg2) {
           extra_arg1 += 1;
@@ -308,10 +965,10 @@ constexpr bool TestFunc() {
     CHECK_EQ(extra_arg2, -1);
     return !result;
   }());
-  static_assert([kForEachTupleIn] {
+  static_assert([] {
     int extra_arg1 = 0, extra_arg2 = 0;
     bool result = ValuesToValues::AnyWithTemporary(
-        kForEachTupleIn,
+        kForEachTupleTypeIn,
         /* idx = */ 42,
         []<typename T>(T, int& idx, int& extra_arg1, int& extra_arg2) {
           extra_arg1 += 1;
@@ -326,6 +983,26 @@ constexpr bool TestFunc() {
     CHECK_EQ(extra_arg2, -1);
     return result;
   }());
+  static_assert([] {
+    int extra_arg1 = 0, extra_arg2 = 0;
+    bool result = ValuesToValues::CountIfWithTemporary(
+        kForEachTupleTypeIn,
+        /* idx = */ 42,
+        []<typename T>(T, int& idx, int& extra_arg1, int& extra_arg2) {
+          extra_arg1 += 1;
+          extra_arg2 -= 1;
+          CHECK_EQ(++idx, 42 + extra_arg1);
+          return std::is_same_v<T, char>;
+        },
+        extra_arg1,
+        extra_arg2);
+    // Short-circuit logic.
+    CHECK_EQ(extra_arg1, 2);
+    CHECK_EQ(extra_arg2, -2);
+    return result;
+  }() == 1);
+
+  static_assert(ValuesToValues::Count<const int&>(kForEachTupleTypeIn) == 1);
 
   // Enumerate for values.
 #if (!defined(__clang__) && !defined(__GNUC__)) || (defined(__clang__) && __clang_major__ > 19) || \
@@ -345,10 +1022,10 @@ constexpr bool TestFunc() {
 
   // Test FlatMap values to values.
   constexpr std::tuple<const int&> kFilterTupleOut1{kForEachInt1};
-  constexpr auto kFilterResult1 = [&kForEachTupleIn] {
+  constexpr auto kFilterResult1 = [] {
     int extra_arg1 = 0, extra_arg2 = 0;
     auto result = ValuesToValues::Filter(
-        kForEachTupleIn,
+        kForEachTupleTypeIn,
         []<typename T>(int& extra_arg1, int& extra_arg2) -> decltype(auto) {
           extra_arg1 += 1;
           extra_arg2 -= 1;
@@ -368,10 +1045,10 @@ constexpr bool TestFunc() {
   static_assert(std::is_same_v<decltype(kFilterResult1), const std::tuple<const int&>>);
   // Test FlatMap values to values with a temporary.
   constexpr std::tuple<const int&> kFilterTupleOut2{kForEachInt1};
-  constexpr auto kFilterResult2 = [&kForEachTupleIn] {
+  constexpr auto kFilterResult2 = [] {
     int extra_arg1 = 0, extra_arg2 = 0;
     auto result = ValuesToValues::FilterWithTemporary<int>(
-        kForEachTupleIn,
+        kForEachTupleTypeIn,
         []<typename T>(int& idx, int& extra_arg1, int& extra_arg2) -> decltype(auto) {
           extra_arg1 += 1;
           extra_arg2 -= 1;
@@ -392,10 +1069,10 @@ constexpr bool TestFunc() {
   static_assert(std::is_same_v<decltype(kFilterResult2), const std::tuple<const int&>>);
   // Test FlatMap values to values with an explicitly initialized temporary.
   constexpr std::tuple<const int&> kFilterTupleOut3{kForEachInt1};
-  constexpr auto kFilterResult3 = [&kForEachTupleIn] {
+  constexpr auto kFilterResult3 = [] {
     int extra_arg1 = 0, extra_arg2 = 0;
     auto result = ValuesToValues::FilterWithTemporary(
-        kForEachTupleIn,
+        kForEachTupleTypeIn,
         /* idx = */ 42,
         []<typename T>(int& idx, int& extra_arg1, int& extra_arg2) -> decltype(auto) {
           extra_arg1 += 1;
@@ -474,7 +1151,7 @@ constexpr bool TestFunc() {
   // Test FlatMap values to values.
   constexpr std::tuple<const int&, float, char> kFlatMapTupleOut4{kForEachInt1, float{42.42}, 'A'};
   constexpr auto kFlatMapResult4 = ValuesToValues::FlatMap(
-      kForEachTupleIn,
+      kForEachTupleTypeIn,
       []<typename T>(T t, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
         CHECK_EQ(&kExtraArg1, &kForEachInt1);
         CHECK_EQ(&kExtraArg2, &kForEachInt2);
@@ -492,7 +1169,7 @@ constexpr bool TestFunc() {
   // Test FlatMap values to values with a temporary.
   constexpr std::tuple<const int&, float, char> kFlatMapTupleOut5{kForEachInt1, float{43.42}, 'B'};
   constexpr auto kFlatMapResult5 = ValuesToValues::FlatMapWithTemporary<int>(
-      kForEachTupleIn,
+      kForEachTupleTypeIn,
       []<typename T>(
           T t, int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
         CHECK_EQ(&kExtraArg1, &kForEachInt1);
@@ -512,7 +1189,7 @@ constexpr bool TestFunc() {
   // Test FlatMap values to values with an explicitly initialized temporary.
   constexpr std::tuple<const int&, float, char> kFlatMapTupleOut6{kForEachInt1, float{85.42}, 'l'};
   constexpr auto kFlatMapResult6 = ValuesToValues::FlatMapWithTemporary(
-      kForEachTupleIn,
+      kForEachTupleTypeIn,
       /* idx = */ 42,
       []<typename T>(
           T t, int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
@@ -590,10 +1267,10 @@ constexpr bool TestFunc() {
   }();
   static_assert(kForEachResult3 == std::array<char, 2>{84, 'l'});
   // Test ForEach to values.
-  constexpr auto kForEachResult4 = [&kForEachTupleIn] {
+  constexpr auto kForEachResult4 = [] {
     std::array<char, 2> result;
     ValuesToValues::ForEach(
-        ValuesToValues::Enumerate(kForEachTupleIn),
+        ValuesToValues::Enumerate(kForEachTupleTypeIn),
         [&result]<typename T>(T t, const int& kExtraArg1, const int& kExtraArg2) {
           CHECK_EQ(&kExtraArg1, &kForEachInt1);
           CHECK_EQ(&kExtraArg2, &kForEachInt2);
@@ -610,10 +1287,10 @@ constexpr bool TestFunc() {
   }();
   static_assert(kForEachResult4 == std::array<char, 2>{42, 'A'});
   // Test ForEach to values with a temporary.
-  constexpr auto kForEachResult5 = [&kForEachTupleIn] {
+  constexpr auto kForEachResult5 = [] {
     std::array<char, 2> result;
     ValuesToValues::ForEachWithTemporary<int>(
-        ValuesToValues::Enumerate(kForEachTupleIn),
+        ValuesToValues::Enumerate(kForEachTupleTypeIn),
         [&result]<typename T>(T t, int& idx, const int& kExtraArg1, const int& kExtraArg2) {
           CHECK_EQ(&kExtraArg1, &kForEachInt1);
           CHECK_EQ(&kExtraArg2, &kForEachInt2);
@@ -630,10 +1307,10 @@ constexpr bool TestFunc() {
   }();
   static_assert(kForEachResult5 == std::array<char, 2>{42, 'B'});
   // Test ForEach to values with an explicitly initialized temporary.
-  constexpr auto kForEachResult6 = [&kForEachTupleIn] {
+  constexpr auto kForEachResult6 = [] {
     std::array<char, 2> result;
     ValuesToValues::ForEachWithTemporary(
-        ValuesToValues::Enumerate(kForEachTupleIn),
+        ValuesToValues::Enumerate(kForEachTupleTypeIn),
         /* idx = */ 42,
         [&result]<typename T>(T t, int& idx, const int& kExtraArg1, const int& kExtraArg2) {
           CHECK_EQ(&kExtraArg1, &kForEachInt1);
@@ -705,7 +1382,7 @@ constexpr bool TestFunc() {
   // Test Map values to values.
   constexpr std::tuple<const int&, float> kMapTupleOut4{kForEachInt1, float{42.42}};
   constexpr auto kMapResult4 = ValuesToValues::Map(
-      kForEachTupleIn,
+      kForEachTupleTypeIn,
       []<typename T>(T t, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
         CHECK_EQ(&kExtraArg1, &kForEachInt1);
         CHECK_EQ(&kExtraArg2, &kForEachInt2);
@@ -722,7 +1399,7 @@ constexpr bool TestFunc() {
   // Test Map values to values with a temporary.
   constexpr std::tuple<const int&, float> kMapTupleOut5{kForEachInt1, float{43.42}};
   constexpr auto kMapResult5 = ValuesToValues::MapWithTemporary<int>(
-      kForEachTupleIn,
+      kForEachTupleTypeIn,
       []<typename T>(
           T t, int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
         CHECK_EQ(&kExtraArg1, &kForEachInt1);
@@ -741,7 +1418,7 @@ constexpr bool TestFunc() {
   // Test Map values to values with an explicitly initialized temporary.
   constexpr std::tuple<const int&, float> kMapTupleOut6{kForEachInt1, float{85.42}};
   constexpr auto kMapResult6 = ValuesToValues::MapWithTemporary(
-      kForEachTupleIn,
+      kForEachTupleTypeIn,
       /* idx = */ 42,
       []<typename T>(
           T t, int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
@@ -835,7 +1512,7 @@ constexpr bool TestFunc() {
   static_assert(kProduceResult4 == std::array<char, 2>{'l', 87});
   // Test Produce from values.
   constexpr auto kProduceResult5 = ValuesToValues::Produce<std::array<char, 2>>(
-      ValuesToValues::Enumerate(kForEachTupleIn),
+      ValuesToValues::Enumerate(kForEachTupleTypeIn),
       []<typename T>(
           T t, std::array<char, 2>& result, const int& kExtraArg1, const int& kExtraArg2) {
         CHECK_EQ(&kExtraArg1, &kForEachInt1);
@@ -852,7 +1529,7 @@ constexpr bool TestFunc() {
   static_assert(kProduceResult5 == std::array<char, 2>{42, 'A'});
   // Test Produce from values.
   constexpr auto kProduceResult6 = ValuesToValues::Produce(
-      ValuesToValues::Enumerate(kForEachTupleIn),
+      ValuesToValues::Enumerate(kForEachTupleTypeIn),
       /* result = */ std::array<char, 2>{1, 2},
       []<typename T>(
           T t, std::array<char, 2>& result, const int& kExtraArg1, const int& kExtraArg2) {
@@ -870,7 +1547,7 @@ constexpr bool TestFunc() {
   static_assert(kProduceResult6 == std::array<char, 2>{43, 'C'});
   // Test Produce from values with a temporary.
   constexpr auto kProduceResult7 = ValuesToValues::ProduceWithTemporary<std::array<char, 2>, int>(
-      ValuesToValues::Enumerate(kForEachTupleIn),
+      ValuesToValues::Enumerate(kForEachTupleTypeIn),
       []<typename T>(T t,
                      std::array<char, 2>& result,
                      int& idx,
@@ -890,7 +1567,7 @@ constexpr bool TestFunc() {
   static_assert(kProduceResult7 == std::array<char, 2>{42, 'B'});
   // Test Produce from values with an explicitly initialized output and temporary.
   constexpr auto kProduceResult8 = ValuesToValues::ProduceWithTemporary(
-      ValuesToValues::Enumerate(kForEachTupleIn),
+      ValuesToValues::Enumerate(kForEachTupleTypeIn),
       /* result = */ std::array<char, 2>{1, 2},
       /* int = */ 42,
       []<typename T>(T t,
@@ -911,11 +1588,16 @@ constexpr bool TestFunc() {
       kForEachInt2);
   static_assert(kProduceResult8 == std::array<char, 2>{85, 'n'});
 
+  static_assert(ValuesToValues::Retain<const int&>(kForEachTupleTypeIn) ==
+                std::tuple<const int&>{kForEachInt1});
+  static_assert(ValuesToValues::RetainIfNot<const int&>(kForEachTupleTypeIn) ==
+                std::tuple<char>{'A'});
+
   // Skip 1 element.
-  constexpr auto kSkipResult1 = ValuesToValues::Skip<1>(kForEachTupleIn);
+  constexpr auto kSkipResult1 = ValuesToValues::Skip<1>(kForEachTupleTypeIn);
   static_assert(kSkipResult1 == std::tuple{'A'});
   static_assert(std::is_same_v<decltype(kSkipResult1), const std::tuple<char>>);
-  constexpr auto kSkipResult2 = ValuesToValues::Skip(kForEachTupleIn, kMeta<1>);
+  constexpr auto kSkipResult2 = ValuesToValues::Skip(kForEachTupleTypeIn, kMeta<1>);
   static_assert(kSkipResult2 == std::tuple{'A'});
   static_assert(std::is_same_v<decltype(kSkipResult2), const std::tuple<char>>);
   // Skip everything.
@@ -926,11 +1608,11 @@ constexpr bool TestFunc() {
         return true;
       },
                                 &kForEachInt1,
-                                &kForEachInt2>(kForEachTupleIn);
+                                &kForEachInt2>(kForEachTupleTypeIn);
   static_assert(kSkipResult3 == std::tuple{});
   static_assert(std::is_same_v<decltype(kSkipResult3), const std::tuple<>>);
   constexpr auto kSkipResult4 =
-      ValuesToValues::SkipWhile(kForEachTupleIn,
+      ValuesToValues::SkipWhile(kForEachTupleTypeIn,
                                 kMeta<[]<typename T>(const int* kExtraArg1, const int* kExtraArg2) {
                                   CHECK_EQ(kExtraArg1, &kForEachInt1);
                                   CHECK_EQ(kExtraArg2, &kForEachInt2);
@@ -949,11 +1631,11 @@ constexpr bool TestFunc() {
         return true;
       },
       &kForEachInt1,
-      &kForEachInt2>(kForEachTupleIn);
+      &kForEachInt2>(kForEachTupleTypeIn);
   static_assert(kSkipResult5 == std::tuple{});
   static_assert(std::is_same_v<decltype(kSkipResult5), const std::tuple<>>);
   constexpr auto kSkipResult6 = ValuesToValues::SkipWhileWithTemporary<std::size_t>(
-      kForEachTupleIn,
+      kForEachTupleTypeIn,
       kMeta<[]<typename T>(std::size_t& count, const int* kExtraArg1, const int* kExtraArg2) {
         CHECK_EQ(1 / sizeof(T), count++);
         CHECK_EQ(kExtraArg1, &kForEachInt1);
@@ -973,11 +1655,11 @@ constexpr bool TestFunc() {
         return true;
       },
       &kForEachInt1,
-      &kForEachInt2>(kForEachTupleIn);
+      &kForEachInt2>(kForEachTupleTypeIn);
   static_assert(kSkipResult7 == std::tuple{});
   static_assert(std::is_same_v<decltype(kSkipResult7), const std::tuple<>>);
   constexpr auto kSkipResult8 = ValuesToValues::SkipWhileWithTemporary(
-      kForEachTupleIn,
+      kForEachTupleTypeIn,
       kMeta<42>,
       kMeta<[]<typename T>(int& count, const int* kExtraArg1, const int* kExtraArg2) {
         CHECK_EQ(1 / sizeof(T) + 42, count++);
@@ -997,11 +1679,11 @@ constexpr bool TestFunc() {
         return std::is_same_v<T, const int&>;
       },
                                 &kForEachInt1,
-                                &kForEachInt2>(kForEachTupleIn);
+                                &kForEachInt2>(kForEachTupleTypeIn);
   static_assert(kSkipResult9 == std::tuple{'A'});
   static_assert(std::is_same_v<decltype(kSkipResult9), const std::tuple<char>>);
   constexpr auto kSkipResult10 =
-      ValuesToValues::SkipWhile(kForEachTupleIn,
+      ValuesToValues::SkipWhile(kForEachTupleTypeIn,
                                 kMeta<[]<typename T>(const int* kExtraArg1, const int* kExtraArg2) {
                                   CHECK_EQ(kExtraArg1, &kForEachInt1);
                                   CHECK_EQ(kExtraArg2, &kForEachInt2);
@@ -1020,11 +1702,11 @@ constexpr bool TestFunc() {
         return std::is_same_v<T, const int&>;
       },
       &kForEachInt1,
-      &kForEachInt2>(kForEachTupleIn);
+      &kForEachInt2>(kForEachTupleTypeIn);
   static_assert(kSkipResult11 == std::tuple{'A'});
   static_assert(std::is_same_v<decltype(kSkipResult11), const std::tuple<char>>);
   constexpr auto kSkipResult12 = ValuesToValues::SkipWhileWithTemporary(
-      kForEachTupleIn,
+      kForEachTupleTypeIn,
       kMeta<42>,
       kMeta<[]<typename T>(int& count, const int* kExtraArg1, const int* kExtraArg2) {
         CHECK_EQ(1 / sizeof(T) + 42, count++);
@@ -1045,11 +1727,11 @@ constexpr bool TestFunc() {
         return std::is_same_v<T, const int&>;
       },
       &kForEachInt1,
-      &kForEachInt2>(kForEachTupleIn);
+      &kForEachInt2>(kForEachTupleTypeIn);
   static_assert(kSkipResult13 == std::tuple{'A'});
   static_assert(std::is_same_v<decltype(kSkipResult13), const std::tuple<char>>);
   constexpr auto kSkipResult14 = ValuesToValues::SkipWhileWithTemporary<std::size_t>(
-      kForEachTupleIn,
+      kForEachTupleTypeIn,
       kMeta<[]<typename T>(std::size_t& count, const int* kExtraArg1, const int* kExtraArg2) {
         CHECK_EQ(1 / sizeof(T), count++);
         CHECK_EQ(kExtraArg1, &kForEachInt1);
@@ -1068,11 +1750,11 @@ constexpr bool TestFunc() {
         return std::is_same_v<T, char>;
       },
                                 &kForEachInt1,
-                                &kForEachInt2>(kForEachTupleIn);
+                                &kForEachInt2>(kForEachTupleTypeIn);
   static_assert(kSkipResult15 == std::tuple{kForEachInt1, 'A'});
   static_assert(std::is_same_v<decltype(kSkipResult15), const std::tuple<const int&, char>>);
   constexpr auto kSkipResult16 =
-      ValuesToValues::SkipWhile(kForEachTupleIn,
+      ValuesToValues::SkipWhile(kForEachTupleTypeIn,
                                 kMeta<[]<typename T>(const int* kExtraArg1, const int* kExtraArg2) {
                                   CHECK_EQ(kExtraArg1, &kForEachInt1);
                                   CHECK_EQ(kExtraArg2, &kForEachInt2);
@@ -1091,11 +1773,11 @@ constexpr bool TestFunc() {
         return std::is_same_v<T, char>;
       },
       &kForEachInt1,
-      &kForEachInt2>(kForEachTupleIn);
+      &kForEachInt2>(kForEachTupleTypeIn);
   static_assert(kSkipResult17 == std::tuple{kForEachInt1, 'A'});
   static_assert(std::is_same_v<decltype(kSkipResult17), const std::tuple<const int&, char>>);
   constexpr auto kSkipResult18 = ValuesToValues::SkipWhileWithTemporary<std::size_t>(
-      kForEachTupleIn,
+      kForEachTupleTypeIn,
       kMeta<[]<typename T>(std::size_t& count, const int* kExtraArg1, const int* kExtraArg2) {
         CHECK_EQ(1 / sizeof(T), count++);
         CHECK_EQ(kExtraArg1, &kForEachInt1);
@@ -1115,11 +1797,11 @@ constexpr bool TestFunc() {
         return std::is_same_v<T, char>;
       },
       &kForEachInt1,
-      &kForEachInt2>(kForEachTupleIn);
+      &kForEachInt2>(kForEachTupleTypeIn);
   static_assert(kSkipResult19 == std::tuple{kForEachInt1, 'A'});
   static_assert(std::is_same_v<decltype(kSkipResult19), const std::tuple<const int&, char>>);
   constexpr auto kSkipResult20 = ValuesToValues::SkipWhileWithTemporary(
-      kForEachTupleIn,
+      kForEachTupleTypeIn,
       kMeta<42>,
       kMeta<[]<typename T>(int& count, const int* kExtraArg1, const int* kExtraArg2) {
         CHECK_EQ(1 / sizeof(T) + 42, count++);
@@ -1133,10 +1815,10 @@ constexpr bool TestFunc() {
   static_assert(std::is_same_v<decltype(kSkipResult20), const std::tuple<const int&, char>>);
 
   // Take 1 element.
-  constexpr auto kTakeResult1 = ValuesToValues::Take<1>(kForEachTupleIn);
+  constexpr auto kTakeResult1 = ValuesToValues::Take<1>(kForEachTupleTypeIn);
   static_assert(kTakeResult1 == std::tuple{kForEachInt1});
   static_assert(std::is_same_v<decltype(kTakeResult1), const std::tuple<const int&>>);
-  constexpr auto kTakeResult2 = ValuesToValues::Take(kForEachTupleIn, kMeta<1>);
+  constexpr auto kTakeResult2 = ValuesToValues::Take(kForEachTupleTypeIn, kMeta<1>);
   static_assert(kTakeResult2 == std::tuple{kForEachInt1});
   static_assert(std::is_same_v<decltype(kTakeResult2), const std::tuple<const int&>>);
   // Take char (none, first one doesn't match).
@@ -1147,11 +1829,11 @@ constexpr bool TestFunc() {
         return std::is_same_v<T, char>;
       },
                                 &kForEachInt1,
-                                &kForEachInt2>(kForEachTupleIn);
+                                &kForEachInt2>(kForEachTupleTypeIn);
   static_assert(kTakeResult3 == std::tuple{});
   static_assert(std::is_same_v<decltype(kTakeResult3), const std::tuple<>>);
   constexpr auto kTakeResult4 =
-      ValuesToValues::TakeWhile(kForEachTupleIn,
+      ValuesToValues::TakeWhile(kForEachTupleTypeIn,
                                 kMeta<[]<typename T>(const int* kExtraArg1, const int* kExtraArg2) {
                                   CHECK_EQ(kExtraArg1, &kForEachInt1);
                                   CHECK_EQ(kExtraArg2, &kForEachInt2);
@@ -1170,11 +1852,11 @@ constexpr bool TestFunc() {
         return std::is_same_v<T, char>;
       },
       &kForEachInt1,
-      &kForEachInt2>(kForEachTupleIn);
+      &kForEachInt2>(kForEachTupleTypeIn);
   static_assert(kTakeResult5 == std::tuple{});
   static_assert(std::is_same_v<decltype(kTakeResult5), const std::tuple<>>);
   constexpr auto kTakeResult6 = ValuesToValues::TakeWhileWithTemporary<std::size_t>(
-      kForEachTupleIn,
+      kForEachTupleTypeIn,
       kMeta<[]<typename T>(std::size_t& count, const int* kExtraArg1, const int* kExtraArg2) {
         CHECK_EQ(1 / sizeof(T), count++);
         CHECK_EQ(kExtraArg1, &kForEachInt1);
@@ -1194,11 +1876,11 @@ constexpr bool TestFunc() {
         return std::is_same_v<T, char>;
       },
       &kForEachInt1,
-      &kForEachInt2>(kForEachTupleIn);
+      &kForEachInt2>(kForEachTupleTypeIn);
   static_assert(kTakeResult7 == std::tuple{});
   static_assert(std::is_same_v<decltype(kTakeResult7), const std::tuple<>>);
   constexpr auto kTakeResult8 = ValuesToValues::TakeWhileWithTemporary(
-      kForEachTupleIn,
+      kForEachTupleTypeIn,
       kMeta<42>,
       kMeta<[]<typename T>(int& count, const int* kExtraArg1, const int* kExtraArg2) {
         CHECK_EQ(1 / sizeof(T) + 42, count++);
@@ -1218,11 +1900,11 @@ constexpr bool TestFunc() {
         return std::is_same_v<T, const int&>;
       },
                                 &kForEachInt1,
-                                &kForEachInt2>(kForEachTupleIn);
+                                &kForEachInt2>(kForEachTupleTypeIn);
   static_assert(kTakeResult9 == std::tuple{kForEachInt1});
   static_assert(std::is_same_v<decltype(kTakeResult9), const std::tuple<const int&>>);
   constexpr auto kTakeResult10 =
-      ValuesToValues::TakeWhile(kForEachTupleIn,
+      ValuesToValues::TakeWhile(kForEachTupleTypeIn,
                                 kMeta<[]<typename T>(const int* kExtraArg1, const int* kExtraArg2) {
                                   CHECK_EQ(kExtraArg1, &kForEachInt1);
                                   CHECK_EQ(kExtraArg2, &kForEachInt2);
@@ -1241,11 +1923,11 @@ constexpr bool TestFunc() {
         return std::is_same_v<T, const int&>;
       },
       &kForEachInt1,
-      &kForEachInt2>(kForEachTupleIn);
+      &kForEachInt2>(kForEachTupleTypeIn);
   static_assert(kTakeResult11 == std::tuple{kForEachInt1});
   static_assert(std::is_same_v<decltype(kTakeResult11), const std::tuple<const int&>>);
   constexpr auto kTakeResult12 = ValuesToValues::TakeWhileWithTemporary<std::size_t>(
-      kForEachTupleIn,
+      kForEachTupleTypeIn,
       kMeta<[]<typename T>(std::size_t& count, const int* kExtraArg1, const int* kExtraArg2) {
         CHECK_EQ(1 / sizeof(T), count++);
         CHECK_EQ(kExtraArg1, &kForEachInt1);
@@ -1265,11 +1947,11 @@ constexpr bool TestFunc() {
         return std::is_same_v<T, const int&>;
       },
       &kForEachInt1,
-      &kForEachInt2>(kForEachTupleIn);
+      &kForEachInt2>(kForEachTupleTypeIn);
   static_assert(kTakeResult13 == std::tuple{kForEachInt1});
   static_assert(std::is_same_v<decltype(kTakeResult13), const std::tuple<const int&>>);
   constexpr auto kTakeResult14 = ValuesToValues::TakeWhileWithTemporary(
-      kForEachTupleIn,
+      kForEachTupleTypeIn,
       kMeta<42>,
       kMeta<[]<typename T>(int& count, const int* kExtraArg1, const int* kExtraArg2) {
         CHECK_EQ(1 / sizeof(T) + 42, count++);
@@ -1289,11 +1971,11 @@ constexpr bool TestFunc() {
         return true;
       },
                                 &kForEachInt1,
-                                &kForEachInt2>(kForEachTupleIn);
+                                &kForEachInt2>(kForEachTupleTypeIn);
   static_assert(kTakeResult15 == std::tuple{kForEachInt1, 'A'});
   static_assert(std::is_same_v<decltype(kTakeResult15), const std::tuple<const int&, char>>);
   constexpr auto kTakeResult16 =
-      ValuesToValues::TakeWhile(kForEachTupleIn,
+      ValuesToValues::TakeWhile(kForEachTupleTypeIn,
                                 kMeta<[]<typename T>(const int* kExtraArg1, const int* kExtraArg2) {
                                   CHECK_EQ(kExtraArg1, &kForEachInt1);
                                   CHECK_EQ(kExtraArg2, &kForEachInt2);
@@ -1312,11 +1994,11 @@ constexpr bool TestFunc() {
         return true;
       },
       &kForEachInt1,
-      &kForEachInt2>(kForEachTupleIn);
+      &kForEachInt2>(kForEachTupleTypeIn);
   static_assert(kTakeResult17 == std::tuple{kForEachInt1, 'A'});
   static_assert(std::is_same_v<decltype(kTakeResult17), const std::tuple<const int&, char>>);
   constexpr auto kTakeResult18 = ValuesToValues::TakeWhileWithTemporary<std::size_t>(
-      kForEachTupleIn,
+      kForEachTupleTypeIn,
       kMeta<[]<typename T>(std::size_t& count, const int* kExtraArg1, const int* kExtraArg2) {
         CHECK_EQ(1 / sizeof(T), count++);
         CHECK_EQ(kExtraArg1, &kForEachInt1);
@@ -1336,11 +2018,11 @@ constexpr bool TestFunc() {
         return true;
       },
       &kForEachInt1,
-      &kForEachInt2>(kForEachTupleIn);
+      &kForEachInt2>(kForEachTupleTypeIn);
   static_assert(kTakeResult19 == std::tuple{kForEachInt1, 'A'});
   static_assert(std::is_same_v<decltype(kTakeResult19), const std::tuple<const int&, char>>);
   constexpr auto kTakeResult20 = ValuesToValues::TakeWhileWithTemporary(
-      kForEachTupleIn,
+      kForEachTupleTypeIn,
       kMeta<42>,
       kMeta<[]<typename T>(int& count, const int* kExtraArg1, const int* kExtraArg2) {
         CHECK_EQ(1 / sizeof(T) + 42, count++);
@@ -1353,8 +2035,21 @@ constexpr bool TestFunc() {
   static_assert(kTakeResult20 == std::tuple{kForEachInt1, 'A'});
   static_assert(std::is_same_v<decltype(kTakeResult20), const std::tuple<const int&, char>>);
 
+  static_assert(ValuesToValues::Zip(TupleType{'a', 3.00}) ==
+                std::tuple{std::tuple{'a'}, std::tuple{3.00}});
   static_assert(ValuesToValues::Zip(std::array{2, 42}, TupleType{'a', 3.00}) ==
                 std::tuple{std::pair{2, 'a'}, std::pair{42, 3.00}});
+  static_assert(
+      ValuesToValues::Zip(std::array{2, 42}, TupleType{'a', 3.00}, TupleType{true, 1ULL}) ==
+      std::tuple{std::tuple{2, 'a', true}, std::tuple{42, 3.00, 1ULL}});
+
+  static_assert(ValuesToValues::ZipShortest(TupleType{'a', 3.00}) ==
+                std::tuple{std::tuple{'a'}, std::tuple{3.00}});
+  static_assert(ValuesToValues::ZipShortest(std::array{2}, TupleType{'a', 3.00}) ==
+                std::tuple<std::pair<int, char>>{std::pair{2, 'a'}});
+  static_assert(
+      ValuesToValues::ZipShortest(std::array{2}, TupleType{'a', 3.00}, TupleType{true, 1ULL}) ==
+      std::tuple<std::tuple<int, char, bool>>{std::tuple{2, 'a', true}});
 
   return true;
 }

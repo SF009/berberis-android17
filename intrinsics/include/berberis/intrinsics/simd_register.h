@@ -38,15 +38,16 @@ template <typename T>
 constexpr T SIMD128RegisterSet(SIMD128Register* reg, T elem, int index) = delete;
 
 #if defined(__GNUC__)
-using Int8x16 = signed char __attribute__((__vector_size__(16), may_alias));
-using UInt8x16 = unsigned char __attribute__((__vector_size__(16), may_alias));
-using Int16x8 = short __attribute__((__vector_size__(16), may_alias));
-using UInt16x8 = unsigned short __attribute__((__vector_size__(16), may_alias));
-using Int32x4 = int __attribute__((__vector_size__(16), may_alias));
-using UInt32x4 = unsigned int __attribute__((__vector_size__(16), may_alias));
-using UInt64x2 = unsigned long long __attribute__((__vector_size__(16), may_alias));
-using Float64x2 = double __attribute__((__vector_size__(16), may_alias));
+using Int8x16 = signed char __attribute__((__vector_size__(16), __aligned__(16), may_alias));
+using UInt8x16 = unsigned char __attribute__((__vector_size__(16), __aligned__(16), may_alias));
+using Int16x8 = short __attribute__((__vector_size__(16), __aligned__(16), may_alias));
+using UInt16x8 = unsigned short __attribute__((__vector_size__(16), __aligned__(16), may_alias));
+using Int32x4 = int __attribute__((__vector_size__(16), __aligned__(16), may_alias));
+using UInt32x4 = unsigned int __attribute__((__vector_size__(16), __aligned__(16), may_alias));
 using Int64x2 = long long __attribute__((__vector_size__(16), __aligned__(16), may_alias));
+using UInt64x2 =
+    unsigned long long __attribute__((__vector_size__(16), __aligned__(16), may_alias));
+using Float64x2 = double __attribute__((__vector_size__(16), __aligned__(16), may_alias));
 using Float32x4 = float __attribute__((__vector_size__(16), __aligned__(16), may_alias));
 
 // Forward declaration for operator==(SIMD128Register, SIMD128Register)
@@ -126,9 +127,9 @@ class SIMD128Register {
   constexpr SIMD128Register(UInt16x8 elem) : uint16{} { Set(elem); }
   constexpr SIMD128Register(Int32x4 elem) : int32{} { Set(elem); }
   constexpr SIMD128Register(UInt32x4 elem) : uint32{} { Set(elem); }
+  constexpr SIMD128Register(Int64x2 elem) : int64{} { Set(elem); }
   constexpr SIMD128Register(UInt64x2 elem) : uint64{} { Set(elem); }
   constexpr SIMD128Register(Float64x2 elem) : float64{} { Set(elem); }
-  constexpr SIMD128Register(Int64x2 elem) : int64{} { Set(elem); }
   constexpr SIMD128Register(Float32x4 elem) : float32{} { Set(elem); }
 #endif
 
@@ -410,9 +411,9 @@ SIMD_128_FULL_REGISTER_GETTER_SETTER(Int16x8, int16);
 SIMD_128_FULL_REGISTER_GETTER_SETTER(UInt16x8, uint16);
 SIMD_128_FULL_REGISTER_GETTER_SETTER(Int32x4, int32);
 SIMD_128_FULL_REGISTER_GETTER_SETTER(UInt32x4, uint32);
+SIMD_128_FULL_REGISTER_GETTER_SETTER(Int64x2, int64);
 SIMD_128_FULL_REGISTER_GETTER_SETTER(UInt64x2, uint64);
 SIMD_128_FULL_REGISTER_GETTER_SETTER(Float64x2, float64);
-SIMD_128_FULL_REGISTER_GETTER_SETTER(Int64x2, int64);
 SIMD_128_FULL_REGISTER_GETTER_SETTER(Float32x4, float32);
 #endif
 SIMD_128_FLOAT_REGISTER_GETTER_SETTER(intrinsics::Float16, _Float16, float16);

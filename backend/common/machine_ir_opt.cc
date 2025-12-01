@@ -24,17 +24,6 @@
 
 namespace berberis {
 
-// Remove those PSEUDO_COPY instructions with identical source and
-// destination operands.
-void RemoveNopPseudoCopy(MachineIR* machine_ir) {
-  for (auto* machine_bb : machine_ir->bb_list()) {
-    machine_bb->insn_list().remove_if([](MachineInsn* machine_insn) {
-      return machine_insn->opcode() == Copy::kOpcode &&
-             machine_insn->RegAt(0) == machine_insn->RegAt(1);
-    });
-  }
-}
-
 // Remove forwarder blocks, those basic blocks that contain nothing
 // but unconditional jumps.  Jumps to those forwarder blocks are
 // redirected to their respective final destinations.

@@ -201,7 +201,6 @@ filegroup {
         "common/reg_alloc_test.cc",
         "x86_64/context_liveness_analyzer_test.cc",
         "x86_64/insn_folding_test.cc",
-        "x86_64/intrinsic_call_test.cc",
         "x86_64/liveness_analyzer_test.cc",
         "x86_64/local_guest_context_optimizer_test.cc",
         "x86_64/loop_guest_context_optimizer_test.cc",

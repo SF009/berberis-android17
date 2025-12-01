@@ -232,8 +232,9 @@ TEST(MachineIRRemoveDeadCodeTest, CallImmIsLive) {
   x86_64::MachineIRBuilder builder(&machine_ir);
 
   builder.StartBasicBlock(bb);
-  builder.GenIntrinsicCall(
-      static_cast<void (*)(uint64_t)>(nullptr), machine_ir.AllocVReg(), {machine_ir.AllocVReg()});
+  builder.GenCallImm(static_cast<void (*)(uint64_t)>(nullptr),
+                     machine_ir.AllocVReg(),
+                     std::tuple{machine_ir.AllocVReg()});
   builder.Gen<Jump>(kNullGuestAddr);
 
   EXPECT_EQ(bb->insn_list().size(), 3UL);
@@ -934,7 +935,7 @@ TEST(MachineIR, RemoveConsecutiveForwarderBlocks) {
   builder.Gen<Jump>(kNullGuestAddr);
 
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
-  RemoveNopPseudoCopy(&machine_ir);
+  RemoveNopPseudoCopyAndMovq(&machine_ir);
   x86_64::RemoveForwarderBlocks(&machine_ir);
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
 
@@ -973,7 +974,7 @@ TEST(MachineIR, RemoveConsecutiveForwarderBlocks) {
 }
 
 TEST(MachineIR, RemoveNopPseudoCopy) {
-  // Verify that RemoveNopPseudoCopy removes PseudoCopy instructions
+  // Verify that RemoveNopPseudoCopyAndMovq removes PseudoCopy instructions
   // with identical source and destination operands while retaining
   // all other instructions.
 
@@ -988,7 +989,7 @@ TEST(MachineIR, RemoveNopPseudoCopy) {
   builder.Gen<Jump>(kNullGuestAddr);
 
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
-  RemoveNopPseudoCopy(&machine_ir);
+  RemoveNopPseudoCopyAndMovq(&machine_ir);
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
 
   // Verify that we have exactly one basic block.
@@ -1000,10 +1001,48 @@ TEST(MachineIR, RemoveNopPseudoCopy) {
 
   auto insn_it = bb0->insn_list().begin();
 
-  // Verify that the first instruction is PseudoCopy that copies ECX
-  // to EBX.
+  // Verify that the first instruction is PseudoCopy that copies ECX to EBX.
   MachineInsn* insn0 = *insn_it;
   EXPECT_EQ(kMachineOpCopy, insn0->opcode());
+  EXPECT_EQ(kMachineRegRBX, insn0->RegAt(0));
+  EXPECT_EQ(kMachineRegRCX, insn0->RegAt(1));
+
+  // Verify that the next instruction is PseudoJump.
+  MachineInsn* insn1 = *(++insn_it);
+  EXPECT_EQ(kMachineOpJump, insn1->opcode());
+}
+
+TEST(MachineIR, RemoveNopMovq) {
+  // Verify that RemoveNopPseudoCopyAndMovq removes Movq instructions
+  // with identical source and destination operands while retaining
+  // all other instructions.
+
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+  auto* bb0 = machine_ir.NewBasicBlock();
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  builder.StartBasicBlock(bb0);
+  builder.Gen<x86_64::MovqRegReg>(kMachineRegRAX, kMachineRegRAX);
+  builder.Gen<x86_64::MovqRegReg>(kMachineRegRBX, kMachineRegRCX);
+  builder.Gen<Jump>(kNullGuestAddr);
+
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+  RemoveNopPseudoCopyAndMovq(&machine_ir);
+  EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+
+  // Verify that we have exactly one basic block.
+  EXPECT_EQ(1u, machine_ir.bb_list().size());
+
+  // Verify that bb0 contains exactly two instructions.
+  EXPECT_EQ(bb0, machine_ir.bb_list().front());
+  EXPECT_EQ(2u, bb0->insn_list().size());
+
+  auto insn_it = bb0->insn_list().begin();
+
+  // Verify that the first instruction is Movq that moves RCX to RBX.
+  MachineInsn* insn0 = *insn_it;
+  EXPECT_EQ(kMachineOpMovqRegReg, insn0->opcode());
   EXPECT_EQ(kMachineRegRBX, insn0->RegAt(0));
   EXPECT_EQ(kMachineRegRCX, insn0->RegAt(1));
 
