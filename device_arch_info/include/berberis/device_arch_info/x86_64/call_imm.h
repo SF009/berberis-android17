@@ -152,26 +152,15 @@ class ResultRegisterTypesHelper {
   }
 };
 
-template <typename MacroAssemblers>
-inline void DynamicEmit(MacroAssemblers& as, int64_t func_addr) {
-  // Note that a call to AVX-compiled code may touch YMM bits above 128, which
-  // would require `vzeroupper` before we come back to generated code. This is
-  // to make sure there is no performance penalty. ABI requires such `vzeroupper`s
-  // done by the callee unless the result in returned in full YMM register.
-  // Since we don't support full YMM results here, we don't need extra
-  // `vzeroupper`s here.
-  as.Call(bit_cast<void*>(func_addr));
-}
-
 template <auto kFunction, typename MacroAssemblers>
-inline void StaticEmit(MacroAssemblers& as) {
+inline void Emit(MacroAssemblers& as) {
   // Note that a call to AVX-compiled code may touch YMM bits above 128, which
   // would require `vzeroupper` before we come back to generated code. This is
   // to make sure there is no performance penalty. ABI requires such `vzeroupper`s
   // done by the callee unless the result in returned in full YMM register.
   // Since we don't support full YMM results here, we don't need extra
   // `vzeroupper`s here.
-  as.Call(bit_cast<void*>(kFunction));
+  as.Call(bit_cast<const void*>(kFunction));
 }
 
 }  // namespace call_imm_impl
@@ -273,16 +262,21 @@ class CallImm<kFunction> {
   class MachineInsn {
    public:
     using DeviceInsnInfo = DeviceInsnInfo<
-        std::conditional_t<kDynamicFunction,
-                           MetaValue<call_imm_impl::DynamicEmit<MacroAssemblers>>,
-                           MetaValue<call_imm_impl::StaticEmit<kFunction, MacroAssemblers>>>{},
+        std::conditional_t<
+            kDynamicFunction,
+            MetaValue<static_cast<void (
+                std::tuple_element_t<1, typename MacroAssemblers::Assemblers>::*)(const void*)>(
+                &std::tuple_element_t<1, typename MacroAssemblers::Assemblers>::Call)>,
+            MetaValue<call_imm_impl::Emit<kFunction, MacroAssemblers>>>::kValue,
         "CALL",
         true,
         []<typename Opcode> { return Opcode::kMachineOpCallImm; },
         NoCPUIDRestriction,
         TypesToTypes::Concat<
-            std::
-                conditional_t<kDynamicFunction, std::tuple<OperandInfo<Imm64, kUse>>, std::tuple<>>,
+            std::tuple<OperandInfo<Comment, kUse>>,
+            std::conditional_t<kDynamicFunction,
+                               std::tuple<OperandInfo<ImmPCode, kUse>>,
+                               std::tuple<>>,
             TypesToTypes::Map<ResultRegisters,
                               []<typename RegisterClass>(RegisterClass) {
                                 return OperandInfo<RegisterClass, kDef>{};
