@@ -467,12 +467,15 @@ class HeavyOptimizerFrontend {
 
   // public for tests.
   template <typename FunctionType, typename... AssemblerArgType>
-  auto CallIntrinsic(FunctionType func_ptr, AssemblerArgType... args) -> std::array<
-      MachineReg,
-      std::size(x86_64::CallImm<static_cast<FunctionType>(nullptr)>::kResultsElements)>;
+  auto CallIntrinsic(FunctionType func_ptr, const char* func_name, AssemblerArgType... args)
+      -> std::array<
+          MachineReg,
+          std::size(x86_64::CallImm<static_cast<FunctionType>(nullptr)>::kResultsElements)>;
 
  private:
-  template <auto kFunction, typename AssemblerResType = void, typename... AssemblerArgType>
+  template <auto kFunction,
+            StringLiteral kFunctionName = kGetTemplateName<MetaValue<kFunction>>,
+            typename... AssemblerArgType>
   auto CallIntrinsic(AssemblerArgType... args) {
     using CallImm = x86_64::CallImm<static_cast<decltype(kFunction)>(nullptr)>;
     typename CallImm::template ResultRegiesterTypes<MachineReg, FpRegister> result;
@@ -488,8 +491,17 @@ class HeavyOptimizerFrontend {
       }
     }
 
+    const char* func_name = nullptr;
+    if constexpr (config::kPrintCallIntrinsicNamesMode == config::kPrintCallIntrinsicStemNames &&
+                  !std::is_same_v<decltype(kFunctionName), StringLiteral<0>>) {
+      func_name = kMemoizedValue<StringLiteral{kGetTemplateName<MetaValue<kFunction>>}>;
+    } else if constexpr (config::kPrintCallIntrinsicNamesMode ==
+                             config::kPrintCallIntrinsicFullNames &&
+                         !std::is_same_v<decltype(kFunctionName), StringLiteral<0>>) {
+      func_name = kMemoizedValue<kFunctionName>;
+    }
     auto call_result = CallIntrinsic<decltype(kFunction), AssemblerArgType...>(
-        kFunction, std::forward<AssemblerArgType>(args)...);
+        kFunction, func_name, std::forward<AssemblerArgType>(args)...);
     if constexpr (std::size(CallImm::kResultsElements)) {
       result = TypesToValues::MapWithTemporary<typename CallImm::CleanRetType,
                                                /* index = */ std::size_t>(
@@ -650,7 +662,9 @@ class HeavyOptimizerFrontend {
 };
 
 template <typename FunctionType, typename... AssemblerArgType>
-auto HeavyOptimizerFrontend::CallIntrinsic(FunctionType func_ptr, AssemblerArgType... args)
+auto HeavyOptimizerFrontend::CallIntrinsic(FunctionType func_ptr,
+                                           const char* func_name,
+                                           AssemblerArgType... args)
     -> std::array<
         MachineReg,
         std::size(x86_64::CallImm<static_cast<FunctionType>(nullptr)>::kResultsElements)> {
@@ -674,13 +688,15 @@ auto HeavyOptimizerFrontend::CallIntrinsic(FunctionType func_ptr, AssemblerArgTy
                       return std::tuple{};
                     }
                   }),
-              ValuesToValues::Map(std::tuple{args...}, []<typename ArgType>(ArgType arg) {
-                if constexpr (std::is_same_v<ArgType, SimdReg>) {
-                  return arg.machine_reg();
-                } else {
-                  return arg;
-                }
-              }))));
+              ValuesToValues::Map(std::tuple{args...},
+                                  []<typename ArgType>(ArgType arg) {
+                                    if constexpr (std::is_same_v<ArgType, SimdReg>) {
+                                      return arg.machine_reg();
+                                    } else {
+                                      return arg;
+                                    }
+                                  })),
+          func_name));
 
   auto result = ValuesToValues::ToArray<MachineReg>(
       TypesToValues::FlatMap<TypesToTypes::Enumerate<typename CallImm::CleanRetType>>(

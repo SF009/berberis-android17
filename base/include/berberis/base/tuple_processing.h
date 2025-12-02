@@ -42,6 +42,14 @@ class MetaValue {
 template <auto kValueParam>
 constexpr MetaValue<kValueParam> kMeta = MetaValue<kValueParam>{};
 
+// Sometimes we need an address of variable (e.g. function name) that's passed to a template
+// function by value. We can create static constexpr in the function, but then all these different
+// static variables have different addresses and may bloat the resulting binary. Use of memoization
+// ( https://en.wikipedia.org/wiki/Memoization ) allows us to keep addresses identical which then
+// permits linker to merge these functions.
+template <auto kValue>
+inline constexpr auto kMemoizedValue = kValue;
+
 #pragma push_macro("DEFINE_VALUE_OPERATOR")
 #undef DEFINE_VALUE_OPERATOR
 #define DEFINE_VALUE_OPERATOR(operator_name)                                             \

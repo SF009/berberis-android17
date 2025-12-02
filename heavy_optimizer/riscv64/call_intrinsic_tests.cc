@@ -70,69 +70,74 @@ class HeavyOptimizerCallIntrinsicTest : public ::testing::Test {
   HeavyOptimizerFrontend frontend_;
 };
 
-#define DEFINE_CALL_INTRINSIC_INT_TEST(IntType)                                               \
-  TEST_F(HeavyOptimizerCallIntrinsicTest, CallIntrinsic_##IntType) {                          \
-    auto [result] = frontend_.CallIntrinsic(                                                  \
-        +[]() -> IntType { return static_cast<IntType>(0xaaaa'aaaa'aaaa'aaaa); });            \
-                                                                                              \
-    frontend_.SetReg(3, result);                                                              \
-                                                                                              \
-    RunOneInsn();                                                                             \
-    EXPECT_EQ(state_.cpu.x[3], ExpectedResult<IntType>(0xaaaa'aaaa'aaaa'aaaa));               \
-  }                                                                                           \
-                                                                                              \
-  TEST_F(HeavyOptimizerCallIntrinsicTest, CallIntrinsic_##IntType##_x2) {                     \
-    auto [result1, result2] = frontend_.CallIntrinsic(+[]() -> std::tuple<IntType, IntType> { \
-      return {static_cast<IntType>(0xaaaa'aaaa'aaaa'aaaa),                                    \
-              static_cast<IntType>(0xbbbb'bbbb'bbbb'bbbb)};                                   \
-    });                                                                                       \
-                                                                                              \
-    frontend_.SetReg(3, result1);                                                             \
-    frontend_.SetReg(4, result2);                                                             \
-                                                                                              \
-    RunOneInsn();                                                                             \
-    EXPECT_EQ(state_.cpu.x[3], ExpectedResult<IntType>(0xaaaa'aaaa'aaaa'aaaa));               \
-    EXPECT_EQ(state_.cpu.x[4], ExpectedResult<IntType>(0xbbbb'bbbb'bbbb'bbbb));               \
-  }                                                                                           \
-                                                                                              \
-  TEST_F(HeavyOptimizerCallIntrinsicTest, CallIntrinsic_##IntType##_x3) {                     \
-    auto [result1, result2, result3] =                                                        \
-        frontend_.CallIntrinsic(+[]() -> std::tuple<uint64_t, uint64_t, IntType> {            \
-          return {0xaaaa'aaaa'aaaa'aaaa,                                                      \
-                  0xbbbb'bbbb'bbbb'bbbb,                                                      \
-                  static_cast<IntType>(0xcccc'cccc'cccc'cccc)};                               \
-        });                                                                                   \
-                                                                                              \
-    frontend_.SetReg(3, result1);                                                             \
-    frontend_.SetReg(4, result2);                                                             \
-    ;                                                                                         \
-    frontend_.SetReg(5, result3);                                                             \
-                                                                                              \
-    RunOneInsn();                                                                             \
-    EXPECT_EQ(state_.cpu.x[3], 0xaaaa'aaaa'aaaa'aaaa);                                        \
-    EXPECT_EQ(state_.cpu.x[4], 0xbbbb'bbbb'bbbb'bbbb);                                        \
-    EXPECT_EQ(state_.cpu.x[5], ExpectedResult<IntType>(0xcccc'cccc'cccc'cccc));               \
-  }                                                                                           \
-                                                                                              \
-  TEST_F(HeavyOptimizerCallIntrinsicTest, CallIntrinsic_##IntType##_x4) {                     \
-    auto [result1, result2, result3, result4] =                                               \
-        frontend_.CallIntrinsic(+[]() -> std::tuple<uint64_t, uint64_t, IntType, IntType> {   \
-          return {0xaaaa'aaaa'aaaa'aaaa,                                                      \
-                  0xbbbb'bbbb'bbbb'bbbb,                                                      \
-                  static_cast<IntType>(0xcccc'cccc'cccc'cccc),                                \
-                  static_cast<IntType>(0xdddd'dddd'dddd'dddd)};                               \
-        });                                                                                   \
-                                                                                              \
-    frontend_.SetReg(3, result1);                                                             \
-    frontend_.SetReg(4, result2);                                                             \
-    frontend_.SetReg(5, result3);                                                             \
-    frontend_.SetReg(6, result4);                                                             \
-                                                                                              \
-    RunOneInsn();                                                                             \
-    EXPECT_EQ(state_.cpu.x[3], 0xaaaa'aaaa'aaaa'aaaa);                                        \
-    EXPECT_EQ(state_.cpu.x[4], 0xbbbb'bbbb'bbbb'bbbb);                                        \
-    EXPECT_EQ(state_.cpu.x[5], ExpectedResult<IntType>(0xcccc'cccc'cccc'cccc));               \
-    EXPECT_EQ(state_.cpu.x[6], ExpectedResult<IntType>(0xdddd'dddd'dddd'dddd));               \
+#define DEFINE_CALL_INTRINSIC_INT_TEST(IntType)                                   \
+  TEST_F(HeavyOptimizerCallIntrinsicTest, CallIntrinsic_##IntType) {              \
+    auto [result] = frontend_.CallIntrinsic(                                      \
+        +[]() -> IntType { return static_cast<IntType>(0xaaaa'aaaa'aaaa'aaaa); }, \
+        "CallIntrinsicLambda" #IntType);                                          \
+                                                                                  \
+    frontend_.SetReg(3, result);                                                  \
+                                                                                  \
+    RunOneInsn();                                                                 \
+    EXPECT_EQ(state_.cpu.x[3], ExpectedResult<IntType>(0xaaaa'aaaa'aaaa'aaaa));   \
+  }                                                                               \
+                                                                                  \
+  TEST_F(HeavyOptimizerCallIntrinsicTest, CallIntrinsic_##IntType##_x2) {         \
+    auto [result1, result2] = frontend_.CallIntrinsic(                            \
+        +[]() -> std::tuple<IntType, IntType> {                                   \
+          return {static_cast<IntType>(0xaaaa'aaaa'aaaa'aaaa),                    \
+                  static_cast<IntType>(0xbbbb'bbbb'bbbb'bbbb)};                   \
+        },                                                                        \
+        "CallIntrinsicLambda" #IntType "x2");                                     \
+                                                                                  \
+    frontend_.SetReg(3, result1);                                                 \
+    frontend_.SetReg(4, result2);                                                 \
+                                                                                  \
+    RunOneInsn();                                                                 \
+    EXPECT_EQ(state_.cpu.x[3], ExpectedResult<IntType>(0xaaaa'aaaa'aaaa'aaaa));   \
+    EXPECT_EQ(state_.cpu.x[4], ExpectedResult<IntType>(0xbbbb'bbbb'bbbb'bbbb));   \
+  }                                                                               \
+                                                                                  \
+  TEST_F(HeavyOptimizerCallIntrinsicTest, CallIntrinsic_##IntType##_x3) {         \
+    auto [result1, result2, result3] = frontend_.CallIntrinsic(                   \
+        +[]() -> std::tuple<uint64_t, uint64_t, IntType> {                        \
+          return {0xaaaa'aaaa'aaaa'aaaa,                                          \
+                  0xbbbb'bbbb'bbbb'bbbb,                                          \
+                  static_cast<IntType>(0xcccc'cccc'cccc'cccc)};                   \
+        },                                                                        \
+        "CallIntrinsicLambda" #IntType "x3");                                     \
+                                                                                  \
+    frontend_.SetReg(3, result1);                                                 \
+    frontend_.SetReg(4, result2);                                                 \
+    ;                                                                             \
+    frontend_.SetReg(5, result3);                                                 \
+                                                                                  \
+    RunOneInsn();                                                                 \
+    EXPECT_EQ(state_.cpu.x[3], 0xaaaa'aaaa'aaaa'aaaa);                            \
+    EXPECT_EQ(state_.cpu.x[4], 0xbbbb'bbbb'bbbb'bbbb);                            \
+    EXPECT_EQ(state_.cpu.x[5], ExpectedResult<IntType>(0xcccc'cccc'cccc'cccc));   \
+  }                                                                               \
+                                                                                  \
+  TEST_F(HeavyOptimizerCallIntrinsicTest, CallIntrinsic_##IntType##_x4) {         \
+    auto [result1, result2, result3, result4] = frontend_.CallIntrinsic(          \
+        +[]() -> std::tuple<uint64_t, uint64_t, IntType, IntType> {               \
+          return {0xaaaa'aaaa'aaaa'aaaa,                                          \
+                  0xbbbb'bbbb'bbbb'bbbb,                                          \
+                  static_cast<IntType>(0xcccc'cccc'cccc'cccc),                    \
+                  static_cast<IntType>(0xdddd'dddd'dddd'dddd)};                   \
+        },                                                                        \
+        "CallIntrinsicLambda" #IntType "x4");                                     \
+                                                                                  \
+    frontend_.SetReg(3, result1);                                                 \
+    frontend_.SetReg(4, result2);                                                 \
+    frontend_.SetReg(5, result3);                                                 \
+    frontend_.SetReg(6, result4);                                                 \
+                                                                                  \
+    RunOneInsn();                                                                 \
+    EXPECT_EQ(state_.cpu.x[3], 0xaaaa'aaaa'aaaa'aaaa);                            \
+    EXPECT_EQ(state_.cpu.x[4], 0xbbbb'bbbb'bbbb'bbbb);                            \
+    EXPECT_EQ(state_.cpu.x[5], ExpectedResult<IntType>(0xcccc'cccc'cccc'cccc));   \
+    EXPECT_EQ(state_.cpu.x[6], ExpectedResult<IntType>(0xdddd'dddd'dddd'dddd));   \
   }
 
 // Determines what happens when source value is truncated to ResultType and then processed by
