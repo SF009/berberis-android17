@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "gtest/gtest.h"
+#include "berberis/base/tuple_processing.h"
 
 #include <array>
 #include <cstddef>
@@ -23,7 +23,6 @@
 #include <utility>
 
 #include "berberis/base/checks.h"
-#include "berberis/base/tuple_processing.h"
 
 namespace berberis {
 
