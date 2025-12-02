@@ -364,7 +364,9 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
                               }
                             });
 
-    builder_->Gen<x86_64::MachineInsn<typename IntrinsicBindingInfo::DeviceInsnInfo, x86_64::kSSA>>(
+    builder_->Gen<
+        x86_64::MachineInsn<typename IntrinsicBindingInfo::DeviceInsnInfo,
+                            x86_64::kForceSSA<typename IntrinsicBindingInfo::DeviceInsnInfo>>>(
         std::tuple_cat(UnwrapSimdReg(
             IntrinsicBindingInfo::template MakeTuplefromBindings<
                 TryBindingBasedInlineIntrinsicForHeavyOptimizer&>(*this, asm_call_info))));

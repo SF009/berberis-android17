@@ -605,9 +605,10 @@ class HeavyOptimizerFrontend {
       InputArgsTuple,
       typename x86_64::MachineInsn<
           typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,
-          x86_64::kSSA>::OutputArgsTuple,
+          x86_64::kForceSSA<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>>::
+          OutputArgsTuple,
       Gen,
-      x86_64::kSSA)
+      x86_64::kForceSSA<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>)
 
   static x86_64::Assembler::Condition ToAssemblerCond(Decoder::BranchOpcode opcode);
 
