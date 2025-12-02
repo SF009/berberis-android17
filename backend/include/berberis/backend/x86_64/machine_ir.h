@@ -774,67 +774,59 @@ constexpr auto MachineInsn<DeviceInsnInfo, kSSAMode>::GenMachineInsnInfo()
 template <typename DeviceInsnInfo, auto kSSAMode>
 constexpr auto MachineInsn<DeviceInsnInfo, kSSAMode>::GenX86Operands()
     -> std::array<X86Operand, std::tuple_size_v<typename DeviceInsnInfo::Operands>> {
-  if constexpr (std::tuple_size_v<typename DeviceInsnInfo::Operands> == 0) {
-    return std::array<X86Operand, 0>{};
-  } else {
-    return ToArray(TypesToValues::Map<typename DeviceInsnInfo::Operands>([]<typename Operand>() {
-      if constexpr (device_arch_info::kIsComment<Operand>) {
-        return X86Operand::kCondition;
-      } else if constexpr (device_arch_info::kIsCondition<Operand>) {
-        return X86Operand::kCondition;
-      } else if constexpr (device_arch_info::kIsImmediate<Operand>) {
-        return X86Operand::kImmediate;
-      } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
-        return X86Operand::kMemoryOperand;
-      } else if constexpr (kSSAMode == kSSA && device_arch_info::kIsImplicitReg<Operand> &&
-                           Operand::kUsage == device_arch_info::kUseDef) {
-        return X86Operand::kImplicitSSAUseDefRegisterOperand;
-      } else if constexpr (device_arch_info::kIsImplicitReg<Operand>) {
-        return X86Operand::kImplicitRegisterOperand;
-      } else if constexpr (kSSAMode == kSSA && device_arch_info::kIsRegister<Operand> &&
-                           Operand::kUsage == device_arch_info::kUseDef) {
-        return X86Operand::kSSAUseDefRegisterOperand;
-      } else if constexpr (device_arch_info::kIsRegister<Operand>) {
-        return X86Operand::kRegisterOperand;
-      } else {
-        static_assert(kDependentTypeFalse<Operand>);
-      }
-    }));
-  }
+  return ValuesToValues::ToArray<X86Operand>(
+      TypesToValues::Map<typename DeviceInsnInfo::Operands>([]<typename Operand>() {
+        if constexpr (device_arch_info::kIsComment<Operand>) {
+          return X86Operand::kComment;
+        } else if constexpr (device_arch_info::kIsCondition<Operand>) {
+          return X86Operand::kCondition;
+        } else if constexpr (device_arch_info::kIsImmediate<Operand>) {
+          return X86Operand::kImmediate;
+        } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
+          return X86Operand::kMemoryOperand;
+        } else if constexpr (kSSAMode == kSSA && device_arch_info::kIsImplicitReg<Operand> &&
+                             Operand::kUsage == device_arch_info::kUseDef) {
+          return X86Operand::kImplicitSSAUseDefRegisterOperand;
+        } else if constexpr (device_arch_info::kIsImplicitReg<Operand>) {
+          return X86Operand::kImplicitRegisterOperand;
+        } else if constexpr (kSSAMode == kSSA && device_arch_info::kIsRegister<Operand> &&
+                             Operand::kUsage == device_arch_info::kUseDef) {
+          return X86Operand::kSSAUseDefRegisterOperand;
+        } else if constexpr (device_arch_info::kIsRegister<Operand>) {
+          return X86Operand::kRegisterOperand;
+        } else {
+          static_assert(kDependentTypeFalse<Operand>);
+        }
+      }));
 }
 
 // Array that represents all possible values of memory operands Base+Index settings; eg it goes from
 // {false, false, false, false} to {true, true, true, true} for two memory operands.
 template <size_t kMemoryOperandsCount>
 inline constexpr auto kBaseIndexRegistersUsed =
-    ToArray(TypesToValues::Map<
+    ValuesToValues::ToArray<std::array<bool, 2 * kMemoryOperandsCount>>(
+        TypesToValues::Map<
             TypesToTypes::Indexes<std::array<std::monostate, 1 << (2 * kMemoryOperandsCount)>>>(
-        []<typename InfoIndex>() {
-          constexpr size_t kInfoIndex = InfoIndex{};
-          std::array<bool, 2 * kMemoryOperandsCount> result;
-          for (size_t index = 0, current_bit = 1; index < 2 * kMemoryOperandsCount;
-               ++index, current_bit <<= 1) {
-            result[index] = kInfoIndex & current_bit;
-          }
-          return result;
-        }));
+            []<typename InfoIndex>() {
+              constexpr size_t kInfoIndex = InfoIndex{};
+              std::array<bool, 2 * kMemoryOperandsCount> result;
+              for (size_t index = 0, current_bit = 1; index < 2 * kMemoryOperandsCount;
+                   ++index, current_bit <<= 1) {
+                result[index] = kInfoIndex & current_bit;
+              }
+              return result;
+            }));
 
 template <typename DeviceInsnInfo, auto kSSAMode>
 constexpr auto MachineInsn<DeviceInsnInfo, kSSAMode>::GenMachineInsnInfos()
     -> std::array<MachineInsn::MachineInsnInfo,
                   1 << (2 * device_arch_info::kCountMemoryOperands<OperandsTuple>)> {
-  if constexpr (device_arch_info::kCountMemoryOperands<OperandsTuple> == 0) {
-    // If memory operands count is zero then attempt to convert from std::tuple<> to array fails,
-    // because we don't have a type to deduce array elements types!
-    return {GenMachineInsnInfo<std::array<bool, 0>{}>()};
-  } else {
-    return ToArray(
-        TypesToValues::Map<ValuesToTypes::MetaValues<
-            &kBaseIndexRegistersUsed<device_arch_info::kCountMemoryOperands<OperandsTuple>>>>(
-            []<typename BaseIndexRegistersUsed> {
-              return GenMachineInsnInfo<BaseIndexRegistersUsed::kValue>();
-            }));
-  }
+  return ValuesToValues::ToArray<MachineInsn::MachineInsnInfo>(
+      TypesToValues::Map<ValuesToTypes::MetaValues<
+          &kBaseIndexRegistersUsed<device_arch_info::kCountMemoryOperands<OperandsTuple>>>>(
+          []<typename BaseIndexRegistersUsed> {
+            return GenMachineInsnInfo<BaseIndexRegistersUsed::kValue>();
+          }));
 }
 
 class MachineIR : public berberis::MachineIR {
