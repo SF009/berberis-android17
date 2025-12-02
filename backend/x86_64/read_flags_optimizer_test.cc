@@ -439,12 +439,12 @@ TEST(MachineIRReadFlagsOptimizer, GetInsnGen) {
   TestCopiedInstruction(
       &machine_ir, machine_ir.NewInsn<CmplRegImm>(machine_ir.AllocVReg(), 123, kMachineRegFLAGS));
   TestCopiedInstruction(&machine_ir,
-                        machine_ir.NewInsn<CmplRegReg, kNoSSA>(
+                        machine_ir.NewInsn<CmplRegReg>(
                             machine_ir.AllocVReg(), machine_ir.AllocVReg(), kMachineRegFLAGS));
   TestCopiedInstruction(
       &machine_ir, machine_ir.NewInsn<CmpqRegImm>(machine_ir.AllocVReg(), 123, kMachineRegFLAGS));
   TestCopiedInstruction(&machine_ir,
-                        machine_ir.NewInsn<CmpqRegReg, kNoSSA>(
+                        machine_ir.NewInsn<CmpqRegReg>(
                             machine_ir.AllocVReg(), machine_ir.AllocVReg(), kMachineRegFLAGS));
   TestCopiedInstruction(
       &machine_ir,

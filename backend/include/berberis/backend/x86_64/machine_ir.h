@@ -289,6 +289,21 @@ enum SSAMode {
   kSSA = 1,
 };
 
+template <typename DeviceInsnInfo>
+inline constexpr bool kNonSSA =
+    TypesToValues::All<typename DeviceInsnInfo::Operands>([]<typename Operand>() {
+      return !device_arch_info::kIsRegister<Operand> ||
+             Operand::kUsage != device_arch_info::kUseDef;
+    });
+
+template <typename DeviceInsnInfo>
+inline constexpr auto kForceSSA =
+    std::conditional_t<kNonSSA<DeviceInsnInfo>, MetaValue<false>, MetaValue<kSSA>>::kValue;
+
+template <typename DeviceInsnInfo>
+inline constexpr auto kForceNoSSA =
+    std::conditional_t<kNonSSA<DeviceInsnInfo>, MetaValue<false>, MetaValue<kNoSSA>>::kValue;
+
 template <typename DeviceInsnInfo_,
           // Note kSSAMode = false is default value and means instruction is natively SSA-compliant
           // (== no use_def operands). Only kSSA and kNoSSA should be specified explicitly.
