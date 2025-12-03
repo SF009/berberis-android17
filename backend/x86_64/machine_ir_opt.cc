@@ -57,7 +57,7 @@ class RegUsageBitSet {
     }
   }
 
-  void Clear() { reg_set_.Clear(); }
+  void ResetAll() { reg_set_.ResetAll(); }
 
  private:
   VRegBitSet reg_set_;
@@ -94,7 +94,7 @@ void RemoveDeadCode(MachineIR* machine_ir) {
   RegUsageBitSet is_reg_used(machine_ir);
 
   for (auto* bb : machine_ir->bb_list()) {
-    is_reg_used.Clear();
+    is_reg_used.ResetAll();
 
     for (auto vreg : bb->live_out()) {
       is_reg_used.Set(vreg);
