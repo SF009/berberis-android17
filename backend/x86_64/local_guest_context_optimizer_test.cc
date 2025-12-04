@@ -318,7 +318,7 @@ TEST(MachineIRLocalGuestContextOptimizer, LimitRegisters) {
 
   x86_64::RemoveLocalGuestContextAccesses(&machine_ir,
                                           x86_64::OptimizeLocalParams{
-                                              .general_reg_limit = 3,
+                                              .general_reg_limit = 2,
                                               .simd_reg_limit = 2,
                                           });
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
@@ -374,7 +374,7 @@ TEST(MachineIRLocalGuestContextOptimizer, LimitRegistersAfterOptimizing) {
 
   x86_64::RemoveLocalGuestContextAccesses(&machine_ir,
                                           x86_64::OptimizeLocalParams{
-                                              .general_reg_limit = 5,
+                                              .general_reg_limit = 4,
                                               .simd_reg_limit = 2,
                                           });
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
@@ -387,9 +387,9 @@ TEST(MachineIRLocalGuestContextOptimizer, LimitRegistersAfterOptimizing) {
   insn_it++;
   ASSERT_EQ((*insn_it++)->opcode(), kMachineOpCopy);
   // This shouldn't be optimized as we should have hit the limit after the
-  // previous optimization with reg0, reg1, reg2, rbp, and the two from Addq.
+  // previous optimization with reg0, reg2, and the two from Addq.
   ASSERT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegMemBaseDisp);
-  // This one should be optimized still because reg1 lifetime wouldn't be
+  // This one should be optimized still because reg2 lifetime wouldn't be
   // extended.
   ASSERT_EQ((*insn_it++)->opcode(), kMachineOpCopy);
   ASSERT_EQ((*insn_it++)->opcode(), kMachineOpCopy);
