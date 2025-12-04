@@ -563,7 +563,7 @@ TEST(MachineIR, GetInOneOfTheSuccessorsMakesPutLive) {
   ASSERT_EQ(2u, bb3->insn_list().size());
 }
 
-TEST(MachineIR, ForwardingPseudoBranch) {
+TEST(MachineIR, ForwardingBranch) {
   // We create:
   //
   // BB0 -> BB1
@@ -606,8 +606,7 @@ TEST(MachineIR, ForwardingPseudoBranch) {
   EXPECT_EQ(bb0, *bb_it);
   EXPECT_EQ(2u, bb0->insn_list().size());
 
-  // Verify that the last instruction is PseudoBranch that jumps
-  // to BB2.
+  // Verify that the last instruction is Branch that jumps to BB2.
   MachineInsn* bb0_insn = bb0->insn_list().back();
   EXPECT_EQ(kMachineOpBranch, bb0_insn->opcode());
   Branch* bb0_branch_insn = static_cast<Branch*>(bb0_insn);
@@ -617,7 +616,7 @@ TEST(MachineIR, ForwardingPseudoBranch) {
   EXPECT_EQ(bb2, *(++bb_it));
 }
 
-TEST(MachineIR, ForwardingPseudoCondBranchThen) {
+TEST(MachineIR, ForwardingCondBranchThen) {
   // We create:
   //
   // BB0 (cond jump)-> BB1 (then_bb) and BB3 (else_bb)
@@ -683,7 +682,7 @@ TEST(MachineIR, ForwardingPseudoCondBranchThen) {
   EXPECT_EQ(bb3, *(++bb_it));
 }
 
-TEST(MachineIR, ForwardingPseudoCondBranchElse) {
+TEST(MachineIR, ForwardingCondBranchElse) {
   // We create:
   //
   // BB0 (cond jump)-> BB1 (then_bb) and BB2 (else_bb)
@@ -935,7 +934,7 @@ TEST(MachineIR, RemoveConsecutiveForwarderBlocks) {
   builder.Gen<Jump>(kNullGuestAddr);
 
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
-  RemoveNopPseudoCopyAndMovq(&machine_ir);
+  RemoveNopCopyAndMovq(&machine_ir);
   x86_64::RemoveForwarderBlocks(&machine_ir);
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
 
@@ -973,8 +972,8 @@ TEST(MachineIR, RemoveConsecutiveForwarderBlocks) {
   EXPECT_EQ(bb5, *(++bb_it));
 }
 
-TEST(MachineIR, RemoveNopPseudoCopy) {
-  // Verify that RemoveNopPseudoCopyAndMovq removes PseudoCopy instructions
+TEST(MachineIR, RemoveNopCopy) {
+  // Verify that RemoveNopCopyAndMovq removes Copy instructions
   // with identical source and destination operands while retaining
   // all other instructions.
 
@@ -989,7 +988,7 @@ TEST(MachineIR, RemoveNopPseudoCopy) {
   builder.Gen<Jump>(kNullGuestAddr);
 
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
-  RemoveNopPseudoCopyAndMovq(&machine_ir);
+  RemoveNopCopyAndMovq(&machine_ir);
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
 
   // Verify that we have exactly one basic block.
@@ -1001,19 +1000,19 @@ TEST(MachineIR, RemoveNopPseudoCopy) {
 
   auto insn_it = bb0->insn_list().begin();
 
-  // Verify that the first instruction is PseudoCopy that copies ECX to EBX.
+  // Verify that the first instruction is Copy that copies ECX to EBX.
   MachineInsn* insn0 = *insn_it;
   EXPECT_EQ(kMachineOpCopy, insn0->opcode());
   EXPECT_EQ(kMachineRegRBX, insn0->RegAt(0));
   EXPECT_EQ(kMachineRegRCX, insn0->RegAt(1));
 
-  // Verify that the next instruction is PseudoJump.
+  // Verify that the next instruction is Jump.
   MachineInsn* insn1 = *(++insn_it);
   EXPECT_EQ(kMachineOpJump, insn1->opcode());
 }
 
 TEST(MachineIR, RemoveNopMovq) {
-  // Verify that RemoveNopPseudoCopyAndMovq removes Movq instructions
+  // Verify that RemoveNopCopyAndMovq removes Movq instructions
   // with identical source and destination operands while retaining
   // all other instructions.
 
@@ -1028,7 +1027,7 @@ TEST(MachineIR, RemoveNopMovq) {
   builder.Gen<Jump>(kNullGuestAddr);
 
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
-  RemoveNopPseudoCopyAndMovq(&machine_ir);
+  RemoveNopCopyAndMovq(&machine_ir);
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
 
   // Verify that we have exactly one basic block.
@@ -1046,7 +1045,7 @@ TEST(MachineIR, RemoveNopMovq) {
   EXPECT_EQ(kMachineRegRBX, insn0->RegAt(0));
   EXPECT_EQ(kMachineRegRCX, insn0->RegAt(1));
 
-  // Verify that the next instruction is PseudoJump.
+  // Verify that the next instruction is Jump.
   MachineInsn* insn1 = *(++insn_it);
   EXPECT_EQ(kMachineOpJump, insn1->opcode());
 }
