@@ -27,6 +27,13 @@ namespace berberis::config {
 // Pick faster or smaller codegeneration.
 inline constexpr bool kUseLowDemultiplexer = true;
 
+// Print intrinsic names for non-inlined intrinsincs.
+inline constexpr enum {
+  kDoNotPrintCallIntrinsicNames,
+  kPrintCallIntrinsicStemNames,
+  kPrintCallIntrinsicFullNames
+} kPrintCallIntrinsicNamesMode = kPrintCallIntrinsicStemNames;
+
 // Guest page size
 inline const size_t kGuestPageSize = berberis::kPageSize;
 

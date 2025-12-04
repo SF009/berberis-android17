@@ -780,8 +780,8 @@ void HeavyOptimizerFrontend::MemoryRegionReservationSwapWithLockedOwner(
 
   static_assert(offsetof(ThreadState, cpu) == 0);  // Needed to use x86_64::kMachineRegRBP here.
   // lock_entry = ExclusiveMonitor::TryLock(aligned_addr, &(state->cpu)).
-  MachineReg result = CallIntrinsic<MemoryRegionReservation::TryLock, MachineReg>(
-      aligned_addr, x86_64::kMachineRegRBP);
+  MachineReg result =
+      CallIntrinsic<MemoryRegionReservation::TryLock>(aligned_addr, x86_64::kMachineRegRBP);
   static_assert(offsetof(ThreadState, cpu) == 0);
   // Limit life-time of a narrow reg-class call result.
   Register lock_entry = AllocTempReg();
