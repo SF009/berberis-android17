@@ -90,8 +90,8 @@ void SetInsnArgumentsUsed(const berberis::MachineInsn* insn, RegUsageBitSet& is_
 
 }  // namespace
 
-// Remove PSEUDO_COPY and MOVQ instructions which have identical source and destination operands.
-void RemoveNopPseudoCopyAndMovq(MachineIR* machine_ir) {
+// Remove COPY and MOVQ instructions which have identical source and destination operands.
+void RemoveNopCopyAndMovq(MachineIR* machine_ir) {
   for (auto* machine_bb : machine_ir->bb_list()) {
     machine_bb->insn_list().remove_if([](berberis::MachineInsn* machine_insn) {
       if (machine_insn->opcode() != kMachineOpCopy &&
@@ -136,8 +136,8 @@ void ChangeBranchTarget(MachineBasicBlock* bb,
   CHECK_GT(bb->insn_list().size(), 0);
   auto last_insn = bb->insn_list().back();
 
-  // The branch instruction can either be CondBranch or PseudoBranch.
-  // When removing critical edges, the branch instruction is PseudoBranch if
+  // The branch instruction can either be CondBranch or Branch.
+  // When removing critical edges, the branch instruction is Branch if
   // and only if bb has an outedge to a recovery block.
   if (last_insn->opcode() == kMachineOpBranch) {
     auto insn = static_cast<Branch*>(last_insn);
