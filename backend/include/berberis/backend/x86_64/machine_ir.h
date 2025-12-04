@@ -809,7 +809,8 @@ class MachineIR : public berberis::MachineIR {
       : berberis::MachineIR(arena, num_vreg, 0),
         abi_{abi},
         bb_order_(BasicBlockOrder::kUnordered),
-        insn_folding_executed_(false) {}
+        insn_folding_executed_(false),
+        contains_irreducible_loops_(false) {}
 
   void AddEdge(MachineBasicBlock* src, MachineBasicBlock* dst) {
     MachineEdge* edge = NewInArena<MachineEdge>(arena(), arena(), src, dst);
@@ -909,6 +910,8 @@ class MachineIR : public berberis::MachineIR {
            insn->opcode() == kMachineOpIndirectJump || insn->opcode() == kMachineOpJump;
   }
 
+  [[nodiscard]] bool ContainsIrreducibleLoops() const { return contains_irreducible_loops_; }
+
   [[nodiscard]] BasicBlockOrder bb_order() const { return bb_order_; }
 
   void set_bb_order(BasicBlockOrder order) { bb_order_ = order; }
@@ -916,6 +919,7 @@ class MachineIR : public berberis::MachineIR {
   [[nodiscard]] ABI abi() const { return abi_; }
 
   void SetInsnFoldingExecuted() { insn_folding_executed_ = true; }
+  void SetContainsIrreducibleLoops() { contains_irreducible_loops_ = true; }
 
   using berberis::MachineIR::NewInsn;
 
@@ -936,6 +940,7 @@ class MachineIR : public berberis::MachineIR {
   ABI abi_;
   BasicBlockOrder bb_order_;
   bool insn_folding_executed_;
+  bool contains_irreducible_loops_;
 };
 
 }  // namespace x86_64
