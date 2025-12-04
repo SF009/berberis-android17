@@ -333,12 +333,8 @@ class MachineInsn final : public MachineInsnX86_64 {
                     (std::is_same_v<decltype(kSSAMode), enum SSAMode> && kSSAMode == kSSA),
                 "Only kSSA and kNoSSA should be used as kSSAMode");
   static_assert(
-      std::is_same_v<decltype(kSSAMode), enum SSAMode> ||
-          !TypesToValues::Any<typename DeviceInsnInfo_::Operands>([]<typename Operand> {
-            return device_arch_info::kIsRegister<Operand> &&
-                   Operand::kUsage == device_arch_info::kUseDef;
-          }),
-      "Only instructions without kUseDef operands can be used without kSSAMode specification");
+      std::is_same_v<decltype(kSSAMode), enum SSAMode> != kNonSSA<DeviceInsnInfo_>,
+      "Only instructions without kUseDef operands should be used without kSSAMode specification");
 
   using MachineInsnInfo = x86_64::MachineInsnInfo<std::tuple_size_v<
       TypesToTypes::FlatMap<typename DeviceInsnInfo_::Operands, []<typename Operand> {
@@ -508,11 +504,7 @@ class MachineInsn final : public MachineInsnX86_64 {
   }
 
   void Emit(CodeEmitter* as) const override {
-    if constexpr (kSSAMode == kSSA &&
-                  TypesToValues::Any<typename DeviceInsnInfo::Operands>([]<typename Operand> {
-                    return device_arch_info::kIsRegister<Operand> &&
-                           Operand::kUsage == device_arch_info::kUseDef;
-                  })) {
+    if constexpr (kSSAMode == kSSA) {
       FATAL("Attempt to emit SSA pseudo-instruction");
     } else {
       // Code below assumes that we have at most two memory operands.
@@ -734,12 +726,8 @@ template <auto kBaseIndexRegistersUsed>
 constexpr auto MachineInsn<DeviceInsnInfo, kSSAMode>::GenMachineInsnInfo()
     -> MachineInsn::MachineInsnInfo {
   MachineInsnInfo result = {
-      .opcode = static_cast<MachineOpcode>(
-          DeviceInsnInfo::template kOpcode<MachineOpcode> |
-          (kSSAMode && TypesToValues::Any<typename DeviceInsnInfo::Operands>([]<typename Operand> {
-             return device_arch_info::kIsRegister<Operand> &&
-                    Operand::kUsage == device_arch_info::kUseDef;
-           })) << kSSAOpcodeBit),
+      .opcode = static_cast<MachineOpcode>(DeviceInsnInfo::template kOpcode<MachineOpcode> |
+                                           (kSSAMode == kSSA ? 1 : 0) << kSSAOpcodeBit),
       .kind = GetInsnKind()};
   TypesToValues::ForEachWithTemporary<typename DeviceInsnInfo::Operands,
                                       /* mem_operand_bit_pos = */ size_t>(
