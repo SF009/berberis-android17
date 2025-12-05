@@ -462,7 +462,9 @@ class LiteTranslator {
   }
 
  private:
-  template <auto kFunction, typename AssemblerResType = void, typename... AssemblerArgType>
+  template <auto kFunction,
+            StringLiteral kFunctionName = kGetTemplateName<MetaValue<kFunction>>,
+            typename... AssemblerArgType>
   auto CallIntrinsic(AssemblerArgType... args) {
     using CallImm = x86_64::CallImm<static_cast<decltype(kFunction)>(nullptr)>;
     using ResultRegiesterTypes =
