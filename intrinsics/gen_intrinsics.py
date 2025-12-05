@@ -485,6 +485,7 @@ def _get_translator_hook_call_expr(name, intr, desc=None):
   desc_spec = _get_desc_specializations(intr, desc)
   args = [('arg%d' % n) for n, _ in enumerate(intr['in'])]
   template_params = ['&intrinsics::' + name + desc_spec]
+  template_params += ['"%s%s"' % (name, desc_spec)]
   return 'CallIntrinsic<%s>(%s)' % (', '.join(template_params), ', '.join(args))
 
 
