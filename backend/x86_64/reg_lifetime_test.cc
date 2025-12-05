@@ -180,7 +180,10 @@ TEST(MachineIRReadFlagsOptimizer, UpdateLastUse) {
   EXPECT_EQ(counts[4].general, 2UL);
   EXPECT_EQ(counts[5].general, 0UL);
 
-  counter.UpdateLastUse(reg1, new_end, 5);
+  auto pos_over_limit = counter.UpdateLastUse(reg1, new_end, 5, 3);
+  EXPECT_TRUE(pos_over_limit.has_value());
+  EXPECT_EQ(pos_over_limit.value(), 4UL);
+
   EXPECT_EQ(counts[2].general, 2UL);
   EXPECT_EQ(counts[3].general, 3UL);
   EXPECT_EQ(counts[4].general, 3UL);
