@@ -230,6 +230,9 @@ class InsnFolding {
   template <bool kIsMemWrite>
   std::tuple<FoldingType, berberis::MachineInsn*> TryFoldScaleIntoMemAccess(
       const berberis::MachineInsn* insn);
+  std::tuple<FoldingType, berberis::MachineInsn*> TryReplaceWriteFlagsWithCmp(
+      const berberis::MachineInsn* insn,
+      const MachineBasicBlock* bb);
   berberis::MachineInsn* NewImmInsnFromRegInsn(const berberis::MachineInsn* insn, int32_t imm);
   berberis::MachineInsn* NewInsnFromTwoImmediatesOperation(const berberis::MachineInsn* insn,
                                                            uint64_t imm1,

@@ -734,6 +734,49 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldScaleIntoMem
   return {FoldingType::kReplaceInsn, new_insn};
 }
 
+std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryReplaceWriteFlagsWithCmp(
+    const berberis::MachineInsn* insn,
+    const MachineBasicBlock* bb) {
+  CHECK_EQ(insn->opcode(), kMachineOpWriteFlags);
+  auto flags_value_reg = insn->RegAt(0);
+  auto [read_flags_insn_it, read_flags_insn_pos, _] =
+      def_map_.FindNonPseudoCopyDef(flags_value_reg);
+  if (!read_flags_insn_it.has_value()) {
+    return {FoldingType::kImpossible, nullptr};
+  }
+  berberis::MachineInsn* read_flags_insn = *read_flags_insn_it.value();
+  if (read_flags_insn->opcode() != kMachineOpReadFlagsWithOverflow) {
+    return {FoldingType::kImpossible, nullptr};
+  }
+  if (read_flags_insn_it.value() == bb->insn_list().begin()) {
+    return {FoldingType::kImpossible, nullptr};
+  }
+  auto cmp_insn_it = std::prev(read_flags_insn_it.value());
+  berberis::MachineInsn* cmp_insn = *cmp_insn_it;
+
+  switch (cmp_insn->opcode()) {
+    case kMachineOpCmplRegReg:
+    case kMachineOpCmpqRegReg:
+    case kMachineOpCmplRegImm:
+    case kMachineOpCmpqRegImm:
+      break;
+    default:
+      return {FoldingType::kImpossible, nullptr};
+  }
+  // Since cmp_insn immediately precedes read_flags_insn, the arguments to cmp_insn cannot be
+  // modified between them. Therefore, it is sufficient to check that the registers have not
+  // been modified since read_flags_insn_pos.
+  if (std::get<0>(def_map_.Get(cmp_insn->RegAt(0), read_flags_insn_pos)) == std::nullopt) {
+    return {FoldingType::kImpossible, nullptr};
+  }
+  if (cmp_insn->NumRegOperands() == 3) {
+    if (std::get<0>(def_map_.Get(cmp_insn->RegAt(1), read_flags_insn_pos)) == std::nullopt) {
+      return {FoldingType::kImpossible, nullptr};
+    }
+  }
+  return {FoldingType::kReplaceInsn, machine_ir_->CloneInsn(cmp_insn)};
+}
+
 std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldInsn(
     const MachineInsnList::iterator insn_it,
     const MachineBasicBlock* bb) {
@@ -817,8 +860,9 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldInsn(
     case kMachineOpWriteFlags: {
       if (IsWritingSameFlagsValue(insn_it)) {
         return {FoldingType::kRemoveInsn, nullptr};
+      } else {
+        return TryReplaceWriteFlagsWithCmp(insn, bb);
       }
-      break;
     }
     case kMachineOpShlqRegImm:
     case kMachineOpShrqRegImm:
