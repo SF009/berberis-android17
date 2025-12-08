@@ -21,7 +21,7 @@
 
 namespace berberis::x86_64 {
 
-void RemoveNopPseudoCopyAndMovq(MachineIR* machine_ir);
+void RemoveNopCopyAndMovq(MachineIR* machine_ir);
 void RemoveDeadCode(MachineIR* machine_ir);
 void RemoveCriticalEdges(MachineIR* machine_ir);
 void RemoveRedundantPut(MachineIR* ir);

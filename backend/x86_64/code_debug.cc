@@ -53,6 +53,87 @@ string Enter::GetDebugString() const {
   return out;
 }
 
+std::string GetDebugString(const MachineInsnX86_64& insn,
+                           const char* mnemo,
+                           size_t x86_operands_count,
+                           const X86Operand x86_operands[]) {
+  std::string result{};
+  size_t reg_idx = 0, mem_idx = 0;
+  for (size_t position = 0; position < x86_operands_count; position++) {
+    if (result.empty()) {
+      result = mnemo;
+      result += " ";
+    } else if (position > 0 && x86_operands[position - 1] == X86Operand::kComment &&
+               x86_operands[position] == X86Operand::kImmediate) {
+      if (insn.disp2() || insn.disp3()) {
+        result += " @";
+      }
+    } else {
+      result += ", ";
+    }
+    switch (x86_operands[position]) {
+      case X86Operand::kRegisterOperand:
+        result += GetRegOperandDebugString(&insn, reg_idx++);
+        break;
+      case X86Operand::kImplicitRegisterOperand:
+        result += StringPrintf("(%s)", GetRegOperandDebugString(&insn, reg_idx++).c_str());
+        break;
+      case X86Operand::kSSAUseDefRegisterOperand:
+        result += GetRegOperandDebugString(&insn, reg_idx++);
+        result += "/";
+        result += GetRegOperandDebugString(&insn, reg_idx++);
+        break;
+      case X86Operand::kImplicitSSAUseDefRegisterOperand:
+        result += StringPrintf("(%s", GetRegOperandDebugString(&insn, reg_idx++).c_str());
+        result += "/";
+        result += StringPrintf("%s)", GetRegOperandDebugString(&insn, reg_idx++).c_str());
+        break;
+      case X86Operand::kMemoryOperand: {
+        auto [has_base, has_index] = OpcodeHasMemoryBaseIndex(insn.opcode(), mem_idx++);
+        int32_t scale;
+        if (has_index) {
+          scale = 1 << (mem_idx == 1 ? insn.scale() : mem_idx == 2 ? insn.scale2() : insn.scale3());
+        }
+        int32_t disp = mem_idx == 1 ? insn.disp() : mem_idx == 2 ? insn.disp2() : insn.disp3();
+        if (has_base) {
+          if (has_index) {
+            result += StringPrintf("[%s + %s * %d + 0x%x]",
+                                   GetRegOperandDebugString(&insn, reg_idx).c_str(),
+                                   GetRegOperandDebugString(&insn, reg_idx + 1).c_str(),
+                                   scale,
+                                   disp);
+            reg_idx += 2;
+          } else {
+            result += StringPrintf(
+                "[%s + 0x%x]", GetRegOperandDebugString(&insn, reg_idx++).c_str(), disp);
+          }
+        } else if (has_index) {
+          result += StringPrintf(
+              "[%s * %d + 0x%x]", GetRegOperandDebugString(&insn, reg_idx++).c_str(), scale, disp);
+        } else {
+          result += StringPrintf("[0x%x]", disp);
+        }
+        break;
+      }
+      case X86Operand::kCondition:
+        result += GetCondName(insn.cond());
+        break;
+      case X86Operand::kImmediate:
+        result += StringPrintf("0x%" PRIx64, insn.imm());
+        break;
+      case X86Operand::kComment:
+        if (insn.disp2() || insn.disp3()) {
+          result += bit_cast<char*>(uint64_t(insn.disp3()) << 32 | insn.disp2());
+        }
+        break;
+    }
+  }
+  if (insn.recovery_pc() && !IsConfigFlagSet(kDeterministicTracing)) {
+    result += StringPrintf(" <0x%" PRIxPTR ">", insn.recovery_pc());
+  }
+  return result;
+}
+
 }  // namespace x86_64
 
 }  // namespace berberis

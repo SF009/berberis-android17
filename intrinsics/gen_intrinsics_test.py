@@ -345,7 +345,7 @@ class GenIntrinsicsTests(unittest.TestCase):
             "in": ["uint32_t"],
             "out": ["uint32_t"],
         })
-    self.assertEqual(out, "CallIntrinsic<&intrinsics::Foo>(arg0)")
+    self.assertEqual(out, "CallIntrinsic<&intrinsics::Foo, \"Foo\">(arg0)")
 
 
   def test_get_translator_hook_call_expr_void(self):
@@ -354,7 +354,7 @@ class GenIntrinsicsTests(unittest.TestCase):
             "in": [],
             "out": [],
         })
-    self.assertEqual(out, "CallIntrinsic<&intrinsics::Foo>()")
+    self.assertEqual(out, "CallIntrinsic<&intrinsics::Foo, \"Foo\">()")
 
 
   def test_get_translator_hook_raw_vector_body(self):
@@ -367,9 +367,9 @@ class GenIntrinsicsTests(unittest.TestCase):
     self.assertSequenceEqual(list(out),
                              ("switch (size) {",
                               "  case 64:",
-                              "    return CallIntrinsic<&intrinsics::Foo<64>>(arg0, arg1);",
+                              "    return CallIntrinsic<&intrinsics::Foo<64>, \"Foo<64>\">(arg0, arg1);",
                               "  case 128:",
-                              "    return CallIntrinsic<&intrinsics::Foo<128>>(arg0, arg1);",
+                              "    return CallIntrinsic<&intrinsics::Foo<128>, \"Foo<128>\">(arg0, arg1);",
                               "  default:",
                               "    LOG_ALWAYS_FATAL(\"Unsupported size\");",
                               "}")) # pyformat: disable
@@ -387,11 +387,11 @@ class GenIntrinsicsTests(unittest.TestCase):
                              ("auto format = intrinsics::GetVectorFormatInt(elem_size, elem_num, true);",
                               "switch (format) {",
                               "  case intrinsics::kVectorI32x2:" ,
-                              "    return CallIntrinsic<&intrinsics::Foo<int32_t, 2>>(arg0, arg1);",
+                              "    return CallIntrinsic<&intrinsics::Foo<int32_t, 2>, \"Foo<int32_t, 2>\">(arg0, arg1);",
                               "  case intrinsics::kVectorI32x4:" ,
-                              "    return CallIntrinsic<&intrinsics::Foo<int32_t, 4>>(arg0, arg1);",
+                              "    return CallIntrinsic<&intrinsics::Foo<int32_t, 4>, \"Foo<int32_t, 4>\">(arg0, arg1);",
                               "  case intrinsics::kVectorI32x1:" ,
-                              "    return CallIntrinsic<&intrinsics::Foo<int32_t, 1>>(arg0, arg1);",
+                              "    return CallIntrinsic<&intrinsics::Foo<int32_t, 1>, \"Foo<int32_t, 1>\">(arg0, arg1);",
                               "  default:",
                               "    LOG_ALWAYS_FATAL(\"Unsupported format\");",
                               "}")) # pyformat: disable

@@ -38,7 +38,8 @@ constexpr auto kMachineRegRDI = MachineRegs::kRDI;
 
 template <template <typename> typename InsnType>
 using MachineInsnType =
-    MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, kNoSSA>;
+    MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,
+                kForceNoSSA<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>>;
 
 MachineInsnList::iterator FoldInsnsAndGetLastInsnIt(MachineIR* machine_ir, MachineBasicBlock* bb) {
   FoldInsns(machine_ir);
@@ -67,7 +68,7 @@ void TryRegRegInsnFolding(bool is_64bit_mov_imm, uint64_t imm = 0x7777'ffffULL) 
   } else {
     builder.Gen<MovlRegImm>(vreg1, imm);
   }
-  builder.Gen<InsnTypeRegReg, kNoSSA>(vreg2, vreg1, flags);
+  builder.Gen<MachineInsnType<InsnTypeRegReg>>(std::tuple{vreg2, vreg1, flags});
 
   berberis::MachineInsn* folded_insn = *FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   if (!kExpectSuccess) {
@@ -107,7 +108,7 @@ void TryRegRegInsnFoldingExtraPseudoCopy(bool is_64bit_mov_imm, uint64_t imm = 0
     builder.Gen<MovlRegImm>(vreg1, imm);
   }
   builder.Gen<Copy>(vreg2, vreg1, 8);
-  builder.Gen<InsnTypeRegReg, kNoSSA>(vreg3, vreg2, flags);
+  builder.Gen<MachineInsnType<InsnTypeRegReg>>(std::tuple{vreg3, vreg2, flags});
 
   MachineInsnList::iterator folded_insn_it = FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   berberis::MachineInsn* folded_insn = *folded_insn_it;
@@ -256,7 +257,7 @@ void TryFoldContextReadIntoRegMemArithmetic() {
   if constexpr (kArithmeticInsnUsesXMMRegs) {
     builder.Gen<InsnTypeRegReg, kNoSSA>(vreg2, vreg1);
   } else {
-    builder.Gen<InsnTypeRegReg, kNoSSA>(vreg2, vreg1, flags);
+    builder.Gen<MachineInsnType<InsnTypeRegReg>>(std::tuple{vreg2, vreg1, flags});
   }
 
   auto* folded_insn = *FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
@@ -294,7 +295,7 @@ void TryFoldContextReadIntoMemRegArithmetic() {
   builder.StartBasicBlock(bb);
   builder.Gen<MovqRegOp>(vreg1, {.base = kCPUStatePointer, .disp = 4});
 
-  builder.Gen<InsnTypeRegReg, kNoSSA>(vreg1, vreg2, flags);
+  builder.Gen<MachineInsnType<InsnTypeRegReg>>(std::tuple{vreg1, vreg2, flags});
 
   auto* folded_insn = *FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   ASSERT_EQ(MachineOpInsnTypeRegMemBaseDisp, folded_insn->opcode());
@@ -320,7 +321,7 @@ void TryFoldContextReadIntoMemImmArithmetic() {
   builder.StartBasicBlock(bb);
   builder.Gen<MovqRegOp>(vreg1, {.base = kCPUStatePointer, .disp = 4});
 
-  builder.Gen<InsnTypeRegImm, kNoSSA>(vreg1, 5, flags);
+  builder.Gen<MachineInsnType<InsnTypeRegImm>>(std::tuple{vreg1, 5, flags});
 
   berberis::MachineInsn* folded_insn = *FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
   ASSERT_EQ(MachineOpInsnTypeMemBaseDispImm, folded_insn->opcode());

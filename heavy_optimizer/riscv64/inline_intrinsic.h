@@ -357,14 +357,16 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
 
     ValuesToValues::ForEach(result_,
                             [builder = builder_]<typename RegisterType>(RegisterType& reg) {
-                              if constexpr (std::is_same_v<RegisterType, SimdReg>) {
+                              if constexpr (std::is_same_v<RegisterType, SimdReg&>) {
                                 reg = SimdReg{builder->ir()->AllocVReg()};
                               } else {
                                 reg = builder->ir()->AllocVReg();
                               }
                             });
 
-    builder_->Gen<x86_64::MachineInsn<typename IntrinsicBindingInfo::DeviceInsnInfo, x86_64::kSSA>>(
+    builder_->Gen<
+        x86_64::MachineInsn<typename IntrinsicBindingInfo::DeviceInsnInfo,
+                            x86_64::kForceSSA<typename IntrinsicBindingInfo::DeviceInsnInfo>>>(
         std::tuple_cat(UnwrapSimdReg(
             IntrinsicBindingInfo::template MakeTuplefromBindings<
                 TryBindingBasedInlineIntrinsicForHeavyOptimizer&>(*this, asm_call_info))));

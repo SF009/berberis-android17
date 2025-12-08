@@ -152,26 +152,15 @@ class ResultRegisterTypesHelper {
   }
 };
 
-template <typename MacroAssemblers>
-inline void DynamicEmit(MacroAssemblers& as, int64_t func_addr) {
-  // Note that a call to AVX-compiled code may touch YMM bits above 128, which
-  // would require `vzeroupper` before we come back to generated code. This is
-  // to make sure there is no performance penalty. ABI requires such `vzeroupper`s
-  // done by the callee unless the result in returned in full YMM register.
-  // Since we don't support full YMM results here, we don't need extra
-  // `vzeroupper`s here.
-  as.Call(bit_cast<void*>(func_addr));
-}
-
 template <auto kFunction, typename MacroAssemblers>
-inline void StaticEmit(MacroAssemblers& as) {
+inline void Emit(MacroAssemblers& as) {
   // Note that a call to AVX-compiled code may touch YMM bits above 128, which
   // would require `vzeroupper` before we come back to generated code. This is
   // to make sure there is no performance penalty. ABI requires such `vzeroupper`s
   // done by the callee unless the result in returned in full YMM register.
   // Since we don't support full YMM results here, we don't need extra
   // `vzeroupper`s here.
-  as.Call(bit_cast<void*>(kFunction));
+  as.Call(bit_cast<const void*>(kFunction));
 }
 
 }  // namespace call_imm_impl
@@ -273,16 +262,21 @@ class CallImm<kFunction> {
   class MachineInsn {
    public:
     using DeviceInsnInfo = DeviceInsnInfo<
-        std::conditional_t<kDynamicFunction,
-                           MetaValue<call_imm_impl::DynamicEmit<MacroAssemblers>>,
-                           MetaValue<call_imm_impl::StaticEmit<kFunction, MacroAssemblers>>>{},
+        std::conditional_t<
+            kDynamicFunction,
+            MetaValue<static_cast<void (
+                std::tuple_element_t<1, typename MacroAssemblers::Assemblers>::*)(const void*)>(
+                &std::tuple_element_t<1, typename MacroAssemblers::Assemblers>::Call)>,
+            MetaValue<call_imm_impl::Emit<kFunction, MacroAssemblers>>>::kValue,
         "CALL",
         true,
         []<typename Opcode> { return Opcode::kMachineOpCallImm; },
         NoCPUIDRestriction,
         TypesToTypes::Concat<
-            std::
-                conditional_t<kDynamicFunction, std::tuple<OperandInfo<Imm64, kUse>>, std::tuple<>>,
+            std::tuple<OperandInfo<Comment, kUse>>,
+            std::conditional_t<kDynamicFunction,
+                               std::tuple<OperandInfo<ImmPCode, kUse>>,
+                               std::tuple<>>,
             TypesToTypes::Map<ResultRegisters,
                               []<typename RegisterClass>(RegisterClass) {
                                 return OperandInfo<RegisterClass, kDef>{};
@@ -344,13 +338,10 @@ constexpr auto CallImm<kFunction>::GenResultsElements()
                         std::is_same_v<CleanRetType, std::tuple<__uint128_t>>)
                            ? 1
                            : 0)> {
-  // If we don't have elements to process then we are done.
-  if constexpr (std::tuple_size_v<CleanRetType> == 0) {
-    return std::array<call_imm_impl::ResultsElementInfo, 0>{};
-    // __int128, __uint128_t and __m128 are the only types that may span 8byte chunk, and they can
-    // be only passed in registers if they are used alone.
-  } else if constexpr (std::is_same_v<CleanRetType, std::tuple<__int128>> ||
-                       std::is_same_v<CleanRetType, std::tuple<__uint128_t>>) {
+  // __int128, __uint128_t and __m128 are the only types that may span 8byte chunk, and they can be
+  // only passed in registers if they are used alone.
+  if constexpr (std::is_same_v<CleanRetType, std::tuple<__int128>> ||
+                std::is_same_v<CleanRetType, std::tuple<__uint128_t>>) {
     return std::array{
         call_imm_impl::ResultsElementInfo{.clobber_class_index = 0, .element_offset = 0},
         call_imm_impl::ResultsElementInfo{.clobber_class_index = 3, .element_offset = 0}};
@@ -361,9 +352,10 @@ constexpr auto CallImm<kFunction>::GenResultsElements()
         call_imm_impl::ResultsElementInfo{.clobber_class_index = 9, .element_offset = 0}};
   } else {
     std::array<call_imm_impl::ResultsElementInfo, std::tuple_size_v<CleanRetType>> result =
-        ToArray(TypesToValues::MapWithTemporary<call_imm_impl::RawTypes<CleanRetType>,
-                                                /* offset = */ std::size_t>(
-            []<typename Type>(std::size_t& offset) {
+        ValuesToValues::ToArray<call_imm_impl::ResultsElementInfo>(
+            TypesToValues::MapWithTemporary<call_imm_impl::RawTypes<CleanRetType>,
+                                            /* offset = */ std::size_t>([]<typename Type>(
+                                                                            std::size_t& offset) {
               static_assert(IsPowerOf2(sizeof(Type)));
               std::size_t current_offset = AlignUp<sizeof(Type)>(offset);
               offset = current_offset + sizeof(Type);
@@ -414,23 +406,19 @@ template <typename IntrinsicRetType,
           IntrinsicRetType (*kFunction)(IntrinsicParamTypes...)>
 constexpr auto CallImm<kFunction>::GenArgumentElements()
     -> std::array<std::size_t, std::tuple_size_v<CleanParamTypes>> {
-  if constexpr (std::tuple_size_v<CleanParamTypes> == 0) {
-    return std::array<std::size_t, 0>{};
-  } else {
-    return ToArray(TypesToValues::MapWithTemporary<CleanParamTypes>(
-        /* integer_index, sse_index = */ std::tuple{std::size_t{kIsImplicitPointerResult ? 1 : 0},
-                                                    std::size_t{0}},
-        []<typename CleanArgumentType>(std::tuple<std::size_t, std::size_t>& indexes) {
-          auto& [integer_index, sse_index] = indexes;
-          if constexpr (std::is_integral_v<CleanArgumentType>) {
-            CHECK_LE(++integer_index, 6);  // There are maximum 6 integer parameters.
-            return integer_index;
-          } else {
-            CHECK_LE(++sse_index, 8);  // There are maximum 8 SSE parameters.
-            return 8 + sse_index;
-          }
-        }));
-  }
+  return ValuesToValues::ToArray<std::size_t>(TypesToValues::MapWithTemporary<CleanParamTypes>(
+      /* integer_index, sse_index = */ std::tuple{std::size_t{kIsImplicitPointerResult ? 1 : 0},
+                                                  std::size_t{0}},
+      []<typename CleanArgumentType>(std::tuple<std::size_t, std::size_t>& indexes) {
+        auto& [integer_index, sse_index] = indexes;
+        if constexpr (std::is_integral_v<CleanArgumentType>) {
+          CHECK_LE(++integer_index, 6);  // There are maximum 6 integer parameters.
+          return integer_index;
+        } else {
+          CHECK_LE(++sse_index, 8);  // There are maximum 8 SSE parameters.
+          return 8 + sse_index;
+        }
+      }));
 }
 
 }  // namespace x86_64::device_arch_info

@@ -32,7 +32,7 @@ bool CheckSSA(MachineIR* machine_ir) {
     std::fill(begin(set_registers), end(set_registers), false);
     for (auto reg : bb->live_in()) {
       if (!reg.IsVReg()) {
-        TRACE("Non-vreg living-%s in before lowering", GetMachineRegDebugString(reg).c_str());
+        TRACE("Non-vreg %s living-in before lowering", GetMachineRegDebugString(reg).c_str());
         return false;
       }
       int vreg_idx = reg.GetVRegIndex();
@@ -80,7 +80,7 @@ bool CheckSSA(MachineIR* machine_ir) {
 void LowerSSAInstructions(MachineIR* machine_ir) {
   if (!IsConfigFlagSet(kOptimizedInterRegionABI)) {
     if (!CheckSSA(machine_ir)) {
-      FATAL("Uncorrect IR:\n%s", machine_ir->GetDebugString().c_str());
+      FATAL("Incorrect IR:\n%s", machine_ir->GetDebugString().c_str());
     }
   }
   for (auto* bb : machine_ir->bb_list()) {

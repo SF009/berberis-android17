@@ -467,12 +467,15 @@ class HeavyOptimizerFrontend {
 
   // public for tests.
   template <typename FunctionType, typename... AssemblerArgType>
-  auto CallIntrinsic(FunctionType func_ptr, AssemblerArgType... args) -> std::array<
-      MachineReg,
-      std::size(x86_64::CallImm<static_cast<FunctionType>(nullptr)>::kResultsElements)>;
+  auto CallIntrinsic(FunctionType func_ptr, const char* func_name, AssemblerArgType... args)
+      -> std::array<
+          MachineReg,
+          std::size(x86_64::CallImm<static_cast<FunctionType>(nullptr)>::kResultsElements)>;
 
  private:
-  template <auto kFunction, typename AssemblerResType = void, typename... AssemblerArgType>
+  template <auto kFunction,
+            StringLiteral kFunctionName = kGetTemplateName<MetaValue<kFunction>>,
+            typename... AssemblerArgType>
   auto CallIntrinsic(AssemblerArgType... args) {
     using CallImm = x86_64::CallImm<static_cast<decltype(kFunction)>(nullptr)>;
     typename CallImm::template ResultRegiesterTypes<MachineReg, FpRegister> result;
@@ -488,8 +491,17 @@ class HeavyOptimizerFrontend {
       }
     }
 
+    const char* func_name = nullptr;
+    if constexpr (config::kPrintCallIntrinsicNamesMode == config::kPrintCallIntrinsicStemNames &&
+                  !std::is_same_v<decltype(kFunctionName), StringLiteral<0>>) {
+      func_name = kMemoizedValue<StringLiteral{kGetTemplateName<MetaValue<kFunction>>}>;
+    } else if constexpr (config::kPrintCallIntrinsicNamesMode ==
+                             config::kPrintCallIntrinsicFullNames &&
+                         !std::is_same_v<decltype(kFunctionName), StringLiteral<0>>) {
+      func_name = kMemoizedValue<kFunctionName>;
+    }
     auto call_result = CallIntrinsic<decltype(kFunction), AssemblerArgType...>(
-        kFunction, std::forward<AssemblerArgType>(args)...);
+        kFunction, func_name, std::forward<AssemblerArgType>(args)...);
     if constexpr (std::size(CallImm::kResultsElements)) {
       result = TypesToValues::MapWithTemporary<typename CallImm::CleanRetType,
                                                /* index = */ std::size_t>(
@@ -605,9 +617,10 @@ class HeavyOptimizerFrontend {
       InputArgsTuple,
       typename x86_64::MachineInsn<
           typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,
-          x86_64::kSSA>::OutputArgsTuple,
+          x86_64::kForceSSA<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>>::
+          OutputArgsTuple,
       Gen,
-      x86_64::kSSA)
+      x86_64::kForceSSA<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo>)
 
   static x86_64::Assembler::Condition ToAssemblerCond(Decoder::BranchOpcode opcode);
 
@@ -649,7 +662,9 @@ class HeavyOptimizerFrontend {
 };
 
 template <typename FunctionType, typename... AssemblerArgType>
-auto HeavyOptimizerFrontend::CallIntrinsic(FunctionType func_ptr, AssemblerArgType... args)
+auto HeavyOptimizerFrontend::CallIntrinsic(FunctionType func_ptr,
+                                           const char* func_name,
+                                           AssemblerArgType... args)
     -> std::array<
         MachineReg,
         std::size(x86_64::CallImm<static_cast<FunctionType>(nullptr)>::kResultsElements)> {
@@ -673,78 +688,77 @@ auto HeavyOptimizerFrontend::CallIntrinsic(FunctionType func_ptr, AssemblerArgTy
                       return std::tuple{};
                     }
                   }),
-              ValuesToValues::Map(std::tuple{args...}, []<typename ArgType>(ArgType arg) {
-                if constexpr (std::is_same_v<ArgType, SimdReg>) {
-                  return arg.machine_reg();
-                } else {
-                  return arg;
-                }
-              }))));
+              ValuesToValues::Map(std::tuple{args...},
+                                  []<typename ArgType>(ArgType arg) {
+                                    if constexpr (std::is_same_v<ArgType, SimdReg>) {
+                                      return arg.machine_reg();
+                                    } else {
+                                      return arg;
+                                    }
+                                  })),
+          func_name));
 
-  std::array<MachineReg, std::size(CallImm::kResultsElements)> result;
-  if constexpr (std::size(CallImm::kResultsElements) > 0) {
-    result =
-        ToArray(TypesToValues::FlatMap<TypesToTypes::Enumerate<typename CallImm::CleanRetType>>(
-            [register_results, this]<typename RetElementInfo>() {
-              // Suppress spurious warnings.
-              // See  https://github.com/llvm/llvm-project/issues/34798#issuecomment-980989495
-              (void)register_results;
-              constexpr std::size_t kIdx = std::tuple_element_t<0, RetElementInfo>{};
-              using ResType = std::tuple_element_t<1, RetElementInfo>;
-              if constexpr (CallImm::kIsImplicitPointerResult) {
-                const int32_t kElementOffset = CallImm::kResultsElements[kIdx].element_offset;
-                CHECK(kElementOffset == CallImm::kResultsElements[kIdx].element_offset);
-                MemoryOperand memory_operand = {.base = x86_64::kMachineRegRSP,
-                                                .disp = kElementOffset};
-                if constexpr (std::is_integral_v<ResType> || std::is_pointer_v<ResType>) {
-                  if constexpr (sizeof(ResType) == 1) {
-                    if constexpr (std::is_signed_v<ResType>) {
-                      return Gen<x86_64::MovsxbqRegOp>(memory_operand);
-                    } else {
-                      return Gen<x86_64::MovzxblRegOp>(memory_operand);
-                    }
-                  } else if constexpr (sizeof(ResType) == 2) {
-                    if constexpr (std::is_signed_v<ResType>) {
-                      return Gen<x86_64::MovsxwqRegOp>(memory_operand);
-                    } else {
-                      return Gen<x86_64::MovzxwlRegOp>(memory_operand);
-                    }
-                  } else if constexpr (sizeof(ResType) == 4) {
-                    return Gen<x86_64::MovsxlqRegOp>(memory_operand);
+  auto result = ValuesToValues::ToArray<MachineReg>(
+      TypesToValues::FlatMap<TypesToTypes::Enumerate<typename CallImm::CleanRetType>>(
+          [register_results, this]<typename RetElementInfo>() {
+            // Suppress spurious warnings.
+            // See  https://github.com/llvm/llvm-project/issues/34798#issuecomment-980989495
+            (void)register_results;
+            constexpr std::size_t kIdx = std::tuple_element_t<0, RetElementInfo>{};
+            using ResType = std::tuple_element_t<1, RetElementInfo>;
+            if constexpr (CallImm::kIsImplicitPointerResult) {
+              const int32_t kElementOffset = CallImm::kResultsElements[kIdx].element_offset;
+              CHECK(kElementOffset == CallImm::kResultsElements[kIdx].element_offset);
+              MemoryOperand memory_operand = {.base = x86_64::kMachineRegRSP,
+                                              .disp = kElementOffset};
+              if constexpr (std::is_integral_v<ResType> || std::is_pointer_v<ResType>) {
+                if constexpr (sizeof(ResType) == 1) {
+                  if constexpr (std::is_signed_v<ResType>) {
+                    return Gen<x86_64::MovsxbqRegOp>(memory_operand);
                   } else {
-                    static_assert(sizeof(ResType) == 8);
-                    return Gen<x86_64::MovqRegOp>(memory_operand);
+                    return Gen<x86_64::MovzxblRegOp>(memory_operand);
                   }
+                } else if constexpr (sizeof(ResType) == 2) {
+                  if constexpr (std::is_signed_v<ResType>) {
+                    return Gen<x86_64::MovsxwqRegOp>(memory_operand);
+                  } else {
+                    return Gen<x86_64::MovzxwlRegOp>(memory_operand);
+                  }
+                } else if constexpr (sizeof(ResType) == 4) {
+                  return Gen<x86_64::MovsxlqRegOp>(memory_operand);
                 } else {
-                  static_assert(sizeof(ResType) == 16);
-                  return Gen<x86_64::MovdquXRegOp>(memory_operand);
+                  static_assert(sizeof(ResType) == 8);
+                  return Gen<x86_64::MovqRegOp>(memory_operand);
                 }
               } else {
-                if constexpr (std::is_integral_v<ResType> || std::is_pointer_v<ResType>) {
-                  if constexpr (sizeof(ResType) == 1) {
-                    if constexpr (std::is_signed_v<ResType>) {
-                      return Gen<x86_64::MovsxbqRegReg>(register_results[kIdx]);
-                    } else {
-                      return Gen<x86_64::MovzxblRegReg>(register_results[kIdx]);
-                    }
-                  } else if constexpr (sizeof(ResType) == 2) {
-                    if constexpr (std::is_signed_v<ResType>) {
-                      return Gen<x86_64::MovsxwqRegReg>(register_results[kIdx]);
-                    } else {
-                      return Gen<x86_64::MovzxwlRegReg>(register_results[kIdx]);
-                    }
-                  } else if constexpr (sizeof(ResType) == 4) {
-                    return Gen<x86_64::MovsxlqRegReg>(register_results[kIdx]);
+                static_assert(sizeof(ResType) == 16);
+                return Gen<x86_64::MovdquXRegOp>(memory_operand);
+              }
+            } else {
+              if constexpr (std::is_integral_v<ResType> || std::is_pointer_v<ResType>) {
+                if constexpr (sizeof(ResType) == 1) {
+                  if constexpr (std::is_signed_v<ResType>) {
+                    return Gen<x86_64::MovsxbqRegReg>(register_results[kIdx]);
                   } else {
-                    static_assert(sizeof(ResType) == 8);
-                    return std::tuple{register_results[kIdx]};
+                    return Gen<x86_64::MovzxblRegReg>(register_results[kIdx]);
                   }
+                } else if constexpr (sizeof(ResType) == 2) {
+                  if constexpr (std::is_signed_v<ResType>) {
+                    return Gen<x86_64::MovsxwqRegReg>(register_results[kIdx]);
+                  } else {
+                    return Gen<x86_64::MovzxwlRegReg>(register_results[kIdx]);
+                  }
+                } else if constexpr (sizeof(ResType) == 4) {
+                  return Gen<x86_64::MovsxlqRegReg>(register_results[kIdx]);
                 } else {
+                  static_assert(sizeof(ResType) == 8);
                   return std::tuple{register_results[kIdx]};
                 }
+              } else {
+                return std::tuple{register_results[kIdx]};
               }
-            }));
-  }
+            }
+          }));
   return result;
 }
 

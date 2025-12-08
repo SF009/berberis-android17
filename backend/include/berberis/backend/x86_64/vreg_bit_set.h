@@ -32,7 +32,7 @@ class VRegBitSet {
 
   void Set(MachineReg reg) { bit_set_[reg.GetVRegIndex()] = true; }
   void Reset(MachineReg reg) { bit_set_[reg.GetVRegIndex()] = false; }
-  void Clear() { bit_set_.clear(); }
+  void ResetAll() { bit_set_.assign(bit_set_.size(), false); }
   size_t Size() const { return bit_set_.size(); }
 
   bool operator[](MachineReg reg) const { return bit_set_[reg.GetVRegIndex()]; }
