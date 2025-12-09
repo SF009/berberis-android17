@@ -144,6 +144,52 @@ constexpr bool TestFunc() {
   static_assert(!TypesToTypes::Any<TupleType<float, int&>&&,
                                    []<typename T>() { return std::is_same_v<T, char&&>; }>{});
 
+  static_assert(!TypesToTypes::Contains<const TupleType<char&, char&>, const char>{});
+  static_assert(TypesToTypes::Contains<const TupleType<char&, char>, const char>{});
+  static_assert(TypesToTypes::Contains<const TupleType<char, char&>, const char>{});
+  static_assert(TypesToTypes::Contains<const TupleType<char, char>, const char>{});
+
+  static_assert(!TypesToTypes::Contains<const TupleType<char&, char&>&, const char&>{});
+  static_assert(TypesToTypes::Contains<const TupleType<char&, char>&, const char&>{});
+  static_assert(TypesToTypes::Contains<const TupleType<char, char&>&, const char&>{});
+  static_assert(TypesToTypes::Contains<const TupleType<char, char>&, const char&>{});
+
+  static_assert(!TypesToTypes::Contains<const TupleType<char&, char&>&&, const char&&>{});
+  static_assert(TypesToTypes::Contains<const TupleType<char&, char>&&, const char&&>{});
+  static_assert(TypesToTypes::Contains<const TupleType<char, char&>&&, const char&&>{});
+  static_assert(TypesToTypes::Contains<const TupleType<char, char>&&, const char&&>{});
+
+  static_assert(!TypesToValues::Contains<TupleType<const char, const char>, char>());
+  static_assert(TypesToValues::Contains<TupleType<const char, char>, char>());
+  static_assert(TypesToValues::Contains<TupleType<char, const char>, char>());
+  static_assert(TypesToValues::Contains<TupleType<char, char>, char>());
+
+  static_assert(!TypesToTypes::Contains<TupleType<char&, char&>, char>{});
+  static_assert(TypesToTypes::Contains<TupleType<char&, char>, char>{});
+  static_assert(TypesToTypes::Contains<TupleType<char, char&>, char>{});
+  static_assert(TypesToTypes::Contains<TupleType<char, char>, char>{});
+
+  static_assert(TypesToTypes::Contains<TupleType<char&&, char&&>, char&&>{});
+  static_assert(TypesToTypes::Contains<TupleType<char&&, char>, char&&>{});
+  static_assert(TypesToTypes::Contains<TupleType<char, char&&>, char&&>{});
+  static_assert(!TypesToTypes::Contains<TupleType<char, char>, char&&>{});
+
+  static_assert(!TypesToTypes::Contains<TupleType<const char, const char>&, char&>{});
+  static_assert(TypesToTypes::Contains<TupleType<const char, char>&, char&>{});
+  static_assert(TypesToTypes::Contains<TupleType<char, const char>&, char&>{});
+  static_assert(TypesToTypes::Contains<TupleType<char, char>&, char&>{});
+
+  static_assert(!TypesToValues::Contains<TupleType<const char, const char>&&, char&&>());
+  static_assert(TypesToValues::Contains<TupleType<const char, char>&&, char&&>());
+  static_assert(TypesToValues::Contains<TupleType<char, const char>&&, char&&>());
+  static_assert(TypesToValues::Contains<TupleType<char, char>&&, char&&>());
+
+  // Combination of rvalue references and lvalue references lead to lvalue references.
+  static_assert(!TypesToTypes::Contains<TupleType<char&&, char&&>&, char&&>{});
+  static_assert(TypesToTypes::Contains<TupleType<char&&, char&&>&, char&>{});
+  static_assert(TypesToTypes::Contains<TupleType<char&&, char>&, char&>{});
+  static_assert(TypesToTypes::Contains<TupleType<char&, char&>&&, char&>{});
+
   static_assert(TypesToTypes::Count<const TupleType<char&, char&>, const char>{} == 0);
   static_assert(TypesToTypes::Count<const TupleType<char&, char>, const char>{} == 1);
   static_assert(TypesToTypes::Count<const TupleType<char, char&>, const char>{} == 1);
@@ -1108,8 +1154,29 @@ constexpr bool TestFunc() {
     return result;
   }() == 1);
 
+  static_assert(ValuesToValues::Contains<const int&>(kForEachTupleTypeIn));
+  static_assert(ValuesToValues::Contains<const int&>(MoveToNonConst(kForEachTupleTypeIn)));
+
+  static_assert(!ValuesToValues::Contains<const float&>(kForEachTupleTypeIn));
+  static_assert(!ValuesToValues::Contains<const float&>(MoveToNonConst(kForEachTupleTypeIn)));
+
+  static_assert(ValuesToValues::Contains(kForEachTupleTypeIn, 'A'));
+  static_assert(ValuesToValues::Contains(MoveToNonConst(kForEachTupleTypeIn), 'A'));
+
+  static_assert(!ValuesToValues::Contains(TupleType{"A", 'B'}, 'A'));
+  static_assert(ValuesToValues::Contains(TupleType{"B", 'A'}, 'A'));
+
   static_assert(ValuesToValues::Count<const int&>(kForEachTupleTypeIn) == 1);
   static_assert(ValuesToValues::Count<const int&>(MoveToNonConst(kForEachTupleTypeIn)) == 1);
+
+  static_assert(ValuesToValues::Count<const float&>(kForEachTupleTypeIn) == 0);
+  static_assert(ValuesToValues::Count<const float&>(MoveToNonConst(kForEachTupleTypeIn)) == 0);
+
+  static_assert(ValuesToValues::Count(kForEachTupleTypeIn, 'A') == 1);
+  static_assert(ValuesToValues::Count(MoveToNonConst(kForEachTupleTypeIn), 'A') == 1);
+
+  static_assert(ValuesToValues::Count(TupleType{"A", 'B'}, 'A') == 0);
+  static_assert(ValuesToValues::Count(TupleType{"B", 'A'}, 'A') == 1);
 
   // Enumerate for values.
 #if (!defined(__clang__) && !defined(__GNUC__)) || (defined(__clang__) && __clang_major__ > 19) || \

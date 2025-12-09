@@ -168,6 +168,10 @@ class TypesToTypes {
       decltype(std::tuple_cat(std::declval<typename ConcatHelper<TupleTypes>::Result>()...));
 
   template <typename TupleType, typename Type>
+  using Contains =
+      MetaValue<std::less{}(0, std::tuple_size_v<Filter<TupleType, CountHelper<Type>{}>>)>;
+
+  template <typename TupleType, typename Type>
   using Count = MetaValue<std::tuple_size_v<Filter<TupleType, CountHelper<Type>{}>>>;
 
   // Applies a type-level lambda to each type in the input |Type| tuple.
@@ -551,6 +555,11 @@ class TypesToValues {
         std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
         tmp,
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+
+  template <typename TupleType, typename Type>
+  static constexpr std::size_t Contains() {
+    return TypesToTypes::Contains<TupleType, Type>{};
   }
 
   template <typename TupleType, typename Type>
@@ -971,15 +980,44 @@ class ValuesToValues {
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
   }
 
+  template <typename TupleType, typename Type>
+  static constexpr bool Contains(TupleType&& tuple, Type&& element) {
+    return Any(std::forward<TupleType>(tuple),
+               [&element]<typename TypeToCheck>(TypeToCheck&& element_to_check) {
+                 if constexpr (kComparable<Type, TypeToCheck>) {
+                   return element == element_to_check;
+                 } else {
+                   return false;
+                 }
+               });
+  }
+
   template <typename Type, typename TupleType>
-  static constexpr decltype(auto) Count(TupleType&&) {
+  static constexpr bool Contains(TupleType&&) {
+    return TypesToTypes::Contains<TupleType, Type>{};
+  }
+
+  template <typename TupleType, typename Type>
+  static constexpr std::size_t Count(TupleType&& tuple, Type&& element) {
+    return CountIf(std::forward<TupleType>(tuple),
+                   [&element]<typename TypeToCheck>(TypeToCheck&& element_to_check) {
+                     if constexpr (kComparable<Type, TypeToCheck>) {
+                       return element == element_to_check;
+                     } else {
+                       return false;
+                     }
+                   });
+  }
+
+  template <typename Type, typename TupleType>
+  static constexpr std::size_t Count(TupleType&&) {
     return TypesToTypes::Count<TupleType, Type>{};
   }
 
   template <typename... ExtraLambdaArgTypes, typename TupleType, typename Lambda>
-  static constexpr bool CountIf(TupleType&& tuple,
-                                Lambda&& lambda,
-                                ExtraLambdaArgTypes&&... extra_types) {
+  static constexpr std::size_t CountIf(TupleType&& tuple,
+                                       Lambda&& lambda,
+                                       ExtraLambdaArgTypes&&... extra_types) {
     return CountIfHelper<ExtraLambdaArgTypes...>(
         std::forward<TupleType>(tuple),
         std::forward<Lambda>(lambda),
@@ -990,9 +1028,9 @@ class ValuesToValues {
             typename... ExtraLambdaArgTypes,
             typename TupleType,
             typename Lambda>
-  static constexpr bool CountIfWithTemporary(TupleType&& tuple,
-                                             Lambda&& lambda,
-                                             ExtraLambdaArgTypes&&... extra_types) {
+  static constexpr std::size_t CountIfWithTemporary(TupleType&& tuple,
+                                                    Lambda&& lambda,
+                                                    ExtraLambdaArgTypes&&... extra_types) {
     TemporaryType tmp{};
     return CountIfHelper<TemporaryType&, ExtraLambdaArgTypes...>(
         std::forward<TupleType>(tuple),
@@ -1005,10 +1043,10 @@ class ValuesToValues {
             typename... ExtraLambdaArgTypes,
             typename TupleType,
             typename Lambda>
-  static constexpr bool CountIfWithTemporary(TupleType&& tuple,
-                                             TemporaryType tmp,
-                                             Lambda&& lambda,
-                                             ExtraLambdaArgTypes&&... extra_types) {
+  static constexpr std::size_t CountIfWithTemporary(TupleType&& tuple,
+                                                    TemporaryType tmp,
+                                                    Lambda&& lambda,
+                                                    ExtraLambdaArgTypes&&... extra_types) {
     return CountIfHelper<TemporaryType&, ExtraLambdaArgTypes...>(
         std::forward<TupleType>(tuple),
         std::forward<Lambda>(lambda),
@@ -1514,6 +1552,9 @@ class ValuesToValues {
   }
 
  private:
+  template <typename LeftType, typename RightType, typename = void>
+  static constexpr bool kComparable = false;
+
   template <typename... ExtraLambdaArgTypes, typename TupleType, std::size_t... Is, typename Lambda>
   static constexpr bool AllHelper(TupleType&& tuple,
                                   Lambda&& lambda,
@@ -1543,10 +1584,10 @@ class ValuesToValues {
   }
 
   template <typename... ExtraLambdaArgTypes, typename TupleType, std::size_t... Is, typename Lambda>
-  static constexpr bool CountIfHelper(TupleType&& tuple,
-                                      Lambda&& lambda,
-                                      std::index_sequence<Is...>,
-                                      ExtraLambdaArgTypes&&... extra_types) {
+  static constexpr std::size_t CountIfHelper(TupleType&& tuple,
+                                             Lambda&& lambda,
+                                             std::index_sequence<Is...>,
+                                             ExtraLambdaArgTypes&&... extra_types) {
     return (
         static_cast<bool>(
             lambda.template operator()<
@@ -1664,6 +1705,12 @@ class ValuesToValues {
         std::get<I>(std::forward<std::tuple_element_t<Ts, TupleTypes>>(std::get<Ts>(tuples)))...};
   }
 };
+
+template <typename LeftType, typename RightType>
+constexpr bool ValuesToValues::kComparable<
+    LeftType,
+    RightType,
+    std::enable_if_t<sizeof(std::declval<LeftType>() == std::declval<RightType>()) >= 0>> = true;
 
 template <typename TupleType>
 class TypesToTypes::ToArrayHelper<const TupleType, void> {
