@@ -90,6 +90,8 @@ class Wrapping;
 
 namespace intrinsics {
 
+class Float8PhonyType;  // This class doesn't exist but we may use it in template arguments.
+
 template <typename BaseType>
 class WrappedFloatType;
 
@@ -133,7 +135,7 @@ class MetaType final {
     if constexpr (sizeof(typename TypeTraits<Type>::Float) == sizeof(_Float16)) {
       return MetaType<_Float16>{};
     } else if constexpr (sizeof(typename TypeTraits<Type>::Float) == sizeof(float)) {
-      MetaType<float>{};
+      return MetaType<float>{};
     } else {
       static_assert(sizeof(typename TypeTraits<Type>::Float) == sizeof(double));
       return MetaType<double>{};
@@ -177,7 +179,9 @@ class MetaType final {
   static constexpr bool IsEmpty() { return std::is_empty_v<Type>; }
   static constexpr bool IsEnum() { return std::is_enum_v<Type>; }
   static constexpr bool IsFinal() { return std::is_final_v<Type>; }
-  static constexpr bool IsFloatingPoint() { return std::is_floating_point_v<Type>; }
+  static constexpr bool IsFloatingPoint() {
+    return std::is_same_v<Type, _Float16> || std::is_floating_point_v<Type>;
+  }
   static constexpr bool IsFunction() { return std::is_function_v<Type>; }
   static constexpr bool IsFundamental() { return std::is_fundamental_v<Type>; }
   static constexpr bool IsIntegral() { return std::is_integral_v<Type>; }
@@ -385,10 +389,10 @@ class MetaType<berberis::Raw<UnderlyingType_>> final {
   static constexpr bool IsEmpty() { return std::is_empty_v<Type>; }
   static constexpr bool IsEnum() { return std::is_enum_v<Type>; }
   static constexpr bool IsFinal() { return std::is_final_v<Type>; }
-  static constexpr bool IsFloatingPoint() { return std::is_floating_point_v<Type>; }
+  static constexpr bool IsFloatingPoint() { return std::is_floating_point_v<UnderlyingType_>; }
   static constexpr bool IsFunction() { return std::is_function_v<Type>; }
   static constexpr bool IsFundamental() { return std::is_fundamental_v<Type>; }
-  static constexpr bool IsIntegral() { return std::is_integral_v<Type>; }
+  static constexpr bool IsIntegral() { return std::is_integral_v<UnderlyingType_>; }
   template <typename... ArgTypes>
   static constexpr bool IsInvocable(MetaType<ArgTypes>...) {
     return std::is_invocable_v<Type, ArgTypes...>;
@@ -605,10 +609,10 @@ class MetaType<berberis::Saturating<UnderlyingType_>> final {
   static constexpr bool IsEmpty() { return std::is_empty_v<Type>; }
   static constexpr bool IsEnum() { return std::is_enum_v<Type>; }
   static constexpr bool IsFinal() { return std::is_final_v<Type>; }
-  static constexpr bool IsFloatingPoint() { return std::is_floating_point_v<Type>; }
+  static constexpr bool IsFloatingPoint() { return std::is_floating_point_v<UnderlyingType_>; }
   static constexpr bool IsFunction() { return std::is_function_v<Type>; }
   static constexpr bool IsFundamental() { return std::is_fundamental_v<Type>; }
-  static constexpr bool IsIntegral() { return std::is_integral_v<Type>; }
+  static constexpr bool IsIntegral() { return std::is_integral_v<UnderlyingType_>; }
   template <typename... ArgTypes>
   static constexpr bool IsInvocable(MetaType<ArgTypes>...) {
     return std::is_invocable_v<Type, ArgTypes...>;
@@ -825,10 +829,10 @@ class MetaType<berberis::Wrapping<UnderlyingType_>> final {
   static constexpr bool IsEmpty() { return std::is_empty_v<Type>; }
   static constexpr bool IsEnum() { return std::is_enum_v<Type>; }
   static constexpr bool IsFinal() { return std::is_final_v<Type>; }
-  static constexpr bool IsFloatingPoint() { return std::is_floating_point_v<Type>; }
+  static constexpr bool IsFloatingPoint() { return std::is_floating_point_v<UnderlyingType_>; }
   static constexpr bool IsFunction() { return std::is_function_v<Type>; }
   static constexpr bool IsFundamental() { return std::is_fundamental_v<Type>; }
-  static constexpr bool IsIntegral() { return std::is_integral_v<Type>; }
+  static constexpr bool IsIntegral() { return std::is_integral_v<UnderlyingType_>; }
   template <typename... ArgTypes>
   static constexpr bool IsInvocable(MetaType<ArgTypes>...) {
     return std::is_invocable_v<Type, ArgTypes...>;
@@ -1045,10 +1049,13 @@ class MetaType<intrinsics::WrappedFloatType<UnderlyingType_>> final {
   static constexpr bool IsEmpty() { return std::is_empty_v<Type>; }
   static constexpr bool IsEnum() { return std::is_enum_v<Type>; }
   static constexpr bool IsFinal() { return std::is_final_v<Type>; }
-  static constexpr bool IsFloatingPoint() { return std::is_floating_point_v<Type>; }
+  static constexpr bool IsFloatingPoint() {
+    return std::is_same_v<UnderlyingType_, intrinsics::Float8PhonyType> ||
+           std::is_same_v<UnderlyingType_, _Float16> || std::is_floating_point_v<UnderlyingType_>;
+  }
   static constexpr bool IsFunction() { return std::is_function_v<Type>; }
   static constexpr bool IsFundamental() { return std::is_fundamental_v<Type>; }
-  static constexpr bool IsIntegral() { return std::is_integral_v<Type>; }
+  static constexpr bool IsIntegral() { return std::is_integral_v<UnderlyingType_>; }
   template <typename... ArgTypes>
   static constexpr bool IsInvocable(MetaType<ArgTypes>...) {
     return std::is_invocable_v<Type, ArgTypes...>;
@@ -1186,7 +1193,7 @@ class MetaType<intrinsics::WrappedFloatType<UnderlyingType_>> final {
   }
   static constexpr MetaType<Type> Wrapped() { return {}; }
   static constexpr auto Wrapping() {
-    MetaType<berberis::Wrapping<typename TypeTraits<Type>::Int>>{};
+    return MetaType<berberis::Wrapping<typename TypeTraits<Type>::Int>>{};
   }
   static constexpr auto Wide() { return MetaType<typename TypeTraits<Type>::Wide>{}; }
   static constexpr auto Widen() { return MetaType<typename TypeTraits<Type>::Wide>{}; }
@@ -1203,10 +1210,10 @@ inline bool constexpr operator!=(MetaType<LeftType>, MetaType<RightType>) {
 }
 
 template <typename Type>
-inline constexpr auto kType = MetaType<Type>{};
+inline constexpr auto kMetaType = MetaType<Type>{};
 
 template <typename... Types>
-inline constexpr auto kTypes = std::tuple<MetaType<Types>...>{};
+inline constexpr auto kMetaTypes = std::tuple<MetaType<Types>...>{};
 
 class TypesToValues;
 class ValuesToValues;
@@ -1247,7 +1254,7 @@ class TypesToTypes {
    public:
     template <typename Type>
     constexpr auto operator()() const {
-      return kTypes<MetaType<Type>>;
+      return kMetaTypes<MetaType<Type>>;
     };
   };
 
@@ -1363,7 +1370,7 @@ class TypesToTypes {
    public:
     template <typename TypeToProcess>
     constexpr auto operator()() const {
-      return kTypes<const TypeToProcess>;
+      return kMetaTypes<const TypeToProcess>;
     }
   };
   template <typename TupleType>
@@ -1375,7 +1382,7 @@ class TypesToTypes {
    public:
     template <typename TypeToProcess>
     constexpr auto operator()() const {
-      return kTypes<const TypeToProcess&>;
+      return kMetaTypes<const TypeToProcess&>;
     }
   };
   template <typename TupleType>
@@ -1387,7 +1394,7 @@ class TypesToTypes {
    public:
     template <typename TypeToProcess>
     constexpr auto operator()() const {
-      return kTypes<const TypeToProcess&&>;
+      return kMetaTypes<const TypeToProcess&&>;
     }
   };
   template <typename TupleType>
@@ -1399,7 +1406,7 @@ class TypesToTypes {
    public:
     template <typename TypeToProcess>
     constexpr auto operator()() const {
-      return kTypes<TypeToProcess&>;
+      return kMetaTypes<TypeToProcess&>;
     }
   };
   template <typename TupleType>
@@ -1411,7 +1418,7 @@ class TypesToTypes {
    public:
     template <typename TypeToProcess>
     constexpr auto operator()() const {
-      return kTypes<TypeToProcess&&>;
+      return kMetaTypes<TypeToProcess&&>;
     }
   };
   template <typename TupleType>
@@ -1443,9 +1450,9 @@ class TypesToTypes {
     constexpr auto operator()() const {
       constexpr bool kAccepted = kLambda.template operator()<Type>();
       if constexpr (kAccepted) {
-        return kTypes<Type>;
+        return kMetaTypes<Type>;
       } else {
-        return kTypes<>;
+        return kMetaTypes<>;
       }
     }
   };
@@ -1497,9 +1504,9 @@ class TypesToTypes {
     template <typename TypeToCheck>
     constexpr auto operator()() const {
       if constexpr (std::is_same_v<Type, TypeToCheck>) {
-        return kTypes<TypeToCheck>;
+        return kMetaTypes<TypeToCheck>;
       } else {
-        return kTypes<>;
+        return kMetaTypes<>;
       }
     }
   };
@@ -1510,9 +1517,9 @@ class TypesToTypes {
     template <typename TypeToCheck>
     constexpr auto operator()() const {
       if constexpr (std::is_same_v<Type, TypeToCheck>) {
-        return kTypes<>;
+        return kMetaTypes<>;
       } else {
-        return kTypes<TypeToCheck>;
+        return kMetaTypes<TypeToCheck>;
       }
     }
   };
@@ -1526,9 +1533,9 @@ class TypesToTypes {
       static_assert(kIdx <= std::tuple_size_v<std::remove_reference_t<TupleType>>);
       constexpr bool kAccepted = kIdx >= kCount;
       if constexpr (kAccepted) {
-        return kTypes<std::tuple_element_t<1, EnumeratedType>>;
+        return kMetaTypes<std::tuple_element_t<1, EnumeratedType>>;
       } else {
-        return kTypes<>;
+        return kMetaTypes<>;
       }
     }
   };
@@ -1542,9 +1549,9 @@ class TypesToTypes {
       static_assert(kIdx <= std::tuple_size_v<std::remove_reference_t<TupleType>>);
       constexpr bool kAccepted = kIdx < kCount;
       if constexpr (kAccepted) {
-        return kTypes<std::tuple_element_t<1, EnumeratedType>>;
+        return kMetaTypes<std::tuple_element_t<1, EnumeratedType>>;
       } else {
-        return kTypes<>;
+        return kMetaTypes<>;
       }
     }
   };

@@ -318,11 +318,11 @@ class MachineInsn final : public MachineInsnX86_64 {
           []<typename Operand> {
             if constexpr (device_arch_info::kIsRegister<Operand> &&
                           Operand::kUsage == device_arch_info::kUseDef) {
-              return kTypes<
+              return kMetaTypes<
                   device_arch_info::OperandInfo<typename Operand::Class, device_arch_info::kDef>,
                   device_arch_info::OperandInfo<typename Operand::Class, device_arch_info::kUse>>;
             } else {
-              return kTypes<Operand>;
+              return kMetaTypes<Operand>;
             }
           }>,
       typename DeviceInsnInfo_::Operands>;
@@ -340,14 +340,14 @@ class MachineInsn final : public MachineInsnX86_64 {
       TypesToTypes::FlatMap<typename DeviceInsnInfo_::Operands, []<typename Operand> {
         if constexpr (device_arch_info::kIsRegister<Operand>) {
           if constexpr (kSSAMode == kSSA && Operand::kUsage == device_arch_info::kUseDef) {
-            return kTypes<MachineReg, MachineReg>;
+            return kMetaTypes<MachineReg, MachineReg>;
           } else {
-            return kTypes<MachineReg>;
+            return kMetaTypes<MachineReg>;
           }
         } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
-          return kTypes<MachineReg, MachineReg>;
+          return kMetaTypes<MachineReg, MachineReg>;
         } else {
-          return kTypes<>;
+          return kMetaTypes<>;
         }
       }>>>;
   template <auto>
@@ -365,15 +365,15 @@ class MachineInsn final : public MachineInsnX86_64 {
         if constexpr (device_arch_info::kIsComment<Operand> ||
                       device_arch_info::kIsCondition<Operand> ||
                       device_arch_info::kIsImmediate<Operand>) {
-          return kTypes<typename Operand::Class::Type>;
+          return kMetaTypes<typename Operand::Class::Type>;
         } else if constexpr (device_arch_info::kIsRegister<Operand>) {
           if constexpr (kSSAMode == kSSA && Operand::kUsage == device_arch_info::kUseDef) {
-            return kTypes<MachineReg, MachineReg>;
+            return kMetaTypes<MachineReg, MachineReg>;
           } else {
-            return kTypes<MachineReg>;
+            return kMetaTypes<MachineReg>;
           }
         } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
-          return kTypes<const MemoryOperand&>;
+          return kMetaTypes<const MemoryOperand&>;
         } else {
           static_assert(kDependentTypeFalse<Operand>);
         }
@@ -383,19 +383,19 @@ class MachineInsn final : public MachineInsnX86_64 {
         if constexpr (device_arch_info::kIsComment<Operand> ||
                       device_arch_info::kIsCondition<Operand> ||
                       device_arch_info::kIsImmediate<Operand>) {
-          return kTypes<typename Operand::Class::Type>;
+          return kMetaTypes<typename Operand::Class::Type>;
         } else if constexpr (device_arch_info::kIsRegister<Operand>) {
           if constexpr (Operand::kUsage == device_arch_info::kUse ||
                         Operand::kUsage == device_arch_info::kUseDef) {
-            return kTypes<MachineReg>;
+            return kMetaTypes<MachineReg>;
           } else if constexpr (Operand::kUsage == device_arch_info::kDef ||
                                Operand::kUsage == device_arch_info::kDefEarlyClobber) {
-            return kTypes<>;
+            return kMetaTypes<>;
           } else {
             static_assert(kDependentValueFalse<Operand::kUsage>);
           }
         } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
-          return kTypes<const MemoryOperand&>;
+          return kMetaTypes<const MemoryOperand&>;
         } else {
           static_assert(kDependentTypeFalse<Operand>);
         }
@@ -408,19 +408,19 @@ class MachineInsn final : public MachineInsnX86_64 {
                        if constexpr (device_arch_info::kIsComment<Operand> ||
                                      device_arch_info::kIsCondition<Operand> ||
                                      device_arch_info::kIsImmediate<Operand>) {
-                         return kTypes<>;
+                         return kMetaTypes<>;
                        } else if constexpr (device_arch_info::kIsRegister<Operand>) {
                          if constexpr (Operand::kUsage == device_arch_info::kDef ||
                                        Operand::kUsage == device_arch_info::kDefEarlyClobber ||
                                        Operand::kUsage == device_arch_info::kUseDef) {
-                           return kTypes<MachineReg>;
+                           return kMetaTypes<MachineReg>;
                          } else if constexpr (Operand::kUsage == device_arch_info::kUse) {
-                           return kTypes<>;
+                           return kMetaTypes<>;
                          } else {
                            static_assert(kDependentValueFalse<Operand::kUsage>);
                          }
                        } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
-                         return kTypes<>;
+                         return kMetaTypes<>;
                        } else {
                          static_assert(kDependentTypeFalse<Operand>);
                        }
@@ -579,15 +579,15 @@ class MachineInsn final : public MachineInsnX86_64 {
           if constexpr (device_arch_info::kIsComment<Operand> ||
                         device_arch_info::kIsCondition<Operand> ||
                         device_arch_info::kIsImmediate<Operand>) {
-            return kTypes<>;
+            return kMetaTypes<>;
           } else if constexpr (device_arch_info::kIsRegister<Operand>) {
             if constexpr (kSSAMode == kSSA && Operand::kUsage == device_arch_info::kUseDef) {
-              return kTypes<MachineReg, MachineReg>;
+              return kMetaTypes<MachineReg, MachineReg>;
             } else {
-              return kTypes<MachineReg>;
+              return kMetaTypes<MachineReg>;
             }
           } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
-            return kTypes<MachineReg, MachineReg>;
+            return kMetaTypes<MachineReg, MachineReg>;
           } else {
             static_assert(kDependentTypeFalse<Operand>);
           }
