@@ -2259,6 +2259,27 @@ constexpr bool TestFunc() {
       ValuesToValues::Zip(std::array{2, 42}, TupleType{'a', 3.00}, TupleType{true, 1ULL}) ==
       std::tuple{std::tuple{2, 'a', true}, std::tuple{42, 3.00, 1ULL}});
 
+  // Ensure that we cna Zip kTypes and values.
+  constexpr auto kTypesProcessingResult = ValuesToValues::Map(
+      ValuesToValues::Zip(kTypes<char, int>, std::tuple{72, 'A'}),
+      []<typename TypeAndValue>(TypeAndValue&& type_and_value) {
+        return static_cast<std::remove_reference_t<std::tuple_element_t<0, TypeAndValue>>::Type>(
+            std::get<1>(type_and_value));
+      });
+  static_assert(kTypesProcessingResult == std::tuple{'H', 65});
+  static_assert(std::is_same_v<decltype(kTypesProcessingResult), const std::tuple<char, int>>);
+
+  // Ensure that we can Zip kTupleMetaTypes and values.
+  constexpr auto kTupleMetaTypesProcessingResult = ValuesToValues::Map(
+      ValuesToValues::Zip(kTupleMetaTypes<TupleType<char, int>>, std::tuple{72, 'A'}),
+      []<typename TypeAndValue>(TypeAndValue&& type_and_value) {
+        return static_cast<std::remove_reference_t<std::tuple_element_t<0, TypeAndValue>>::Type>(
+            std::get<1>(type_and_value));
+      });
+  static_assert(kTupleMetaTypesProcessingResult == std::tuple{'H', 65});
+  static_assert(
+      std::is_same_v<decltype(kTupleMetaTypesProcessingResult), const std::tuple<char, int>>);
+
   // Note: attempt to call Zip and put result into constexpr result variable works on clang and
   // msvc, but not on gcc.
   constexpr TupleType<char, double> zip_tuple1 = {'a', 3.00};
