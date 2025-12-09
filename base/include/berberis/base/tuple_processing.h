@@ -2714,13 +2714,9 @@ class ValuesToValues {
                                   Lambda&& lambda,
                                   std::index_sequence<Is...>,
                                   ExtraLambdaArgTypes&&... extra_types) {
-    return (
-        static_cast<bool>(
-            lambda.template operator()<
-                std::tuple_element_t<Is, typename TypesToTypes::ConcatHelper<TupleType>::Result>>(
-                std::get<Is>(std::forward<TupleType>(tuple)),
-                std::forward<ExtraLambdaArgTypes>(extra_types)...)) &&
-        ... && true);
+    return (static_cast<bool>(lambda(std::get<Is>(std::forward<TupleType>(tuple)),
+                                     std::forward<ExtraLambdaArgTypes>(extra_types)...)) &&
+            ... && true);
   }
 
   template <typename... ExtraLambdaArgTypes, typename TupleType, std::size_t... Is, typename Lambda>
@@ -2728,13 +2724,9 @@ class ValuesToValues {
                                   Lambda&& lambda,
                                   std::index_sequence<Is...>,
                                   ExtraLambdaArgTypes&&... extra_types) {
-    return (
-        static_cast<bool>(
-            lambda.template operator()<
-                std::tuple_element_t<Is, typename TypesToTypes::ConcatHelper<TupleType>::Result>>(
-                std::get<Is>(std::forward<TupleType>(tuple)),
-                std::forward<ExtraLambdaArgTypes>(extra_types)...)) ||
-        ... || false);
+    return (static_cast<bool>(lambda(std::get<Is>(std::forward<TupleType>(tuple)),
+                                     std::forward<ExtraLambdaArgTypes>(extra_types)...)) ||
+            ... || false);
   }
 
   template <typename... ExtraLambdaArgTypes, typename TupleType, std::size_t... Is, typename Lambda>
@@ -2742,13 +2734,9 @@ class ValuesToValues {
                                              Lambda&& lambda,
                                              std::index_sequence<Is...>,
                                              ExtraLambdaArgTypes&&... extra_types) {
-    return (
-        static_cast<bool>(
-            lambda.template operator()<
-                std::tuple_element_t<Is, typename TypesToTypes::ConcatHelper<TupleType>::Result>>(
-                std::get<Is>(std::forward<TupleType>(tuple)),
-                std::forward<ExtraLambdaArgTypes>(extra_types)...)) +
-        ... + std::size_t{0});
+    return (static_cast<bool>(lambda(std::get<Is>(std::forward<TupleType>(tuple)),
+                                     std::forward<ExtraLambdaArgTypes>(extra_types)...)) +
+            ... + std::size_t{0});
   }
 
   template <typename... ExtraLambdaArgTypes, typename TupleType, std::size_t... Is, typename Lambda>
@@ -2767,11 +2755,8 @@ class ValuesToValues {
           } else {
             return std::tuple<>{};
           }
-        }
-            .template operator()<
-                std::tuple_element_t<Is, typename TypesToTypes::ConcatHelper<TupleType>::Result>>(
-                std::get<Is>(std::forward<TupleType>(tuple)),
-                std::forward<ExtraLambdaArgTypes>(extra_types)...)...);
+        }(std::get<Is>(std::forward<TupleType>(tuple)),
+          std::forward<ExtraLambdaArgTypes>(extra_types)...)...);
   }
 
   template <typename... ExtraLambdaArgTypes, typename TupleType, std::size_t... Is, typename Lambda>
@@ -2779,11 +2764,8 @@ class ValuesToValues {
                                                 Lambda&& lambda,
                                                 std::index_sequence<Is...>,
                                                 ExtraLambdaArgTypes&&... extra_types) {
-    return std::tuple_cat(
-        lambda.template operator()<
-            std::tuple_element_t<Is, typename TypesToTypes::ConcatHelper<TupleType>::Result>>(
-            std::get<Is>(std::forward<TupleType>(tuple)),
-            std::forward<ExtraLambdaArgTypes>(extra_types)...)...);
+    return std::tuple_cat(lambda(std::get<Is>(std::forward<TupleType>(tuple)),
+                                 std::forward<ExtraLambdaArgTypes>(extra_types)...)...);
   }
 
   template <typename... ExtraLambdaArgTypes, typename TupleType, std::size_t... Is, typename Lambda>
@@ -2791,10 +2773,8 @@ class ValuesToValues {
                                       Lambda&& lambda,
                                       std::index_sequence<Is...>,
                                       ExtraLambdaArgTypes&&... extra_types) {
-    (lambda.template
-     operator()<std::tuple_element_t<Is, typename TypesToTypes::ConcatHelper<TupleType>::Result>>(
-         std::get<Is>(std::forward<TupleType>(tuple)),
-         std::forward<ExtraLambdaArgTypes>(extra_types)...),
+    (lambda(std::get<Is>(std::forward<TupleType>(tuple)),
+            std::forward<ExtraLambdaArgTypes>(extra_types)...),
      ...);
   }
 
@@ -2805,16 +2785,10 @@ class ValuesToValues {
                                             ExtraLambdaArgTypes&&... extra_types) {
     // Note: we need to specify the type of tuple here explicitly, because otherwise type deduction
     // would produce `int` where we want `const int&`.
-    return std::tuple<
-        decltype(lambda.template operator()<
-                 std::tuple_element_t<Is, typename TypesToTypes::ConcatHelper<TupleType>::Result>>(
-            std::get<Is>(std::forward<TupleType>(tuple)),
-            std::forward<ExtraLambdaArgTypes>(extra_types)...))...> {
-      lambda.template
-      operator()<std::tuple_element_t<Is, typename TypesToTypes::ConcatHelper<TupleType>::Result>>(
-          std::get<Is>(std::forward<TupleType>(tuple)),
-          std::forward<ExtraLambdaArgTypes>(extra_types)...)...
-    };
+    return std::tuple<decltype(lambda(std::get<Is>(std::forward<TupleType>(tuple)),
+                                      std::forward<ExtraLambdaArgTypes>(extra_types)...))...>{
+        lambda(std::get<Is>(std::forward<TupleType>(tuple)),
+               std::forward<ExtraLambdaArgTypes>(extra_types)...)...};
   }
 
   template <typename TupleType, auto initial_value, auto kLambda, auto... extra_lambda_values>

@@ -439,7 +439,8 @@ class MachineInsn final : public MachineInsnX86_64 {
       ValuesToValues::ForEachWithTemporary(
           std::move(args),
           /* reg_idx, mem_idx = */ std::tuple{size_t{0}, size_t{0}},
-          [this]<typename ConstructorArg>(ConstructorArg arg, std::tuple<size_t, size_t>& indexes) {
+          [this]<typename ConstructorArg>(ConstructorArg&& arg,
+                                          std::tuple<size_t, size_t>& indexes) {
             if constexpr (std::is_same_v<ConstructorArg, Assembler::Condition>) {
               MachineInsnX86_64::set_cond(arg);
             } else if constexpr (std::is_integral_v<ConstructorArg>) {
@@ -702,7 +703,7 @@ class MachineInsn final : public MachineInsnX86_64 {
           std::move(args),
           /* index = */ size_t{0},
           /* current_bit = */ size_t{1},
-          []<typename Arg>(Arg arg, size_t& index, size_t& current_bit) {
+          []<typename Arg>(Arg&& arg, size_t& index, size_t& current_bit) {
             if constexpr (std::is_same_v<Arg, const MemoryOperand&>) {
               if (arg.base != kInvalidMachineReg) {
                 index |= current_bit;

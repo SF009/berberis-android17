@@ -356,7 +356,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
     }
 
     ValuesToValues::ForEach(result_,
-                            [builder = builder_]<typename RegisterType>(RegisterType& reg) {
+                            [builder = builder_]<typename RegisterType>(RegisterType&& reg) {
                               if constexpr (std::is_same_v<RegisterType, SimdReg&>) {
                                 reg = SimdReg{builder->ir()->AllocVReg()};
                               } else {

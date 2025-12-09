@@ -1002,7 +1002,7 @@ constexpr bool TestFunc() {
     int extra_arg1 = 0, extra_arg2 = 0;
     bool result = ValuesToValues::All(
         MoveToNonConst(kForEachTupleTypeIn),
-        []<typename T>(T, int& extra_arg1, int& extra_arg2) {
+        []<typename T>(T&&, int& extra_arg1, int& extra_arg2) {
           extra_arg1 += 1;
           extra_arg2 -= 1;
           return std::is_same_v<T, char>;
@@ -1018,7 +1018,7 @@ constexpr bool TestFunc() {
     int extra_arg1 = 0, extra_arg2 = 0;
     bool result = ValuesToValues::Any(
         MoveToNonConst(kForEachTupleTypeIn),
-        []<typename T>(T, int& extra_arg1, int& extra_arg2) {
+        []<typename T>(T&&, int& extra_arg1, int& extra_arg2) {
           extra_arg1 += 1;
           extra_arg2 -= 1;
           return std::is_same_v<T, const int&>;
@@ -1034,7 +1034,7 @@ constexpr bool TestFunc() {
     int extra_arg1 = 0, extra_arg2 = 0;
     bool result = ValuesToValues::CountIf(
         MoveToNonConst(kForEachTupleTypeIn),
-        []<typename T>(T, int& extra_arg1, int& extra_arg2) {
+        []<typename T>(T&&, int& extra_arg1, int& extra_arg2) {
           extra_arg1 += 1;
           extra_arg2 -= 1;
           return std::is_same_v<T, const int&>;
@@ -1051,7 +1051,7 @@ constexpr bool TestFunc() {
     int extra_arg1 = 0, extra_arg2 = 0;
     bool result = ValuesToValues::AllWithTemporary<int>(
         MoveToNonConst(kForEachTupleTypeIn),
-        []<typename T>(T, int& idx, int& extra_arg1, int& extra_arg2) {
+        []<typename T>(T&&, int& idx, int& extra_arg1, int& extra_arg2) {
           extra_arg1 += 1;
           extra_arg2 -= 1;
           CHECK_EQ(++idx, extra_arg1);
@@ -1068,7 +1068,7 @@ constexpr bool TestFunc() {
     int extra_arg1 = 0, extra_arg2 = 0;
     bool result = ValuesToValues::AnyWithTemporary<int>(
         MoveToNonConst(kForEachTupleTypeIn),
-        []<typename T>(T, int& idx, int& extra_arg1, int& extra_arg2) {
+        []<typename T>(T&&, int& idx, int& extra_arg1, int& extra_arg2) {
           extra_arg1 += 1;
           extra_arg2 -= 1;
           CHECK_EQ(++idx, extra_arg1);
@@ -1085,7 +1085,7 @@ constexpr bool TestFunc() {
     int extra_arg1 = 0, extra_arg2 = 0;
     bool result = ValuesToValues::CountIfWithTemporary<int>(
         MoveToNonConst(kForEachTupleTypeIn),
-        []<typename T>(T, int& idx, int& extra_arg1, int& extra_arg2) {
+        []<typename T>(T&&, int& idx, int& extra_arg1, int& extra_arg2) {
           extra_arg1 += 1;
           extra_arg2 -= 1;
           CHECK_EQ(++idx, extra_arg1);
@@ -1104,7 +1104,7 @@ constexpr bool TestFunc() {
     bool result = ValuesToValues::AllWithTemporary(
         MoveToNonConst(kForEachTupleTypeIn),
         /* idx = */ 42,
-        []<typename T>(T, int& idx, int& extra_arg1, int& extra_arg2) {
+        []<typename T>(T&&, int& idx, int& extra_arg1, int& extra_arg2) {
           extra_arg1 += 1;
           extra_arg2 -= 1;
           CHECK_EQ(++idx, 42 + extra_arg1);
@@ -1122,7 +1122,7 @@ constexpr bool TestFunc() {
     bool result = ValuesToValues::AnyWithTemporary(
         MoveToNonConst(kForEachTupleTypeIn),
         /* idx = */ 42,
-        []<typename T>(T, int& idx, int& extra_arg1, int& extra_arg2) {
+        []<typename T>(T&&, int& idx, int& extra_arg1, int& extra_arg2) {
           extra_arg1 += 1;
           extra_arg2 -= 1;
           CHECK_EQ(++idx, 42 + extra_arg1);
@@ -1140,7 +1140,7 @@ constexpr bool TestFunc() {
     bool result = ValuesToValues::CountIfWithTemporary(
         MoveToNonConst(kForEachTupleTypeIn),
         /* idx = */ 42,
-        []<typename T>(T, int& idx, int& extra_arg1, int& extra_arg2) {
+        []<typename T>(T&&, int& idx, int& extra_arg1, int& extra_arg2) {
           extra_arg1 += 1;
           extra_arg2 -= 1;
           CHECK_EQ(++idx, 42 + extra_arg1);
@@ -1354,7 +1354,7 @@ constexpr bool TestFunc() {
   constexpr std::tuple<const int&, float, char> kFlatMapTupleOut4{kForEachInt1, float{42.42}, 'A'};
   constexpr auto kFlatMapResult4 = ValuesToValues::FlatMap(
       MoveToNonConst(kForEachTupleTypeIn),
-      []<typename T>(T t, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
+      []<typename T>(T&& t, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
         CHECK_EQ(&kExtraArg1, &kForEachInt1);
         CHECK_EQ(&kExtraArg2, &kForEachInt2);
         if constexpr (std::is_same_v<T, char>) {
@@ -1373,7 +1373,7 @@ constexpr bool TestFunc() {
   constexpr auto kFlatMapResult5 = ValuesToValues::FlatMapWithTemporary<int>(
       MoveToNonConst(kForEachTupleTypeIn),
       []<typename T>(
-          T t, int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
+          T&& t, int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
         CHECK_EQ(&kExtraArg1, &kForEachInt1);
         CHECK_EQ(&kExtraArg2, &kForEachInt2);
         if constexpr (std::is_same_v<T, char>) {
@@ -1394,7 +1394,7 @@ constexpr bool TestFunc() {
       MoveToNonConst(kForEachTupleTypeIn),
       /* idx = */ 42,
       []<typename T>(
-          T t, int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
+          T&& t, int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
         CHECK_EQ(&kExtraArg1, &kForEachInt1);
         CHECK_EQ(&kExtraArg2, &kForEachInt2);
         if constexpr (std::is_same_v<T, char>) {
@@ -1585,7 +1585,7 @@ constexpr bool TestFunc() {
   constexpr std::tuple<const int&, float> kMapTupleOut4{kForEachInt1, float{42.42}};
   constexpr auto kMapResult4 = ValuesToValues::Map(
       MoveToNonConst(kForEachTupleTypeIn),
-      []<typename T>(T t, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
+      []<typename T>(T&& t, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
         CHECK_EQ(&kExtraArg1, &kForEachInt1);
         CHECK_EQ(&kExtraArg2, &kForEachInt2);
         if constexpr (std::is_same_v<T, char>) {
@@ -1603,7 +1603,7 @@ constexpr bool TestFunc() {
   constexpr auto kMapResult5 = ValuesToValues::MapWithTemporary<int>(
       MoveToNonConst(kForEachTupleTypeIn),
       []<typename T>(
-          T t, int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
+          T&& t, int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
         CHECK_EQ(&kExtraArg1, &kForEachInt1);
         CHECK_EQ(&kExtraArg2, &kForEachInt2);
         if constexpr (std::is_same_v<T, char>) {
@@ -1623,7 +1623,7 @@ constexpr bool TestFunc() {
       MoveToNonConst(kForEachTupleTypeIn),
       /* idx = */ 42,
       []<typename T>(
-          T t, int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
+          T&& t, int& idx, const int& kExtraArg1, const int& kExtraArg2) -> decltype(auto) {
         CHECK_EQ(&kExtraArg1, &kForEachInt1);
         CHECK_EQ(&kExtraArg2, &kForEachInt2);
         if constexpr (std::is_same_v<T, char>) {
