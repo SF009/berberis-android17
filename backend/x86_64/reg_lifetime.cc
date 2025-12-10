@@ -18,6 +18,7 @@
 
 #include <cstddef>
 #include <iterator>
+#include <optional>
 #include <variant>
 
 #include "berberis/backend/common/machine_ir.h"
@@ -37,24 +38,32 @@ size_t RegLifetimeCounter::RegCountAt(size_t pos, RegType reg_type) const {
                                        : lifetime_counts_.at(pos).xmm;
 }
 
-void RegLifetimeCounter::UpdateLastUse(MachineReg reg, berberis::MachineInsn* end, int end_pos) {
+std::optional<size_t> RegLifetimeCounter::UpdateLastUse(MachineReg reg,
+                                                        berberis::MachineInsn* end,
+                                                        size_t end_pos,
+                                                        const size_t kLimit) {
   CHECK(lifetime_map_.contains(reg));
   CHECK_LE(static_cast<size_t>(end_pos), lifetime_counts_.size());
 
   auto& lifetime = lifetime_map_[reg];
-  int old_end_pos = lifetime.end_pos;
+  size_t old_end_pos = lifetime.end_pos;
 
   // Don't do anything if this doesn't extend lifetime.
   if (end_pos <= old_end_pos) {
-    return;
+    return std::nullopt;
   }
 
-  for (int i = old_end_pos; i < end_pos; i++) {
-    lifetime_counts_[i].Increment(lifetime.reg_type);
+  std::optional<size_t> ret = std::nullopt;
+  for (size_t i = old_end_pos; i < end_pos; i++) {
+    size_t count = lifetime_counts_[i].Increment(lifetime.reg_type);
+    if (count >= kLimit) {
+      ret = {i};
+    }
   }
 
   lifetime.end = end;
   lifetime.end_pos = end_pos;
+  return ret;
 }
 
 void RegLifetimeCounter::CountRegLifetimeMap(MachineBasicBlock* bb) {
@@ -135,15 +144,15 @@ void RegLifetimeCounter::CountRegLifetimeMap(MachineBasicBlock* bb) {
 }
 
 // Increment count in inc_map based on whether lifetime reg_type.
-void IncrementBy(RegLifetimeCount* count, RegType reg_type, const int n) {
+size_t IncrementBy(RegLifetimeCount* count, RegType reg_type, const int n) {
   switch (reg_type) {
     case RegType::kGeneral:
       count->general += n;
-      break;
+      return count->general;
     case RegType::kXmm:
       count->xmm += n;
-      break;
-    case RegType::kUnknown:
+      return count->xmm;
+    default:
       // This happens if a register isn't ever used with an instruction which
       // requires either an XMM or General register in the current basic block
       // so we're unable to infer what type it is. For example if it's just
@@ -151,14 +160,15 @@ void IncrementBy(RegLifetimeCount* count, RegType reg_type, const int n) {
       // TODO(453652939) Improve this.
       break;
   };
+  return 0;
 }
 
-void RegLifetimeCount::Decrement(RegType reg_type) {
-  IncrementBy(this, reg_type, -1);
+size_t RegLifetimeCount::Decrement(RegType reg_type) {
+  return IncrementBy(this, reg_type, -1);
 }
 
-void RegLifetimeCount::Increment(RegType reg_type) {
-  IncrementBy(this, reg_type, 1);
+size_t RegLifetimeCount::Increment(RegType reg_type) {
+  return IncrementBy(this, reg_type, 1);
 }
 
 void RegLifetimeCounter::CountRegLifetimes(MachineBasicBlock* bb) {
