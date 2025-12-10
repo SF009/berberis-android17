@@ -28,6 +28,19 @@ namespace berberis {
 
 namespace {
 
+// Type checks.
+
+static_assert(kMetaType<int>.IsIntegral());
+static_assert(!kMetaType<float>.IsIntegral());
+static_assert(!kMetaType<int>.IsFloatingPoint());
+static_assert(kMetaType<float>.IsFloatingPoint());
+
+// Type conversions.
+
+static_assert(std::is_same_v<Type<kMetaType<int>.AddConst().AddLvalueReference()>, const int&>);
+static_assert(std::is_same_v<Type<kMetaType<float>.AddConst().AddPointer().AddVolatile()>,
+                             const float* volatile>);
+
 // Note: we want to have references in out tests to produce results with references and also
 // verify that types of the results include references, not straight `int`s, this is somewhat
 // tricky and the main reason to use static_assert based tests here: dangling reference is in UB
