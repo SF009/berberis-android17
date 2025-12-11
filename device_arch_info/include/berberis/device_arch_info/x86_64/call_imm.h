@@ -90,13 +90,13 @@ using CleanTypes = TypesToTypes::FlatMap<ArgumentsTuple, []<typename RawType> {
                 std::is_same_v<Type, intrinsics::WrappedFloatType<_Float16>> ||
                 std::is_same_v<Type, intrinsics::WrappedFloatType<float>> ||
                 std::is_same_v<Type, intrinsics::WrappedFloatType<double>>) {
-    return kTypes<Type>;
+    return kMetaTypes<Type>;
   } else if constexpr (std::is_pointer_v<Type>) {
-    return kTypes<uint64_t>;
+    return kMetaTypes<uint64_t>;
   } else if constexpr (std::is_same_v<Type, SIMD128Register> ||
                        std::is_same_v<Type,
                                       float __attribute__((__vector_size__(16), may_alias))>) {
-    return kTypes<SIMD128Register>;
+    return kMetaTypes<SIMD128Register>;
   } else {
     static_assert(kDependentTypeFalse<Type>);
   }
@@ -106,19 +106,19 @@ template <typename ArgumentsTuple>
 using RawTypes = TypesToTypes::FlatMap<ArgumentsTuple, []<typename RawType> {
   using Type = std::remove_cvref_t<RawType>;
   if constexpr (std::is_integral_v<Type>) {
-    return kTypes<Type>;
+    return kMetaTypes<Type>;
   } else if constexpr (std::is_same_v<Type, intrinsics::WrappedFloatType<_Float16>>) {
-    return kTypes<_Float16>;
+    return kMetaTypes<_Float16>;
   } else if constexpr (std::is_same_v<Type, intrinsics::WrappedFloatType<float>>) {
-    return kTypes<float>;
+    return kMetaTypes<float>;
   } else if constexpr (std::is_same_v<Type, intrinsics::WrappedFloatType<double>>) {
-    return kTypes<double>;
+    return kMetaTypes<double>;
   } else if constexpr (std::is_pointer_v<Type>) {
-    return kTypes<uint64_t>;
+    return kMetaTypes<uint64_t>;
   } else if constexpr (std::is_same_v<Type, SIMD128Register> ||
                        std::is_same_v<Type,
                                       float __attribute__((__vector_size__(16), may_alias))>) {
-    return kTypes<float __attribute__((__vector_size__(16), may_alias))>;
+    return kMetaTypes<float __attribute__((__vector_size__(16), may_alias))>;
   } else {
     static_assert(kDependentTypeFalse<Type>);
   }
@@ -131,9 +131,9 @@ using RawTypes = TypesToTypes::FlatMap<ArgumentsTuple, []<typename RawType> {
 template <typename ArgumentsTuple>
 using SplitTypes = TypesToTypes::FlatMap<ArgumentsTuple, []<typename Type>() {
   if constexpr (std::is_same_v<Type, __int128_t> || std::is_same_v<Type, __uint128_t>) {
-    return kTypes<int64_t, int64_t>;
+    return kMetaTypes<int64_t, int64_t>;
   } else {
-    return kTypes<Type>;
+    return kMetaTypes<Type>;
   }
 }>;
 
@@ -145,9 +145,9 @@ class ResultRegisterTypesHelper {
   template <typename ResultType>
   constexpr auto operator()() const {
     if constexpr (std::is_integral_v<ResultType>) {
-      return kTypes<GpRegister>;
+      return kMetaTypes<GpRegister>;
     } else {
-      return kTypes<SSERegister>;
+      return kMetaTypes<SSERegister>;
     }
   }
 };
@@ -218,12 +218,12 @@ class CallImm<kFunction> {
         // such element because we are dealing with tuple and not random
         // structs with arbitrary bitfields that may include padding.
         if constexpr (kResultElementInfo.element_offset != 0) {
-          return kTypes<>;
+          return kMetaTypes<>;
         } else if constexpr (kResultElementInfo.clobber_class_index == ~std::size_t{0}) {
-          return kTypes<RAX>;
+          return kMetaTypes<RAX>;
         } else {
-          return kTypes<std::tuple_element_t<kResultElementInfo.clobber_class_index,
-                                             call_imm_impl::ClobberRegisters>>;
+          return kMetaTypes<std::tuple_element_t<kResultElementInfo.clobber_class_index,
+                                                 call_imm_impl::ClobberRegisters>>;
         }
       }>;
   template <typename GpRegister, typename SSERegister>
@@ -238,8 +238,9 @@ class CallImm<kFunction> {
       TypesToTypes::FlatMap<ValuesToTypes::MetaValues<kArgumentElements>,
                             []<typename ArgumentElementInfo> {
                               constexpr std::size_t kArgumentElementInfo = ArgumentElementInfo{};
-                              return kTypes<std::tuple_element_t<kArgumentElementInfo,
-                                                                 call_imm_impl::ClobberRegisters>>;
+                              return kMetaTypes<
+                                  std::tuple_element_t<kArgumentElementInfo,
+                                                       call_imm_impl::ClobberRegisters>>;
                             }>>;
   // Clobber registers are registers that a function is allowed to modify. According to the x86-64
   // psABI, these are the caller-saved registers. The registers used to return values are also
