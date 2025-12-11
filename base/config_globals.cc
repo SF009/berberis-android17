@@ -149,8 +149,6 @@ std::string ToString(ConfigFlag flag) {
       return "disable-intrinsic-inlining";
     case kMergeProfilesForSameModeRegions:
       return "merge-profiles-for-same-mode-regions";
-    case kDetailRegionPropertiesInProfiling:
-      return "detail-region-properties-in-profiling";
     case kPrintTranslatedAddrs:
       return "print-translated-addrs";
     case kDeterministicTracing:
