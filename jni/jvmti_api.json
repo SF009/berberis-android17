@@ -8,10 +8,10 @@
         "jvmtiEnv*",
         "jvmtiEventMode",
         "jvmtiEvent",
-        "jthread",
-        "..."
+        "jthread"
       ],
-      "return_type": "jvmtiError"
+      "return_type": "jvmtiError",
+      "comment": "... for this functions is ignored because it is not used by any implementation"
     },
     {
       "index": 4,
