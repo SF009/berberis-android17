@@ -100,6 +100,9 @@ class WrappedFloatType;
 template <typename T>
 struct TypeTraits;
 
+template <typename T>
+class MetaTypeTraits;
+
 template <typename Type_>
 class MetaType final {
  public:
@@ -132,10 +135,12 @@ class MetaType final {
     return std::disjunction_v<Type, OtherTypes...>;
   }
   static constexpr size_t Extent() { return std::extent_v<Type>; }
+  static constexpr auto Float() { return MetaTypeTraits<Type>::Float(); }
   static constexpr bool HasUniqueObjectRepresentations() {
     return std::has_unique_object_representations_v<Type>;
   }
   static constexpr bool HasVirtualDestructor() { return std::has_virtual_destructor_v<Type>; }
+  static constexpr auto Int() { return MetaTypeTraits<Type>::Int(); }
   template <typename... ArgTypes>
   static constexpr MetaType<std::invoke_result_t<Type, ArgTypes...>> InvokeResult(
       MetaType<ArgTypes>...) {
@@ -169,10 +174,10 @@ class MetaType final {
   static constexpr bool IsEmpty() { return std::is_empty_v<Type>; }
   static constexpr bool IsEnum() { return std::is_enum_v<Type>; }
   static constexpr bool IsFinal() { return std::is_final_v<Type>; }
-  static constexpr bool IsFloatingPoint() { return std::is_floating_point_v<Type>; }
+  static constexpr bool IsFloatingPoint() { return MetaTypeTraits<Type>::IsFloatingPoint(); }
   static constexpr bool IsFunction() { return std::is_function_v<Type>; }
   static constexpr bool IsFundamental() { return std::is_fundamental_v<Type>; }
-  static constexpr bool IsIntegral() { return std::is_integral_v<Type>; }
+  static constexpr bool IsIntegral() { return MetaTypeTraits<Type>::IsIntegral(); }
   template <typename... ArgTypes>
   static constexpr bool IsInvocable(MetaType<ArgTypes>...) {
     return std::is_invocable_v<Type, ArgTypes...>;
@@ -231,14 +236,16 @@ class MetaType final {
   static constexpr bool IsObject() { return std::is_object_v<Type>; }
   static constexpr bool IsPointer() { return std::is_pointer_v<Type>; }
   static constexpr bool IsPolymorphic() { return std::is_polymorphic_v<Type>; }
+  static constexpr bool IsRawInt() { return MetaTypeTraits<Type>::IsRawInt(); }
   static constexpr bool IsReference() { return std::is_reference_v<Type>; }
   static constexpr bool IsRvalueReference() { return std::is_rvalue_reference_v<Type>; }
   template <typename OtherType>
   static constexpr bool IsSame() {
     return std::is_same_v<Type, OtherType>;
   }
+  static constexpr bool IsSaturatingInt() { return MetaTypeTraits<Type>::IsSaturatingInt(); }
   static constexpr bool IsScalar() { return std::is_scalar_v<Type>; }
-  static constexpr bool IsSigned() { return std::is_signed_v<Type>; }
+  static constexpr bool IsSigned() { return MetaTypeTraits<Type>::IsSigned(); }
   static constexpr bool IsStandardLayout() { return std::is_standard_layout_v<Type>; }
   static constexpr bool IsSwappable() { return std::is_swappable_v<Type>; }
   template <typename OtherType>
@@ -272,13 +279,17 @@ class MetaType final {
   }
   static constexpr bool IsUnboundedArray() { return std::is_unbounded_array_v<Type>; }
   static constexpr bool IsUnion() { return std::is_union_v<Type>; }
-  static constexpr bool IsUnsigned() { return std::is_unsigned_v<Type>; }
+  static constexpr bool IsUnsigned() { return MetaTypeTraits<Type>::IsUnsigned(); }
   static constexpr bool IsVoid() { return std::is_void_v<Type>; }
   static constexpr bool IsVolatile() { return std::is_volatile_v<Type>; }
-  static constexpr auto MakeSigned() { return MetaType<std::make_signed_t<Type>>{}; }
-  static constexpr auto MakeUnsigned() { return MetaType<std::make_unsigned_t<Type>>{}; }
+  static constexpr bool IsWrappedFloat() { return MetaTypeTraits<Type>::IsWrappedFloat(); }
+  static constexpr bool IsWrappingInt() { return MetaTypeTraits<Type>::IsWrappingInt(); }
+  static constexpr auto MakeSigned() { return MetaTypeTraits<Type>::MakeSigned(); }
+  static constexpr auto MakeUnsigned() { return MetaTypeTraits<Type>::MakeUnsigned(); }
+  static constexpr auto Narrow() { return MetaTypeTraits<Type>::Narrow(); }
   static constexpr bool Negation() { return std::negation_v<Type>; }
   static constexpr size_t Rank() { return std::rank_v<Type>; }
+  static constexpr auto Raw() { return MetaTypeTraits<Type>::Raw(); }
   static constexpr MetaType<std::remove_all_extents_t<Type>> RemoveAllExtents() { return {}; }
   static constexpr MetaType<std::remove_const_t<Type>> RemoveConst() { return {}; }
   static constexpr MetaType<std::remove_cv_t<Type>> RemoveCv() { return {}; }
@@ -287,14 +298,182 @@ class MetaType final {
   static constexpr MetaType<std::remove_pointer_t<Type>> RemovePointer() { return {}; }
   static constexpr MetaType<std::remove_reference_t<Type>> RemoveReference() { return {}; }
   static constexpr MetaType<std::remove_volatile_t<Type>> RemoveVolatile() { return {}; }
+  static constexpr auto Saturating() { return MetaTypeTraits<Type>::Saturating(); }
+  static constexpr std::size_t SizeOf() { return sizeof(Type); }
   static constexpr MetaType<std::type_identity_t<Type>> TypeIdentity() { return {}; }
-  static constexpr auto UnderlyingType() { return MetaType<std::underlying_type_t<Type>>{}; }
+  static constexpr auto UnderlyingType() { return MetaTypeTraits<Type>::UnderlyingType(); }
   static constexpr MetaType<std::unwrap_ref_decay_t<Type>> UnwrapRefDecay() { return {}; }
   static constexpr MetaType<std::unwrap_reference_t<Type>> UnwrapReference() { return {}; }
   template <typename... OtherTypes>
   MetaType<void> Void(MetaType<OtherTypes>...) {
     return {};
   }
+  static constexpr auto Wide() { return MetaTypeTraits<Type>::Widen(); }
+  static constexpr auto Widen() { return MetaTypeTraits<Type>::Widen(); }
+  // Only works for floats to provide Wrapped type.
+  static constexpr auto Wrapped() { return MetaTypeTraits<Type>::Wrapped(); }
+  // Only works for ints to provide type with Wrapping arithmetic.
+  static constexpr auto Wrapping() { return MetaTypeTraits<Type>::Wrapping(); }
+};
+
+template <typename Type>
+class MetaTypeTraits final {
+ public:
+  static constexpr auto Float() {
+    if constexpr (sizeof(typename TypeTraits<Type>::Float) == sizeof(_Float16)) {
+      return MetaType<_Float16>{};
+    } else if constexpr (sizeof(typename TypeTraits<Type>::Float) == sizeof(float)) {
+      return MetaType<float>{};
+    } else {
+      static_assert(sizeof(typename TypeTraits<Type>::Float) == sizeof(double));
+      return MetaType<double>{};
+    }
+  }
+  static constexpr auto Int() { return MetaType<typename TypeTraits<Type>::Int>{}; }
+  static constexpr bool IsFloatingPoint() {
+    return std::is_same_v<Type, _Float16> || std::is_floating_point_v<Type>;
+  }
+  static constexpr bool IsIntegral() { return std::is_integral_v<Type>; }
+  static constexpr bool IsRawInt() { return false; }
+  static constexpr bool IsSaturatingInt() { return false; }
+  static constexpr bool IsSigned() { return std::is_signed_v<Type>; }
+  static constexpr bool IsUnsigned() { return std::is_unsigned_v<Type>; }
+  static constexpr bool IsWrappedFloat() { return false; }
+  static constexpr bool IsWrappingInt() { return false; }
+  static constexpr auto MakeSigned() { return MetaType<std::make_signed_t<Type>>{}; }
+  static constexpr auto MakeUnsigned() { return MetaType<std::make_unsigned_t<Type>>{}; }
+  static constexpr auto Narrow() { return MetaType<typename TypeTraits<Type>::Narrow>{}; }
+  static constexpr auto Raw() { return MetaType<berberis::Raw<std::make_unsigned_t<Type>>>{}; }
+  static constexpr auto Saturating() { return MetaType<berberis::Saturating<Type>>{}; }
+  static constexpr auto UnderlyingType() { return MetaType<std::underlying_type_t<Type>>{}; }
+  static constexpr auto Widen() { return MetaType<typename TypeTraits<Type>::Wide>{}; }
+  static constexpr auto Wrapped() { return MetaType<intrinsics::WrappedFloatType<Type>>{}; }
+  static constexpr auto Wrapping() { return MetaType<berberis::Wrapping<Type>>{}; }
+};
+
+template <typename Type>
+class MetaTypeTraits<Raw<Type>> final {
+ public:
+  static constexpr auto Float() { return MetaType<typename TypeTraits<Type>::Float>{}; }
+  static constexpr auto Int() { return MetaType<berberis::Raw<Type>>{}; }
+  static constexpr bool IsFloatingPoint() {
+    return std::is_same_v<Type, _Float16> || std::is_floating_point_v<Type>;
+  }
+  static constexpr bool IsIntegral() { return std::is_integral_v<Type>; }
+  static constexpr bool IsRawInt() { return true; }
+  static constexpr bool IsSaturatingInt() { return false; }
+  static constexpr bool IsSigned() { return std::is_signed_v<Type>; }
+  static constexpr bool IsUnsigned() { return std::is_unsigned_v<Type>; }
+  static constexpr bool IsWrappedFloat() { return false; }
+  static constexpr bool IsWrappingInt() { return false; }
+  static constexpr auto MakeSigned() { return MetaType<berberis::Raw<std::make_signed_t<Type>>>{}; }
+  static constexpr auto MakeUnsigned() {
+    return MetaType<berberis::Raw<std::make_unsigned_t<Type>>>{};
+  }
+  static constexpr auto Narrow() {
+    return MetaType<berberis::Raw<typename TypeTraits<Type>::Narrow>>{};
+  }
+  static constexpr auto Raw() { return MetaType<berberis::Raw<Type>>{}; }
+  static constexpr auto Saturating() { return MetaType<berberis::Saturating<Type>>{}; }
+  static constexpr MetaType<Type> UnderlyingType() { return {}; }
+  static constexpr auto Widen() {
+    return MetaType<berberis::Raw<typename TypeTraits<Type>::Wide>>{};
+  }
+  static constexpr auto Wrapping() { return MetaType<berberis::Wrapping<Type>>{}; }
+};
+
+template <typename Type>
+class MetaTypeTraits<Saturating<Type>> final {
+ public:
+  static constexpr auto Float() { return MetaType<typename TypeTraits<Type>::Float>{}; }
+  static constexpr auto Int() { return MetaType<berberis::Saturating<Type>>{}; }
+  static constexpr bool IsFloatingPoint() {
+    return std::is_same_v<Type, _Float16> || std::is_floating_point_v<Type>;
+  }
+  static constexpr bool IsIntegral() { return std::is_integral_v<Type>; }
+  static constexpr bool IsRawInt() { return false; }
+  static constexpr bool IsSaturatingInt() { return true; }
+  static constexpr bool IsSigned() { return std::is_signed_v<Type>; }
+  static constexpr bool IsUnsigned() { return std::is_unsigned_v<Type>; }
+  static constexpr bool IsWrappedFloat() { return false; }
+  static constexpr bool IsWrappingInt() { return false; }
+  static constexpr auto MakeSigned() {
+    return MetaType<berberis::Saturating<std::make_signed_t<Type>>>{};
+  }
+  static constexpr auto MakeUnsigned() {
+    return MetaType<berberis::Saturating<std::make_unsigned_t<Type>>>{};
+  }
+  static constexpr auto Narrow() {
+    return MetaType<berberis::Saturating<typename TypeTraits<Type>::Narrow>>{};
+  }
+  static constexpr auto Raw() { return MetaType<berberis::Raw<std::make_unsigned_t<Type>>>{}; }
+  static constexpr auto Saturating() { return MetaType<berberis::Saturating<Type>>{}; }
+  static constexpr MetaType<Type> UnderlyingType() { return {}; }
+  static constexpr auto Widen() {
+    return MetaType<berberis::Saturating<typename TypeTraits<Type>::Wide>>{};
+  }
+  static constexpr auto Wrapping() { return MetaType<berberis::Wrapping<Type>>{}; }
+};
+
+template <typename Type>
+class MetaTypeTraits<Wrapping<Type>> final {
+ public:
+  static constexpr auto Float() { return MetaType<typename TypeTraits<Type>::Float>{}; }
+  static constexpr auto Int() { return MetaType<berberis::Wrapping<Type>>{}; }
+  static constexpr bool IsFloatingPoint() {
+    return std::is_same_v<Type, _Float16> || std::is_floating_point_v<Type>;
+  }
+  static constexpr bool IsIntegral() { return std::is_integral_v<Type>; }
+  static constexpr bool IsRawInt() { return false; }
+  static constexpr bool IsSaturatingInt() { return false; }
+  static constexpr bool IsSigned() { return std::is_signed_v<Type>; }
+  static constexpr bool IsUnsigned() { return std::is_unsigned_v<Type>; }
+  static constexpr bool IsWrappedFloat() { return false; }
+  static constexpr bool IsWrappingInt() { return true; }
+  static constexpr auto MakeSigned() {
+    return MetaType<berberis::Wrapping<std::make_signed_t<Type>>>{};
+  }
+  static constexpr auto MakeUnsigned() {
+    return MetaType<berberis::Wrapping<std::make_unsigned_t<Type>>>{};
+  }
+  static constexpr auto Narrow() {
+    return MetaType<berberis::Wrapping<typename TypeTraits<Type>::Narrow>>{};
+  }
+  static constexpr auto Raw() { return MetaType<berberis::Raw<std::make_unsigned_t<Type>>>{}; }
+  static constexpr auto Saturating() { return MetaType<berberis::Saturating<Type>>{}; }
+  static constexpr MetaType<Type> UnderlyingType() { return {}; }
+  static constexpr auto Widen() {
+    return MetaType<berberis::Wrapping<typename TypeTraits<Type>::Wide>>{};
+  }
+  static constexpr auto Wrapping() { return MetaType<berberis::Wrapping<Type>>{}; }
+};
+
+template <typename Type>
+class MetaTypeTraits<intrinsics::WrappedFloatType<Type>> final {
+ public:
+  static constexpr auto Float() { return MetaType<intrinsics::WrappedFloatType<Type>>{}; }
+  static constexpr auto Int() {
+    return MetaType<berberis::Raw<
+        std::make_unsigned_t<typename TypeTraits<intrinsics::WrappedFloatType<Type>>::Int>>>{};
+  }
+  static constexpr bool IsFloatingPoint() {
+    return std::is_same_v<Type, _Float16> || std::is_floating_point_v<Type>;
+  }
+  static constexpr bool IsIntegral() { return std::is_integral_v<Type>; }
+  static constexpr bool IsRawInt() { return false; }
+  static constexpr bool IsSaturatingInt() { return false; }
+  static constexpr bool IsSigned() { return std::is_signed_v<Type>; }
+  static constexpr bool IsUnsigned() { return std::is_unsigned_v<Type>; }
+  static constexpr bool IsWrappedFloat() { return true; }
+  static constexpr bool IsWrappingInt() { return false; }
+  static constexpr auto Narrow() {
+    return MetaType<typename TypeTraits<intrinsics::WrappedFloatType<Type>>::Narrow>{};
+  }
+  static constexpr MetaType<Type> UnderlyingType() { return {}; }
+  static constexpr auto Widen() {
+    return MetaType<typename TypeTraits<intrinsics::WrappedFloatType<Type>>::Wide>{};
+  }
+  static constexpr auto Wrapped() { return MetaType<intrinsics::WrappedFloatType<Type>>{}; }
 };
 
 template <auto MetaType>
