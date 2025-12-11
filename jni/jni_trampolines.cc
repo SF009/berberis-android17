@@ -24,6 +24,7 @@
 #include <vector>
 
 #include <jni.h>  // NOLINT [build/include_order]
+#include <jvmti.h>
 
 #include "berberis/base/checks.h"
 #include "berberis/base/gettid.h"
@@ -48,6 +49,10 @@
 namespace berberis {
 
 namespace {
+
+constexpr const char* kAgentOnLoadFnName = "Agent_OnLoad";
+constexpr const char* kAgentOnAttachFnName = "Agent_OnAttach";
+constexpr const char* kAgentOnUnloadFnName = "Agent_OnUnload";
 
 char ConvertDalvikTypeCharToWrapperTypeChar(char c) {
   switch (c) {
@@ -107,12 +112,30 @@ void RunGuestJNIFunction(GuestAddr pc, GuestArgumentBuffer* buf) {
   RunGuestCall(pc, buf);
 }
 
+template <typename FnT>
+void ConvertJavaVMToGuest(GuestArgumentBuffer* buf) {
+  auto host_java_vm = HostArgumentsValues<FnT>(buf).template get<0>();
+  auto&& guest_java_vm = GuestArgumentsReferences<FnT>(buf).template get<0>();
+  guest_java_vm = ToGuestJavaVM(host_java_vm);
+}
+
 void RunGuestJNIOnLoad(GuestAddr pc, GuestArgumentBuffer* buf) {
-  auto [host_java_vm, reserved] = HostArgumentsValues<decltype(JNI_OnLoad)>(buf);
-  {
-    auto&& [guest_java_vm, reserved] = GuestArgumentsReferences<decltype(JNI_OnLoad)>(buf);
-    guest_java_vm = ToGuestJavaVM(host_java_vm);
-  }
+  ConvertJavaVMToGuest<decltype(JNI_OnLoad)>(buf);
+  RunGuestCall(pc, buf);
+}
+
+void RunGuestAgentOnLoad(GuestAddr pc, GuestArgumentBuffer* buf) {
+  ConvertJavaVMToGuest<decltype(Agent_OnLoad)>(buf);
+  RunGuestCall(pc, buf);
+}
+
+void RunGuestAgentOnAttach(GuestAddr pc, GuestArgumentBuffer* buf) {
+  ConvertJavaVMToGuest<decltype(Agent_OnAttach)>(buf);
+  RunGuestCall(pc, buf);
+}
+
+void RunGuestAgentOnUnload(GuestAddr pc, GuestArgumentBuffer* buf) {
+  ConvertJavaVMToGuest<decltype(Agent_OnUnload)>(buf);
   RunGuestCall(pc, buf);
 }
 
@@ -132,6 +155,18 @@ HostCode WrapGuestJNIFunction(GuestAddr pc,
 
 HostCode WrapGuestJNIOnLoad(GuestAddr pc) {
   return WrapGuestFunctionImpl(pc, "ipp", RunGuestJNIOnLoad, "JNI_OnLoad");
+}
+
+HostCode WrapGuestAgentOnLoad(GuestAddr pc) {
+  return WrapGuestFunctionImpl(pc, "ippp", RunGuestAgentOnLoad, kAgentOnLoadFnName);
+}
+
+HostCode WrapGuestAgentOnAttach(GuestAddr pc) {
+  return WrapGuestFunctionImpl(pc, "ippp", RunGuestAgentOnAttach, kAgentOnAttachFnName);
+}
+
+HostCode WrapGuestAgentOnUnload(GuestAddr pc) {
+  return WrapGuestFunctionImpl(pc, "ippp", RunGuestAgentOnUnload, kAgentOnUnloadFnName);
 }
 
 namespace {
@@ -227,7 +262,13 @@ struct KnownMethodTrampoline {
   TrampolineFunc marshal_and_call;
 };
 
+jvmtiEnv* ToHostJvmtiEnv(GuestType<jvmtiEnv*> guest_jvmti_env) {
+  return ToHostAddr(guest_jvmti_env);
+}
+
 #include "jni_trampolines-inl.h"  // NOLINT(build/include)
+#include "jvmti_custom_trampolines-inl.h"  // NOLINT(build/include)
+#include "jvmti_trampolines-inl.h"         // NOLINT(build/include)
 
 // According to our observations there is only one instance of JavaVM
 // and there are 1 or sometimes more instances of JNIEnv per thread created
@@ -292,22 +333,40 @@ void DoJavaVMTrampoline_DetachCurrentThread(HostCode /* callee */, ProcessState*
   ret = (arg_java_vm->functions)->DetachCurrentThread(arg_java_vm);
 }
 
+static constexpr jint kArtTiVersion = JVMTI_VERSION_1_2 | 0x40000000;
+
+bool IsJvmtiVersion(int version) {
+  return version == JVMTI_VERSION_1 || version == JVMTI_VERSION_1_0 ||
+         version == JVMTI_VERSION_1_1 || version == JVMTI_VERSION_1_2 || version == JVMTI_VERSION ||
+         version == kArtTiVersion;
+}
+
+GuestType<jvmtiEnv*> ToGuestJvmtiEnv(jvmtiEnv* host_jvmti_env);
+
 // jint GetEnv(JavaVM*, void**, jint);
 void DoJavaVMTrampoline_GetEnv(HostCode /* callee */, ProcessState* state) {
   using PFN_callee = decltype(std::declval<JavaVM>().functions->GetEnv);
   auto [arg_vm, arg_env_ptr, arg_version] = GuestParamsValues<PFN_callee>(state);
   JavaVM* arg_java_vm = ToHostJavaVM(arg_vm);
 
-  LOG_JNI("JavaVM::GetEnv(%p, %p, %d)", arg_java_vm, arg_env_ptr, arg_version);
+  LOG_JNI(
+      "JavaVM::GetEnv(%p, %p, %d)", arg_java_vm, static_cast<void*>(arg_env_ptr), int{arg_version});
 
   void* env = nullptr;
   auto&& [ret] = GuestReturnReference<PFN_callee>(state);
   ret = (arg_java_vm->functions)->GetEnv(arg_java_vm, &env, arg_version);
 
-  GuestType<JNIEnv*> guest_jni_env = ToGuestJNIEnv(static_cast<JNIEnv*>(env));
-  memcpy(arg_env_ptr, &guest_jni_env, sizeof(guest_jni_env));
+  if (IsJvmtiVersion(arg_version)) {
+    GuestType<jvmtiEnv*> guest_jvmti_env = ToGuestJvmtiEnv(static_cast<jvmtiEnv*>(env));
+    memcpy(arg_env_ptr, &guest_jvmti_env, sizeof(guest_jvmti_env));
+    LOG_JNI("JavaVM::GetEnv for jvmtiEnv=%p", env);
+  } else {
+    GuestType<JNIEnv*> guest_jni_env = ToGuestJNIEnv(static_cast<JNIEnv*>(env));
+    memcpy(arg_env_ptr, &guest_jni_env, sizeof(guest_jni_env));
+    LOG_JNI("JavaVM::GetEnv for JNIEnv=%p", env);
+  }
 
-  LOG_JNI("= jint(%d)", ret);
+  LOG_JNI("= jint(%d)", int{ret});
 }
 
 // jint AttachCurrentThreadAsDaemon(JavaVM* vm, void** penv, void* args);
@@ -345,9 +404,23 @@ void WrapJavaVM(void* java_vm) {
                        "JavaVM::AttachCurrentThreadAsDaemon");
 }
 
-// We set this to 1 when host JNIEnv/JavaVM functions are wrapped.
+// We set this to 1 when host JNIEnv/jvmtiEnv/JavaVM functions are wrapped.
 std::atomic<uint32_t> g_jni_env_wrapped = {0};
+std::atomic<uint32_t> g_jvmti_env_wrapped = {0};
 std::atomic<uint32_t> g_java_vm_wrapped = {0};
+
+GuestType<jvmtiEnv*> ToGuestJvmtiEnv(jvmtiEnv* host_jvmti_env) {
+  if (host_jvmti_env == nullptr) {
+    return nullptr;
+  }
+
+  if (std::atomic_load_explicit(&g_jvmti_env_wrapped, std::memory_order_acquire) == 0U) {
+    WrapJvmtiEnv(host_jvmti_env);
+    std::atomic_store_explicit(&g_jvmti_env_wrapped, 1U, std::memory_order_release);
+  }
+
+  return host_jvmti_env;
+}
 
 }  // namespace
 
@@ -456,7 +529,12 @@ void JNIGuestThreadListener(pid_t tid) {
 }  // namespace
 
 void InitializeJNI() {
+  // JNI OnLoad
   RegisterKnownGuestFunctionWrapper("JNI_OnLoad", WrapGuestJNIOnLoad);
+  // JVMTI initialization functions
+  RegisterKnownGuestFunctionWrapper(kAgentOnLoadFnName, WrapGuestAgentOnLoad);
+  RegisterKnownGuestFunctionWrapper(kAgentOnAttachFnName, WrapGuestAgentOnAttach);
+  RegisterKnownGuestFunctionWrapper(kAgentOnUnloadFnName, WrapGuestAgentOnUnload);
   CHECK(g_next_guest_thread_exit_listener == nullptr);
   g_next_guest_thread_exit_listener = RegisterGuestThreadExitListener(JNIGuestThreadListener);
 }
