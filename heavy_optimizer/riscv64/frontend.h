@@ -554,7 +554,7 @@ class HeavyOptimizerFrontend {
       int arg_index;
       int pseudo_copy_size;
     };
-    constexpr static auto kOperands =
+    constexpr auto kOperands = ValuesToValues::ToArray<ProcessInfo>(
         TypesToValues::MapWithTemporary<typename InsnType::OperandsTuple,
                                         /* arg_index, reg_index = */ std::tuple<int, int>>(
             []<typename Operand>(std::tuple<int, int>& indexes) -> decltype(auto) {
@@ -580,35 +580,34 @@ class HeavyOptimizerFrontend {
                 }
               }
               return ProcessInfo{.process_way = kPassthroughOperand, .arg_index = arg_index++};
-            });
+            }));
 
     std::array<MachineReg, InsnType::kInfo.OutputRegistersCount()> output;
-    builder_.Gen<InsnType>(
-        TypesToValues::MapWithTemporary<TypesToTypes::Zip<typename InsnType::ConstructorArgsTuple,
-                                                          ValuesToTypes::MetaValues<&kOperands>>,
-                                        /* output_idx = */ size_t>(
-            [&args_tuple, &output, this]<typename Operand>(
-                std::size_t& output_idx) -> std::tuple_element_t<0, Operand> {
-              constexpr ProcessInfo kOperand = std::tuple_element_t<1, Operand>{};
-              if constexpr (kOperand.process_way == kFlagRegister) {
-                return output[output_idx++] = GetFlagsRegister();
-              } else if constexpr (kOperand.process_way == kOutputRegister) {
-                return output[output_idx++] = AllocTempReg();
-              } else if constexpr (kOperand.process_way == kImplicitInputRegister) {
-                // If register is implicit we need to add extra PseudoCopy here even if it's pure
-                // input. Otherwise we may attempt to make the same register to belong to two
-                // different, incompatible register classes if it's ALSO output of another
-                // instruction with a different implicit class. E.g. if output of division is used
-                // as input for shift.
-                auto dst = AllocTempReg();
-                auto src = std::get<kOperand.arg_index>(args_tuple);
-                builder_.Gen<berberis::Copy>(dst, src, kOperand.pseudo_copy_size);
-                return dst;
-              } else {
-                static_assert(kOperand.process_way == kPassthroughOperand);
-                return std::get<kOperand.arg_index>(args_tuple);
-              }
-            }));
+    builder_.Gen<InsnType>(ValuesToValues::MapWithTemporary</* output_idx = */ size_t>(
+        kTupleMetaTypes<TypesToTypes::Zip<typename InsnType::ConstructorArgsTuple,
+                                          ValuesToTypes::MetaValues<kOperands>>>,
+        [&args_tuple, &output, this]<typename OperandType, ProcessInfo kOperand>(
+            MetaType<std::pair<OperandType, MetaValue<kOperand>>>,
+            std::size_t& output_idx) -> OperandType {
+          if constexpr (kOperand.process_way == kFlagRegister) {
+            return output[output_idx++] = GetFlagsRegister();
+          } else if constexpr (kOperand.process_way == kOutputRegister) {
+            return output[output_idx++] = AllocTempReg();
+          } else if constexpr (kOperand.process_way == kImplicitInputRegister) {
+            // If register is implicit we need to add extra PseudoCopy here even if it's pure
+            // input. Otherwise we may attempt to make the same register to belong to two
+            // different, incompatible register classes if it's ALSO output of another
+            // instruction with a different implicit class. E.g. if output of division is used
+            // as input for shift.
+            auto dst = AllocTempReg();
+            auto src = std::get<kOperand.arg_index>(args_tuple);
+            builder_.Gen<berberis::Copy>(dst, src, kOperand.pseudo_copy_size);
+            return dst;
+          } else {
+            static_assert(kOperand.process_way == kPassthroughOperand);
+            return std::get<kOperand.arg_index>(args_tuple);
+          }
+        }));
     return output;
   }
 
