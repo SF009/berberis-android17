@@ -134,50 +134,49 @@ template <auto kIntrinsic, typename ArgsType, typename... FuncInfo>
     }
   });
   // Now lengths of two tuples should match and we may process them.
-  auto array = ValuesToValues::ToArray<MachineReg>(
-      TypesToValues::Map<TypesToTypes::Enumerate<ExpandedParamTypes>>(
-          [&split_args, this]<typename SplitParamInfo>() {
-            constexpr std::size_t kIndex = std::tuple_element_t<0, SplitParamInfo>{};
-            using SplitParamType = std::tuple_element_t<1, SplitParamInfo>;
-            using SplitArgType = std::tuple_element_t<kIndex, decltype(split_args)>;
-            auto arg = std::get<kIndex>(split_args);
+  auto array = ValuesToValues::ToArray<MachineReg>(ValuesToValues::Map(
+      ValuesToValues::Zip(std::move(kTupleMetaTypes<ExpandedParamTypes>), std::move(split_args)),
+      [this]<typename SplitParamType, typename SplitArgType>(
+          std::pair<SplitParamType, SplitArgType> type_and_arg) {
+        auto arg = type_and_arg.second;
 
-            MachineReg physical_register = ir()->AllocVReg();
-            if constexpr (std::is_integral_v<SplitArgType>) {
-              static_assert(sizeof(SplitArgType) <= sizeof(int64_t));
-              // Note that Movq can use Movl if that's produces smaller code.
-              InsertInsn(ir()->NewInsn<MovqRegImm>(physical_register, static_cast<int64_t>(arg)));
-            } else {
-              if constexpr (std::is_integral_v<SplitParamType> && sizeof(SplitParamType) < 4) {
-                if constexpr (std::is_signed_v<SplitParamType>) {
-                  if constexpr (sizeof(SplitParamType) == 1) {
-                    InsertInsn(ir()->NewInsn<x86_64::MovsxblRegReg>(physical_register, arg));
-                  } else {
-                    static_assert(sizeof(SplitParamType) == 2);
-                    InsertInsn(ir()->NewInsn<x86_64::MovsxwlRegReg>(physical_register, arg));
-                  }
-                } else {
-                  static_assert(std::is_unsigned_v<SplitParamType>);
-                  if constexpr (sizeof(SplitParamType) == 1) {
-                    InsertInsn(ir()->NewInsn<x86_64::MovzxblRegReg>(physical_register, arg));
-                  } else {
-                    static_assert(sizeof(SplitParamType) == 2);
-                    InsertInsn(ir()->NewInsn<x86_64::MovzxwlRegReg>(physical_register, arg));
-                  }
-                }
+        MachineReg physical_register = ir()->AllocVReg();
+        if constexpr (std::is_integral_v<SplitArgType>) {
+          static_assert(sizeof(SplitArgType) <= sizeof(int64_t));
+          // Note that Movq can use Movl if that's produces smaller code.
+          InsertInsn(ir()->NewInsn<MovqRegImm>(physical_register, static_cast<int64_t>(arg)));
+        } else {
+          if constexpr (SplitParamType::IsIntegral() &&
+                        SplitParamType::SizeOf() < sizeof(int32_t)) {
+            if constexpr (SplitParamType::IsSigned()) {
+              if constexpr (SplitParamType::SizeOf() == sizeof(int8_t)) {
+                InsertInsn(ir()->NewInsn<x86_64::MovsxblRegReg>(physical_register, arg));
               } else {
-                // We need copies here to ensure that the arguments passed to the intrinsic are in
-                // virtual registers that can be independently allocated to the specific physical
-                // registers required by the intrinsic call ABI. Worst case scenario we may have one
-                // virtual register that would have to go into two different physical registers, in
-                // that case it's impossible for the register allocator to satofy the requirements,
-                // even in principle. These copies create new virtual registers that the register
-                // allocator can then assign to the correct physical registers.
-                InsertInsn(ir()->NewInsn<Copy>(physical_register, arg, sizeof(SplitParamType)));
+                static_assert(SplitParamType::SizeOf() == sizeof(int16_t));
+                InsertInsn(ir()->NewInsn<x86_64::MovsxwlRegReg>(physical_register, arg));
+              }
+            } else {
+              static_assert(SplitParamType::IsUnsigned());
+              if constexpr (SplitParamType::SizeOf() == sizeof(uint8_t)) {
+                InsertInsn(ir()->NewInsn<x86_64::MovzxblRegReg>(physical_register, arg));
+              } else {
+                static_assert(SplitParamType::SizeOf() == sizeof(uint16_t));
+                InsertInsn(ir()->NewInsn<x86_64::MovzxwlRegReg>(physical_register, arg));
               }
             }
-            return physical_register;
-          }));
+          } else {
+            // We need copies here to ensure that the arguments passed to the intrinsic are in
+            // virtual registers that can be independently allocated to the specific physical
+            // registers required by the intrinsic call ABI. Worst case scenario we may have one
+            // virtual register that would have to go into two different physical registers, in
+            // that case it's impossible for the register allocator to satofy the requirements,
+            // even in principle. These copies create new virtual registers that the register
+            // allocator can then assign to the correct physical registers.
+            InsertInsn(ir()->NewInsn<Copy>(physical_register, arg, SplitParamType::SizeOf()));
+          }
+        }
+        return physical_register;
+      }));
   return GenCallImmImpl<kIntrinsic>(flags_register, array, func_info...);
 }
 
@@ -266,22 +265,24 @@ template <auto kIntrinsic, typename... FuncInfo>
                   })));
   if constexpr (kNeedExtraProcessing) {
     MachineReg last_zero_based_register;
-    TypesToValues::ForEach<TypesToTypes::Enumerate<typename CallImm::CleanRetType>>(
-        [&last_zero_based_register, &results, flags_register, this]<typename IndexAndResultType>() {
-          constexpr std::size_t kIdx = std::tuple_element_t<0, IndexAndResultType>{};
+    ValuesToValues::ForEach(
+        ValuesToValues::Enumerate(std::move(kTupleMetaTypes<typename CallImm::CleanRetType>)),
+        [&last_zero_based_register,
+         &results,
+         flags_register,
+         this]<std::size_t kIdx, typename ElementType>(std::pair<MetaValue<kIdx>, ElementType>) {
           constexpr auto result_element = CallImm::kResultsElements[kIdx];
           if constexpr (result_element.element_offset == 0) {
             last_zero_based_register = results[kIdx];
           }
-          using ElementType = std::tuple_element_t<1, IndexAndResultType>;
           // We need to special handle even the first register if we receive results in RAX/RDX but
           // then have to move it into SSE register as per caller expectations.
           if constexpr (result_element.element_offset != 0 ||
                         ((result_element.clobber_class_index <=
                           std::tuple_size_v<
                               device_arch_info::call_imm_impl::SSEArgumentetersRegisters>) &&
-                         (std::is_same_v<ElementType, intrinsics::Float16> ||
-                          std::is_same_v<ElementType, intrinsics::Float32>))) {
+                         (ElementType::template IsSame<intrinsics::Float16>() ||
+                          ElementType::template IsSame<intrinsics::Float32>()))) {
             if constexpr (result_element.clobber_class_index <=
                           std::tuple_size_v<
                               device_arch_info::call_imm_impl::SSEArgumentetersRegisters>) {
@@ -292,7 +293,7 @@ template <auto kIntrinsic, typename... FuncInfo>
                     static_cast<int8_t>(result_element.element_offset * 8),
                     flags_register));
               }
-              if constexpr (std::is_same_v<ElementType, intrinsics::Float16>) {
+              if constexpr (ElementType::template IsSame<intrinsics::Float16>()) {
                 MachineReg empty_xmm_register = ir()->AllocVReg();
                 InsertInsn(ir()->NewInsn<PseudoDefReg>(empty_xmm_register));
                 MachineReg xmm_register = ir()->AllocVReg();
@@ -304,7 +305,7 @@ template <auto kIntrinsic, typename... FuncInfo>
                     xmm_register, empty_xmm_register, results[kIdx], int8_t{0}));
 #endif
                 results[kIdx] = xmm_register;
-              } else if constexpr (std::is_same_v<ElementType, intrinsics::Float32>) {
+              } else if constexpr (ElementType::template IsSame<intrinsics::Float32>()) {
                 MachineReg xmm_register = ir()->AllocVReg();
 #ifdef __AVX__
                 InsertInsn(ir()->NewInsn<VmovdXRegReg>(xmm_register, results[kIdx]));
