@@ -256,34 +256,34 @@ TEST(MachineIRRemoveDeadCodeTest, MultipleBasicBlocksAnalyzedIndependently) {
 
   MachineReg vreg = machine_ir.AllocVReg();
 
-  // BB1: define vreg, which is dead.
   builder.StartBasicBlock(bb1);
-  auto* insn_to_remove = builder.Gen<x86_64::MovqRegImm>(vreg, 1);
   builder.Gen<Branch>(bb2);
+  // Live out makes vreg alive after bb1 analysis.
+  bb1->live_out().push_back(vreg);
 
-  // BB2: define vreg, which is live out.
   builder.StartBasicBlock(bb2);
-  builder.Gen<x86_64::MovqRegImm>(vreg, 2);
+  // Dead instruction in bb2.
+  auto* insn_to_remove = builder.Gen<x86_64::MovqRegImm>(vreg, 2);
   builder.Gen<Jump>(kNullGuestAddr);
+
+
+  x86_64::RemoveDeadCode(&machine_ir);
+
+  // The dead instruction in bb2 should be removed even though vreg is alive after bb1 analysis.
+  ASSERT_EQ(bb1->insn_list().size(), 1UL);
+  ASSERT_EQ(bb2->insn_list().size(), 1UL);
+
+  // Also check that bb2's live-out doesn't prevent the dead instruction in bb1
+  // from being removed. So that any order of basic block traversal inside RemoveDeadCode
+  // is verified.
+
+  bb1->insn_list().push_front(insn_to_remove);
+  bb1->live_out().resize(0);
   bb2->live_out().push_back(vreg);
 
   x86_64::RemoveDeadCode(&machine_ir);
 
-  // The dead instruction in bb1 should be removed even though vreg is live in bb2.
   ASSERT_EQ(bb1->insn_list().size(), 1UL);
-  ASSERT_EQ(bb2->insn_list().size(), 2UL);
-
-  // Also check that bb1's live-out doesn't prevent the dead instruction in bb2
-  // from being removed. So that any order of basic block processing inside RemoveDeadCode
-  // is verified.
-
-  bb1->insn_list().push_front(insn_to_remove);
-  bb1->live_out().push_back(vreg);
-  bb2->live_out().resize(0);
-
-  x86_64::RemoveDeadCode(&machine_ir);
-
-  ASSERT_EQ(bb1->insn_list().size(), 2UL);
   ASSERT_EQ(bb2->insn_list().size(), 1UL);
 }
 
