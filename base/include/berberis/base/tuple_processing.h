@@ -116,8 +116,21 @@ class MetaType final {
   static constexpr MetaType<std::add_volatile_t<Type>> AddVolatile() { return {}; }
   static constexpr size_t AlignmentOf() { return std::alignment_of_v<Type>; }
   template <typename... OtherTypes>
+  static constexpr MetaType<std::common_reference_t<Type, OtherTypes...>> CommonReference() {
+    return {};
+  }
+  template <typename... OtherTypes>
   static constexpr MetaType<std::common_reference_t<Type, OtherTypes...>> CommonReference(
       MetaType<OtherTypes>...) {
+    return {};
+  }
+  template <typename... OtherTypes>
+  static constexpr MetaType<std::common_reference_t<Type, OtherTypes...>> CommonReference(
+      std::tuple<MetaType<OtherTypes>...>) {
+    return {};
+  }
+  template <typename... OtherTypes>
+  static constexpr MetaType<std::common_type_t<Type, OtherTypes...>> CommonType() {
     return {};
   }
   template <typename... OtherTypes>
@@ -126,12 +139,33 @@ class MetaType final {
     return {};
   }
   template <typename... OtherTypes>
+  static constexpr MetaType<std::common_type_t<Type, OtherTypes...>> CommonType(
+      std::tuple<MetaType<OtherTypes>...>) {
+    return {};
+  }
+  template <typename... OtherTypes>
+  static constexpr bool Conjunction() {
+    return std::conjunction_v<Type, OtherTypes...>;
+  }
+  template <typename... OtherTypes>
   static constexpr bool Conjunction(MetaType<OtherTypes>...) {
+    return std::conjunction_v<Type, OtherTypes...>;
+  }
+  template <typename... OtherTypes>
+  static constexpr bool Conjunction(std::tuple<MetaType<OtherTypes>...>) {
     return std::conjunction_v<Type, OtherTypes...>;
   }
   static constexpr MetaType<std::decay_t<Type>> Decay() { return {}; }
   template <typename... OtherTypes>
+  static constexpr bool Disjunction() {
+    return std::disjunction_v<Type, OtherTypes...>;
+  }
+  template <typename... OtherTypes>
   static constexpr bool Disjunction(MetaType<OtherTypes>...) {
+    return std::disjunction_v<Type, OtherTypes...>;
+  }
+  template <typename... OtherTypes>
+  static constexpr bool Disjunction(std::tuple<MetaType<OtherTypes>...>) {
     return std::disjunction_v<Type, OtherTypes...>;
   }
   static constexpr size_t Extent() { return std::extent_v<Type>; }
@@ -142,8 +176,17 @@ class MetaType final {
   static constexpr bool HasVirtualDestructor() { return std::has_virtual_destructor_v<Type>; }
   static constexpr auto Int() { return MetaTypeTraits<Type>::Int(); }
   template <typename... ArgTypes>
+  static constexpr MetaType<std::invoke_result_t<Type, ArgTypes...>> InvokeResult() {
+    return {};
+  }
+  template <typename... ArgTypes>
   static constexpr MetaType<std::invoke_result_t<Type, ArgTypes...>> InvokeResult(
       MetaType<ArgTypes>...) {
+    return {};
+  }
+  template <typename... ArgTypes>
+  static constexpr MetaType<std::invoke_result_t<Type, ArgTypes...>> InvokeResult(
+      std::tuple<MetaType<ArgTypes>...>) {
     return {};
   }
   static constexpr bool IsAbstract() { return std::is_abstract_v<Type>; }
@@ -151,11 +194,19 @@ class MetaType final {
   static constexpr bool IsArithmetic() { return std::is_arithmetic_v<Type>; }
   static constexpr bool IsArray() { return std::is_array_v<Type>; }
   template <typename OtherType>
+  static constexpr bool IsAssignable() {
+    return std::is_assignable_v<Type, OtherType>;
+  }
+  template <typename OtherType>
   static constexpr bool IsAssignable(MetaType<OtherType>) {
     return std::is_assignable_v<Type, OtherType>;
   }
   template <typename OtherType>
   static constexpr bool IsBaseOf() {
+    return std::is_base_of_v<Type, OtherType>;
+  }
+  template <typename OtherType>
+  static constexpr bool IsBaseOf(MetaType<OtherType>) {
     return std::is_base_of_v<Type, OtherType>;
   }
   static constexpr bool IsBoundedArray() { return std::is_bounded_array_v<Type>; }
@@ -165,6 +216,10 @@ class MetaType final {
   static constexpr bool IsConstructible() { return std::is_constructible_v<Type>; }
   template <typename OtherType>
   static constexpr bool IsConvertible() {
+    return std::is_convertible_v<Type, OtherType>;
+  }
+  template <typename OtherType>
+  static constexpr bool IsConvertible(MetaType<OtherType>) {
     return std::is_convertible_v<Type, OtherType>;
   }
   static constexpr bool IsCopyAssignable() { return std::is_copy_assignable_v<Type>; }
@@ -179,11 +234,31 @@ class MetaType final {
   static constexpr bool IsFundamental() { return std::is_fundamental_v<Type>; }
   static constexpr bool IsIntegral() { return MetaTypeTraits<Type>::IsIntegral(); }
   template <typename... ArgTypes>
+  static constexpr bool IsInvocable() {
+    return std::is_invocable_v<Type, ArgTypes...>;
+  }
+  template <typename... ArgTypes>
   static constexpr bool IsInvocable(MetaType<ArgTypes>...) {
     return std::is_invocable_v<Type, ArgTypes...>;
   }
+  template <typename... ArgTypes>
+  static constexpr bool IsInvocable(std::tuple<MetaType<ArgTypes>...>) {
+    return std::is_invocable_v<Type, ArgTypes...>;
+  }
+  template <typename Fn, typename... ArgTypes>
+  static constexpr bool IsInvocableR() {
+    return std::is_invocable_r_v<Type, Fn, ArgTypes...>;
+  }
   template <typename Fn, typename... ArgTypes>
   static constexpr bool IsInvocableR(MetaType<Fn>, MetaType<ArgTypes>...) {
+    return std::is_invocable_r_v<Type, Fn, ArgTypes...>;
+  }
+  template <typename Fn, typename... ArgTypes>
+  static constexpr bool IsInvocableR(MetaType<Fn>, std::tuple<MetaType<ArgTypes>...>) {
+    return std::is_invocable_r_v<Type, Fn, ArgTypes...>;
+  }
+  template <typename Fn, typename... ArgTypes>
+  static constexpr bool IsInvocableR(std::tuple<MetaType<Fn>, MetaType<ArgTypes>...>) {
     return std::is_invocable_r_v<Type, Fn, ArgTypes...>;
   }
   static constexpr bool IsLvalueReference() { return std::is_lvalue_reference_v<Type>; }
@@ -195,12 +270,20 @@ class MetaType final {
   static constexpr bool IsMoveAssignable() { return std::is_move_assignable_v<Type>; }
   static constexpr bool IsMoveConstructible() { return std::is_move_constructible_v<Type>; }
   template <typename OtherType>
+  static constexpr bool IsNothrowAssignable() {
+    return std::is_nothrow_assignable_v<Type, OtherType>;
+  }
+  template <typename OtherType>
   static constexpr bool IsNothrowAssignable(MetaType<OtherType>) {
     return std::is_nothrow_assignable_v<Type, OtherType>;
   }
   static constexpr bool IsNothrowConstructible() { return std::is_nothrow_constructible_v<Type>; }
   template <typename OtherType>
   static constexpr bool IsNothrowConvertible() {
+    return std::is_nothrow_convertible_v<Type, OtherType>;
+  }
+  template <typename OtherType>
+  static constexpr bool IsNothrowConvertible(MetaType<OtherType>) {
     return std::is_nothrow_convertible_v<Type, OtherType>;
   }
   static constexpr bool IsNothrowCopyAssignable() {
@@ -214,11 +297,31 @@ class MetaType final {
   }
   static constexpr bool IsNothrowDestructible() { return std::is_nothrow_destructible_v<Type>; }
   template <typename... ArgTypes>
+  static constexpr bool IsNothrowInvocable() {
+    return std::is_nothrow_invocable_v<Type, ArgTypes...>;
+  }
+  template <typename... ArgTypes>
   static constexpr bool IsNothrowInvocable(MetaType<ArgTypes>...) {
     return std::is_nothrow_invocable_v<Type, ArgTypes...>;
   }
+  template <typename... ArgTypes>
+  static constexpr bool IsNothrowInvocable(std::tuple<MetaType<ArgTypes>...>) {
+    return std::is_nothrow_invocable_v<Type, ArgTypes...>;
+  }
+  template <typename Fn, typename... ArgTypes>
+  static constexpr bool IsNothrowInvocableR() {
+    return std::is_nothrow_invocable_r_v<Type, Fn, ArgTypes...>;
+  }
   template <typename Fn, typename... ArgTypes>
   static constexpr bool IsNothrowInvocableR(MetaType<Fn>, MetaType<ArgTypes>...) {
+    return std::is_nothrow_invocable_r_v<Type, Fn, ArgTypes...>;
+  }
+  template <typename Fn, typename... ArgTypes>
+  static constexpr bool IsNothrowInvocableR(MetaType<Fn>, std::tuple<MetaType<ArgTypes>...>) {
+    return std::is_nothrow_invocable_r_v<Type, Fn, ArgTypes...>;
+  }
+  template <typename Fn, typename... ArgTypes>
+  static constexpr bool IsNothrowInvocableR(std::tuple<MetaType<Fn>, MetaType<ArgTypes>...>) {
     return std::is_nothrow_invocable_r_v<Type, Fn, ArgTypes...>;
   }
   static constexpr bool IsNothrowMoveAssignable() {
@@ -232,6 +335,10 @@ class MetaType final {
   static constexpr bool IsNothrowSwappableWith() {
     return std::is_nothrow_swappable_with_v<Type, OtherType>;
   }
+  template <typename OtherType>
+  static constexpr bool IsNothrowSwappableWith(MetaType<OtherType>) {
+    return std::is_nothrow_swappable_with_v<Type, OtherType>;
+  }
   static constexpr bool IsNullPointer() { return std::is_null_pointer_v<Type>; }
   static constexpr bool IsObject() { return std::is_object_v<Type>; }
   static constexpr bool IsPointer() { return std::is_pointer_v<Type>; }
@@ -243,16 +350,28 @@ class MetaType final {
   static constexpr bool IsSame() {
     return std::is_same_v<Type, OtherType>;
   }
+  template <typename OtherType>
+  static constexpr bool IsSame(MetaType<OtherType>) {
+    return std::is_same_v<Type, OtherType>;
+  }
   static constexpr bool IsSaturatingInt() { return MetaTypeTraits<Type>::IsSaturatingInt(); }
   static constexpr bool IsScalar() { return std::is_scalar_v<Type>; }
   static constexpr bool IsSigned() { return MetaTypeTraits<Type>::IsSigned(); }
   static constexpr bool IsStandardLayout() { return std::is_standard_layout_v<Type>; }
   static constexpr bool IsSwappable() { return std::is_swappable_v<Type>; }
   template <typename OtherType>
+  static constexpr bool IsSwappableWith() {
+    return std::is_swappable_with_v<Type, OtherType>;
+  }
+  template <typename OtherType>
   static constexpr bool IsSwappableWith(MetaType<OtherType>) {
     return std::is_swappable_with_v<Type, OtherType>;
   }
   static constexpr bool IsTrivial() { return std::is_trivial_v<Type>; }
+  template <typename OtherType>
+  static constexpr bool IsTriviallyAssignable() {
+    return std::is_trivially_assignable_v<Type, OtherType>;
+  }
   template <typename OtherType>
   static constexpr bool IsTriviallyAssignable(MetaType<OtherType>) {
     return std::is_trivially_assignable_v<Type, OtherType>;
@@ -305,7 +424,15 @@ class MetaType final {
   static constexpr MetaType<std::unwrap_ref_decay_t<Type>> UnwrapRefDecay() { return {}; }
   static constexpr MetaType<std::unwrap_reference_t<Type>> UnwrapReference() { return {}; }
   template <typename... OtherTypes>
-  MetaType<void> Void(MetaType<OtherTypes>...) {
+  static constexpr MetaType<void> Void() {
+    return {};
+  }
+  template <typename... OtherTypes>
+  static constexpr MetaType<void> Void(MetaType<OtherTypes>...) {
+    return {};
+  }
+  template <typename... OtherTypes>
+  static constexpr MetaType<void> Void(std::tuple<MetaType<OtherTypes>...>) {
     return {};
   }
   static constexpr auto Wide() { return MetaTypeTraits<Type>::Widen(); }
