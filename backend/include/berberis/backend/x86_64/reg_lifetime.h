@@ -17,6 +17,7 @@
 #ifndef BERBERIS_BACKEND_X86_64_REG_LIFETIME_H_
 #define BERBERIS_BACKEND_X86_64_REG_LIFETIME_H_
 
+#include <optional>
 #include <variant>
 
 #include "berberis/backend/common/machine_ir.h"
@@ -52,8 +53,8 @@ struct RegLifetime {
 struct RegLifetimeCount {
   size_t general;
   size_t xmm;
-  void Increment(RegType reg_type);
-  void Decrement(RegType reg_type);
+  size_t Increment(RegType reg_type);
+  size_t Decrement(RegType reg_type);
   bool operator==(const RegLifetimeCount&) const = default;
 };
 
@@ -71,7 +72,10 @@ class RegLifetimeCounter {
   const RegLifetime& LifetimeAt(const MachineReg& reg) const { return GetMap().at(reg); }
   size_t RegCountAt(size_t pos, RegType reg_type) const;
   // Sets last use of reg to end and end_pos, updating both the map and counts.
-  void UpdateLastUse(MachineReg reg, berberis::MachineInsn* end, int end_pos);
+  std::optional<size_t> UpdateLastUse(MachineReg reg,
+                                      berberis::MachineInsn* end,
+                                      size_t end_pos,
+                                      const size_t kLimit);
 
   const RegLifetimeMap& GetMap() const { return lifetime_map_; }
   const RegLifetimeCounts& GetCounts() const { return lifetime_counts_; }

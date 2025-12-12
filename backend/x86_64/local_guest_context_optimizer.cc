@@ -94,27 +94,17 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(
           if (reg_lifetime_counter_.LifetimeAt(src_reg).reg_type == RegType::kUnknown) {
             continue;
           }
-          size_t old_end_pos = reg_lifetime_counter_.LifetimeAt(src_reg).end_pos;
-          // TODO(b/459820538): UpdateLastUse could return positions where we go
-          // over the limit so we don't have to recompute it again below.
-          reg_lifetime_counter_.UpdateLastUse(src_reg, *std::next(insn_it), pos + 1);
+          auto reg_type = reg_lifetime_counter_.LifetimeAt(src_reg).reg_type;
+          const size_t kLimit = reg_type == RegType::kGeneral ? kGenRegLimit : kSimdRegLimit;
+          std::optional<size_t> pos_over_limit =
+              reg_lifetime_counter_.UpdateLastUse(src_reg, *std::next(insn_it), pos + 1, kLimit);
 
-          // TODO(b/459820538): optimize this.
           // Now, with the prolonged lifetime, the pressure may be reaching the
           // limit at one of the previous instructions. If that happens, cancel
           // all active mappings to make sure the next optimization doesn't
           // overflow that limit.
-          auto reg_type = reg_lifetime_counter_.LifetimeAt(src_reg).reg_type;
-          const size_t kLimit = reg_type == RegType::kGeneral ? kGenRegLimit : kSimdRegLimit;
-
-          for (size_t i = pos; i >= old_end_pos; i--) {
-            size_t count = reg_type == RegType::kGeneral
-                               ? reg_lifetime_counter_.RegCountAt(i, RegType::kGeneral)
-                               : reg_lifetime_counter_.RegCountAt(i, RegType::kXmm);
-            if (count >= kLimit) {
-              UnmapOlderThan(i, reg_type);
-              break;
-            }
+          if (pos_over_limit.has_value()) {
+            UnmapOlderThan(pos_over_limit.value(), reg_type);
           }
         }
       }

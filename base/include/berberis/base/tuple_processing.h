@@ -100,10 +100,14 @@ class WrappedFloatType;
 template <typename T>
 struct TypeTraits;
 
+template <typename T>
+class MetaTypeTraits;
+
 template <typename Type_>
 class MetaType final {
  public:
   using Type = Type_;
+
   static constexpr MetaType<std::add_const_t<Type>> AddConst() { return {}; }
   static constexpr MetaType<std::add_cv_t<Type>> AddCv() { return {}; }
   static constexpr MetaType<std::add_lvalue_reference_t<Type>> AddLvalueReference() { return {}; }
@@ -131,6 +135,190 @@ class MetaType final {
     return std::disjunction_v<Type, OtherTypes...>;
   }
   static constexpr size_t Extent() { return std::extent_v<Type>; }
+  static constexpr auto Float() { return MetaTypeTraits<Type>::Float(); }
+  static constexpr bool HasUniqueObjectRepresentations() {
+    return std::has_unique_object_representations_v<Type>;
+  }
+  static constexpr bool HasVirtualDestructor() { return std::has_virtual_destructor_v<Type>; }
+  static constexpr auto Int() { return MetaTypeTraits<Type>::Int(); }
+  template <typename... ArgTypes>
+  static constexpr MetaType<std::invoke_result_t<Type, ArgTypes...>> InvokeResult(
+      MetaType<ArgTypes>...) {
+    return {};
+  }
+  static constexpr bool IsAbstract() { return std::is_abstract_v<Type>; }
+  static constexpr bool IsAggregate() { return std::is_aggregate_v<Type>; }
+  static constexpr bool IsArithmetic() { return std::is_arithmetic_v<Type>; }
+  static constexpr bool IsArray() { return std::is_array_v<Type>; }
+  template <typename OtherType>
+  static constexpr bool IsAssignable(MetaType<OtherType>) {
+    return std::is_assignable_v<Type, OtherType>;
+  }
+  template <typename OtherType>
+  static constexpr bool IsBaseOf() {
+    return std::is_base_of_v<Type, OtherType>;
+  }
+  static constexpr bool IsBoundedArray() { return std::is_bounded_array_v<Type>; }
+  static constexpr bool IsClass() { return std::is_class_v<Type>; }
+  static constexpr bool IsCompound() { return std::is_compound_v<Type>; }
+  static constexpr bool IsConst() { return std::is_const_v<Type>; }
+  static constexpr bool IsConstructible() { return std::is_constructible_v<Type>; }
+  template <typename OtherType>
+  static constexpr bool IsConvertible() {
+    return std::is_convertible_v<Type, OtherType>;
+  }
+  static constexpr bool IsCopyAssignable() { return std::is_copy_assignable_v<Type>; }
+  static constexpr bool IsCopyConstructible() { return std::is_copy_constructible_v<Type>; }
+  static constexpr bool IsDefaultConstructible() { return std::is_default_constructible_v<Type>; }
+  static constexpr bool IsDestructible() { return std::is_destructible_v<Type>; }
+  static constexpr bool IsEmpty() { return std::is_empty_v<Type>; }
+  static constexpr bool IsEnum() { return std::is_enum_v<Type>; }
+  static constexpr bool IsFinal() { return std::is_final_v<Type>; }
+  static constexpr bool IsFloatingPoint() { return MetaTypeTraits<Type>::IsFloatingPoint(); }
+  static constexpr bool IsFunction() { return std::is_function_v<Type>; }
+  static constexpr bool IsFundamental() { return std::is_fundamental_v<Type>; }
+  static constexpr bool IsIntegral() { return MetaTypeTraits<Type>::IsIntegral(); }
+  template <typename... ArgTypes>
+  static constexpr bool IsInvocable(MetaType<ArgTypes>...) {
+    return std::is_invocable_v<Type, ArgTypes...>;
+  }
+  template <typename Fn, typename... ArgTypes>
+  static constexpr bool IsInvocableR(MetaType<Fn>, MetaType<ArgTypes>...) {
+    return std::is_invocable_r_v<Type, Fn, ArgTypes...>;
+  }
+  static constexpr bool IsLvalueReference() { return std::is_lvalue_reference_v<Type>; }
+  static constexpr bool IsMemberFunctionPointer() {
+    return std::is_member_function_pointer_v<Type>;
+  }
+  static constexpr bool IsMemberObjectPointer() { return std::is_member_object_pointer_v<Type>; }
+  static constexpr bool IsMemberPointer() { return std::is_member_pointer_v<Type>; }
+  static constexpr bool IsMoveAssignable() { return std::is_move_assignable_v<Type>; }
+  static constexpr bool IsMoveConstructible() { return std::is_move_constructible_v<Type>; }
+  template <typename OtherType>
+  static constexpr bool IsNothrowAssignable(MetaType<OtherType>) {
+    return std::is_nothrow_assignable_v<Type, OtherType>;
+  }
+  static constexpr bool IsNothrowConstructible() { return std::is_nothrow_constructible_v<Type>; }
+  template <typename OtherType>
+  static constexpr bool IsNothrowConvertible() {
+    return std::is_nothrow_convertible_v<Type, OtherType>;
+  }
+  static constexpr bool IsNothrowCopyAssignable() {
+    return std::is_nothrow_copy_assignable_v<Type>;
+  }
+  static constexpr bool IsNothrowCopyConstructible() {
+    return std::is_nothrow_copy_constructible_v<Type>;
+  }
+  static constexpr bool IsNothrowDefaultConstructible() {
+    return std::is_nothrow_default_constructible_v<Type>;
+  }
+  static constexpr bool IsNothrowDestructible() { return std::is_nothrow_destructible_v<Type>; }
+  template <typename... ArgTypes>
+  static constexpr bool IsNothrowInvocable(MetaType<ArgTypes>...) {
+    return std::is_nothrow_invocable_v<Type, ArgTypes...>;
+  }
+  template <typename Fn, typename... ArgTypes>
+  static constexpr bool IsNothrowInvocableR(MetaType<Fn>, MetaType<ArgTypes>...) {
+    return std::is_nothrow_invocable_r_v<Type, Fn, ArgTypes...>;
+  }
+  static constexpr bool IsNothrowMoveAssignable() {
+    return std::is_nothrow_move_assignable_v<Type>;
+  }
+  static constexpr bool IsNothrowMoveConstructible() {
+    return std::is_nothrow_move_constructible_v<Type>;
+  }
+  static constexpr bool IsNothrowSwappable() { return std::is_nothrow_swappable_v<Type>; }
+  template <typename OtherType>
+  static constexpr bool IsNothrowSwappableWith() {
+    return std::is_nothrow_swappable_with_v<Type, OtherType>;
+  }
+  static constexpr bool IsNullPointer() { return std::is_null_pointer_v<Type>; }
+  static constexpr bool IsObject() { return std::is_object_v<Type>; }
+  static constexpr bool IsPointer() { return std::is_pointer_v<Type>; }
+  static constexpr bool IsPolymorphic() { return std::is_polymorphic_v<Type>; }
+  static constexpr bool IsRawInt() { return MetaTypeTraits<Type>::IsRawInt(); }
+  static constexpr bool IsReference() { return std::is_reference_v<Type>; }
+  static constexpr bool IsRvalueReference() { return std::is_rvalue_reference_v<Type>; }
+  template <typename OtherType>
+  static constexpr bool IsSame() {
+    return std::is_same_v<Type, OtherType>;
+  }
+  static constexpr bool IsSaturatingInt() { return MetaTypeTraits<Type>::IsSaturatingInt(); }
+  static constexpr bool IsScalar() { return std::is_scalar_v<Type>; }
+  static constexpr bool IsSigned() { return MetaTypeTraits<Type>::IsSigned(); }
+  static constexpr bool IsStandardLayout() { return std::is_standard_layout_v<Type>; }
+  static constexpr bool IsSwappable() { return std::is_swappable_v<Type>; }
+  template <typename OtherType>
+  static constexpr bool IsSwappableWith(MetaType<OtherType>) {
+    return std::is_swappable_with_v<Type, OtherType>;
+  }
+  static constexpr bool IsTrivial() { return std::is_trivial_v<Type>; }
+  template <typename OtherType>
+  static constexpr bool IsTriviallyAssignable(MetaType<OtherType>) {
+    return std::is_trivially_assignable_v<Type, OtherType>;
+  }
+  static constexpr bool IsTriviallyConstructible() {
+    return std::is_trivially_constructible_v<Type>;
+  }
+  static constexpr bool IsTriviallyCopyable() { return std::is_trivially_copyable_v<Type>; }
+  static constexpr bool IsTriviallyCopyAssignable() {
+    return std::is_trivially_copy_assignable_v<Type>;
+  }
+  static constexpr bool IsTriviallyCopyConstructible() {
+    return std::is_trivially_copy_constructible_v<Type>;
+  }
+  static constexpr bool IsTriviallyDefaultConstructible() {
+    return std::is_trivially_default_constructible_v<Type>;
+  }
+  static constexpr bool IsTriviallyDestructible() { return std::is_trivially_destructible_v<Type>; }
+  static constexpr bool IsTriviallyMoveAssignable() {
+    return std::is_trivially_move_assignable_v<Type>;
+  }
+  static constexpr bool IsTriviallyMoveConstructible() {
+    return std::is_trivially_move_constructible_v<Type>;
+  }
+  static constexpr bool IsUnboundedArray() { return std::is_unbounded_array_v<Type>; }
+  static constexpr bool IsUnion() { return std::is_union_v<Type>; }
+  static constexpr bool IsUnsigned() { return MetaTypeTraits<Type>::IsUnsigned(); }
+  static constexpr bool IsVoid() { return std::is_void_v<Type>; }
+  static constexpr bool IsVolatile() { return std::is_volatile_v<Type>; }
+  static constexpr bool IsWrappedFloat() { return MetaTypeTraits<Type>::IsWrappedFloat(); }
+  static constexpr bool IsWrappingInt() { return MetaTypeTraits<Type>::IsWrappingInt(); }
+  static constexpr auto MakeSigned() { return MetaTypeTraits<Type>::MakeSigned(); }
+  static constexpr auto MakeUnsigned() { return MetaTypeTraits<Type>::MakeUnsigned(); }
+  static constexpr auto Narrow() { return MetaTypeTraits<Type>::Narrow(); }
+  static constexpr bool Negation() { return std::negation_v<Type>; }
+  static constexpr size_t Rank() { return std::rank_v<Type>; }
+  static constexpr auto Raw() { return MetaTypeTraits<Type>::Raw(); }
+  static constexpr MetaType<std::remove_all_extents_t<Type>> RemoveAllExtents() { return {}; }
+  static constexpr MetaType<std::remove_const_t<Type>> RemoveConst() { return {}; }
+  static constexpr MetaType<std::remove_cv_t<Type>> RemoveCv() { return {}; }
+  static constexpr MetaType<std::remove_cvref_t<Type>> RemoveCvref() { return {}; }
+  static constexpr MetaType<std::remove_extent_t<Type>> RemoveExtent() { return {}; }
+  static constexpr MetaType<std::remove_pointer_t<Type>> RemovePointer() { return {}; }
+  static constexpr MetaType<std::remove_reference_t<Type>> RemoveReference() { return {}; }
+  static constexpr MetaType<std::remove_volatile_t<Type>> RemoveVolatile() { return {}; }
+  static constexpr auto Saturating() { return MetaTypeTraits<Type>::Saturating(); }
+  static constexpr std::size_t SizeOf() { return sizeof(Type); }
+  static constexpr MetaType<std::type_identity_t<Type>> TypeIdentity() { return {}; }
+  static constexpr auto UnderlyingType() { return MetaTypeTraits<Type>::UnderlyingType(); }
+  static constexpr MetaType<std::unwrap_ref_decay_t<Type>> UnwrapRefDecay() { return {}; }
+  static constexpr MetaType<std::unwrap_reference_t<Type>> UnwrapReference() { return {}; }
+  template <typename... OtherTypes>
+  MetaType<void> Void(MetaType<OtherTypes>...) {
+    return {};
+  }
+  static constexpr auto Wide() { return MetaTypeTraits<Type>::Widen(); }
+  static constexpr auto Widen() { return MetaTypeTraits<Type>::Widen(); }
+  // Only works for floats to provide Wrapped type.
+  static constexpr auto Wrapped() { return MetaTypeTraits<Type>::Wrapped(); }
+  // Only works for ints to provide type with Wrapping arithmetic.
+  static constexpr auto Wrapping() { return MetaTypeTraits<Type>::Wrapping(); }
+};
+
+template <typename Type>
+class MetaTypeTraits final {
+ public:
   static constexpr auto Float() {
     if constexpr (sizeof(typename TypeTraits<Type>::Float) == sizeof(_Float16)) {
       return MetaType<_Float16>{};
@@ -141,1063 +329,155 @@ class MetaType final {
       return MetaType<double>{};
     }
   }
-  static constexpr bool HasUniqueObjectRepresentations() {
-    return std::has_unique_object_representations_v<Type>;
-  }
-  static constexpr bool HasVirtualDestructor() { return std::has_virtual_destructor_v<Type>; }
   static constexpr auto Int() { return MetaType<typename TypeTraits<Type>::Int>{}; }
-  template <typename... ArgTypes>
-  static constexpr MetaType<std::invoke_result_t<Type, ArgTypes...>> InvokeResult(
-      MetaType<ArgTypes>...) {
-    return {};
-  }
-  static constexpr bool IsAbstract() { return std::is_abstract_v<Type>; }
-  static constexpr bool IsAggregate() { return std::is_aggregate_v<Type>; }
-  static constexpr bool IsArithmetic() { return std::is_arithmetic_v<Type>; }
-  static constexpr bool IsArray() { return std::is_array_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsAssignable(MetaType<OtherType>) {
-    return std::is_assignable_v<Type, OtherType>;
-  }
-  template <typename OtherType>
-  static constexpr bool IsBaseOf() {
-    return std::is_base_of_v<Type, OtherType>;
-  }
-  static constexpr bool IsBoundedArray() { return std::is_bounded_array_v<Type>; }
-  static constexpr bool IsClass() { return std::is_class_v<Type>; }
-  static constexpr bool IsCompound() { return std::is_compound_v<Type>; }
-  static constexpr bool IsConst() { return std::is_const_v<Type>; }
-  static constexpr bool IsConstructible() { return std::is_constructible_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsConvertible() {
-    return std::is_convertible_v<Type, OtherType>;
-  }
-  static constexpr bool IsCopyAssignable() { return std::is_copy_assignable_v<Type>; }
-  static constexpr bool IsCopyConstructible() { return std::is_copy_constructible_v<Type>; }
-  static constexpr bool IsDefaultConstructible() { return std::is_default_constructible_v<Type>; }
-  static constexpr bool IsDestructible() { return std::is_destructible_v<Type>; }
-  static constexpr bool IsEmpty() { return std::is_empty_v<Type>; }
-  static constexpr bool IsEnum() { return std::is_enum_v<Type>; }
-  static constexpr bool IsFinal() { return std::is_final_v<Type>; }
   static constexpr bool IsFloatingPoint() {
     return std::is_same_v<Type, _Float16> || std::is_floating_point_v<Type>;
   }
-  static constexpr bool IsFunction() { return std::is_function_v<Type>; }
-  static constexpr bool IsFundamental() { return std::is_fundamental_v<Type>; }
   static constexpr bool IsIntegral() { return std::is_integral_v<Type>; }
-  template <typename... ArgTypes>
-  static constexpr bool IsInvocable(MetaType<ArgTypes>...) {
-    return std::is_invocable_v<Type, ArgTypes...>;
-  }
-  template <typename Fn, typename... ArgTypes>
-  static constexpr bool IsInvocableR(MetaType<Fn>, MetaType<ArgTypes>...) {
-    return std::is_invocable_r_v<Type, Fn, ArgTypes...>;
-  }
-  static constexpr bool IsLvalueReference() { return std::is_lvalue_reference_v<Type>; }
-  static constexpr bool IsMemberFunctionPointer() {
-    return std::is_member_function_pointer_v<Type>;
-  }
-  static constexpr bool IsMemberObjectPointer() { return std::is_member_object_pointer_v<Type>; }
-  static constexpr bool IsMemberPointer() { return std::is_member_pointer_v<Type>; }
-  static constexpr bool IsMoveAssignable() { return std::is_move_assignable_v<Type>; }
-  static constexpr bool IsMoveConstructible() { return std::is_move_constructible_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsNothrowAssignable(MetaType<OtherType>) {
-    return std::is_nothrow_assignable_v<Type, OtherType>;
-  }
-  static constexpr bool IsNothrowConstructible() { return std::is_nothrow_constructible_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsNothrowConvertible() {
-    return std::is_nothrow_convertible_v<Type, OtherType>;
-  }
-  static constexpr bool IsNothrowCopyAssignable() {
-    return std::is_nothrow_copy_assignable_v<Type>;
-  }
-  static constexpr bool IsNothrowCopyConstructible() {
-    return std::is_nothrow_copy_constructible_v<Type>;
-  }
-  static constexpr bool IsNothrowDefaultConstructible() {
-    return std::is_nothrow_default_constructible_v<Type>;
-  }
-  static constexpr bool IsNothrowDestructible() { return std::is_nothrow_destructible_v<Type>; }
-  template <typename... ArgTypes>
-  static constexpr bool IsNothrowInvocable(MetaType<ArgTypes>...) {
-    return std::is_nothrow_invocable_v<Type, ArgTypes...>;
-  }
-  template <typename Fn, typename... ArgTypes>
-  static constexpr bool IsNothrowInvocableR(MetaType<Fn>, MetaType<ArgTypes>...) {
-    return std::is_nothrow_invocable_r_v<Type, Fn, ArgTypes...>;
-  }
-  static constexpr bool IsNothrowMoveAssignable() {
-    return std::is_nothrow_move_assignable_v<Type>;
-  }
-  static constexpr bool IsNothrowMoveConstructible() {
-    return std::is_nothrow_move_constructible_v<Type>;
-  }
-  static constexpr bool IsNothrowSwappable() { return std::is_nothrow_swappable_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsNothrowSwappableWith() {
-    return std::is_nothrow_swappable_with_v<Type, OtherType>;
-  }
-  static constexpr bool IsNullPointer() { return std::is_null_pointer_v<Type>; }
-  static constexpr bool IsObject() { return std::is_object_v<Type>; }
-  static constexpr bool IsPointer() { return std::is_pointer_v<Type>; }
-  static constexpr bool IsPolymorphic() { return std::is_polymorphic_v<Type>; }
-  static constexpr bool IsReference() { return std::is_reference_v<Type>; }
-  static constexpr bool IsRvalueReference() { return std::is_rvalue_reference_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsSame() {
-    return std::is_same_v<Type, OtherType>;
-  }
-  static constexpr bool IsScalar() { return std::is_scalar_v<Type>; }
+  static constexpr bool IsRawInt() { return false; }
+  static constexpr bool IsSaturatingInt() { return false; }
   static constexpr bool IsSigned() { return std::is_signed_v<Type>; }
-  static constexpr bool IsStandardLayout() { return std::is_standard_layout_v<Type>; }
-  static constexpr bool IsSwappable() { return std::is_swappable_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsSwappableWith(MetaType<OtherType>) {
-    return std::is_swappable_with_v<Type, OtherType>;
-  }
-  static constexpr bool IsTrivial() { return std::is_trivial_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsTriviallyAssignable(MetaType<OtherType>) {
-    return std::is_trivially_assignable_v<Type, OtherType>;
-  }
-  static constexpr bool IsTriviallyConstructible() {
-    return std::is_trivially_constructible_v<Type>;
-  }
-  static constexpr bool IsTriviallyCopyable() { return std::is_trivially_copyable_v<Type>; }
-  static constexpr bool IsTriviallyCopyAssignable() {
-    return std::is_trivially_copy_assignable_v<Type>;
-  }
-  static constexpr bool IsTriviallyCopyConstructible() {
-    return std::is_trivially_copy_constructible_v<Type>;
-  }
-  static constexpr bool IsTriviallyDefaultConstructible() {
-    return std::is_trivially_default_constructible_v<Type>;
-  }
-  static constexpr bool IsTriviallyDestructible() { return std::is_trivially_destructible_v<Type>; }
-  static constexpr bool IsTriviallyMoveAssignable() {
-    return std::is_trivially_move_assignable_v<Type>;
-  }
-  static constexpr bool IsTriviallyMoveConstructible() {
-    return std::is_trivially_move_constructible_v<Type>;
-  }
-  static constexpr bool IsUnboundedArray() { return std::is_unbounded_array_v<Type>; }
-  static constexpr bool IsUnion() { return std::is_union_v<Type>; }
   static constexpr bool IsUnsigned() { return std::is_unsigned_v<Type>; }
-  static constexpr bool IsVoid() { return std::is_void_v<Type>; }
-  static constexpr bool IsVolatile() { return std::is_volatile_v<Type>; }
+  static constexpr bool IsWrappedFloat() { return false; }
+  static constexpr bool IsWrappingInt() { return false; }
   static constexpr auto MakeSigned() { return MetaType<std::make_signed_t<Type>>{}; }
   static constexpr auto MakeUnsigned() { return MetaType<std::make_unsigned_t<Type>>{}; }
   static constexpr auto Narrow() { return MetaType<typename TypeTraits<Type>::Narrow>{}; }
-  static constexpr bool Negation() { return std::negation_v<Type>; }
-  static constexpr size_t Rank() { return std::rank_v<Type>; }
-  static constexpr auto Raw() { return MetaType<berberis::Raw<Type>>{}; }
-  static constexpr MetaType<std::remove_all_extents_t<Type>> RemoveAllExtents() { return {}; }
-  static constexpr MetaType<std::remove_const_t<Type>> RemoveConst() { return {}; }
-  static constexpr MetaType<std::remove_cv_t<Type>> RemoveCv() { return {}; }
-  static constexpr MetaType<std::remove_cvref_t<Type>> RemoveCvref() { return {}; }
-  static constexpr MetaType<std::remove_extent_t<Type>> RemoveExtent() { return {}; }
-  static constexpr MetaType<std::remove_pointer_t<Type>> RemovePointer() { return {}; }
-  static constexpr MetaType<std::remove_reference_t<Type>> RemoveReference() { return {}; }
-  static constexpr MetaType<std::remove_volatile_t<Type>> RemoveVolatile() { return {}; }
+  static constexpr auto Raw() { return MetaType<berberis::Raw<std::make_unsigned_t<Type>>>{}; }
   static constexpr auto Saturating() { return MetaType<berberis::Saturating<Type>>{}; }
-  static constexpr MetaType<std::type_identity_t<Type>> TypeIdentity() { return {}; }
   static constexpr auto UnderlyingType() { return MetaType<std::underlying_type_t<Type>>{}; }
-  static constexpr MetaType<std::unwrap_ref_decay_t<Type>> UnwrapRefDecay() { return {}; }
-  static constexpr MetaType<std::unwrap_reference_t<Type>> UnwrapReference() { return {}; }
-  template <typename... OtherTypes>
-  MetaType<void> Void(MetaType<OtherTypes>...) {
-    return {};
-  }
+  static constexpr auto Widen() { return MetaType<typename TypeTraits<Type>::Wide>{}; }
   static constexpr auto Wrapped() { return MetaType<intrinsics::WrappedFloatType<Type>>{}; }
   static constexpr auto Wrapping() { return MetaType<berberis::Wrapping<Type>>{}; }
-  static constexpr auto Wide() { return MetaType<typename TypeTraits<Type>::Wide>{}; }
-  static constexpr auto Widen() { return MetaType<typename TypeTraits<Type>::Wide>{}; }
 };
 
-template <typename UnderlyingType_>
-class MetaType<berberis::Raw<UnderlyingType_>> final {
+template <typename Type>
+class MetaTypeTraits<Raw<Type>> final {
  public:
-  using Type = berberis::Raw<UnderlyingType_>;
-
-  static constexpr MetaType<std::add_const_t<Type>> AddConst() { return {}; }
-  static constexpr MetaType<std::add_cv_t<Type>> AddCv() { return {}; }
-  static constexpr MetaType<std::add_lvalue_reference_t<Type>> AddLvalueReference() { return {}; }
-  static constexpr MetaType<std::add_pointer_t<Type>> AddPointer() { return {}; }
-  static constexpr MetaType<std::add_rvalue_reference_t<Type>> AddRvalueReference() { return {}; }
-  static constexpr MetaType<std::add_volatile_t<Type>> AddVolatile() { return {}; }
-  static constexpr size_t AlignmentOf() { return std::alignment_of_v<Type>; }
-  template <typename... OtherTypes>
-  static constexpr MetaType<std::common_reference_t<Type, OtherTypes...>> CommonReference(
-      MetaType<OtherTypes>...) {
-    return {};
-  }
-  template <typename... OtherTypes>
-  static constexpr MetaType<std::common_type_t<Type, OtherTypes...>> CommonType(
-      MetaType<OtherTypes>...) {
-    return {};
-  }
-  template <typename... OtherTypes>
-  static constexpr bool Conjunction(MetaType<OtherTypes>...) {
-    return std::conjunction_v<Type, OtherTypes...>;
-  }
-  static constexpr MetaType<std::decay_t<Type>> Decay() { return {}; }
-  template <typename... OtherTypes>
-  static constexpr bool Disjunction(MetaType<OtherTypes>...) {
-    return std::disjunction_v<Type, OtherTypes...>;
-  }
-  static constexpr size_t Extent() { return std::extent_v<Type>; }
-  static constexpr auto Float() { return MetaType<typename TypeTraits<UnderlyingType_>::Float>{}; }
-  static constexpr bool HasUniqueObjectRepresentations() {
-    return std::has_unique_object_representations_v<Type>;
-  }
-  static constexpr bool HasVirtualDestructor() { return std::has_virtual_destructor_v<Type>; }
-  static constexpr auto Int() {
-    return MetaType<berberis::Raw<typename TypeTraits<UnderlyingType_>::Int>>{};
-  }
-  template <typename... ArgTypes>
-  static constexpr MetaType<std::invoke_result_t<Type, ArgTypes...>> InvokeResult(
-      MetaType<ArgTypes>...) {
-    return {};
-  }
-  static constexpr bool IsAbstract() { return std::is_abstract_v<Type>; }
-  static constexpr bool IsAggregate() { return std::is_aggregate_v<Type>; }
-  static constexpr bool IsArithmetic() { return std::is_arithmetic_v<Type>; }
-  static constexpr bool IsArray() { return std::is_array_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsAssignable(MetaType<OtherType>) {
-    return std::is_assignable_v<Type, OtherType>;
-  }
-  template <typename OtherType>
-  static constexpr bool IsBaseOf() {
-    return std::is_base_of_v<Type, OtherType>;
-  }
-  static constexpr bool IsBoundedArray() { return std::is_bounded_array_v<Type>; }
-  static constexpr bool IsClass() { return std::is_class_v<Type>; }
-  static constexpr bool IsCompound() { return std::is_compound_v<Type>; }
-  static constexpr bool IsConst() { return std::is_const_v<Type>; }
-  static constexpr bool IsConstructible() { return std::is_constructible_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsConvertible() {
-    return std::is_convertible_v<Type, OtherType>;
-  }
-  static constexpr bool IsCopyAssignable() { return std::is_copy_assignable_v<Type>; }
-  static constexpr bool IsCopyConstructible() { return std::is_copy_constructible_v<Type>; }
-  static constexpr bool IsDefaultConstructible() { return std::is_default_constructible_v<Type>; }
-  static constexpr bool IsDestructible() { return std::is_destructible_v<Type>; }
-  static constexpr bool IsEmpty() { return std::is_empty_v<Type>; }
-  static constexpr bool IsEnum() { return std::is_enum_v<Type>; }
-  static constexpr bool IsFinal() { return std::is_final_v<Type>; }
-  static constexpr bool IsFloatingPoint() { return std::is_floating_point_v<UnderlyingType_>; }
-  static constexpr bool IsFunction() { return std::is_function_v<Type>; }
-  static constexpr bool IsFundamental() { return std::is_fundamental_v<Type>; }
-  static constexpr bool IsIntegral() { return std::is_integral_v<UnderlyingType_>; }
-  template <typename... ArgTypes>
-  static constexpr bool IsInvocable(MetaType<ArgTypes>...) {
-    return std::is_invocable_v<Type, ArgTypes...>;
-  }
-  template <typename Fn, typename... ArgTypes>
-  static constexpr bool IsInvocableR(MetaType<Fn>, MetaType<ArgTypes>...) {
-    return std::is_invocable_r_v<Type, Fn, ArgTypes...>;
-  }
-  static constexpr bool IsLvalueReference() { return std::is_lvalue_reference_v<Type>; }
-  static constexpr bool IsMemberFunctionPointer() {
-    return std::is_member_function_pointer_v<Type>;
-  }
-  static constexpr bool IsMemberObjectPointer() { return std::is_member_object_pointer_v<Type>; }
-  static constexpr bool IsMemberPointer() { return std::is_member_pointer_v<Type>; }
-  static constexpr bool IsMoveAssignable() { return std::is_move_assignable_v<Type>; }
-  static constexpr bool IsMoveConstructible() { return std::is_move_constructible_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsNothrowAssignable(MetaType<OtherType>) {
-    return std::is_nothrow_assignable_v<Type, OtherType>;
-  }
-  static constexpr bool IsNothrowConstructible() { return std::is_nothrow_constructible_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsNothrowConvertible() {
-    return std::is_nothrow_convertible_v<Type, OtherType>;
-  }
-  static constexpr bool IsNothrowCopyAssignable() {
-    return std::is_nothrow_copy_assignable_v<Type>;
-  }
-  static constexpr bool IsNothrowCopyConstructible() {
-    return std::is_nothrow_copy_constructible_v<Type>;
-  }
-  static constexpr bool IsNothrowDefaultConstructible() {
-    return std::is_nothrow_default_constructible_v<Type>;
-  }
-  static constexpr bool IsNothrowDestructible() { return std::is_nothrow_destructible_v<Type>; }
-  template <typename... ArgTypes>
-  static constexpr bool IsNothrowInvocable(MetaType<ArgTypes>...) {
-    return std::is_nothrow_invocable_v<Type, ArgTypes...>;
-  }
-  template <typename Fn, typename... ArgTypes>
-  static constexpr bool IsNothrowInvocableR(MetaType<Fn>, MetaType<ArgTypes>...) {
-    return std::is_nothrow_invocable_r_v<Type, Fn, ArgTypes...>;
-  }
-  static constexpr bool IsNothrowMoveAssignable() {
-    return std::is_nothrow_move_assignable_v<Type>;
-  }
-  static constexpr bool IsNothrowMoveConstructible() {
-    return std::is_nothrow_move_constructible_v<Type>;
-  }
-  static constexpr bool IsNothrowSwappable() { return std::is_nothrow_swappable_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsNothrowSwappableWith() {
-    return std::is_nothrow_swappable_with_v<Type, OtherType>;
-  }
-  static constexpr bool IsNullPointer() { return std::is_null_pointer_v<Type>; }
-  static constexpr bool IsObject() { return std::is_object_v<Type>; }
-  static constexpr bool IsPointer() { return std::is_pointer_v<Type>; }
-  static constexpr bool IsPolymorphic() { return std::is_polymorphic_v<Type>; }
-  static constexpr bool IsReference() { return std::is_reference_v<Type>; }
-  static constexpr bool IsRvalueReference() { return std::is_rvalue_reference_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsSame() {
-    return std::is_same_v<Type, OtherType>;
-  }
-  static constexpr bool IsScalar() { return std::is_scalar_v<Type>; }
-  static constexpr bool IsSigned() { return std::is_signed_v<UnderlyingType_>; }
-  static constexpr bool IsStandardLayout() { return std::is_standard_layout_v<Type>; }
-  static constexpr bool IsSwappable() { return std::is_swappable_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsSwappableWith(MetaType<OtherType>) {
-    return std::is_swappable_with_v<Type, OtherType>;
-  }
-  static constexpr bool IsTrivial() { return std::is_trivial_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsTriviallyAssignable(MetaType<OtherType>) {
-    return std::is_trivially_assignable_v<Type, OtherType>;
-  }
-  static constexpr bool IsTriviallyConstructible() {
-    return std::is_trivially_constructible_v<Type>;
-  }
-  static constexpr bool IsTriviallyCopyable() { return std::is_trivially_copyable_v<Type>; }
-  static constexpr bool IsTriviallyCopyAssignable() {
-    return std::is_trivially_copy_assignable_v<Type>;
-  }
-  static constexpr bool IsTriviallyCopyConstructible() {
-    return std::is_trivially_copy_constructible_v<Type>;
-  }
-  static constexpr bool IsTriviallyDefaultConstructible() {
-    return std::is_trivially_default_constructible_v<Type>;
-  }
-  static constexpr bool IsTriviallyDestructible() { return std::is_trivially_destructible_v<Type>; }
-  static constexpr bool IsTriviallyMoveAssignable() {
-    return std::is_trivially_move_assignable_v<Type>;
-  }
-  static constexpr bool IsTriviallyMoveConstructible() {
-    return std::is_trivially_move_constructible_v<Type>;
-  }
-  static constexpr bool IsUnboundedArray() { return std::is_unbounded_array_v<Type>; }
-  static constexpr bool IsUnion() { return std::is_union_v<Type>; }
-  static constexpr bool IsUnsigned() { return std::is_unsigned_v<UnderlyingType_>; }
-  static constexpr bool IsVoid() { return std::is_void_v<Type>; }
-  static constexpr bool IsVolatile() { return std::is_volatile_v<Type>; }
-  static constexpr auto MakeSigned() {
-    return MetaType<berberis::Raw<std::make_signed_t<UnderlyingType_>>>{};
-  }
-  static constexpr auto MakeUnsigned() {
-    return MetaType<berberis::Raw<std::make_unsigned_t<UnderlyingType_>>>{};
-  }
-  static constexpr auto Narrow() {
-    return MetaType<berberis::Raw<typename TypeTraits<UnderlyingType_>::Narrow>>{};
-  }
-  static constexpr bool Negation() { return std::negation_v<Type>; }
-  static constexpr size_t Rank() { return std::rank_v<Type>; }
-  static constexpr auto Raw() { return MetaType<berberis::Raw<Type>>{}; }
-  static constexpr MetaType<std::remove_all_extents_t<Type>> RemoveAllExtents() { return {}; }
-  static constexpr MetaType<std::remove_const_t<Type>> RemoveConst() { return {}; }
-  static constexpr MetaType<std::remove_cv_t<Type>> RemoveCv() { return {}; }
-  static constexpr MetaType<std::remove_cvref_t<Type>> RemoveCvref() { return {}; }
-  static constexpr MetaType<std::remove_extent_t<Type>> RemoveExtent() { return {}; }
-  static constexpr MetaType<std::remove_pointer_t<Type>> RemovePointer() { return {}; }
-  static constexpr MetaType<std::remove_reference_t<Type>> RemoveReference() { return {}; }
-  static constexpr MetaType<std::remove_volatile_t<Type>> RemoveVolatile() { return {}; }
-  static constexpr auto Saturating() { return MetaType<berberis::Saturating<UnderlyingType_>>{}; }
-  static constexpr MetaType<std::type_identity_t<Type>> TypeIdentity() { return {}; }
-  static constexpr MetaType<UnderlyingType_> UnderlyingType() { return {}; }
-  static constexpr MetaType<std::unwrap_ref_decay_t<Type>> UnwrapRefDecay() { return {}; }
-  static constexpr MetaType<std::unwrap_reference_t<Type>> UnwrapReference() { return {}; }
-  template <typename... OtherTypes>
-  MetaType<void> Void(MetaType<OtherTypes>...) {
-    return {};
-  }
-  static constexpr auto Wrapped() {
-    return MetaType<intrinsics::WrappedFloatType<UnderlyingType_>>{};
-  }
-  static constexpr auto Wrapping() { return MetaType<berberis::Wrapping<UnderlyingType_>>{}; }
-  static constexpr auto Wide() {
-    return MetaType<berberis::Raw<typename TypeTraits<UnderlyingType_>::Wide>>{};
-  }
-  static constexpr auto Widen() {
-    return MetaType<berberis::Raw<typename TypeTraits<UnderlyingType_>::Wide>>{};
-  }
-};
-
-template <typename UnderlyingType_>
-class MetaType<berberis::Saturating<UnderlyingType_>> final {
- public:
-  using Type = berberis::Saturating<UnderlyingType_>;
-
-  static constexpr MetaType<std::add_const_t<Type>> AddConst() { return {}; }
-  static constexpr MetaType<std::add_cv_t<Type>> AddCv() { return {}; }
-  static constexpr MetaType<std::add_lvalue_reference_t<Type>> AddLvalueReference() { return {}; }
-  static constexpr MetaType<std::add_pointer_t<Type>> AddPointer() { return {}; }
-  static constexpr MetaType<std::add_rvalue_reference_t<Type>> AddRvalueReference() { return {}; }
-  static constexpr MetaType<std::add_volatile_t<Type>> AddVolatile() { return {}; }
-  static constexpr size_t AlignmentOf() { return std::alignment_of_v<Type>; }
-  template <typename... OtherTypes>
-  static constexpr MetaType<std::common_reference_t<Type, OtherTypes...>> CommonReference(
-      MetaType<OtherTypes>...) {
-    return {};
-  }
-  template <typename... OtherTypes>
-  static constexpr MetaType<std::common_type_t<Type, OtherTypes...>> CommonType(
-      MetaType<OtherTypes>...) {
-    return {};
-  }
-  template <typename... OtherTypes>
-  static constexpr bool Conjunction(MetaType<OtherTypes>...) {
-    return std::conjunction_v<Type, OtherTypes...>;
-  }
-  static constexpr MetaType<std::decay_t<Type>> Decay() { return {}; }
-  template <typename... OtherTypes>
-  static constexpr bool Disjunction(MetaType<OtherTypes>...) {
-    return std::disjunction_v<Type, OtherTypes...>;
-  }
-  static constexpr size_t Extent() { return std::extent_v<Type>; }
-  static constexpr auto Float() { return MetaType<typename TypeTraits<UnderlyingType_>::Float>{}; }
-  static constexpr bool HasUniqueObjectRepresentations() {
-    return std::has_unique_object_representations_v<Type>;
-  }
-  static constexpr bool HasVirtualDestructor() { return std::has_virtual_destructor_v<Type>; }
-  static constexpr auto Int() {
-    return MetaType<berberis::Saturating<typename TypeTraits<UnderlyingType_>::Int>>{};
-  }
-  template <typename... ArgTypes>
-  static constexpr MetaType<std::invoke_result_t<Type, ArgTypes...>> InvokeResult(
-      MetaType<ArgTypes>...) {
-    return {};
-  }
-  static constexpr bool IsAbstract() { return std::is_abstract_v<Type>; }
-  static constexpr bool IsAggregate() { return std::is_aggregate_v<Type>; }
-  static constexpr bool IsArithmetic() { return std::is_arithmetic_v<Type>; }
-  static constexpr bool IsArray() { return std::is_array_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsAssignable(MetaType<OtherType>) {
-    return std::is_assignable_v<Type, OtherType>;
-  }
-  template <typename OtherType>
-  static constexpr bool IsBaseOf() {
-    return std::is_base_of_v<Type, OtherType>;
-  }
-  static constexpr bool IsBoundedArray() { return std::is_bounded_array_v<Type>; }
-  static constexpr bool IsClass() { return std::is_class_v<Type>; }
-  static constexpr bool IsCompound() { return std::is_compound_v<Type>; }
-  static constexpr bool IsConst() { return std::is_const_v<Type>; }
-  static constexpr bool IsConstructible() { return std::is_constructible_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsConvertible() {
-    return std::is_convertible_v<Type, OtherType>;
-  }
-  static constexpr bool IsCopyAssignable() { return std::is_copy_assignable_v<Type>; }
-  static constexpr bool IsCopyConstructible() { return std::is_copy_constructible_v<Type>; }
-  static constexpr bool IsDefaultConstructible() { return std::is_default_constructible_v<Type>; }
-  static constexpr bool IsDestructible() { return std::is_destructible_v<Type>; }
-  static constexpr bool IsEmpty() { return std::is_empty_v<Type>; }
-  static constexpr bool IsEnum() { return std::is_enum_v<Type>; }
-  static constexpr bool IsFinal() { return std::is_final_v<Type>; }
-  static constexpr bool IsFloatingPoint() { return std::is_floating_point_v<UnderlyingType_>; }
-  static constexpr bool IsFunction() { return std::is_function_v<Type>; }
-  static constexpr bool IsFundamental() { return std::is_fundamental_v<Type>; }
-  static constexpr bool IsIntegral() { return std::is_integral_v<UnderlyingType_>; }
-  template <typename... ArgTypes>
-  static constexpr bool IsInvocable(MetaType<ArgTypes>...) {
-    return std::is_invocable_v<Type, ArgTypes...>;
-  }
-  template <typename Fn, typename... ArgTypes>
-  static constexpr bool IsInvocableR(MetaType<Fn>, MetaType<ArgTypes>...) {
-    return std::is_invocable_r_v<Type, Fn, ArgTypes...>;
-  }
-  static constexpr bool IsLvalueReference() { return std::is_lvalue_reference_v<Type>; }
-  static constexpr bool IsMemberFunctionPointer() {
-    return std::is_member_function_pointer_v<Type>;
-  }
-  static constexpr bool IsMemberObjectPointer() { return std::is_member_object_pointer_v<Type>; }
-  static constexpr bool IsMemberPointer() { return std::is_member_pointer_v<Type>; }
-  static constexpr bool IsMoveAssignable() { return std::is_move_assignable_v<Type>; }
-  static constexpr bool IsMoveConstructible() { return std::is_move_constructible_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsNothrowAssignable(MetaType<OtherType>) {
-    return std::is_nothrow_assignable_v<Type, OtherType>;
-  }
-  static constexpr bool IsNothrowConstructible() { return std::is_nothrow_constructible_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsNothrowConvertible() {
-    return std::is_nothrow_convertible_v<Type, OtherType>;
-  }
-  static constexpr bool IsNothrowCopyAssignable() {
-    return std::is_nothrow_copy_assignable_v<Type>;
-  }
-  static constexpr bool IsNothrowCopyConstructible() {
-    return std::is_nothrow_copy_constructible_v<Type>;
-  }
-  static constexpr bool IsNothrowDefaultConstructible() {
-    return std::is_nothrow_default_constructible_v<Type>;
-  }
-  static constexpr bool IsNothrowDestructible() { return std::is_nothrow_destructible_v<Type>; }
-  template <typename... ArgTypes>
-  static constexpr bool IsNothrowInvocable(MetaType<ArgTypes>...) {
-    return std::is_nothrow_invocable_v<Type, ArgTypes...>;
-  }
-  template <typename Fn, typename... ArgTypes>
-  static constexpr bool IsNothrowInvocableR(MetaType<Fn>, MetaType<ArgTypes>...) {
-    return std::is_nothrow_invocable_r_v<Type, Fn, ArgTypes...>;
-  }
-  static constexpr bool IsNothrowMoveAssignable() {
-    return std::is_nothrow_move_assignable_v<Type>;
-  }
-  static constexpr bool IsNothrowMoveConstructible() {
-    return std::is_nothrow_move_constructible_v<Type>;
-  }
-  static constexpr bool IsNothrowSwappable() { return std::is_nothrow_swappable_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsNothrowSwappableWith() {
-    return std::is_nothrow_swappable_with_v<Type, OtherType>;
-  }
-  static constexpr bool IsNullPointer() { return std::is_null_pointer_v<Type>; }
-  static constexpr bool IsObject() { return std::is_object_v<Type>; }
-  static constexpr bool IsPointer() { return std::is_pointer_v<Type>; }
-  static constexpr bool IsPolymorphic() { return std::is_polymorphic_v<Type>; }
-  static constexpr bool IsReference() { return std::is_reference_v<Type>; }
-  static constexpr bool IsRvalueReference() { return std::is_rvalue_reference_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsSame() {
-    return std::is_same_v<Type, OtherType>;
-  }
-  static constexpr bool IsScalar() { return std::is_scalar_v<Type>; }
-  static constexpr bool IsSigned() { return std::is_signed_v<UnderlyingType_>; }
-  static constexpr bool IsStandardLayout() { return std::is_standard_layout_v<Type>; }
-  static constexpr bool IsSwappable() { return std::is_swappable_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsSwappableWith(MetaType<OtherType>) {
-    return std::is_swappable_with_v<Type, OtherType>;
-  }
-  static constexpr bool IsTrivial() { return std::is_trivial_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsTriviallyAssignable(MetaType<OtherType>) {
-    return std::is_trivially_assignable_v<Type, OtherType>;
-  }
-  static constexpr bool IsTriviallyConstructible() {
-    return std::is_trivially_constructible_v<Type>;
-  }
-  static constexpr bool IsTriviallyCopyable() { return std::is_trivially_copyable_v<Type>; }
-  static constexpr bool IsTriviallyCopyAssignable() {
-    return std::is_trivially_copy_assignable_v<Type>;
-  }
-  static constexpr bool IsTriviallyCopyConstructible() {
-    return std::is_trivially_copy_constructible_v<Type>;
-  }
-  static constexpr bool IsTriviallyDefaultConstructible() {
-    return std::is_trivially_default_constructible_v<Type>;
-  }
-  static constexpr bool IsTriviallyDestructible() { return std::is_trivially_destructible_v<Type>; }
-  static constexpr bool IsTriviallyMoveAssignable() {
-    return std::is_trivially_move_assignable_v<Type>;
-  }
-  static constexpr bool IsTriviallyMoveConstructible() {
-    return std::is_trivially_move_constructible_v<Type>;
-  }
-  static constexpr bool IsUnboundedArray() { return std::is_unbounded_array_v<Type>; }
-  static constexpr bool IsUnion() { return std::is_union_v<Type>; }
-  static constexpr bool IsUnsigned() { return std::is_unsigned_v<UnderlyingType_>; }
-  static constexpr bool IsVoid() { return std::is_void_v<Type>; }
-  static constexpr bool IsVolatile() { return std::is_volatile_v<Type>; }
-  static constexpr auto MakeSigned() {
-    return MetaType<berberis::Saturating<std::make_signed_t<UnderlyingType_>>>{};
-  }
-  static constexpr auto MakeUnsigned() {
-    return MetaType<berberis::Saturating<std::make_unsigned_t<UnderlyingType_>>>{};
-  }
-  static constexpr auto Narrow() {
-    return MetaType<berberis::Saturating<typename TypeTraits<UnderlyingType_>::Narrow>>{};
-  }
-  static constexpr bool Negation() { return std::negation_v<Type>; }
-  static constexpr size_t Rank() { return std::rank_v<Type>; }
-  static constexpr auto Raw() { return MetaType<berberis::Raw<Type>>{}; }
-  static constexpr MetaType<std::remove_all_extents_t<Type>> RemoveAllExtents() { return {}; }
-  static constexpr MetaType<std::remove_const_t<Type>> RemoveConst() { return {}; }
-  static constexpr MetaType<std::remove_cv_t<Type>> RemoveCv() { return {}; }
-  static constexpr MetaType<std::remove_cvref_t<Type>> RemoveCvref() { return {}; }
-  static constexpr MetaType<std::remove_extent_t<Type>> RemoveExtent() { return {}; }
-  static constexpr MetaType<std::remove_pointer_t<Type>> RemovePointer() { return {}; }
-  static constexpr MetaType<std::remove_reference_t<Type>> RemoveReference() { return {}; }
-  static constexpr MetaType<std::remove_volatile_t<Type>> RemoveVolatile() { return {}; }
-  static constexpr auto Saturating() { return MetaType<berberis::Saturating<UnderlyingType_>>{}; }
-  static constexpr MetaType<std::type_identity_t<Type>> TypeIdentity() { return {}; }
-  static constexpr MetaType<UnderlyingType_> UnderlyingType() { return {}; }
-  static constexpr MetaType<std::unwrap_ref_decay_t<Type>> UnwrapRefDecay() { return {}; }
-  static constexpr MetaType<std::unwrap_reference_t<Type>> UnwrapReference() { return {}; }
-  template <typename... OtherTypes>
-  MetaType<void> Void(MetaType<OtherTypes>...) {
-    return {};
-  }
-  static constexpr auto Wrapped() {
-    return MetaType<intrinsics::WrappedFloatType<UnderlyingType_>>{};
-  }
-  static constexpr auto Wrapping() { return MetaType<berberis::Wrapping<UnderlyingType_>>{}; }
-  static constexpr auto Wide() {
-    return MetaType<berberis::Saturating<typename TypeTraits<UnderlyingType_>::Wide>>{};
-  }
-  static constexpr auto Widen() {
-    return MetaType<berberis::Saturating<typename TypeTraits<UnderlyingType_>::Wide>>{};
-  }
-};
-
-template <typename UnderlyingType_>
-class MetaType<berberis::Wrapping<UnderlyingType_>> final {
- public:
-  using Type = berberis::Wrapping<UnderlyingType_>;
-
-  static constexpr MetaType<std::add_const_t<Type>> AddConst() { return {}; }
-  static constexpr MetaType<std::add_cv_t<Type>> AddCv() { return {}; }
-  static constexpr MetaType<std::add_lvalue_reference_t<Type>> AddLvalueReference() { return {}; }
-  static constexpr MetaType<std::add_pointer_t<Type>> AddPointer() { return {}; }
-  static constexpr MetaType<std::add_rvalue_reference_t<Type>> AddRvalueReference() { return {}; }
-  static constexpr MetaType<std::add_volatile_t<Type>> AddVolatile() { return {}; }
-  static constexpr size_t AlignmentOf() { return std::alignment_of_v<Type>; }
-  template <typename... OtherTypes>
-  static constexpr MetaType<std::common_reference_t<Type, OtherTypes...>> CommonReference(
-      MetaType<OtherTypes>...) {
-    return {};
-  }
-  template <typename... OtherTypes>
-  static constexpr MetaType<std::common_type_t<Type, OtherTypes...>> CommonType(
-      MetaType<OtherTypes>...) {
-    return {};
-  }
-  template <typename... OtherTypes>
-  static constexpr bool Conjunction(MetaType<OtherTypes>...) {
-    return std::conjunction_v<Type, OtherTypes...>;
-  }
-  static constexpr MetaType<std::decay_t<Type>> Decay() { return {}; }
-  template <typename... OtherTypes>
-  static constexpr bool Disjunction(MetaType<OtherTypes>...) {
-    return std::disjunction_v<Type, OtherTypes...>;
-  }
-  static constexpr size_t Extent() { return std::extent_v<Type>; }
-  static constexpr auto Float() { return MetaType<typename TypeTraits<UnderlyingType_>::Float>{}; }
-  static constexpr bool HasUniqueObjectRepresentations() {
-    return std::has_unique_object_representations_v<Type>;
-  }
-  static constexpr bool HasVirtualDestructor() { return std::has_virtual_destructor_v<Type>; }
-  static constexpr auto Int() {
-    return MetaType<berberis::Wrapping<typename TypeTraits<UnderlyingType_>::Int>>{};
-  }
-  template <typename... ArgTypes>
-  static constexpr MetaType<std::invoke_result_t<Type, ArgTypes...>> InvokeResult(
-      MetaType<ArgTypes>...) {
-    return {};
-  }
-  static constexpr bool IsAbstract() { return std::is_abstract_v<Type>; }
-  static constexpr bool IsAggregate() { return std::is_aggregate_v<Type>; }
-  static constexpr bool IsArithmetic() { return std::is_arithmetic_v<Type>; }
-  static constexpr bool IsArray() { return std::is_array_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsAssignable(MetaType<OtherType>) {
-    return std::is_assignable_v<Type, OtherType>;
-  }
-  template <typename OtherType>
-  static constexpr bool IsBaseOf() {
-    return std::is_base_of_v<Type, OtherType>;
-  }
-  static constexpr bool IsBoundedArray() { return std::is_bounded_array_v<Type>; }
-  static constexpr bool IsClass() { return std::is_class_v<Type>; }
-  static constexpr bool IsCompound() { return std::is_compound_v<Type>; }
-  static constexpr bool IsConst() { return std::is_const_v<Type>; }
-  static constexpr bool IsConstructible() { return std::is_constructible_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsConvertible() {
-    return std::is_convertible_v<Type, OtherType>;
-  }
-  static constexpr bool IsCopyAssignable() { return std::is_copy_assignable_v<Type>; }
-  static constexpr bool IsCopyConstructible() { return std::is_copy_constructible_v<Type>; }
-  static constexpr bool IsDefaultConstructible() { return std::is_default_constructible_v<Type>; }
-  static constexpr bool IsDestructible() { return std::is_destructible_v<Type>; }
-  static constexpr bool IsEmpty() { return std::is_empty_v<Type>; }
-  static constexpr bool IsEnum() { return std::is_enum_v<Type>; }
-  static constexpr bool IsFinal() { return std::is_final_v<Type>; }
-  static constexpr bool IsFloatingPoint() { return std::is_floating_point_v<UnderlyingType_>; }
-  static constexpr bool IsFunction() { return std::is_function_v<Type>; }
-  static constexpr bool IsFundamental() { return std::is_fundamental_v<Type>; }
-  static constexpr bool IsIntegral() { return std::is_integral_v<UnderlyingType_>; }
-  template <typename... ArgTypes>
-  static constexpr bool IsInvocable(MetaType<ArgTypes>...) {
-    return std::is_invocable_v<Type, ArgTypes...>;
-  }
-  template <typename Fn, typename... ArgTypes>
-  static constexpr bool IsInvocableR(MetaType<Fn>, MetaType<ArgTypes>...) {
-    return std::is_invocable_r_v<Type, Fn, ArgTypes...>;
-  }
-  static constexpr bool IsLvalueReference() { return std::is_lvalue_reference_v<Type>; }
-  static constexpr bool IsMemberFunctionPointer() {
-    return std::is_member_function_pointer_v<Type>;
-  }
-  static constexpr bool IsMemberObjectPointer() { return std::is_member_object_pointer_v<Type>; }
-  static constexpr bool IsMemberPointer() { return std::is_member_pointer_v<Type>; }
-  static constexpr bool IsMoveAssignable() { return std::is_move_assignable_v<Type>; }
-  static constexpr bool IsMoveConstructible() { return std::is_move_constructible_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsNothrowAssignable(MetaType<OtherType>) {
-    return std::is_nothrow_assignable_v<Type, OtherType>;
-  }
-  static constexpr bool IsNothrowConstructible() { return std::is_nothrow_constructible_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsNothrowConvertible() {
-    return std::is_nothrow_convertible_v<Type, OtherType>;
-  }
-  static constexpr bool IsNothrowCopyAssignable() {
-    return std::is_nothrow_copy_assignable_v<Type>;
-  }
-  static constexpr bool IsNothrowCopyConstructible() {
-    return std::is_nothrow_copy_constructible_v<Type>;
-  }
-  static constexpr bool IsNothrowDefaultConstructible() {
-    return std::is_nothrow_default_constructible_v<Type>;
-  }
-  static constexpr bool IsNothrowDestructible() { return std::is_nothrow_destructible_v<Type>; }
-  template <typename... ArgTypes>
-  static constexpr bool IsNothrowInvocable(MetaType<ArgTypes>...) {
-    return std::is_nothrow_invocable_v<Type, ArgTypes...>;
-  }
-  template <typename Fn, typename... ArgTypes>
-  static constexpr bool IsNothrowInvocableR(MetaType<Fn>, MetaType<ArgTypes>...) {
-    return std::is_nothrow_invocable_r_v<Type, Fn, ArgTypes...>;
-  }
-  static constexpr bool IsNothrowMoveAssignable() {
-    return std::is_nothrow_move_assignable_v<Type>;
-  }
-  static constexpr bool IsNothrowMoveConstructible() {
-    return std::is_nothrow_move_constructible_v<Type>;
-  }
-  static constexpr bool IsNothrowSwappable() { return std::is_nothrow_swappable_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsNothrowSwappableWith() {
-    return std::is_nothrow_swappable_with_v<Type, OtherType>;
-  }
-  static constexpr bool IsNullPointer() { return std::is_null_pointer_v<Type>; }
-  static constexpr bool IsObject() { return std::is_object_v<Type>; }
-  static constexpr bool IsPointer() { return std::is_pointer_v<Type>; }
-  static constexpr bool IsPolymorphic() { return std::is_polymorphic_v<Type>; }
-  static constexpr bool IsReference() { return std::is_reference_v<Type>; }
-  static constexpr bool IsRvalueReference() { return std::is_rvalue_reference_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsSame() {
-    return std::is_same_v<Type, OtherType>;
-  }
-  static constexpr bool IsScalar() { return std::is_scalar_v<Type>; }
-  static constexpr bool IsSigned() { return std::is_signed_v<UnderlyingType_>; }
-  static constexpr bool IsStandardLayout() { return std::is_standard_layout_v<Type>; }
-  static constexpr bool IsSwappable() { return std::is_swappable_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsSwappableWith(MetaType<OtherType>) {
-    return std::is_swappable_with_v<Type, OtherType>;
-  }
-  static constexpr bool IsTrivial() { return std::is_trivial_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsTriviallyAssignable(MetaType<OtherType>) {
-    return std::is_trivially_assignable_v<Type, OtherType>;
-  }
-  static constexpr bool IsTriviallyConstructible() {
-    return std::is_trivially_constructible_v<Type>;
-  }
-  static constexpr bool IsTriviallyCopyable() { return std::is_trivially_copyable_v<Type>; }
-  static constexpr bool IsTriviallyCopyAssignable() {
-    return std::is_trivially_copy_assignable_v<Type>;
-  }
-  static constexpr bool IsTriviallyCopyConstructible() {
-    return std::is_trivially_copy_constructible_v<Type>;
-  }
-  static constexpr bool IsTriviallyDefaultConstructible() {
-    return std::is_trivially_default_constructible_v<Type>;
-  }
-  static constexpr bool IsTriviallyDestructible() { return std::is_trivially_destructible_v<Type>; }
-  static constexpr bool IsTriviallyMoveAssignable() {
-    return std::is_trivially_move_assignable_v<Type>;
-  }
-  static constexpr bool IsTriviallyMoveConstructible() {
-    return std::is_trivially_move_constructible_v<Type>;
-  }
-  static constexpr bool IsUnboundedArray() { return std::is_unbounded_array_v<Type>; }
-  static constexpr bool IsUnion() { return std::is_union_v<Type>; }
-  static constexpr bool IsUnsigned() { return std::is_unsigned_v<UnderlyingType_>; }
-  static constexpr bool IsVoid() { return std::is_void_v<Type>; }
-  static constexpr bool IsVolatile() { return std::is_volatile_v<Type>; }
-  static constexpr auto MakeSigned() {
-    return MetaType<berberis::Wrapping<std::make_signed_t<UnderlyingType_>>>{};
-  }
-  static constexpr auto MakeUnsigned() {
-    return MetaType<berberis::Wrapping<std::make_unsigned_t<UnderlyingType_>>>{};
-  }
-  static constexpr auto Narrow() {
-    return MetaType<berberis::Wrapping<typename TypeTraits<UnderlyingType_>::Narrow>>{};
-  }
-  static constexpr bool Negation() { return std::negation_v<Type>; }
-  static constexpr size_t Rank() { return std::rank_v<Type>; }
-  static constexpr auto Raw() { return MetaType<berberis::Raw<Type>>{}; }
-  static constexpr MetaType<std::remove_all_extents_t<Type>> RemoveAllExtents() { return {}; }
-  static constexpr MetaType<std::remove_const_t<Type>> RemoveConst() { return {}; }
-  static constexpr MetaType<std::remove_cv_t<Type>> RemoveCv() { return {}; }
-  static constexpr MetaType<std::remove_cvref_t<Type>> RemoveCvref() { return {}; }
-  static constexpr MetaType<std::remove_extent_t<Type>> RemoveExtent() { return {}; }
-  static constexpr MetaType<std::remove_pointer_t<Type>> RemovePointer() { return {}; }
-  static constexpr MetaType<std::remove_reference_t<Type>> RemoveReference() { return {}; }
-  static constexpr MetaType<std::remove_volatile_t<Type>> RemoveVolatile() { return {}; }
-  static constexpr auto Saturating() { return MetaType<berberis::Saturating<UnderlyingType_>>{}; }
-  static constexpr MetaType<std::type_identity_t<Type>> TypeIdentity() { return {}; }
-  static constexpr MetaType<UnderlyingType_> UnderlyingType() { return {}; }
-  static constexpr MetaType<std::unwrap_ref_decay_t<Type>> UnwrapRefDecay() { return {}; }
-  static constexpr MetaType<std::unwrap_reference_t<Type>> UnwrapReference() { return {}; }
-  template <typename... OtherTypes>
-  MetaType<void> Void(MetaType<OtherTypes>...) {
-    return {};
-  }
-  static constexpr auto Wrapped() {
-    return MetaType<intrinsics::WrappedFloatType<UnderlyingType_>>{};
-  }
-  static constexpr auto Wrapping() { return MetaType<berberis::Wrapping<UnderlyingType_>>{}; }
-  static constexpr auto Wide() {
-    return MetaType<berberis::Wrapping<typename TypeTraits<UnderlyingType_>::Wide>>{};
-  }
-  static constexpr auto Widen() {
-    return MetaType<berberis::Wrapping<typename TypeTraits<UnderlyingType_>::Wide>>{};
-  }
-};
-
-template <typename UnderlyingType_>
-class MetaType<intrinsics::WrappedFloatType<UnderlyingType_>> final {
- public:
-  using Type = intrinsics::WrappedFloatType<UnderlyingType_>;
-
-  static constexpr MetaType<std::add_const_t<Type>> AddConst() { return {}; }
-  static constexpr MetaType<std::add_cv_t<Type>> AddCv() { return {}; }
-  static constexpr MetaType<std::add_lvalue_reference_t<Type>> AddLvalueReference() { return {}; }
-  static constexpr MetaType<std::add_pointer_t<Type>> AddPointer() { return {}; }
-  static constexpr MetaType<std::add_rvalue_reference_t<Type>> AddRvalueReference() { return {}; }
-  static constexpr MetaType<std::add_volatile_t<Type>> AddVolatile() { return {}; }
-  static constexpr size_t AlignmentOf() { return std::alignment_of_v<Type>; }
-  template <typename... OtherTypes>
-  static constexpr MetaType<std::common_reference_t<Type, OtherTypes...>> CommonReference(
-      MetaType<OtherTypes>...) {
-    return {};
-  }
-  template <typename... OtherTypes>
-  static constexpr MetaType<std::common_type_t<Type, OtherTypes...>> CommonType(
-      MetaType<OtherTypes>...) {
-    return {};
-  }
-  template <typename... OtherTypes>
-  static constexpr bool Conjunction(MetaType<OtherTypes>...) {
-    return std::conjunction_v<Type, OtherTypes...>;
-  }
-  static constexpr MetaType<std::decay_t<Type>> Decay() { return {}; }
-  template <typename... OtherTypes>
-  static constexpr bool Disjunction(MetaType<OtherTypes>...) {
-    return std::disjunction_v<Type, OtherTypes...>;
-  }
-  static constexpr size_t Extent() { return std::extent_v<Type>; }
-  static constexpr MetaType<Type> Float() { return {}; }
-  static constexpr bool HasUniqueObjectRepresentations() {
-    return std::has_unique_object_representations_v<Type>;
-  }
-  static constexpr bool HasVirtualDestructor() { return std::has_virtual_destructor_v<Type>; }
-  static constexpr auto Int() {
-    return MetaType<berberis::Raw<std::make_unsigned_t<typename TypeTraits<Type>::Int>>>{};
-  }
-  template <typename... ArgTypes>
-  static constexpr MetaType<std::invoke_result_t<Type, ArgTypes...>> InvokeResult(
-      MetaType<ArgTypes>...) {
-    return {};
-  }
-  static constexpr bool IsAbstract() { return std::is_abstract_v<Type>; }
-  static constexpr bool IsAggregate() { return std::is_aggregate_v<Type>; }
-  static constexpr bool IsArithmetic() { return std::is_arithmetic_v<Type>; }
-  static constexpr bool IsArray() { return std::is_array_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsAssignable(MetaType<OtherType>) {
-    return std::is_assignable_v<Type, OtherType>;
-  }
-  template <typename OtherType>
-  static constexpr bool IsBaseOf() {
-    return std::is_base_of_v<Type, OtherType>;
-  }
-  static constexpr bool IsBoundedArray() { return std::is_bounded_array_v<Type>; }
-  static constexpr bool IsClass() { return std::is_class_v<Type>; }
-  static constexpr bool IsCompound() { return std::is_compound_v<Type>; }
-  static constexpr bool IsConst() { return std::is_const_v<Type>; }
-  static constexpr bool IsConstructible() { return std::is_constructible_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsConvertible() {
-    return std::is_convertible_v<Type, OtherType>;
-  }
-  static constexpr bool IsCopyAssignable() { return std::is_copy_assignable_v<Type>; }
-  static constexpr bool IsCopyConstructible() { return std::is_copy_constructible_v<Type>; }
-  static constexpr bool IsDefaultConstructible() { return std::is_default_constructible_v<Type>; }
-  static constexpr bool IsDestructible() { return std::is_destructible_v<Type>; }
-  static constexpr bool IsEmpty() { return std::is_empty_v<Type>; }
-  static constexpr bool IsEnum() { return std::is_enum_v<Type>; }
-  static constexpr bool IsFinal() { return std::is_final_v<Type>; }
+  static constexpr auto Float() { return MetaType<typename TypeTraits<Type>::Float>{}; }
+  static constexpr auto Int() { return MetaType<berberis::Raw<Type>>{}; }
   static constexpr bool IsFloatingPoint() {
-    return std::is_same_v<UnderlyingType_, intrinsics::Float8PhonyType> ||
-           std::is_same_v<UnderlyingType_, _Float16> || std::is_floating_point_v<UnderlyingType_>;
+    return std::is_same_v<Type, _Float16> || std::is_floating_point_v<Type>;
   }
-  static constexpr bool IsFunction() { return std::is_function_v<Type>; }
-  static constexpr bool IsFundamental() { return std::is_fundamental_v<Type>; }
-  static constexpr bool IsIntegral() { return std::is_integral_v<UnderlyingType_>; }
-  template <typename... ArgTypes>
-  static constexpr bool IsInvocable(MetaType<ArgTypes>...) {
-    return std::is_invocable_v<Type, ArgTypes...>;
-  }
-  template <typename Fn, typename... ArgTypes>
-  static constexpr bool IsInvocableR(MetaType<Fn>, MetaType<ArgTypes>...) {
-    return std::is_invocable_r_v<Type, Fn, ArgTypes...>;
-  }
-  static constexpr bool IsLvalueReference() { return std::is_lvalue_reference_v<Type>; }
-  static constexpr bool IsMemberFunctionPointer() {
-    return std::is_member_function_pointer_v<Type>;
-  }
-  static constexpr bool IsMemberObjectPointer() { return std::is_member_object_pointer_v<Type>; }
-  static constexpr bool IsMemberPointer() { return std::is_member_pointer_v<Type>; }
-  static constexpr bool IsMoveAssignable() { return std::is_move_assignable_v<Type>; }
-  static constexpr bool IsMoveConstructible() { return std::is_move_constructible_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsNothrowAssignable(MetaType<OtherType>) {
-    return std::is_nothrow_assignable_v<Type, OtherType>;
-  }
-  static constexpr bool IsNothrowConstructible() { return std::is_nothrow_constructible_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsNothrowConvertible() {
-    return std::is_nothrow_convertible_v<Type, OtherType>;
-  }
-  static constexpr bool IsNothrowCopyAssignable() {
-    return std::is_nothrow_copy_assignable_v<Type>;
-  }
-  static constexpr bool IsNothrowCopyConstructible() {
-    return std::is_nothrow_copy_constructible_v<Type>;
-  }
-  static constexpr bool IsNothrowDefaultConstructible() {
-    return std::is_nothrow_default_constructible_v<Type>;
-  }
-  static constexpr bool IsNothrowDestructible() { return std::is_nothrow_destructible_v<Type>; }
-  template <typename... ArgTypes>
-  static constexpr bool IsNothrowInvocable(MetaType<ArgTypes>...) {
-    return std::is_nothrow_invocable_v<Type, ArgTypes...>;
-  }
-  template <typename Fn, typename... ArgTypes>
-  static constexpr bool IsNothrowInvocableR(MetaType<Fn>, MetaType<ArgTypes>...) {
-    return std::is_nothrow_invocable_r_v<Type, Fn, ArgTypes...>;
-  }
-  static constexpr bool IsNothrowMoveAssignable() {
-    return std::is_nothrow_move_assignable_v<Type>;
-  }
-  static constexpr bool IsNothrowMoveConstructible() {
-    return std::is_nothrow_move_constructible_v<Type>;
-  }
-  static constexpr bool IsNothrowSwappable() { return std::is_nothrow_swappable_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsNothrowSwappableWith() {
-    return std::is_nothrow_swappable_with_v<Type, OtherType>;
-  }
-  static constexpr bool IsNullPointer() { return std::is_null_pointer_v<Type>; }
-  static constexpr bool IsObject() { return std::is_object_v<Type>; }
-  static constexpr bool IsPointer() { return std::is_pointer_v<Type>; }
-  static constexpr bool IsPolymorphic() { return std::is_polymorphic_v<Type>; }
-  static constexpr bool IsReference() { return std::is_reference_v<Type>; }
-  static constexpr bool IsRvalueReference() { return std::is_rvalue_reference_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsSame() {
-    return std::is_same_v<Type, OtherType>;
-  }
-  static constexpr bool IsScalar() { return std::is_scalar_v<Type>; }
-  static constexpr bool IsSigned() { return std::is_signed_v<UnderlyingType_>; }
-  static constexpr bool IsStandardLayout() { return std::is_standard_layout_v<Type>; }
-  static constexpr bool IsSwappable() { return std::is_swappable_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsSwappableWith(MetaType<OtherType>) {
-    return std::is_swappable_with_v<Type, OtherType>;
-  }
-  static constexpr bool IsTrivial() { return std::is_trivial_v<Type>; }
-  template <typename OtherType>
-  static constexpr bool IsTriviallyAssignable(MetaType<OtherType>) {
-    return std::is_trivially_assignable_v<Type, OtherType>;
-  }
-  static constexpr bool IsTriviallyConstructible() {
-    return std::is_trivially_constructible_v<Type>;
-  }
-  static constexpr bool IsTriviallyCopyable() { return std::is_trivially_copyable_v<Type>; }
-  static constexpr bool IsTriviallyCopyAssignable() {
-    return std::is_trivially_copy_assignable_v<Type>;
-  }
-  static constexpr bool IsTriviallyCopyConstructible() {
-    return std::is_trivially_copy_constructible_v<Type>;
-  }
-  static constexpr bool IsTriviallyDefaultConstructible() {
-    return std::is_trivially_default_constructible_v<Type>;
-  }
-  static constexpr bool IsTriviallyDestructible() { return std::is_trivially_destructible_v<Type>; }
-  static constexpr bool IsTriviallyMoveAssignable() {
-    return std::is_trivially_move_assignable_v<Type>;
-  }
-  static constexpr bool IsTriviallyMoveConstructible() {
-    return std::is_trivially_move_constructible_v<Type>;
-  }
-  static constexpr bool IsUnboundedArray() { return std::is_unbounded_array_v<Type>; }
-  static constexpr bool IsUnion() { return std::is_union_v<Type>; }
-  static constexpr bool IsUnsigned() { return std::is_unsigned_v<UnderlyingType_>; }
-  static constexpr bool IsVoid() { return std::is_void_v<Type>; }
-  static constexpr bool IsVolatile() { return std::is_volatile_v<Type>; }
-  static constexpr auto MakeSigned() {
-    return MetaType<berberis::Raw<std::make_signed_t<UnderlyingType_>>>{};
-  }
+  static constexpr bool IsIntegral() { return std::is_integral_v<Type>; }
+  static constexpr bool IsRawInt() { return true; }
+  static constexpr bool IsSaturatingInt() { return false; }
+  static constexpr bool IsSigned() { return std::is_signed_v<Type>; }
+  static constexpr bool IsUnsigned() { return std::is_unsigned_v<Type>; }
+  static constexpr bool IsWrappedFloat() { return false; }
+  static constexpr bool IsWrappingInt() { return false; }
+  static constexpr auto MakeSigned() { return MetaType<berberis::Raw<std::make_signed_t<Type>>>{}; }
   static constexpr auto MakeUnsigned() {
-    return MetaType<berberis::Raw<std::make_unsigned_t<UnderlyingType_>>>{};
+    return MetaType<berberis::Raw<std::make_unsigned_t<Type>>>{};
   }
   static constexpr auto Narrow() {
-    return MetaType<typename TypeTraits<UnderlyingType_>::Narrow>{};
+    return MetaType<berberis::Raw<typename TypeTraits<Type>::Narrow>>{};
   }
-  static constexpr bool Negation() { return std::negation_v<Type>; }
-  static constexpr size_t Rank() { return std::rank_v<Type>; }
-  static constexpr auto Raw() {
-    return MetaType<berberis::Raw<std::make_unsigned_t<typename TypeTraits<Type>::Int>>>{};
+  static constexpr auto Raw() { return MetaType<berberis::Raw<Type>>{}; }
+  static constexpr auto Saturating() { return MetaType<berberis::Saturating<Type>>{}; }
+  static constexpr MetaType<Type> UnderlyingType() { return {}; }
+  static constexpr auto Widen() {
+    return MetaType<berberis::Raw<typename TypeTraits<Type>::Wide>>{};
   }
-  static constexpr MetaType<std::remove_all_extents_t<Type>> RemoveAllExtents() { return {}; }
-  static constexpr MetaType<std::remove_const_t<Type>> RemoveConst() { return {}; }
-  static constexpr MetaType<std::remove_cv_t<Type>> RemoveCv() { return {}; }
-  static constexpr MetaType<std::remove_cvref_t<Type>> RemoveCvref() { return {}; }
-  static constexpr MetaType<std::remove_extent_t<Type>> RemoveExtent() { return {}; }
-  static constexpr MetaType<std::remove_pointer_t<Type>> RemovePointer() { return {}; }
-  static constexpr MetaType<std::remove_reference_t<Type>> RemoveReference() { return {}; }
-  static constexpr MetaType<std::remove_volatile_t<Type>> RemoveVolatile() { return {}; }
-  static constexpr auto Saturating() {
-    return MetaType<berberis::Saturating<typename TypeTraits<Type>::Int>>{};
-  }
-  static constexpr MetaType<std::type_identity_t<Type>> TypeIdentity() { return {}; }
-  static constexpr MetaType<UnderlyingType_> UnderlyingType() { return {}; }
-  static constexpr MetaType<std::unwrap_ref_decay_t<Type>> UnwrapRefDecay() { return {}; }
-  static constexpr MetaType<std::unwrap_reference_t<Type>> UnwrapReference() { return {}; }
-  template <typename... OtherTypes>
-  MetaType<void> Void(MetaType<OtherTypes>...) {
-    return {};
-  }
-  static constexpr MetaType<Type> Wrapped() { return {}; }
-  static constexpr auto Wrapping() {
-    return MetaType<berberis::Wrapping<typename TypeTraits<Type>::Int>>{};
-  }
-  static constexpr auto Wide() { return MetaType<typename TypeTraits<Type>::Wide>{}; }
-  static constexpr auto Widen() { return MetaType<typename TypeTraits<Type>::Wide>{}; }
+  static constexpr auto Wrapping() { return MetaType<berberis::Wrapping<Type>>{}; }
 };
+
+template <typename Type>
+class MetaTypeTraits<Saturating<Type>> final {
+ public:
+  static constexpr auto Float() { return MetaType<typename TypeTraits<Type>::Float>{}; }
+  static constexpr auto Int() { return MetaType<berberis::Saturating<Type>>{}; }
+  static constexpr bool IsFloatingPoint() {
+    return std::is_same_v<Type, _Float16> || std::is_floating_point_v<Type>;
+  }
+  static constexpr bool IsIntegral() { return std::is_integral_v<Type>; }
+  static constexpr bool IsRawInt() { return false; }
+  static constexpr bool IsSaturatingInt() { return true; }
+  static constexpr bool IsSigned() { return std::is_signed_v<Type>; }
+  static constexpr bool IsUnsigned() { return std::is_unsigned_v<Type>; }
+  static constexpr bool IsWrappedFloat() { return false; }
+  static constexpr bool IsWrappingInt() { return false; }
+  static constexpr auto MakeSigned() {
+    return MetaType<berberis::Saturating<std::make_signed_t<Type>>>{};
+  }
+  static constexpr auto MakeUnsigned() {
+    return MetaType<berberis::Saturating<std::make_unsigned_t<Type>>>{};
+  }
+  static constexpr auto Narrow() {
+    return MetaType<berberis::Saturating<typename TypeTraits<Type>::Narrow>>{};
+  }
+  static constexpr auto Raw() { return MetaType<berberis::Raw<std::make_unsigned_t<Type>>>{}; }
+  static constexpr auto Saturating() { return MetaType<berberis::Saturating<Type>>{}; }
+  static constexpr MetaType<Type> UnderlyingType() { return {}; }
+  static constexpr auto Widen() {
+    return MetaType<berberis::Saturating<typename TypeTraits<Type>::Wide>>{};
+  }
+  static constexpr auto Wrapping() { return MetaType<berberis::Wrapping<Type>>{}; }
+};
+
+template <typename Type>
+class MetaTypeTraits<Wrapping<Type>> final {
+ public:
+  static constexpr auto Float() { return MetaType<typename TypeTraits<Type>::Float>{}; }
+  static constexpr auto Int() { return MetaType<berberis::Wrapping<Type>>{}; }
+  static constexpr bool IsFloatingPoint() {
+    return std::is_same_v<Type, _Float16> || std::is_floating_point_v<Type>;
+  }
+  static constexpr bool IsIntegral() { return std::is_integral_v<Type>; }
+  static constexpr bool IsRawInt() { return false; }
+  static constexpr bool IsSaturatingInt() { return false; }
+  static constexpr bool IsSigned() { return std::is_signed_v<Type>; }
+  static constexpr bool IsUnsigned() { return std::is_unsigned_v<Type>; }
+  static constexpr bool IsWrappedFloat() { return false; }
+  static constexpr bool IsWrappingInt() { return true; }
+  static constexpr auto MakeSigned() {
+    return MetaType<berberis::Wrapping<std::make_signed_t<Type>>>{};
+  }
+  static constexpr auto MakeUnsigned() {
+    return MetaType<berberis::Wrapping<std::make_unsigned_t<Type>>>{};
+  }
+  static constexpr auto Narrow() {
+    return MetaType<berberis::Wrapping<typename TypeTraits<Type>::Narrow>>{};
+  }
+  static constexpr auto Raw() { return MetaType<berberis::Raw<std::make_unsigned_t<Type>>>{}; }
+  static constexpr auto Saturating() { return MetaType<berberis::Saturating<Type>>{}; }
+  static constexpr MetaType<Type> UnderlyingType() { return {}; }
+  static constexpr auto Widen() {
+    return MetaType<berberis::Wrapping<typename TypeTraits<Type>::Wide>>{};
+  }
+  static constexpr auto Wrapping() { return MetaType<berberis::Wrapping<Type>>{}; }
+};
+
+template <typename Type>
+class MetaTypeTraits<intrinsics::WrappedFloatType<Type>> final {
+ public:
+  static constexpr auto Float() { return MetaType<intrinsics::WrappedFloatType<Type>>{}; }
+  static constexpr auto Int() {
+    return MetaType<berberis::Raw<
+        std::make_unsigned_t<typename TypeTraits<intrinsics::WrappedFloatType<Type>>::Int>>>{};
+  }
+  static constexpr bool IsFloatingPoint() {
+    return std::is_same_v<Type, _Float16> || std::is_floating_point_v<Type>;
+  }
+  static constexpr bool IsIntegral() { return std::is_integral_v<Type>; }
+  static constexpr bool IsRawInt() { return false; }
+  static constexpr bool IsSaturatingInt() { return false; }
+  static constexpr bool IsSigned() { return std::is_signed_v<Type>; }
+  static constexpr bool IsUnsigned() { return std::is_unsigned_v<Type>; }
+  static constexpr bool IsWrappedFloat() { return true; }
+  static constexpr bool IsWrappingInt() { return false; }
+  static constexpr auto Narrow() {
+    return MetaType<typename TypeTraits<intrinsics::WrappedFloatType<Type>>::Narrow>{};
+  }
+  static constexpr MetaType<Type> UnderlyingType() { return {}; }
+  static constexpr auto Widen() {
+    return MetaType<typename TypeTraits<intrinsics::WrappedFloatType<Type>>::Wide>{};
+  }
+  static constexpr auto Wrapped() { return MetaType<intrinsics::WrappedFloatType<Type>>{}; }
+};
+
+template <auto MetaType>
+using Type = std::remove_pointer_t<std::remove_reference_t<decltype(MetaType)>>::Type;
 
 template <typename LeftType, typename RightType>
 inline bool constexpr operator==(MetaType<LeftType>, MetaType<RightType>) {
@@ -1214,6 +494,9 @@ inline constexpr auto kMetaType = MetaType<Type>{};
 
 template <typename... Types>
 inline constexpr auto kMetaTypes = std::tuple<MetaType<Types>...>{};
+
+template <auto kMetaType>
+using Type = typename std::remove_pointer_t<std::remove_reference_t<decltype(kMetaType)>>::Type;
 
 class TypesToValues;
 class ValuesToValues;
@@ -2714,13 +1997,9 @@ class ValuesToValues {
                                   Lambda&& lambda,
                                   std::index_sequence<Is...>,
                                   ExtraLambdaArgTypes&&... extra_types) {
-    return (
-        static_cast<bool>(
-            lambda.template operator()<
-                std::tuple_element_t<Is, typename TypesToTypes::ConcatHelper<TupleType>::Result>>(
-                std::get<Is>(std::forward<TupleType>(tuple)),
-                std::forward<ExtraLambdaArgTypes>(extra_types)...)) &&
-        ... && true);
+    return (static_cast<bool>(lambda(std::get<Is>(std::forward<TupleType>(tuple)),
+                                     std::forward<ExtraLambdaArgTypes>(extra_types)...)) &&
+            ... && true);
   }
 
   template <typename... ExtraLambdaArgTypes, typename TupleType, std::size_t... Is, typename Lambda>
@@ -2728,13 +2007,9 @@ class ValuesToValues {
                                   Lambda&& lambda,
                                   std::index_sequence<Is...>,
                                   ExtraLambdaArgTypes&&... extra_types) {
-    return (
-        static_cast<bool>(
-            lambda.template operator()<
-                std::tuple_element_t<Is, typename TypesToTypes::ConcatHelper<TupleType>::Result>>(
-                std::get<Is>(std::forward<TupleType>(tuple)),
-                std::forward<ExtraLambdaArgTypes>(extra_types)...)) ||
-        ... || false);
+    return (static_cast<bool>(lambda(std::get<Is>(std::forward<TupleType>(tuple)),
+                                     std::forward<ExtraLambdaArgTypes>(extra_types)...)) ||
+            ... || false);
   }
 
   template <typename... ExtraLambdaArgTypes, typename TupleType, std::size_t... Is, typename Lambda>
@@ -2742,13 +2017,9 @@ class ValuesToValues {
                                              Lambda&& lambda,
                                              std::index_sequence<Is...>,
                                              ExtraLambdaArgTypes&&... extra_types) {
-    return (
-        static_cast<bool>(
-            lambda.template operator()<
-                std::tuple_element_t<Is, typename TypesToTypes::ConcatHelper<TupleType>::Result>>(
-                std::get<Is>(std::forward<TupleType>(tuple)),
-                std::forward<ExtraLambdaArgTypes>(extra_types)...)) +
-        ... + std::size_t{0});
+    return (static_cast<bool>(lambda(std::get<Is>(std::forward<TupleType>(tuple)),
+                                     std::forward<ExtraLambdaArgTypes>(extra_types)...)) +
+            ... + std::size_t{0});
   }
 
   template <typename... ExtraLambdaArgTypes, typename TupleType, std::size_t... Is, typename Lambda>
@@ -2767,11 +2038,8 @@ class ValuesToValues {
           } else {
             return std::tuple<>{};
           }
-        }
-            .template operator()<
-                std::tuple_element_t<Is, typename TypesToTypes::ConcatHelper<TupleType>::Result>>(
-                std::get<Is>(std::forward<TupleType>(tuple)),
-                std::forward<ExtraLambdaArgTypes>(extra_types)...)...);
+        }(std::get<Is>(std::forward<TupleType>(tuple)),
+          std::forward<ExtraLambdaArgTypes>(extra_types)...)...);
   }
 
   template <typename... ExtraLambdaArgTypes, typename TupleType, std::size_t... Is, typename Lambda>
@@ -2779,11 +2047,8 @@ class ValuesToValues {
                                                 Lambda&& lambda,
                                                 std::index_sequence<Is...>,
                                                 ExtraLambdaArgTypes&&... extra_types) {
-    return std::tuple_cat(
-        lambda.template operator()<
-            std::tuple_element_t<Is, typename TypesToTypes::ConcatHelper<TupleType>::Result>>(
-            std::get<Is>(std::forward<TupleType>(tuple)),
-            std::forward<ExtraLambdaArgTypes>(extra_types)...)...);
+    return std::tuple_cat(lambda(std::get<Is>(std::forward<TupleType>(tuple)),
+                                 std::forward<ExtraLambdaArgTypes>(extra_types)...)...);
   }
 
   template <typename... ExtraLambdaArgTypes, typename TupleType, std::size_t... Is, typename Lambda>
@@ -2791,10 +2056,8 @@ class ValuesToValues {
                                       Lambda&& lambda,
                                       std::index_sequence<Is...>,
                                       ExtraLambdaArgTypes&&... extra_types) {
-    (lambda.template
-     operator()<std::tuple_element_t<Is, typename TypesToTypes::ConcatHelper<TupleType>::Result>>(
-         std::get<Is>(std::forward<TupleType>(tuple)),
-         std::forward<ExtraLambdaArgTypes>(extra_types)...),
+    (lambda(std::get<Is>(std::forward<TupleType>(tuple)),
+            std::forward<ExtraLambdaArgTypes>(extra_types)...),
      ...);
   }
 
@@ -2805,16 +2068,10 @@ class ValuesToValues {
                                             ExtraLambdaArgTypes&&... extra_types) {
     // Note: we need to specify the type of tuple here explicitly, because otherwise type deduction
     // would produce `int` where we want `const int&`.
-    return std::tuple<
-        decltype(lambda.template operator()<
-                 std::tuple_element_t<Is, typename TypesToTypes::ConcatHelper<TupleType>::Result>>(
-            std::get<Is>(std::forward<TupleType>(tuple)),
-            std::forward<ExtraLambdaArgTypes>(extra_types)...))...> {
-      lambda.template
-      operator()<std::tuple_element_t<Is, typename TypesToTypes::ConcatHelper<TupleType>::Result>>(
-          std::get<Is>(std::forward<TupleType>(tuple)),
-          std::forward<ExtraLambdaArgTypes>(extra_types)...)...
-    };
+    return std::tuple<decltype(lambda(std::get<Is>(std::forward<TupleType>(tuple)),
+                                      std::forward<ExtraLambdaArgTypes>(extra_types)...))...>{
+        lambda(std::get<Is>(std::forward<TupleType>(tuple)),
+               std::forward<ExtraLambdaArgTypes>(extra_types)...)...};
   }
 
   template <typename TupleType, auto initial_value, auto kLambda, auto... extra_lambda_values>
