@@ -58,18 +58,24 @@ struct RegLifetimeCount {
   bool operator==(const RegLifetimeCount&) const = default;
 };
 
-using RegLifetimeMap = ArenaMap<MachineReg, RegLifetime>;
+using RegLifetimeMap = ArenaVector<std::optional<RegLifetime>>;
 using RegLifetimeCounts = ArenaVector<RegLifetimeCount>;
 
 class RegLifetimeCounter {
  public:
   RegLifetimeCounter(MachineIR* machine_ir)
       : machine_ir_(machine_ir),
-        lifetime_map_(machine_ir->arena()),
+        lifetime_map_(machine_ir->NumVReg(), machine_ir->arena()),
         lifetime_counts_(machine_ir->arena()) {}
 
   void Count(MachineBasicBlock* bb);
-  const RegLifetime& LifetimeAt(const MachineReg& reg) const { return GetMap().at(reg); }
+  const RegLifetime& GetLifetimeAt(const MachineReg& reg) const {
+    CHECK(LifetimeAt(reg).has_value());
+    return LifetimeAt(reg).value();
+  }
+  const std::optional<RegLifetime>& LifetimeAt(const MachineReg& reg) const {
+    return GetMap().at(reg.GetVRegIndex());
+  }
   size_t RegCountAt(size_t pos, RegType reg_type) const;
   // Sets last use of reg to end and end_pos, updating both the map and counts.
   std::optional<size_t> UpdateLastUse(MachineReg reg,
