@@ -18,9 +18,12 @@
 
 #include <array>
 #include <cstddef>
+#include <iostream>
+#include <string>
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
@@ -45,6 +48,151 @@ static_assert(kMetaType<float>.IsFloatingPoint());
 static_assert(std::is_same_v<Type<kMetaType<int>.AddConst().AddLvalueReference()>, const int&>);
 static_assert(std::is_same_v<Type<kMetaType<float>.AddConst().AddPointer().AddVolatile()>,
                              const float* volatile>);
+
+// Non-trivial checks (more than one type involed).
+// All types from the std are permitted to be nothrow-swappable (even if for some it's not
+// required). Instead of trying to see which standard class in swappable but not nothrow-swappable
+// it's better to create class that does what we want 100% guaranteed.
+struct SwappableButNotNothrowSwappable {
+  SwappableButNotNothrowSwappable& operator=(const SwappableButNotNothrowSwappable&) {
+    return *this;
+  }  // Copyable
+  SwappableButNotNothrowSwappable(SwappableButNotNothrowSwappable&&) noexcept(false) {
+  }  // Throwing move
+  SwappableButNotNothrowSwappable& operator=(SwappableButNotNothrowSwappable&&) noexcept(false) {
+    return *this;
+  }
+};
+
+static_assert(
+    std::same_as<
+        Type<kMetaType<std::add_lvalue_reference_t<int>>.CommonReference<
+            std::add_lvalue_reference_t<int>,
+            std::add_lvalue_reference_t<int>&,
+            std::add_lvalue_reference_t<int>&&
+            /*,std::add_lvalue_reference_t<int>const*/
+            /*,std::add_lvalue_reference_t<int>const&*/
+        >()>,
+        int&
+    >
+);
+static_assert(std::same_as<Type<kMetaType<std::add_lvalue_reference_t<int>>.CommonReference(
+                               kMetaType<std::add_lvalue_reference_t<int>>,
+                               kMetaType<std::add_lvalue_reference_t<int>&>,
+                               kMetaType<std::add_lvalue_reference_t<int>&&>
+                               /*,kMetaType<std::add_lvalue_reference_t<int>const>*/
+                               /*,kMetaType<std::add_lvalue_reference_t<int>const&>*/
+                               )>,
+                           int&>);
+static_assert(
+    std::same_as<Type<kMetaType<std::add_lvalue_reference_t<int>>.CommonReference(
+                     kTupleMetaTypes<std::tuple<std::add_lvalue_reference_t<int>,
+                                                std::add_lvalue_reference_t<int>&,
+                                                std::add_lvalue_reference_t<int>&&
+                                                /*,std::add_lvalue_reference_t<int>const*/
+                                                /*,std::add_lvalue_reference_t<int>const&*/
+                                                >>)>,
+                 int&>);
+static_assert(std::same_as<Type<kMetaType<char>.CommonType<short, int, float>()>, float>);
+static_assert(std::same_as<
+              Type<kMetaType<char>.CommonType(kMetaType<short>, kMetaType<int>, kMetaType<float>)>,
+              float>);
+static_assert(
+    std::same_as<Type<kMetaType<char>.CommonType(kTupleMetaTypes<std::tuple<short, int, float>>)>,
+                 float>);
+static_assert(!kMetaType<std::true_type>.Conjunction<std::true_type, std::false_type>());
+static_assert(!kMetaType<std::true_type>.Conjunction(kMetaType<std::true_type>,
+                                                     kMetaType<std::false_type>));
+static_assert(!kMetaType<std::true_type>.Conjunction(
+    kTupleMetaTypes<std::tuple<std::true_type, std::false_type>>));
+static_assert(kMetaType<std::true_type>.Disjunction<std::true_type, std::false_type>());
+static_assert(kMetaType<std::true_type>.Disjunction(kMetaType<std::true_type>,
+                                                    kMetaType<std::false_type>));
+static_assert(kMetaType<std::true_type>.Disjunction(
+    kTupleMetaTypes<std::tuple<std::true_type, std::false_type>>));
+static_assert(
+    std::same_as<Type<kMetaType<double (*)(double, double)>.InvokeResult<int, int>()>, double>);
+static_assert(
+    std::same_as<
+        Type<kMetaType<double (*)(double, double)>.InvokeResult(kMetaType<int>, kMetaType<int>)>,
+        double>);
+static_assert(std::same_as<Type<kMetaType<double (*)(double, double)>.InvokeResult(
+                               kTupleMetaTypes<std::tuple<int, int>>)>,
+                           double>);
+static_assert(kMetaType<std::string&>.IsAssignable<const char*>());
+static_assert(kMetaType<std::string&>.IsAssignable(kMetaType<const char*>));
+static_assert(kMetaType<std::ostream>.IsBaseOf<std::iostream>());
+static_assert(kMetaType<std::ostream>.IsBaseOf(kMetaType<std::iostream>));
+static_assert(kMetaType<const char*>.IsConvertible<std::string>());
+static_assert(kMetaType<const char*>.IsConvertible(kMetaType<std::string>));
+static_assert(kMetaType<double (*)(double, double)>.IsInvocable<int, int>());
+static_assert(kMetaType<double (*)(double, double)>.IsInvocable(kMetaType<int>, kMetaType<int>));
+static_assert(
+    kMetaType<double (*)(double, double)>.IsInvocable(kTupleMetaTypes<std::tuple<int, int>>));
+static_assert(kMetaType<void>.IsInvocableR<double (*)(double, double), int, int>());
+static_assert(kMetaType<void>.IsInvocableR(kMetaType<double (*)(double, double)>,
+                                           kMetaType<int>,
+                                           kMetaType<int>));
+static_assert(kMetaType<void>.IsInvocableR(kMetaType<double (*)(double, double)>,
+                                           kTupleMetaTypes<std::tuple<int, int>>));
+static_assert(kMetaType<void>.IsInvocableR(
+    kTupleMetaTypes<std::tuple<double (*)(double, double), int, int>>));
+static_assert(!kMetaType<std::string&>.IsNothrowAssignable<const char*>());
+static_assert(!kMetaType<std::string&>.IsNothrowAssignable(kMetaType<const char*>));
+static_assert(kMetaType<std::vector<int>&>.IsNothrowAssignable<std::vector<int>&&>());
+static_assert(kMetaType<std::vector<int>&>.IsNothrowAssignable(kMetaType<std::vector<int>&&>));
+static_assert(!kMetaType<const char*>.IsNothrowConvertible<std::string>());
+static_assert(!kMetaType<const char*>.IsNothrowConvertible(kMetaType<std::string>));
+static_assert(kMetaType<std::ostream*>.IsNothrowConvertible<std::ios*>());
+static_assert(kMetaType<std::ostream*>.IsNothrowConvertible(kMetaType<std::ios*>));
+static_assert(!kMetaType<double (*)(double, double)>.IsNothrowInvocable<int, int>());
+static_assert(!kMetaType<double (*)(double, double)>.IsNothrowInvocable(kMetaType<int>,
+                                                                        kMetaType<int>));
+static_assert(!kMetaType<double (*)(double, double)>.IsNothrowInvocable(
+    kTupleMetaTypes<std::tuple<int, int>>));
+static_assert(kMetaType<double (*)(double, double) noexcept>.IsNothrowInvocable<int, int>());
+static_assert(kMetaType<double (*)(double, double) noexcept>.IsNothrowInvocable(kMetaType<int>,
+                                                                                kMetaType<int>));
+static_assert(kMetaType<double (*)(double, double) noexcept>.IsNothrowInvocable(
+    kTupleMetaTypes<std::tuple<int, int>>));
+static_assert(!kMetaType<void>.IsNothrowInvocableR<double (*)(double, double), int, int>());
+static_assert(!kMetaType<void>.IsNothrowInvocableR(kMetaType<double (*)(double, double)>,
+                                                   kMetaType<int>,
+                                                   kMetaType<int>));
+static_assert(!kMetaType<void>.IsNothrowInvocableR(kMetaType<double (*)(double, double)>,
+                                                   kTupleMetaTypes<std::tuple<int, int>>));
+static_assert(!kMetaType<void>.IsNothrowInvocableR(
+    kTupleMetaTypes<std::tuple<double (*)(double, double), int, int>>));
+static_assert(kMetaType<void>.IsNothrowInvocableR<double (*)(double, double) noexcept, int, int>());
+static_assert(kMetaType<void>.IsNothrowInvocableR(kMetaType<double (*)(double, double) noexcept>,
+                                                  kMetaType<int>,
+                                                  kMetaType<int>));
+static_assert(kMetaType<void>.IsNothrowInvocableR(kMetaType<double (*)(double, double) noexcept>,
+                                                  kTupleMetaTypes<std::tuple<int, int>>));
+static_assert(kMetaType<void>.IsNothrowInvocableR(
+    kTupleMetaTypes<std::tuple<double (*)(double, double) noexcept, int, int>>));
+static_assert(kMetaType<bool&>.IsNothrowSwappableWith<std::vector<bool>::reference>());
+static_assert(kMetaType<bool&>.IsNothrowSwappableWith(kMetaType<std::vector<bool>::reference>));
+static_assert(!kMetaType<SwappableButNotNothrowSwappable&>
+                  .IsNothrowSwappableWith<SwappableButNotNothrowSwappable&>());
+static_assert(!kMetaType<SwappableButNotNothrowSwappable&>.IsNothrowSwappableWith(
+    kMetaType<SwappableButNotNothrowSwappable&>));
+static_assert(kMetaType<int>.IsSame<int>());
+static_assert(kMetaType<int>.IsSame(kMetaType<int>));
+static_assert(kMetaType<SwappableButNotNothrowSwappable&>
+                  .IsSwappableWith<SwappableButNotNothrowSwappable&>());
+static_assert(kMetaType<SwappableButNotNothrowSwappable&>.IsSwappableWith(
+    kMetaType<SwappableButNotNothrowSwappable&>));
+static_assert(!kMetaType<std::vector<int>&>.IsTriviallyAssignable<std::vector<int>&&>());
+static_assert(!kMetaType<std::vector<int>&>.IsTriviallyAssignable(kMetaType<std::vector<int>&&>));
+static_assert(kMetaType<int&>.IsTriviallyAssignable<double>());
+static_assert(kMetaType<int&>.IsTriviallyAssignable(kMetaType<double>));
+static_assert(std::is_same_v<Type<kMetaType<int>.Void<void, void, void>()>, void>);
+static_assert(
+    std::is_same_v<Type<kMetaType<int>.Void(kMetaType<void>, kMetaType<void>, kMetaType<void>)>,
+                   void>);
+static_assert(
+    std::is_same_v<Type<kMetaType<int>.Void(kTupleMetaTypes<std::tuple<char, short, int>>)>, void>);
 
 // Altered operations.
 
