@@ -172,6 +172,9 @@ inline Float64 Negative(const Float64& v) {
   return Float64{result};
 }
 
+inline Float32 FPRound(const Float32& value, int round_control);
+inline Float64 FPRound(const Float64& value, int round_control);
+
 template <typename FloatType>
 inline WrappedFloatType<FloatType> FPRoundTiesAway(WrappedFloatType<FloatType> value) {
   // Since x86 does not support this rounding mode exactly, we must manually handle the

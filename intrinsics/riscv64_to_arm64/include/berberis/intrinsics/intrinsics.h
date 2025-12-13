@@ -29,8 +29,6 @@
 
 namespace berberis {
 
-namespace intrinsics {
-
 Float32 operator+(const Float32& v1, const Float32& v2);
 Float32 operator-(const Float32& v1, const Float32& v2);
 Float32 operator*(const Float32& v1, const Float32& v2);
@@ -54,6 +52,8 @@ bool operator<=(const Float64& v1, const Float64& v2);
 bool operator>=(const Float64& v1, const Float64& v2);
 bool operator==(const Float64& v1, const Float64& v2);
 bool operator==(const Float64& v1, const Float64& v2);
+
+namespace intrinsics {
 
 inline uint64_t ShiftedOne(uint64_t shift_amount) {
   return uint64_t{1} << (shift_amount % 64);

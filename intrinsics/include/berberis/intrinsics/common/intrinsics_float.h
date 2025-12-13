@@ -45,8 +45,6 @@
 
 namespace berberis {
 
-namespace intrinsics {
-
 enum class FPInfo { kNaN, kInfinite, kNormal, kSubnormal, kZero };
 
 template <typename BaseType>
@@ -59,6 +57,12 @@ class WrappedFloatType {
   WrappedFloatType& operator=(const WrappedFloatType& other) = default;
   WrappedFloatType& operator=(WrappedFloatType&& other) noexcept = default;
   ~WrappedFloatType() = default;
+  auto Int() const {
+    // Can't use bit_cast here because of IA32 ABI!
+    Raw<std::make_unsigned_t<typename TypeTraits<WrappedFloatType>::Int>> result;
+    memcpy(&result, &value_, sizeof(BaseType));
+    return result;
+  }
   template <typename IntType,
             typename = std::enable_if_t<std::is_integral_v<IntType> &&
                                         sizeof(BaseType) == sizeof(IntType)>>
@@ -67,6 +71,15 @@ class WrappedFloatType {
     Raw<IntType> result;
     memcpy(&result, &value_, sizeof(BaseType));
     return result;
+  }
+  [[nodiscard]] constexpr auto Narrow() const {
+    return typename TypeTraits<WrappedFloatType>::Narrow(value_);
+  }
+  [[nodiscard]] constexpr auto Wide() const {
+    return typename TypeTraits<WrappedFloatType>::Wide(value_);
+  }
+  [[nodiscard]] constexpr auto Widen() const {
+    return typename TypeTraits<WrappedFloatType>::Wide(value_);
   }
   explicit constexpr operator int16_t() const { return value_; }
   explicit constexpr operator uint16_t() const { return value_; }
@@ -103,6 +116,16 @@ using Float8 = WrappedFloatType<Float8PhonyType>;  // Ditto.
 using Float16 = WrappedFloatType<_Float16>;
 using Float32 = WrappedFloatType<float>;
 using Float64 = WrappedFloatType<double>;
+
+template <typename T>
+struct TypeTraits;
+
+namespace intrinsics {
+
+using Float8 = berberis::Float8;
+using Float16 = berberis::Float16;
+using Float32 = berberis::Float32;
+using Float64 = berberis::Float64;
 
 // It's NOT safe to use ANY functions which return raw float or double.  That's because IA32 ABI
 // uses x87 stack to pass arguments (even with -mfpmath=sse) which clobbers NaN values.
@@ -240,7 +263,7 @@ inline Float64 MulAdd(const Float64& v1, const Float64& v2, const Float64& v3) {
 namespace std {
 
 template <typename BaseType>
-class numeric_limits<berberis::intrinsics::WrappedFloatType<BaseType>> {
+class numeric_limits<berberis::WrappedFloatType<BaseType>> {
  public:
   static constexpr bool is_specialized = true;
   static constexpr bool is_signed = true;
@@ -265,39 +288,32 @@ class numeric_limits<berberis::intrinsics::WrappedFloatType<BaseType>> {
   static constexpr int max_exponent10 = std::numeric_limits<BaseType>::max_exponent10;
   static constexpr bool traps = std::numeric_limits<BaseType>::traps;
   static constexpr bool tinyness_before = std::numeric_limits<BaseType>::tinyness_before;
-  static constexpr berberis::intrinsics::WrappedFloatType<BaseType> min() {
-    return berberis::intrinsics::WrappedFloatType<BaseType>(std::numeric_limits<BaseType>::min());
+  static constexpr berberis::WrappedFloatType<BaseType> min() {
+    return berberis::WrappedFloatType<BaseType>(std::numeric_limits<BaseType>::min());
   }
-  static constexpr berberis::intrinsics::WrappedFloatType<BaseType> lowest() {
-    return berberis::intrinsics::WrappedFloatType<BaseType>(
-        std::numeric_limits<BaseType>::lowest());
+  static constexpr berberis::WrappedFloatType<BaseType> lowest() {
+    return berberis::WrappedFloatType<BaseType>(std::numeric_limits<BaseType>::lowest());
   }
-  static constexpr berberis::intrinsics::WrappedFloatType<BaseType> max() {
-    return berberis::intrinsics::WrappedFloatType<BaseType>(std::numeric_limits<BaseType>::max());
+  static constexpr berberis::WrappedFloatType<BaseType> max() {
+    return berberis::WrappedFloatType<BaseType>(std::numeric_limits<BaseType>::max());
   }
-  static constexpr berberis::intrinsics::WrappedFloatType<BaseType> epsilon() {
-    return berberis::intrinsics::WrappedFloatType<BaseType>(
-        std::numeric_limits<BaseType>::epsilon());
+  static constexpr berberis::WrappedFloatType<BaseType> epsilon() {
+    return berberis::WrappedFloatType<BaseType>(std::numeric_limits<BaseType>::epsilon());
   }
-  static constexpr berberis::intrinsics::WrappedFloatType<BaseType> round_error() {
-    return berberis::intrinsics::WrappedFloatType<BaseType>(
-        std::numeric_limits<BaseType>::round_error());
+  static constexpr berberis::WrappedFloatType<BaseType> round_error() {
+    return berberis::WrappedFloatType<BaseType>(std::numeric_limits<BaseType>::round_error());
   }
-  static constexpr berberis::intrinsics::WrappedFloatType<BaseType> infinity() {
-    return berberis::intrinsics::WrappedFloatType<BaseType>(
-        std::numeric_limits<BaseType>::infinity());
+  static constexpr berberis::WrappedFloatType<BaseType> infinity() {
+    return berberis::WrappedFloatType<BaseType>(std::numeric_limits<BaseType>::infinity());
   }
-  static constexpr berberis::intrinsics::WrappedFloatType<BaseType> quiet_NaN() {
-    return berberis::intrinsics::WrappedFloatType<BaseType>(
-        std::numeric_limits<BaseType>::quiet_NaN());
+  static constexpr berberis::WrappedFloatType<BaseType> quiet_NaN() {
+    return berberis::WrappedFloatType<BaseType>(std::numeric_limits<BaseType>::quiet_NaN());
   }
-  static constexpr berberis::intrinsics::WrappedFloatType<BaseType> signaling_NaN() {
-    return berberis::intrinsics::WrappedFloatType<BaseType>(
-        std::numeric_limits<BaseType>::signaling_NaN());
+  static constexpr berberis::WrappedFloatType<BaseType> signaling_NaN() {
+    return berberis::WrappedFloatType<BaseType>(std::numeric_limits<BaseType>::signaling_NaN());
   }
-  static constexpr berberis::intrinsics::WrappedFloatType<BaseType> denorm_min() {
-    return berberis::intrinsics::WrappedFloatType<BaseType>(
-        std::numeric_limits<BaseType>::denorm_min());
+  static constexpr berberis::WrappedFloatType<BaseType> denorm_min() {
+    return berberis::WrappedFloatType<BaseType>(std::numeric_limits<BaseType>::denorm_min());
   }
 };
 

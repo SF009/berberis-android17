@@ -86,10 +86,9 @@ struct ResultsElementInfo {
 template <typename ArgumentsTuple>
 using CleanTypes = TypesToTypes::FlatMap<ArgumentsTuple, []<typename RawType> {
   using Type = std::remove_cvref_t<RawType>;
-  if constexpr (std::is_integral_v<Type> ||
-                std::is_same_v<Type, intrinsics::WrappedFloatType<_Float16>> ||
-                std::is_same_v<Type, intrinsics::WrappedFloatType<float>> ||
-                std::is_same_v<Type, intrinsics::WrappedFloatType<double>>) {
+  if constexpr (std::is_integral_v<Type> || std::is_same_v<Type, WrappedFloatType<_Float16>> ||
+                std::is_same_v<Type, WrappedFloatType<float>> ||
+                std::is_same_v<Type, WrappedFloatType<double>>) {
     return kMetaTypes<Type>;
   } else if constexpr (std::is_pointer_v<Type>) {
     return kMetaTypes<uint64_t>;
@@ -107,11 +106,11 @@ using RawTypes = TypesToTypes::FlatMap<ArgumentsTuple, []<typename RawType> {
   using Type = std::remove_cvref_t<RawType>;
   if constexpr (std::is_integral_v<Type>) {
     return kMetaTypes<Type>;
-  } else if constexpr (std::is_same_v<Type, intrinsics::WrappedFloatType<_Float16>>) {
+  } else if constexpr (std::is_same_v<Type, WrappedFloatType<_Float16>>) {
     return kMetaTypes<_Float16>;
-  } else if constexpr (std::is_same_v<Type, intrinsics::WrappedFloatType<float>>) {
+  } else if constexpr (std::is_same_v<Type, WrappedFloatType<float>>) {
     return kMetaTypes<float>;
-  } else if constexpr (std::is_same_v<Type, intrinsics::WrappedFloatType<double>>) {
+  } else if constexpr (std::is_same_v<Type, WrappedFloatType<double>>) {
     return kMetaTypes<double>;
   } else if constexpr (std::is_pointer_v<Type>) {
     return kMetaTypes<uint64_t>;
@@ -176,16 +175,16 @@ class CallImm<kFunction> {
   using CleanRetType = call_imm_impl::CleanTypes<std::conditional_t<
       std::is_same_v<IntrinsicRetType, void>,
       std::tuple<>,
-      std::conditional_t<
-          std::is_integral_v<IntrinsicRetType> || std::is_pointer_v<IntrinsicRetType> ||
-              std::is_same_v<IntrinsicRetType, intrinsics::WrappedFloatType<_Float16>> ||
-              std::is_same_v<IntrinsicRetType, intrinsics::WrappedFloatType<float>> ||
-              std::is_same_v<IntrinsicRetType, intrinsics::WrappedFloatType<double>> ||
-              std::is_same_v<IntrinsicRetType, SIMD128Register> ||
-              std::is_same_v<IntrinsicRetType,
-                             float __attribute__((__vector_size__(16), may_alias))>,
-          std::tuple<IntrinsicRetType>,
-          IntrinsicRetType>>>;
+      std::conditional_t<std::is_integral_v<IntrinsicRetType> ||
+                             std::is_pointer_v<IntrinsicRetType> ||
+                             std::is_same_v<IntrinsicRetType, WrappedFloatType<_Float16>> ||
+                             std::is_same_v<IntrinsicRetType, WrappedFloatType<float>> ||
+                             std::is_same_v<IntrinsicRetType, WrappedFloatType<double>> ||
+                             std::is_same_v<IntrinsicRetType, SIMD128Register> ||
+                             std::is_same_v<IntrinsicRetType,
+                                            float __attribute__((__vector_size__(16), may_alias))>,
+                         std::tuple<IntrinsicRetType>,
+                         IntrinsicRetType>>>;
   using CleanParamTypes =
       call_imm_impl::SplitTypes<call_imm_impl::CleanTypes<std::tuple<IntrinsicParamTypes...>>>;
 
