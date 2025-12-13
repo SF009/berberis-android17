@@ -419,6 +419,55 @@ TEST(MachineIRAnalysis, FindLoopTreeWithMultipleInnerloops) {
   CheckLoopContent(innerloop_node2->loop(), {bb4, bb5});
 }
 
+TEST(MachineIRAnalysis, IrreducibleLoop) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  //      bb0
+  //       |
+  //       v
+  //      bb1 ----+
+  //       |      |
+  //       v      v
+  //      bb2<-->bb3
+  //       |
+  //       v
+  //      bb4
+  //
+  // Loop is bb2-bb3, but there is an edge from bb1 to bb3,
+  // which makes the loop irreducible because bb2 doesn't dominate bb3.
+  auto bb0 = machine_ir.NewBasicBlock();
+  auto bb1 = machine_ir.NewBasicBlock();
+  auto bb2 = machine_ir.NewBasicBlock();
+  auto bb3 = machine_ir.NewBasicBlock();
+  auto bb4 = machine_ir.NewBasicBlock();
+  machine_ir.AddEdge(bb0, bb1);
+  machine_ir.AddEdge(bb1, bb2);
+  machine_ir.AddEdge(bb1, bb3);
+  machine_ir.AddEdge(bb2, bb3);
+  machine_ir.AddEdge(bb2, bb4);
+  machine_ir.AddEdge(bb3, bb2);
+
+  builder.StartBasicBlock(bb0);
+  builder.Gen<Branch>(bb1);
+  builder.StartBasicBlock(bb1);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  builder.StartBasicBlock(bb2);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, x86_64::kMachineRegFLAGS);
+  builder.StartBasicBlock(bb3);
+  builder.Gen<Branch>(bb2);
+  builder.StartBasicBlock(bb4);
+  builder.Gen<Jump>(kNullGuestAddr);
+
+  ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+  EXPECT_FALSE(machine_ir.ContainsIrreducibleLoops());
+  auto loops = x86_64::FindLoops(&machine_ir);
+  EXPECT_TRUE(machine_ir.ContainsIrreducibleLoops());
+  EXPECT_EQ(loops.size(), 0UL);
+}
+
 }  // namespace
 
 }  // namespace berberis
