@@ -126,25 +126,22 @@ BERBERIS_CONST_ALIAS(uint64_t{0xffff'ffff'ffff'ffff},
 template <typename FloatType>
 inline constexpr int32_t kNanBox = kImpossibleTypeConst<FloatType>;
 template <>
-inline const int32_t& kNanBox<intrinsics::Float32> = kVectorConst<uint64_t{0xffff'ffff'0000'0000}>;
+inline const int32_t& kNanBox<Float32> = kVectorConst<uint64_t{0xffff'ffff'0000'0000}>;
 
 // Canonically Nan boxed canonical NaN.
 // Note: technically we only need to Nan-box Float32 since we don't support Float16 yet.
 template <typename FloatType>
 inline constexpr int32_t kNanBoxedNans = kImpossibleTypeConst<FloatType>;
 template <>
-inline const int32_t& kNanBoxedNans<intrinsics::Float32> =
-    kVectorConst<uint64_t{0xffff'ffff'7fc0'0000}>;
+inline const int32_t& kNanBoxedNans<Float32> = kVectorConst<uint64_t{0xffff'ffff'7fc0'0000}>;
 
 // Canonical NaNs. Float32 and Float64 are supported.
 template <typename FloatType>
 inline constexpr int32_t kCanonicalNans = kImpossibleTypeConst<FloatType>;
 template <>
-inline const int32_t& kCanonicalNans<intrinsics::Float32> =
-    kVectorConst<uint64_t{0x7fc0'0000'7fc0'0000}>;
+inline const int32_t& kCanonicalNans<Float32> = kVectorConst<uint64_t{0x7fc0'0000'7fc0'0000}>;
 template <>
-inline const int32_t& kCanonicalNans<intrinsics::Float64> =
-    kVectorConst<uint64_t{0x7ff8'0000'0000'0000}>;
+inline const int32_t& kCanonicalNans<Float64> = kVectorConst<uint64_t{0x7ff8'0000'0000'0000}>;
 
 extern const int32_t kRiscVToX87Exceptions;
 extern const int32_t kX87ToRiscVExceptions;

@@ -46,11 +46,6 @@
 
 namespace berberis::intrinsics {
 
-using Float8 = berberis::Float8;
-using Float16 = berberis::Float16;
-using Float32 = berberis::Float32;
-using Float64 = berberis::Float64;
-
 // It's NOT safe to use ANY functions which return raw float or double.  That's because IA32 ABI
 // uses x87 stack to pass arguments (even with -mfpmath=sse) which clobbers NaN values.
 //

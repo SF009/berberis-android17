@@ -319,9 +319,6 @@ def _gen_insn_emit(f, insn):
   operands, _ = _get_insn_operands(insn)
   asm_args = [op.asm_arg for op in operands if op.asm_arg]
   print('void %s::Emit(CodeEmitter* as) const {' % (name), file=f)
-  for float in ['Float16', 'Float32', 'Float64']:
-    if float in asm:
-      print('  using intrinsics::%s;' % float, file=f)
   print('%sas->%s(%s);' % (INDENT, asm, ', '.join(asm_args)), file=f)
   print('}', file=f)
 

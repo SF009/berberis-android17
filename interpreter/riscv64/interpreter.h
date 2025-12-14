@@ -71,9 +71,8 @@ class Interpreter {
   static constexpr Register no_register = 0;
   using FpRegister = uint64_t;
   static constexpr FpRegister no_fp_register = 0;
-  using Float16 = intrinsics::Float16;
-  using Float32 = intrinsics::Float32;
-  using Float64 = intrinsics::Float64;
+  using Float32 = Float32;
+  using Float64 = Float64;
 
   using TemplateTypeId = intrinsics::TemplateTypeId;
   template <typename Type>

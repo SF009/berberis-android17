@@ -56,101 +56,93 @@ class InlineIntrinsic {
                                         FlagRegister flag_register,
                                         ArgType... args) {
     std::tuple args_tuple = std::make_tuple(args...);
-    if constexpr (IsTagEq<&intrinsics::FMul<intrinsics::Float64>>()) {
+    if constexpr (IsTagEq<&intrinsics::FMul<Float64>>()) {
       auto [rm, frm, src1, src2] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
-      return TryInlineIntrinsicForHeavyOptimizer<
-          &intrinsics::FMulHostRounding<intrinsics::Float64>>(
+      return TryInlineIntrinsicForHeavyOptimizer<&intrinsics::FMulHostRounding<Float64>>(
           builder, result, flag_register, src1, src2);
-    } else if constexpr (IsTagEq<&intrinsics::FMul<intrinsics::Float32>>()) {
+    } else if constexpr (IsTagEq<&intrinsics::FMul<Float32>>()) {
       auto [rm, frm, src1, src2] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
-      return TryInlineIntrinsicForHeavyOptimizer<
-          &intrinsics::FMulHostRounding<intrinsics::Float32>>(
+      return TryInlineIntrinsicForHeavyOptimizer<&intrinsics::FMulHostRounding<Float32>>(
           builder, result, flag_register, src1, src2);
-    } else if constexpr (IsTagEq<&intrinsics::FAdd<intrinsics::Float64>>()) {
+    } else if constexpr (IsTagEq<&intrinsics::FAdd<Float64>>()) {
       auto [rm, frm, src1, src2] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
-      return TryInlineIntrinsicForHeavyOptimizer<
-          &intrinsics::FAddHostRounding<intrinsics::Float64>>(
+      return TryInlineIntrinsicForHeavyOptimizer<&intrinsics::FAddHostRounding<Float64>>(
           builder, result, flag_register, src1, src2);
-    } else if constexpr (IsTagEq<&intrinsics::FAdd<intrinsics::Float32>>()) {
+    } else if constexpr (IsTagEq<&intrinsics::FAdd<Float32>>()) {
       auto [rm, frm, src1, src2] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
-      return TryInlineIntrinsicForHeavyOptimizer<
-          &intrinsics::FAddHostRounding<intrinsics::Float32>>(
+      return TryInlineIntrinsicForHeavyOptimizer<&intrinsics::FAddHostRounding<Float32>>(
           builder, result, flag_register, src1, src2);
-    } else if constexpr (IsTagEq<&intrinsics::FSub<intrinsics::Float64>>()) {
+    } else if constexpr (IsTagEq<&intrinsics::FSub<Float64>>()) {
       auto [rm, frm, src1, src2] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
-      return TryInlineIntrinsicForHeavyOptimizer<
-          &intrinsics::FSubHostRounding<intrinsics::Float64>>(
+      return TryInlineIntrinsicForHeavyOptimizer<&intrinsics::FSubHostRounding<Float64>>(
           builder, result, flag_register, src1, src2);
-    } else if constexpr (IsTagEq<&intrinsics::FSub<intrinsics::Float32>>()) {
+    } else if constexpr (IsTagEq<&intrinsics::FSub<Float32>>()) {
       auto [rm, frm, src1, src2] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
-      return TryInlineIntrinsicForHeavyOptimizer<
-          &intrinsics::FSubHostRounding<intrinsics::Float32>>(
+      return TryInlineIntrinsicForHeavyOptimizer<&intrinsics::FSubHostRounding<Float32>>(
           builder, result, flag_register, src1, src2);
-    } else if constexpr (IsTagEq<&intrinsics::FDiv<intrinsics::Float64>>()) {
+    } else if constexpr (IsTagEq<&intrinsics::FDiv<Float64>>()) {
       auto [rm, frm, src1, src2] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
-      return TryInlineIntrinsicForHeavyOptimizer<
-          &intrinsics::FDivHostRounding<intrinsics::Float64>>(
+      return TryInlineIntrinsicForHeavyOptimizer<&intrinsics::FDivHostRounding<Float64>>(
           builder, result, flag_register, src1, src2);
-    } else if constexpr (IsTagEq<&intrinsics::FDiv<intrinsics::Float32>>()) {
+    } else if constexpr (IsTagEq<&intrinsics::FDiv<Float32>>()) {
       auto [rm, frm, src1, src2] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
-      return TryInlineIntrinsicForHeavyOptimizer<
-          &intrinsics::FDivHostRounding<intrinsics::Float32>>(
+      return TryInlineIntrinsicForHeavyOptimizer<&intrinsics::FDivHostRounding<Float32>>(
           builder, result, flag_register, src1, src2);
-    } else if constexpr (IsTagEq<&intrinsics::FCvtFloatToInteger<int64_t, intrinsics::Float64>>()) {
+    } else if constexpr (IsTagEq<&intrinsics::FCvtFloatToInteger<int64_t, Float64>>()) {
       auto [rm, frm, src] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
       return TryInlineIntrinsicForHeavyOptimizer<
-          &intrinsics::FCvtFloatToIntegerHostRounding<int64_t, intrinsics::Float64>>(
+          &intrinsics::FCvtFloatToIntegerHostRounding<int64_t, Float64>>(
           builder, result, flag_register, src);
-    } else if constexpr (IsTagEq<&intrinsics::FCvtFloatToInteger<int64_t, intrinsics::Float32>>()) {
+    } else if constexpr (IsTagEq<&intrinsics::FCvtFloatToInteger<int64_t, Float32>>()) {
       auto [rm, frm, src] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
       return TryInlineIntrinsicForHeavyOptimizer<
-          &intrinsics::FCvtFloatToIntegerHostRounding<int64_t, intrinsics::Float32>>(
+          &intrinsics::FCvtFloatToIntegerHostRounding<int64_t, Float32>>(
           builder, result, flag_register, src);
-    } else if constexpr (IsTagEq<&intrinsics::FCvtFloatToInteger<int32_t, intrinsics::Float64>>()) {
+    } else if constexpr (IsTagEq<&intrinsics::FCvtFloatToInteger<int32_t, Float64>>()) {
       auto [rm, frm, src] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
       return TryInlineIntrinsicForHeavyOptimizer<
-          &intrinsics::FCvtFloatToIntegerHostRounding<int32_t, intrinsics::Float64>>(
+          &intrinsics::FCvtFloatToIntegerHostRounding<int32_t, Float64>>(
           builder, result, flag_register, src);
-    } else if constexpr (IsTagEq<&intrinsics::FCvtFloatToInteger<int32_t, intrinsics::Float32>>()) {
+    } else if constexpr (IsTagEq<&intrinsics::FCvtFloatToInteger<int32_t, Float32>>()) {
       auto [rm, frm, src] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
       return TryInlineIntrinsicForHeavyOptimizer<
-          &intrinsics::FCvtFloatToIntegerHostRounding<int32_t, intrinsics::Float32>>(
+          &intrinsics::FCvtFloatToIntegerHostRounding<int32_t, Float32>>(
           builder, result, flag_register, src);
     }
     return false;
@@ -507,8 +499,8 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
       } else if constexpr (std::is_integral_v<ReturnType> &&
                            sizeof(ReturnType) == sizeof(int64_t)) {
         // Do nothing, we have already produced expanded value.
-      } else if constexpr (std::is_same_v<ReturnType, intrinsics::Float32> ||
-                           std::is_same_v<ReturnType, intrinsics::Float64>) {
+      } else if constexpr (std::is_same_v<ReturnType, Float32> ||
+                           std::is_same_v<ReturnType, Float64>) {
         // Do nothing, NaN boxing is handled by semantics player.
       } else {
         static_assert(kDependentTypeFalse<ReturnType>);

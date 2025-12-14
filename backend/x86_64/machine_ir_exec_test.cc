@@ -40,10 +40,6 @@ constexpr auto kMachineRegRAX = x86_64::MachineRegs::kRAX;
 constexpr auto kMachineRegRBP = x86_64::MachineRegs::kRBP;
 constexpr auto kMachineRegXMM0 = x86_64::MachineRegs::kXMM0;
 
-using Float16 = intrinsics::Float16;
-using Float32 = intrinsics::Float32;
-using Float64 = intrinsics::Float64;
-
 // TODO(b/232598137): Maybe share with
 // heavy_optimizer/<guest>_to_<host>/call_intrinsic_tests.cc.
 class ExecTest {
