@@ -42,85 +42,9 @@
 #include <limits>
 
 #include "berberis/base/bit_util.h"
+#include "berberis/intrinsics/common/float.h"
 
-namespace berberis {
-
-enum class FPInfo { kNaN, kInfinite, kNormal, kSubnormal, kZero };
-
-template <typename BaseType>
-class WrappedFloatType {
- public:
-  constexpr WrappedFloatType() = default;
-  explicit constexpr WrappedFloatType(BaseType value) : value_(value) {}
-  constexpr WrappedFloatType(const WrappedFloatType& other) = default;
-  constexpr WrappedFloatType(WrappedFloatType&& other) noexcept = default;
-  WrappedFloatType& operator=(const WrappedFloatType& other) = default;
-  WrappedFloatType& operator=(WrappedFloatType&& other) noexcept = default;
-  ~WrappedFloatType() = default;
-  auto Int() const {
-    // Can't use bit_cast here because of IA32 ABI!
-    Raw<std::make_unsigned_t<typename TypeTraits<WrappedFloatType>::Int>> result;
-    memcpy(&result, &value_, sizeof(BaseType));
-    return result;
-  }
-  template <typename IntType,
-            typename = std::enable_if_t<std::is_integral_v<IntType> &&
-                                        sizeof(BaseType) == sizeof(IntType)>>
-  [[nodiscard]] constexpr operator Raw<IntType>() const {
-    // Can't use bit_cast here because of IA32 ABI!
-    Raw<IntType> result;
-    memcpy(&result, &value_, sizeof(BaseType));
-    return result;
-  }
-  [[nodiscard]] constexpr auto Narrow() const {
-    return typename TypeTraits<WrappedFloatType>::Narrow(value_);
-  }
-  [[nodiscard]] constexpr auto Wide() const {
-    return typename TypeTraits<WrappedFloatType>::Wide(value_);
-  }
-  [[nodiscard]] constexpr auto Widen() const {
-    return typename TypeTraits<WrappedFloatType>::Wide(value_);
-  }
-  explicit constexpr operator int16_t() const { return value_; }
-  explicit constexpr operator uint16_t() const { return value_; }
-  explicit constexpr operator int32_t() const { return value_; }
-  explicit constexpr operator uint32_t() const { return value_; }
-  explicit constexpr operator int64_t() const { return value_; }
-  explicit constexpr operator uint64_t() const { return value_; }
-  explicit constexpr operator WrappedFloatType<_Float16>() const {
-    return WrappedFloatType<_Float16>(value_);
-  }
-  explicit constexpr operator WrappedFloatType<float>() const {
-    return WrappedFloatType<float>(value_);
-  }
-  explicit constexpr operator WrappedFloatType<double>() const {
-    return WrappedFloatType<double>(value_);
-  }
-#if defined(__i386__) || defined(__x86_64__)
-  explicit constexpr operator long double() const { return value_; }
-#endif
-
- private:
-  static_assert(!std::numeric_limits<BaseType>::is_exact,
-                "WrappedFloatType should only be used with float types!");
-  BaseType value_;
-};
-
-// Note: Float8 is uninhabited and variables of such type couldn't be created. Nonetheless it's
-// useful for implementation of certain instructions. For example vfwcvt.f.x.v RISC-V instruction
-// converts from Int8 (single-width int) to Float16 (double-width float) if titular element size if
-// Float8. Because such instruction never actually accesses elements of Float8 type it's perfectly
-// valid and allowed (if CPU supports Float16).
-class Float8PhonyType;  // This class doesn't exist but we may use it in template arguments.
-using Float8 = WrappedFloatType<Float8PhonyType>;  // Ditto.
-using Float16 = WrappedFloatType<_Float16>;
-using Float32 = WrappedFloatType<float>;
-using Float64 = WrappedFloatType<double>;
-
-template <typename T>
-struct TypeTraits;
-
-namespace intrinsics {
+namespace berberis::intrinsics {
 
 using Float8 = berberis::Float8;
 using Float16 = berberis::Float16;
@@ -256,9 +180,7 @@ inline Float64 MulAdd(const Float64& v1, const Float64& v2, const Float64& v3) {
   return Float64{fma(src1, src2, src3)};
 }
 
-}  // namespace intrinsics
-
-}  // namespace berberis
+}  // namespace berberis::intrinsics
 
 namespace std {
 
