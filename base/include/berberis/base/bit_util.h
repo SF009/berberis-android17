@@ -285,12 +285,8 @@ template <typename T>
   return {Popcount(x.value)};
 }
 
-namespace intrinsics {
-
 template <typename BaseType>
 class WrappedFloatType;
-
-}  // namespace intrinsics
 
 template <typename T>
 struct TypeTraits;
@@ -315,6 +311,15 @@ class Raw {
   [[nodiscard]] constexpr operator IntType() const {
     return static_cast<IntType>(value);
   }
+  template <typename FloatType,
+            typename = std::enable_if_t<!std::numeric_limits<FloatType>::is_exact &&
+                                        sizeof(BaseType) == sizeof(FloatType)>>
+  [[nodiscard]] constexpr operator WrappedFloatType<FloatType>() const {
+    // Can't use bit_cast here because of IA32 ABI!
+    WrappedFloatType<FloatType> result;
+    memcpy(&result, &value, sizeof(BaseType));
+    return result;
+  }
   template <typename IntType,
             typename = std::enable_if_t<
                 std::is_integral_v<IntType> && sizeof(BaseType) == sizeof(IntType) &&
@@ -328,15 +333,6 @@ class Raw {
   [[nodiscard]] constexpr operator Saturating<IntType>() const {
     return {static_cast<IntType>(value)};
   }
-  template <typename FloatType,
-            typename = std::enable_if_t<!std::numeric_limits<FloatType>::is_exact &&
-                                        sizeof(BaseType) == sizeof(FloatType)>>
-  [[nodiscard]] constexpr operator intrinsics::WrappedFloatType<FloatType>() const {
-    // Can't use bit_cast here because of IA32 ABI!
-    intrinsics::WrappedFloatType<FloatType> result;
-    memcpy(&result, &value, sizeof(BaseType));
-    return result;
-  }
   template <typename IntType,
             typename = std::enable_if_t<std::is_integral_v<IntType> &&
                                         sizeof(BaseType) == sizeof(IntType)>>
@@ -344,16 +340,41 @@ class Raw {
     return {static_cast<IntType>(value)};
   }
 
+  friend auto constexpr BitCastToFloat(Raw src) { return src.Float(); }
+  friend auto constexpr BitCastToRaw(Raw src) { return src; }
+  friend auto constexpr BitCastToSaturating(Raw src) { return src.Saturating(); }
+  friend auto constexpr BitCastToSigned(Raw src) { return src.Signed(); }
+  friend auto constexpr BitCastToUnsigned(Raw src) { return src.Unsigned(); }
+  friend auto constexpr BitCastToWrapping(Raw src) { return src.Wrapping(); }
+  [[nodiscard]] constexpr auto Float() const {
+    return bit_cast<typename TypeTraits<BaseType>::Float>(value);
+  }
+  template <typename ResultType>
+  [[nodiscard]] auto constexpr MaybeTruncateTo() const
+      -> std::enable_if_t<sizeof(typename ResultType::BaseType) <= sizeof(BaseType), ResultType> {
+    return ResultType{static_cast<ResultType::BaseType>(value)};
+  }
   template <typename ResultType>
   friend auto constexpr MaybeTruncateTo(Raw src)
       -> std::enable_if_t<sizeof(typename ResultType::BaseType) <= sizeof(BaseType), ResultType> {
     return ResultType{static_cast<ResultType::BaseType>(src.value)};
+  }
+  [[nodiscard]] constexpr auto Saturating() const { return berberis::Saturating{value}; }
+  [[nodiscard]] auto constexpr Signed() const {
+    return berberis::Wrapping{static_cast<std::make_signed_t<BaseType>>(value)};
+  }
+  template <typename ResultType>
+  [[nodiscard]] auto constexpr TruncateTo() const
+      -> std::enable_if_t<sizeof(typename ResultType::BaseType) < sizeof(BaseType), ResultType> {
+    return ResultType{static_cast<ResultType::BaseType>(value)};
   }
   template <typename ResultType>
   friend auto constexpr TruncateTo(Raw src)
       -> std::enable_if_t<sizeof(typename ResultType::BaseType) < sizeof(BaseType), ResultType> {
     return ResultType{static_cast<ResultType::BaseType>(src.value)};
   }
+  [[nodiscard]] auto constexpr Unsigned() const { return berberis::Wrapping{value}; }
+  [[nodiscard]] constexpr auto Wrapping() const { return berberis::Wrapping{value}; }
 
   [[nodiscard]] friend constexpr bool operator==(Raw lhs, Raw rhs) {
     return lhs.value == rhs.value;
@@ -409,6 +430,70 @@ class Saturating {
                                         sizeof(BaseType) == sizeof(IntType)>>
   [[nodiscard]] constexpr operator Wrapping<IntType>() const {
     return {static_cast<IntType>(value)};
+  }
+
+  friend auto constexpr BitCastToFloat(Saturating src) { return src.Float(); }
+  friend auto constexpr BitCastToRaw(Saturating src) { return src.Raw(); }
+  friend auto constexpr BitCastToSaturating(Saturating src) { return src; }
+  friend auto constexpr BitCastToSigned(Saturating src) { return src.Signed(); }
+  friend auto constexpr BitCastToUnsigned(Saturating src) { return src.Unsigned(); }
+  friend auto constexpr BitCastToWrapping(Saturating src) { return src.Wrapping(); }
+  [[nodiscard]] constexpr auto Float() const {
+    return bit_cast<typename TypeTraits<BaseType>::Float>(value);
+  }
+  template <typename ResultType>
+  [[nodiscard]] auto constexpr MaybeTruncateTo() const
+      -> std::enable_if_t<sizeof(typename ResultType::BaseType) <= sizeof(BaseType), ResultType> {
+    return ResultType{static_cast<ResultType::BaseType>(value)};
+  }
+  template <typename ResultType>
+  friend auto constexpr MaybeTruncateTo(Saturating src)
+      -> std::enable_if_t<sizeof(typename ResultType::BaseType) <= sizeof(BaseType), ResultType> {
+    return ResultType{static_cast<ResultType::BaseType>(src.value)};
+  }
+  [[nodiscard]] constexpr auto Narrow() const {
+    if constexpr (Saturating<BaseType>::kIsSigned) {
+      if (value < std::numeric_limits<typename TypeTraits<BaseType>::Narrow>::min()) {
+        return Saturating<typename TypeTraits<BaseType>::Narrow>{
+            std::numeric_limits<typename TypeTraits<BaseType>::Narrow>::min()};
+      }
+    }
+    if (value > std::numeric_limits<typename TypeTraits<BaseType>::Narrow>::max()) {
+      return Saturating<typename TypeTraits<BaseType>::Narrow>{
+          std::numeric_limits<typename TypeTraits<BaseType>::Narrow>::max()};
+    }
+    return Saturating<typename TypeTraits<BaseType>::Narrow>{
+        static_cast<typename TypeTraits<BaseType>::Narrow>(value)};
+  }
+  friend constexpr auto Narrow(Saturating source) { return source.Narrow(); }
+  [[nodiscard]] constexpr auto Raw() const {
+    return berberis::Raw{static_cast<std::make_unsigned_t<BaseType>>(value)};
+  }
+  [[nodiscard]] constexpr auto Signed() const {
+    return static_cast<Saturating<std::make_signed_t<BaseType>>>(value);
+  }
+  template <typename ResultType>
+  [[nodiscard]] auto constexpr TruncateTo() const
+      -> std::enable_if_t<sizeof(typename ResultType::BaseType) < sizeof(BaseType), ResultType> {
+    return ResultType{static_cast<ResultType::BaseType>(value)};
+  }
+  template <typename ResultType>
+  friend auto constexpr TruncateTo(Saturating src)
+      -> std::enable_if_t<sizeof(typename ResultType::BaseType) < sizeof(BaseType), ResultType> {
+    return ResultType{static_cast<ResultType::BaseType>(src.value)};
+  }
+  [[nodiscard]] constexpr auto Unsigned() const {
+    return static_cast<Saturating<std::make_unsigned_t<BaseType>>>(value);
+  }
+  [[nodiscard]] constexpr auto Wide() const {
+    return Saturating<typename TypeTraits<BaseType>::Wide>{value};
+  }
+  [[nodiscard]] constexpr auto Widen() const {
+    return Saturating<typename TypeTraits<BaseType>::Wide>{value};
+  }
+  friend constexpr auto Widen(Saturating source) { return source.Widen(); }
+  [[nodiscard]] constexpr auto Wrapping() const {
+    return static_cast<berberis::Wrapping<BaseType>>(value);
   }
 
   [[nodiscard]] friend constexpr bool operator==(Saturating lhs, Saturating rhs) {
@@ -582,6 +667,71 @@ class Wrapping {
     return {static_cast<IntType>(value)};
   }
 
+  friend auto constexpr BitCastToFloat(Wrapping src) { return src.Float(); }
+  friend auto constexpr BitCastToRaw(Wrapping src) { return src.Raw(); }
+  friend auto constexpr BitCastToSaturating(Wrapping src) { return src.Saturating(); }
+  friend auto constexpr BitCastToSigned(Wrapping src) { return src.Signed(); }
+  friend auto constexpr BitCastToUnsigned(Wrapping src) { return src.Unsigned(); }
+  friend auto constexpr BitCastToWrapping(Wrapping src) { return src; }
+  [[nodiscard]] constexpr auto Float() const {
+    return bit_cast<typename TypeTraits<BaseType>::Float>(value);
+  }
+  template <typename ResultType>
+  [[nodiscard]] auto constexpr MaybeTruncateTo() const
+      -> std::enable_if_t<sizeof(typename ResultType::BaseType) <= sizeof(BaseType), ResultType> {
+    return ResultType{static_cast<ResultType::BaseType>(value)};
+  }
+  template <typename ResultType>
+  friend auto constexpr MaybeTruncateTo(Wrapping src)
+      -> std::enable_if_t<sizeof(typename ResultType::BaseType) <= sizeof(BaseType), ResultType> {
+    return ResultType{static_cast<ResultType::BaseType>(src.value)};
+  }
+  [[nodiscard]] constexpr auto Narrow() const {
+    return Wrapping<typename TypeTraits<BaseType>::Narrow>{
+        static_cast<typename TypeTraits<BaseType>::Narrow>(value)};
+  }
+  friend constexpr auto Narrow(Wrapping source) { return source.Narrow(); }
+  // While `Narrow` returns value reduced to smaller data type there are centain algorithms
+  // which require the top half, too (most ofhen in the context of widening multiplication
+  // where top half of the product is produced).
+  // `NarrowTopHalf` returns top half of the value narrowed down to smaller type (overflow is not
+  // possible in that case).
+  [[nodiscard]] constexpr auto NarrowTopHalf() const {
+    return Wrapping<typename TypeTraits<BaseType>::Narrow>{
+        static_cast<typename TypeTraits<BaseType>::Narrow>(
+            value >> (sizeof(typename TypeTraits<BaseType>::Narrow) * CHAR_BIT))};
+  }
+  friend constexpr auto NarrowTopHalf(Wrapping source) { return source.NarrowTopHalf(); }
+  [[nodiscard]] constexpr auto Raw() const {
+    return static_cast<berberis::Raw<std::make_unsigned_t<BaseType>>>(value);
+  }
+  [[nodiscard]] constexpr auto Saturating() const {
+    return static_cast<berberis::Saturating<BaseType>>(value);
+  }
+  [[nodiscard]] constexpr auto Signed() const {
+    return static_cast<Wrapping<std::make_signed_t<BaseType>>>(value);
+  }
+  template <typename ResultType>
+  [[nodiscard]] auto constexpr TruncateTo() const
+      -> std::enable_if_t<sizeof(typename ResultType::BaseType) < sizeof(BaseType), ResultType> {
+    return ResultType{static_cast<ResultType::BaseType>(value)};
+  }
+  template <typename ResultType>
+  friend auto constexpr TruncateTo(Wrapping src)
+      -> std::enable_if_t<sizeof(typename ResultType::BaseType) < sizeof(BaseType), ResultType> {
+    return ResultType{static_cast<ResultType::BaseType>(src.value)};
+  }
+  [[nodiscard]] constexpr auto Unsigned() const {
+    return static_cast<Wrapping<std::make_unsigned_t<BaseType>>>(value);
+  }
+  [[nodiscard]] constexpr auto Wide() const {
+    return Wrapping<typename TypeTraits<BaseType>::Wide>{value};
+  }
+  [[nodiscard]] constexpr auto Widen() const {
+    return Wrapping<typename TypeTraits<BaseType>::Wide>{value};
+  }
+  friend constexpr auto Widen(Wrapping source) { return source.Widen(); }
+
   [[nodiscard]] friend constexpr bool operator==(Wrapping lhs, Wrapping rhs) {
     return lhs.value == rhs.value;
   }
@@ -738,127 +888,31 @@ using Int128 = Wrapping<__int128>;
 using UInt128 = Wrapping<unsigned __int128>;
 #endif
 
-template <typename IntType>
-[[nodiscard]] auto constexpr BitCastToSigned(Raw<IntType> src) ->
-    typename Wrapping<IntType>::SignedType {
-  return {static_cast<std::make_signed_t<IntType>>(src.value)};
+template <typename BaseType>
+[[nodiscard]] constexpr auto BitCastToFloat(WrappedFloatType<BaseType> src) {
+  return src;
 }
+template <typename T>
+using FloatType = decltype(BitCastToFloat(std::declval<T>()));
 
-template <typename IntType>
-[[nodiscard]] auto constexpr BitCastToSigned(Saturating<IntType> src) ->
-    typename Saturating<IntType>::SignedType {
-  return {static_cast<std::make_signed_t<IntType>>(src.value)};
+template <typename BaseType>
+[[nodiscard]] constexpr auto BitCastToRaw(WrappedFloatType<BaseType> src) {
+  return src.Int();
 }
-
-template <typename IntType>
-[[nodiscard]] auto constexpr BitCastToSigned(Wrapping<IntType> src) ->
-    typename Wrapping<IntType>::SignedType {
-  return {static_cast<std::make_signed_t<IntType>>(src.value)};
-}
+template <typename T>
+using RawType = decltype(BitCastToRaw(std::declval<T>()));
 
 template <typename T>
 using SignedType = decltype(BitCastToSigned(std::declval<T>()));
 
-template <typename IntType>
-[[nodiscard]] auto constexpr BitCastToUnsigned(Raw<IntType> src) ->
-    typename Wrapping<IntType>::UnsignedType {
-  return {static_cast<std::make_unsigned_t<IntType>>(src.value)};
-}
-
-template <typename IntType>
-[[nodiscard]] auto constexpr BitCastToUnsigned(Saturating<IntType> src) ->
-    typename Saturating<IntType>::UnsignedType {
-  return {static_cast<std::make_unsigned_t<IntType>>(src.value)};
-}
-
-template <typename IntType>
-[[nodiscard]] auto constexpr BitCastToUnsigned(Wrapping<IntType> src) ->
-    typename Wrapping<IntType>::UnsignedType {
-  return {static_cast<std::make_unsigned_t<IntType>>(src.value)};
-}
-
 template <typename T>
 using UnsignedType = decltype(BitCastToUnsigned(std::declval<T>()));
-
-template <typename IntType>
-[[nodiscard]] auto constexpr BitCastToSaturating(Saturating<IntType> src) -> Saturating<IntType> {
-  return src;
-}
-
-template <typename IntType>
-[[nodiscard]] auto constexpr BitCastToSaturating(Wrapping<IntType> src) -> Saturating<IntType> {
-  return {src.value};
-}
 
 template <typename T>
 using SaturatingType = decltype(BitCastToSaturating(std::declval<T>()));
 
-template <typename IntType>
-[[nodiscard]] auto constexpr BitCastToWrapping(Saturating<IntType> src) -> Wrapping<IntType> {
-  return {src.value};
-}
-
-template <typename IntType>
-[[nodiscard]] auto constexpr BitCastToWrapping(Wrapping<IntType> src) -> Wrapping<IntType> {
-  return src;
-}
-
 template <typename T>
 using WrappingType = decltype(BitCastToWrapping(std::declval<T>()));
-
-template <typename IntType>
-[[nodiscard]] auto constexpr BitCastToRaw(Raw<IntType> src) -> Raw<IntType> {
-  return src;
-}
-
-template <typename IntType>
-[[nodiscard]] auto constexpr BitCastToRaw(Saturating<IntType> src)
-    -> Raw<std::make_unsigned_t<IntType>> {
-  return {static_cast<std::make_unsigned_t<IntType>>(src.value)};
-}
-
-template <typename IntType>
-[[nodiscard]] auto constexpr BitCastToRaw(Wrapping<IntType> src)
-    -> Raw<std::make_unsigned_t<IntType>> {
-  return {static_cast<std::make_unsigned_t<IntType>>(src.value)};
-}
-
-template <typename BaseType>
-[[nodiscard]] constexpr auto BitCastToRaw(intrinsics::WrappedFloatType<BaseType> src)
-    -> Raw<std::make_unsigned_t<typename TypeTraits<intrinsics::WrappedFloatType<BaseType>>::Int>> {
-  return {bit_cast<
-      std::make_unsigned_t<typename TypeTraits<intrinsics::WrappedFloatType<BaseType>>::Int>>(src)};
-}
-
-template <typename T>
-using RawType = decltype(BitCastToRaw(std::declval<T>()));
-
-template <typename IntType>
-[[nodiscard]] auto constexpr BitCastToFloat(Raw<IntType> src) ->
-    typename TypeTraits<IntType>::Float {
-  return bit_cast<typename TypeTraits<IntType>::Float>(src.value);
-}
-
-template <typename IntType>
-[[nodiscard]] auto constexpr BitCastToFloat(Saturating<IntType> src) ->
-    typename TypeTraits<IntType>::Float {
-  return bit_cast<typename TypeTraits<IntType>::Float>(src.value);
-}
-
-template <typename IntType>
-[[nodiscard]] auto constexpr BitCastToFloat(Wrapping<IntType> src) ->
-    typename TypeTraits<IntType>::Float {
-  return bit_cast<typename TypeTraits<IntType>::Float>(src.value);
-}
-
-template <typename BaseType>
-[[nodiscard]] constexpr auto BitCastToFloat(intrinsics::WrappedFloatType<BaseType> src)
-    -> intrinsics::WrappedFloatType<BaseType> {
-  return src;
-}
-
-template <typename T>
-using FloatType = decltype(BitCastToFloat(std::declval<T>()));
 
 // When input type is exactly the same as output type we just return value without doing anything.
 template <typename ResultType>
@@ -874,21 +928,12 @@ template <typename ResultType, typename IntType>
   return ResultType{static_cast<ResultType::BaseType>(src)};
 }
 
-template <typename ResultType, typename IntType>
-[[nodiscard]] auto constexpr MaybeTruncateTo(Saturating<IntType> src)
-    -> std::enable_if_t<std::is_integral_v<IntType> &&
-                            sizeof(typename ResultType::BaseType) <= sizeof(IntType),
-                        ResultType> {
-  return ResultType{static_cast<ResultType::BaseType>(src.value)};
+template <typename BaseType>
+[[nodiscard]] constexpr auto Narow(WrappedFloatType<BaseType> source) {
+  return source.Narrow();
 }
-
-template <typename ResultType, typename IntType>
-[[nodiscard]] auto constexpr MaybeTruncateTo(Wrapping<IntType> src)
-    -> std::enable_if_t<std::is_integral_v<IntType> &&
-                            sizeof(typename ResultType::BaseType) <= sizeof(IntType),
-                        ResultType> {
-  return ResultType{static_cast<ResultType::BaseType>(src.value)};
-}
+template <typename T>
+using NarrowType = decltype(Narrow(std::declval<T>()));
 
 template <typename ResultType, typename IntType>
 [[nodiscard]] auto constexpr TruncateTo(IntType src)
@@ -898,83 +943,12 @@ template <typename ResultType, typename IntType>
   return ResultType{static_cast<ResultType::BaseType>(src)};
 }
 
-template <typename ResultType, typename IntType>
-[[nodiscard]] auto constexpr TruncateTo(Saturating<IntType> src)
-    -> std::enable_if_t<std::is_integral_v<IntType> &&
-                            sizeof(typename ResultType::BaseType) < sizeof(IntType),
-                        ResultType> {
-  return ResultType{static_cast<ResultType::BaseType>(src.value)};
-}
-
-template <typename ResultType, typename IntType>
-[[nodiscard]] auto constexpr TruncateTo(Wrapping<IntType> src)
-    -> std::enable_if_t<std::is_integral_v<IntType> &&
-                            sizeof(typename ResultType::BaseType) < sizeof(IntType),
-                        ResultType> {
-  return ResultType{static_cast<ResultType::BaseType>(src.value)};
-}
-
 template <typename BaseType>
-[[nodiscard]] constexpr auto Widen(Saturating<BaseType> source)
-    -> Saturating<typename TypeTraits<BaseType>::Wide> {
-  return {source.value};
+[[nodiscard]] constexpr auto Widen(const WrappedFloatType<BaseType>& source) {
+  return source.Widen();
 }
-
-template <typename BaseType>
-[[nodiscard]] constexpr auto Widen(Wrapping<BaseType> source)
-    -> Wrapping<typename TypeTraits<BaseType>::Wide> {
-  return {source.value};
-}
-
-template <typename BaseType>
-[[nodiscard]] constexpr auto Widen(intrinsics::WrappedFloatType<BaseType> source) ->
-    typename TypeTraits<intrinsics::WrappedFloatType<BaseType>>::Wide {
-  return {source};
-}
-
 template <typename T>
 using WideType = decltype(Widen(std::declval<T>()));
-
-template <typename BaseType>
-[[nodiscard]] constexpr auto Narrow(Saturating<BaseType> source)
-    -> Saturating<typename TypeTraits<BaseType>::Narrow> {
-  if constexpr (Saturating<BaseType>::kIsSigned) {
-    if (source.value < std::numeric_limits<typename TypeTraits<BaseType>::Narrow>::min()) {
-      return {std::numeric_limits<typename TypeTraits<BaseType>::Narrow>::min()};
-    }
-  }
-  if (source.value > std::numeric_limits<typename TypeTraits<BaseType>::Narrow>::max()) {
-    return {std::numeric_limits<typename TypeTraits<BaseType>::Narrow>::max()};
-  }
-  return {static_cast<typename TypeTraits<BaseType>::Narrow>(source.value)};
-}
-
-template <typename BaseType>
-[[nodiscard]] constexpr auto Narrow(Wrapping<BaseType> source)
-    -> Wrapping<typename TypeTraits<BaseType>::Narrow> {
-  return {static_cast<typename TypeTraits<BaseType>::Narrow>(source.value)};
-}
-
-template <typename BaseType>
-[[nodiscard]] constexpr auto Narrow(intrinsics::WrappedFloatType<BaseType> source) ->
-    typename TypeTraits<intrinsics::WrappedFloatType<BaseType>>::Narrow {
-  return {source};
-}
-
-template <typename T>
-using NarrowType = decltype(Narrow(std::declval<T>()));
-
-// While `Narrow` returns value reduced to smaller data type there are centain algorithms
-// which require the top half, too (most ofhen in the context of widening multiplication
-// where top half of the product is produced).
-// `NarrowTopHalf` returns top half of the value narrowed down to smaller type (overflow is not
-// possible in that case).
-template <typename BaseType>
-[[nodiscard]] constexpr auto NarrowTopHalf(Wrapping<BaseType> source)
-    -> Wrapping<typename TypeTraits<BaseType>::Narrow> {
-  return {static_cast<typename TypeTraits<BaseType>::Narrow>(
-      source.value >> (sizeof(typename TypeTraits<BaseType>::Narrow) * CHAR_BIT))};
-}
 
 }  // namespace berberis
 

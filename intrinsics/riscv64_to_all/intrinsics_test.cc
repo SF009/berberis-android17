@@ -145,17 +145,20 @@ TEST(Intrinsics, RoundOff) {
 }
 
 TEST(Intrinsics, Rsqrt) {
-  ASSERT_EQ(RSqrtEstimate<Float64>(Float64{255}), Float64{0.0625});
-  ASSERT_EQ(RSqrtEstimate<Float32>(Float32{255}), Float32{0.0625});
-  ASSERT_EQ(RSqrtEstimate<Float64>(Float64{2000.123}),
-            bit_cast<Float64>(uint64_t(0x3f96'e000'0000'0000)));
-  ASSERT_EQ(RSqrtEstimate<Float32>(Float32{2000.123}), bit_cast<Float32>(uint32_t(0x3cb7'0000)));
+  ASSERT_EQ(std::bit_cast<double>(RSqrtEstimate<Float64>(Float64{255})), 0.0625);
+  ASSERT_EQ(std::bit_cast<float>(RSqrtEstimate<Float32>(Float32{255})), 0.0625f);
+  ASSERT_EQ(std::bit_cast<double>(RSqrtEstimate<Float64>(Float64{2000.123})),
+            bit_cast<double>(uint64_t(0x3f96'e000'0000'0000)));
+  ASSERT_EQ(std::bit_cast<float>(RSqrtEstimate<Float32>(Float32{2000.123})),
+            bit_cast<float>(uint32_t(0x3cb7'0000)));
 
-  ASSERT_EQ(RSqrtEstimate<Float64>(Float64{0.1123}), Float64{2.984375});
-  ASSERT_EQ(RSqrtEstimate<Float32>(Float32{0.1123}), Float32{2.984375});
+  ASSERT_EQ(std::bit_cast<double>(RSqrtEstimate<Float64>(Float64{0.1123})), 2.984375);
+  ASSERT_EQ(std::bit_cast<float>(RSqrtEstimate<Float32>(Float32{0.1123})), 2.984375f);
 
-  ASSERT_EQ(RSqrtEstimate<Float64>(Float64{0}), std::numeric_limits<Float64>::infinity());
-  ASSERT_EQ(RSqrtEstimate<Float32>(Float32{0}), std::numeric_limits<Float32>::infinity());
+  ASSERT_EQ(std::bit_cast<double>(RSqrtEstimate<Float64>(Float64{0})),
+            std::numeric_limits<double>::infinity());
+  ASSERT_EQ(std::bit_cast<float>(RSqrtEstimate<Float32>(Float32{0})),
+            std::numeric_limits<float>::infinity());
 
   ASSERT_EQ(bit_cast<uint64_t>(RSqrtEstimate<Float64>(Float64{-2.1})),
             bit_cast<uint64_t>(std::numeric_limits<Float64>::quiet_NaN()));

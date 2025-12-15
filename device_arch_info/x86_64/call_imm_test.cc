@@ -20,9 +20,9 @@ namespace berberis::x86_64::device_arch_info {
 
 namespace {
 
-using Float16 = intrinsics::WrappedFloatType<_Float16>;
-using Float32 = intrinsics::WrappedFloatType<float>;
-using Float64 = intrinsics::WrappedFloatType<double>;
+using Float16 = WrappedFloatType<_Float16>;
+using Float32 = WrappedFloatType<float>;
+using Float64 = WrappedFloatType<double>;
 
 using Float32x4 = float __attribute__((__vector_size__(16), __aligned__(16), may_alias));
 
