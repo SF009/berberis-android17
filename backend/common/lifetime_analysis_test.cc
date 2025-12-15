@@ -22,6 +22,8 @@
 #include "berberis/backend/common/machine_ir.h"
 #include "berberis/base/arena_alloc.h"
 
+#include <iterator>
+
 namespace berberis {
 
 namespace {
@@ -109,6 +111,126 @@ TEST_F(VRegLifetimeAnalysisTest, GetVRegLifetime_ExistingVRegIsInputButUndefined
   int begin2 = 10;
   auto* lifetime2 = analysis_.GetVRegLifetimeForTesting(vreg, begin2, kCurrentAccessIsInput);
   ASSERT_EQ(lifetime2, nullptr);
+}
+
+const MachineRegClass kRegClass{
+    .debug_name = "GPR",
+    .reg_size = 8,
+    .reg_mask = 0,
+    .num_regs = 0,
+    .regs = {},
+};
+
+class GenericInsn : public MachineInsn {
+ public:
+  static constexpr int kNumRegs = 2;
+  static constexpr MachineRegKind kRegKinds[kNumRegs] = {
+      {&kRegClass, MachineRegKind::kDef},
+      {&kRegClass, MachineRegKind::kUse},
+  };
+  static const MachineOpcode kOpcode;
+
+  GenericInsn(MachineReg dst, MachineReg src)
+      : MachineInsn(kOpcode, kNumRegs, kRegKinds, regs_, kMachineInsnDefault) {
+    SetRegAt(0, dst);
+    SetRegAt(1, src);
+  }
+
+  std::string GetDebugString() const override { return "GENERIC"; }
+  void Emit(CodeEmitter* /*as*/) const override { FATAL("not implemented"); }
+
+ private:
+  GenericInsn(const GenericInsn& other) = delete;
+  MachineInsn* Clone(Arena* /*arena*/) const override { FATAL("not implemented"); }
+  MachineInsnList Lower(Arena* /*arena*/) const override { FATAL("not implemented"); }
+
+  MachineReg regs_[kNumRegs];
+};
+
+const MachineOpcode GenericInsn::kOpcode = MachineOpcode(0);
+
+class VRegAccessTest : public ::testing::Test {
+ protected:
+  VRegAccessTest()
+      : machine_ir_(&arena_, 0, 0),
+        bb_(machine_ir_.NewBasicBlock()),
+        vreg_src_(MachineReg::CreateVRegFromIndex(0)),
+        vreg_dst_(MachineReg::CreateVRegFromIndex(1)),
+        hard_reg_(MachineReg::CreateHardRegFromIndexForTesting(0)),
+        slot_(3) {}
+
+  void TestRewriteVReg(MachineInsn* insn, int index) {
+    ASSERT_TRUE(bb_->insn_list().empty());
+    bb_->insn_list().push_back(insn);
+
+    VRegAccess access(MachineInsnListPosition(&bb_->insn_list(), bb_->insn_list().begin()),
+                      index,
+                      /*begin=*/0,
+                      /*end=*/1);
+    ASSERT_EQ(access.GetVReg(), index == 0 ? vreg_dst_ : vreg_src_);
+    access.RewriteVReg(&machine_ir_, hard_reg_, slot_);
+  }
+
+  Arena arena_;
+  MachineIR machine_ir_;
+  MachineBasicBlock* bb_;
+  MachineReg vreg_src_;
+  MachineReg vreg_dst_;
+  MachineReg hard_reg_;
+  int slot_;
+};
+
+TEST_F(VRegAccessTest, RewriteVReg_SpillForGenericInsn) {
+  auto* insn = machine_ir_.NewInsn<GenericInsn>(vreg_dst_, vreg_src_);
+  ASSERT_NO_FATAL_FAILURE(TestRewriteVReg(insn, /*index=*/0));
+
+  ASSERT_EQ(bb_->insn_list().size(), 2u);
+  auto* spill = bb_->insn_list().back();
+  EXPECT_NE(spill, insn);
+  EXPECT_TRUE(spill->is_copy());
+  EXPECT_TRUE(spill->RegAt(0).IsSpilledReg());
+  EXPECT_EQ(spill->RegAt(0).GetSpilledRegIndex(), machine_ir_.SpillSlotOffset(slot_));
+  EXPECT_EQ(spill->RegAt(1), hard_reg_);
+  EXPECT_EQ(insn->RegAt(0), hard_reg_);
+}
+
+TEST_F(VRegAccessTest, RewriteVReg_ReloadForGenericInsn) {
+  auto* insn = machine_ir_.NewInsn<GenericInsn>(vreg_dst_, vreg_src_);
+  ASSERT_NO_FATAL_FAILURE(TestRewriteVReg(insn, /*index=*/1));
+
+  ASSERT_EQ(bb_->insn_list().size(), 2u);
+  auto* reload = bb_->insn_list().front();
+  EXPECT_NE(reload, insn);
+  EXPECT_TRUE(reload->is_copy());
+  EXPECT_EQ(reload->RegAt(0), hard_reg_);
+  EXPECT_TRUE(reload->RegAt(1).IsSpilledReg());
+  EXPECT_EQ(reload->RegAt(1).GetSpilledRegIndex(), machine_ir_.SpillSlotOffset(slot_));
+  EXPECT_EQ(insn->RegAt(1), hard_reg_);
+}
+
+TEST_F(VRegAccessTest, RewriteVReg_SpillForCopy) {
+  auto* copy = machine_ir_.NewInsn<Copy>(vreg_dst_, vreg_src_, 8);
+  ASSERT_NO_FATAL_FAILURE(TestRewriteVReg(copy, /*index=*/0));
+
+  auto* spill = bb_->insn_list().back();
+  EXPECT_EQ(spill, copy);
+  EXPECT_TRUE(spill->is_copy());
+  EXPECT_TRUE(spill->RegAt(0).IsSpilledReg());
+  EXPECT_EQ(spill->RegAt(0).GetSpilledRegIndex(), machine_ir_.SpillSlotOffset(slot_));
+  EXPECT_EQ(spill->RegAt(1), vreg_src_);
+}
+
+TEST_F(VRegAccessTest, RewriteVReg_ReloadForCopy) {
+  auto* copy = machine_ir_.NewInsn<Copy>(vreg_dst_, vreg_src_, 8);
+  ASSERT_NO_FATAL_FAILURE(TestRewriteVReg(copy, /*index=*/1));
+
+  ASSERT_EQ(bb_->insn_list().size(), 1u);
+  auto* reload = bb_->insn_list().back();
+  EXPECT_EQ(reload, copy);
+  EXPECT_TRUE(reload->is_copy());
+  EXPECT_EQ(reload->RegAt(0), vreg_dst_);
+  EXPECT_TRUE(reload->RegAt(1).IsSpilledReg());
+  EXPECT_EQ(reload->RegAt(1).GetSpilledRegIndex(), machine_ir_.SpillSlotOffset(slot_));
 }
 
 }  // namespace

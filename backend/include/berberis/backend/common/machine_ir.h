@@ -90,6 +90,16 @@ class MachineReg {
     return MachineReg{kFirstVRegNumber + static_cast<int>(index)};
   }
 
+  // Normally, hard registers are predefined by the hardware setup and come from
+  // MachineRegClass. This function allows creating them programmatically for
+  // testing purposes.
+  [[nodiscard]] static constexpr MachineReg CreateHardRegFromIndexForTesting(uint32_t index) {
+    // Hard registers are in the range [1, kFirstVRegNumber - 1].
+    // Index 0 maps to reg 1, index 1 maps to reg 2, etc.
+    CHECK_LT(index, static_cast<uint32_t>(kFirstVRegNumber - 1));
+    return MachineReg{1 + static_cast<int>(index)};
+  }
+
   [[nodiscard]] static constexpr MachineReg CreateSpilledRegFromIndex(uint32_t index) {
     CHECK_LE(index, -(std::numeric_limits<int>::min() - kLastSpilledRegNumber));
     return MachineReg{kLastSpilledRegNumber - static_cast<int>(index)};
