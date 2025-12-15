@@ -21,11 +21,11 @@
 #include <limits>
 
 #include "berberis/base/bit_util.h"
+#include "berberis/base/type_traits.h"
 #include "berberis/intrinsics/all_to_x86_32_or_x86_64/intrinsics_float.h"
 #include "berberis/intrinsics/common/intrinsics_float.h"
 #include "berberis/intrinsics/guest_cpu_flags.h"       // ToHostRoundingMode
 #include "berberis/intrinsics/guest_rounding_modes.h"  // ScopedRoundingMode
-#include "berberis/intrinsics/type_traits.h"
 
 namespace berberis::intrinsics {
 
@@ -35,27 +35,26 @@ namespace berberis::intrinsics {
 // this addition may overflow.
 template <typename FloatType, typename OperationType, typename... Args>
 inline FloatType ExecuteFloatOperationRmm(OperationType operation, Args... args) {
-  using Wide = typename TypeTraits<FloatType>::Wide;
-  Wide wide_result = operation(static_cast<typename TypeTraits<Args>::Wide>(args)...);
+  auto wide_result = operation(Widen(args)...);
   if constexpr (std::is_same_v<FloatType, Float32>) {
     // In the 32bit->64bit case everything happens almost automatically, we just need to clear low
     // bits to ensure that we are getting ±∞ and not NaN.
-    auto int_result = bit_cast<std::make_unsigned_t<typename TypeTraits<Wide>::Int>>(wide_result);
-    if ((int_result & 0x7ff0'0000'0000'0000) == 0x7ff0'0000'0000'0000) {
+    auto int_result = wide_result.Int().Wrapping();
+    if ((int_result & Wrapping{0x7ff0'0000'0000'0000U}) == Wrapping{0x7ff0'0000'0000'0000U}) {
       return FloatType(wide_result);
     }
-    int_result += 0x0000'0000'1000'0000;
-    int_result &= 0xffff'ffff'e000'0000;
-    wide_result = bit_cast<Wide>(int_result);
+    int_result += Wrapping{0x0000'0000'1000'0000U};
+    int_result &= Wrapping{0xffff'ffff'e000'0000U};
+    wide_result = bit_cast<Float64>(int_result);
   } else if constexpr (std::is_same_v<FloatType, Float64>) {
     // In 64bit->80bit case we need to adjust significand bits to ensure we are creating ±∞ and not
     // pseudo-infinity (supported on 8087/80287, but not on modern CPUs).
     struct {
       uint64_t significand;
       uint16_t exponent;
-      uint8_t padding[sizeof(Wide) - sizeof(uint64_t) - sizeof(uint16_t)];
+      uint8_t padding[sizeof(long double) - sizeof(uint64_t) - sizeof(uint16_t)];
     } fp80_parts;
-    static_assert(sizeof fp80_parts == sizeof(Wide));
+    static_assert(sizeof fp80_parts == sizeof(long double));
     memcpy(&fp80_parts, &wide_result, sizeof(wide_result));
     // Don't try to round ±∞, NaNs and ±0 (denormals are not supported by RISC-V).
     if ((fp80_parts.exponent & 0x7fff) == 0x7fff ||
