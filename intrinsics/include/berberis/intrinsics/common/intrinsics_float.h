@@ -42,7 +42,7 @@
 #include <limits>
 
 #include "berberis/base/bit_util.h"
-#include "berberis/intrinsics/common/float.h"
+#include "berberis/base/float.h"
 
 namespace berberis::intrinsics {
 

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef BERBERIS_INTRINSICS_COMMON_FLOAT_H_
-#define BERBERIS_INTRINSICS_COMMON_FLOAT_H_
+#ifndef BERBERIS_BASE_FLOAT_H_
+#define BERBERIS_BASE_FLOAT_H_
 
 // We couldn't safely pass arguments using "raw" float and double on X86 because of peculiarities
 // of psABI (sometimes floating point registers are used by guest programs to pass integer value and
@@ -41,9 +41,10 @@
 #include <cmath>
 #include <limits>
 
-#include "berberis/base/bit_util.h"
-
 namespace berberis {
+
+template <typename BaseType>
+class Raw;
 
 template <typename T>
 struct TypeTraits;
@@ -122,4 +123,4 @@ using Float64 = WrappedFloatType<double>;
 
 }  // namespace berberis
 
-#endif  // BERBERIS_INTRINSICS_COMMON_FLOAT_H_
+#endif  // BERBERIS_BASE_FLOAT_H_
