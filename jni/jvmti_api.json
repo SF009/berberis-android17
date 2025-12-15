@@ -1,0 +1,1440 @@
+{
+  "interface": "jvmtiEnv",
+  "functions": [
+    {
+      "index": 2,
+      "name": "SetEventNotificationMode",
+      "param_types": [
+        "jvmtiEnv*",
+        "jvmtiEventMode",
+        "jvmtiEvent",
+        "jthread",
+        "..."
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 4,
+      "name": "GetAllThreads",
+      "param_types": [
+        "jvmtiEnv*",
+        "jint*",
+        "jthread**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 5,
+      "name": "SuspendThread",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 6,
+      "name": "ResumeThread",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 7,
+      "name": "StopThread",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jobject"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 8,
+      "name": "InterruptThread",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 9,
+      "name": "GetThreadInfo",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jvmtiThreadInfo*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 10,
+      "name": "GetOwnedMonitorInfo",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jint*",
+        "jobject**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 11,
+      "name": "GetCurrentContendedMonitor",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jobject*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 12,
+      "name": "RunAgentThread",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jvmtiStartFunction",
+        "const void*",
+        "jint"
+      ],
+      "return_type": "jvmtiError",
+      "trampoline": "DoTrampoline_jvmtiEnv_RunAgentThread"
+    },
+    {
+      "index": 13,
+      "name": "GetTopThreadGroups",
+      "param_types": [
+        "jvmtiEnv*",
+        "jint*",
+        "jthreadGroup**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 14,
+      "name": "GetThreadGroupInfo",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthreadGroup",
+        "jvmtiThreadGroupInfo*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 15,
+      "name": "GetThreadGroupChildren",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthreadGroup",
+        "jint*",
+        "jthread**",
+        "jint*",
+        "jthreadGroup**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 16,
+      "name": "GetFrameCount",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jint*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 17,
+      "name": "GetThreadState",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jint*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 18,
+      "name": "GetCurrentThread",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 19,
+      "name": "GetFrameLocation",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jint",
+        "jmethodID*",
+        "jlocation*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 20,
+      "name": "NotifyFramePop",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jint"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 21,
+      "name": "GetLocalObject",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jint",
+        "jint",
+        "jobject*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 22,
+      "name": "GetLocalInt",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jint",
+        "jint",
+        "jint*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 23,
+      "name": "GetLocalLong",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jint",
+        "jint",
+        "jlong*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 24,
+      "name": "GetLocalFloat",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jint",
+        "jint",
+        "jfloat*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 25,
+      "name": "GetLocalDouble",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jint",
+        "jint",
+        "jdouble*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 26,
+      "name": "SetLocalObject",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jint",
+        "jint",
+        "jobject"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 27,
+      "name": "SetLocalInt",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jint",
+        "jint",
+        "jint"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 28,
+      "name": "SetLocalLong",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jint",
+        "jint",
+        "jlong"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 29,
+      "name": "SetLocalFloat",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jint",
+        "jint",
+        "jfloat"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 30,
+      "name": "SetLocalDouble",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jint",
+        "jint",
+        "jdouble"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 31,
+      "name": "CreateRawMonitor",
+      "param_types": [
+        "jvmtiEnv*",
+        "const char*",
+        "jrawMonitorID*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 32,
+      "name": "DestroyRawMonitor",
+      "param_types": [
+        "jvmtiEnv*",
+        "jrawMonitorID"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 33,
+      "name": "RawMonitorEnter",
+      "param_types": [
+        "jvmtiEnv*",
+        "jrawMonitorID"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 34,
+      "name": "RawMonitorExit",
+      "param_types": [
+        "jvmtiEnv*",
+        "jrawMonitorID"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 35,
+      "name": "RawMonitorWait",
+      "param_types": [
+        "jvmtiEnv*",
+        "jrawMonitorID",
+        "jlong"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 36,
+      "name": "RawMonitorNotify",
+      "param_types": [
+        "jvmtiEnv*",
+        "jrawMonitorID"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 37,
+      "name": "RawMonitorNotifyAll",
+      "param_types": [
+        "jvmtiEnv*",
+        "jrawMonitorID"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 38,
+      "name": "SetBreakpoint",
+      "param_types": [
+        "jvmtiEnv*",
+        "jmethodID",
+        "jlocation"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 39,
+      "name": "ClearBreakpoint",
+      "param_types": [
+        "jvmtiEnv*",
+        "jmethodID",
+        "jlocation"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 41,
+      "name": "SetFieldAccessWatch",
+      "param_types": [
+        "jvmtiEnv*",
+        "jclass",
+        "jfieldID"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 42,
+      "name": "ClearFieldAccessWatch",
+      "param_types": [
+        "jvmtiEnv*",
+        "jclass",
+        "jfieldID"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 43,
+      "name": "SetFieldModificationWatch",
+      "param_types": [
+        "jvmtiEnv*",
+        "jclass",
+        "jfieldID"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 44,
+      "name": "ClearFieldModificationWatch",
+      "param_types": [
+        "jvmtiEnv*",
+        "jclass",
+        "jfieldID"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 45,
+      "name": "IsModifiableClass",
+      "param_types": [
+        "jvmtiEnv*",
+        "jclass",
+        "jboolean*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 46,
+      "name": "Allocate",
+      "param_types": [
+        "jvmtiEnv*",
+        "jlong",
+        "unsigned char**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 47,
+      "name": "Deallocate",
+      "param_types": [
+        "jvmtiEnv*",
+        "unsigned char*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 48,
+      "name": "GetClassSignature",
+      "param_types": [
+        "jvmtiEnv*",
+        "jclass",
+        "char**",
+        "char**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 49,
+      "name": "GetClassStatus",
+      "param_types": [
+        "jvmtiEnv*",
+        "jclass",
+        "jint*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 50,
+      "name": "GetSourceFileName",
+      "param_types": [
+        "jvmtiEnv*",
+        "jclass",
+        "char**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 51,
+      "name": "GetClassModifiers",
+      "param_types": [
+        "jvmtiEnv*",
+        "jclass",
+        "jint*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 52,
+      "name": "GetClassMethods",
+      "param_types": [
+        "jvmtiEnv*",
+        "jclass",
+        "jint*",
+        "jmethodID**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 53,
+      "name": "GetClassFields",
+      "param_types": [
+        "jvmtiEnv*",
+        "jclass",
+        "jint*",
+        "jfieldID**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 54,
+      "name": "GetImplementedInterfaces",
+      "param_types": [
+        "jvmtiEnv*",
+        "jclass",
+        "jint*",
+        "jclass**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 55,
+      "name": "IsInterface",
+      "param_types": [
+        "jvmtiEnv*",
+        "jclass",
+        "jboolean*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 56,
+      "name": "IsArrayClass",
+      "param_types": [
+        "jvmtiEnv*",
+        "jclass",
+        "jboolean*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 57,
+      "name": "GetClassLoader",
+      "param_types": [
+        "jvmtiEnv*",
+        "jclass",
+        "jobject*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 58,
+      "name": "GetObjectHashCode",
+      "param_types": [
+        "jvmtiEnv*",
+        "jobject",
+        "jint*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 59,
+      "name": "GetObjectMonitorUsage",
+      "param_types": [
+        "jvmtiEnv*",
+        "jobject",
+        "jvmtiMonitorUsage*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 60,
+      "name": "GetFieldName",
+      "param_types": [
+        "jvmtiEnv*",
+        "jclass",
+        "jfieldID",
+        "char**",
+        "char**",
+        "char**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 61,
+      "name": "GetFieldDeclaringClass",
+      "param_types": [
+        "jvmtiEnv*",
+        "jclass",
+        "jfieldID",
+        "jclass*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 62,
+      "name": "GetFieldModifiers",
+      "param_types": [
+        "jvmtiEnv*",
+        "jclass",
+        "jfieldID",
+        "jint*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 63,
+      "name": "IsFieldSynthetic",
+      "param_types": [
+        "jvmtiEnv*",
+        "jclass",
+        "jfieldID",
+        "jboolean*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 64,
+      "name": "GetMethodName",
+      "param_types": [
+        "jvmtiEnv*",
+        "jmethodID",
+        "char**",
+        "char**",
+        "char**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 65,
+      "name": "GetMethodDeclaringClass",
+      "param_types": [
+        "jvmtiEnv*",
+        "jmethodID",
+        "jclass*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 66,
+      "name": "GetMethodModifiers",
+      "param_types": [
+        "jvmtiEnv*",
+        "jmethodID",
+        "jint*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 68,
+      "name": "GetMaxLocals",
+      "param_types": [
+        "jvmtiEnv*",
+        "jmethodID",
+        "jint*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 69,
+      "name": "GetArgumentsSize",
+      "param_types": [
+        "jvmtiEnv*",
+        "jmethodID",
+        "jint*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 70,
+      "name": "GetLineNumberTable",
+      "param_types": [
+        "jvmtiEnv*",
+        "jmethodID",
+        "jint*",
+        "jvmtiLineNumberEntry**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 71,
+      "name": "GetMethodLocation",
+      "param_types": [
+        "jvmtiEnv*",
+        "jmethodID",
+        "jlocation*",
+        "jlocation*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 72,
+      "name": "GetLocalVariableTable",
+      "param_types": [
+        "jvmtiEnv*",
+        "jmethodID",
+        "jint*",
+        "jvmtiLocalVariableEntry**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 73,
+      "name": "SetNativeMethodPrefix",
+      "param_types": [
+        "jvmtiEnv*",
+        "const char*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 74,
+      "name": "SetNativeMethodPrefixes",
+      "param_types": [
+        "jvmtiEnv*",
+        "jint",
+        "char**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 75,
+      "name": "GetBytecodes",
+      "param_types": [
+        "jvmtiEnv*",
+        "jmethodID",
+        "jint*",
+        "unsigned char**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 76,
+      "name": "IsMethodNative",
+      "param_types": [
+        "jvmtiEnv*",
+        "jmethodID",
+        "jboolean*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 77,
+      "name": "IsMethodSynthetic",
+      "param_types": [
+        "jvmtiEnv*",
+        "jmethodID",
+        "jboolean*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 78,
+      "name": "GetLoadedClasses",
+      "param_types": [
+        "jvmtiEnv*",
+        "jint*",
+        "jclass**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 79,
+      "name": "GetClassLoaderClasses",
+      "param_types": [
+        "jvmtiEnv*",
+        "jobject",
+        "jint*",
+        "jclass**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 80,
+      "name": "PopFrame",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 81,
+      "name": "ForceEarlyReturnObject",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jobject"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 82,
+      "name": "ForceEarlyReturnInt",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jint"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 83,
+      "name": "ForceEarlyReturnLong",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jlong"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 84,
+      "name": "ForceEarlyReturnFloat",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jfloat"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 85,
+      "name": "ForceEarlyReturnDouble",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jdouble"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 86,
+      "name": "ForceEarlyReturnVoid",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 87,
+      "name": "RedefineClasses",
+      "param_types": [
+        "jvmtiEnv*",
+        "jint",
+        "const jvmtiClassDefinition*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 88,
+      "name": "GetVersionNumber",
+      "param_types": [
+        "jvmtiEnv*",
+        "jint*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 89,
+      "name": "GetCapabilities",
+      "param_types": [
+        "jvmtiEnv*",
+        "jvmtiCapabilities*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 90,
+      "name": "GetSourceDebugExtension",
+      "param_types": [
+        "jvmtiEnv*",
+        "jclass",
+        "char**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 91,
+      "name": "IsMethodObsolete",
+      "param_types": [
+        "jvmtiEnv*",
+        "jmethodID",
+        "jboolean*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 92,
+      "name": "SuspendThreadList",
+      "param_types": [
+        "jvmtiEnv*",
+        "jint",
+        "const jthread*",
+        "jvmtiError*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 93,
+      "name": "ResumeThreadList",
+      "param_types": [
+        "jvmtiEnv*",
+        "jint",
+        "const jthread*",
+        "jvmtiError*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 100,
+      "name": "GetAllStackTraces",
+      "param_types": [
+        "jvmtiEnv*",
+        "jint",
+        "jvmtiStackInfo**",
+        "jint*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 101,
+      "name": "GetThreadListStackTraces",
+      "param_types": [
+        "jvmtiEnv*",
+        "jint",
+        "const jthread*",
+        "jint",
+        "jvmtiStackInfo**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 102,
+      "name": "GetThreadLocalStorage",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "void**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 103,
+      "name": "SetThreadLocalStorage",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "const void*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 104,
+      "name": "GetStackTrace",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jint",
+        "jint",
+        "jvmtiFrameInfo*",
+        "jint*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 106,
+      "name": "GetTag",
+      "param_types": [
+        "jvmtiEnv*",
+        "jobject",
+        "jlong*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 107,
+      "name": "SetTag",
+      "param_types": [
+        "jvmtiEnv*",
+        "jobject",
+        "jlong"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 108,
+      "name": "ForceGarbageCollection",
+      "param_types": [
+        "jvmtiEnv*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 109,
+      "name": "IterateOverObjectsReachableFromObject",
+      "param_types": [
+        "jvmtiEnv*",
+        "jobject",
+        "jvmtiObjectReferenceCallback",
+        "const void*"
+      ],
+      "return_type": "jvmtiError",
+      "trampoline": "DoTrampoline_jvmtiEnv_IterateOverObjectsReachableFromObject"
+    },
+    {
+      "index": 110,
+      "name": "IterateOverReachableObjects",
+      "param_types": [
+        "jvmtiEnv*",
+        "jvmtiHeapRootCallback",
+        "jvmtiStackReferenceCallback",
+        "jvmtiObjectReferenceCallback",
+        "const void*"
+      ],
+      "return_type": "jvmtiError",
+      "trampoline": "DoTrampoline_jvmtiEnv_IterateOverReachableObjects"
+    },
+    {
+      "index": 111,
+      "name": "IterateOverHeap",
+      "param_types": [
+        "jvmtiEnv*",
+        "jvmtiHeapObjectFilter",
+        "jvmtiHeapObjectCallback",
+        "const void*"
+      ],
+      "return_type": "jvmtiError",
+      "trampoline": "DoTrampoline_jvmtiEnv_IterateOverHeap"
+    },
+    {
+      "index": 112,
+      "name": "IterateOverInstancesOfClass",
+      "param_types": [
+        "jvmtiEnv*",
+        "jclass",
+        "jvmtiHeapObjectFilter",
+        "jvmtiHeapObjectCallback",
+        "const void*"
+      ],
+      "return_type": "jvmtiError",
+      "trampoline": "DoTrampoline_jvmtiEnv_IterateOverInstancesOfClass"
+    },
+    {
+      "index": 114,
+      "name": "GetObjectsWithTags",
+      "param_types": [
+        "jvmtiEnv*",
+        "jint",
+        "const jlong*",
+        "jint*",
+        "jobject**",
+        "jlong**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 115,
+      "name": "FollowReferences",
+      "param_types": [
+        "jvmtiEnv*",
+        "jint",
+        "jclass",
+        "jobject",
+        "const jvmtiHeapCallbacks*",
+        "const void*"
+      ],
+      "return_type": "jvmtiError",
+      "trampoline": "DoTrampoline_jvmtiEnv_FollowReferences"
+    },
+    {
+      "index": 116,
+      "name": "IterateThroughHeap",
+      "param_types": [
+        "jvmtiEnv*",
+        "jint",
+        "jclass",
+        "const jvmtiHeapCallbacks*",
+        "const void*"
+      ],
+      "return_type": "jvmtiError",
+      "trampoline": "DoTrampoline_jvmtiEnv_IterateThroughHeap"
+    },
+    {
+      "index": 120,
+      "name": "SetJNIFunctionTable",
+      "param_types": [
+        "jvmtiEnv*",
+        "const jniNativeInterface*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 121,
+      "name": "GetJNIFunctionTable",
+      "param_types": [
+        "jvmtiEnv*",
+        "jniNativeInterface**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 122,
+      "name": "SetEventCallbacks",
+      "param_types": [
+        "jvmtiEnv*",
+        "const jvmtiEventCallbacks*",
+        "jint"
+      ],
+      "return_type": "jvmtiError",
+      "trampoline": "DoTrampoline_jvmtiEnv_SetEventCallbacks"
+    },
+    {
+      "index": 123,
+      "name": "GenerateEvents",
+      "param_types": [
+        "jvmtiEnv*",
+        "jvmtiEvent"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 124,
+      "name": "GetExtensionFunctions",
+      "param_types": [
+        "jvmtiEnv*",
+        "jint*",
+        "jvmtiExtensionFunctionInfo**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 125,
+      "name": "GetExtensionEvents",
+      "param_types": [
+        "jvmtiEnv*",
+        "jint*",
+        "jvmtiExtensionEventInfo**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 126,
+      "name": "SetExtensionEventCallback",
+      "param_types": [
+        "jvmtiEnv*",
+        "jint",
+        "jvmtiExtensionEvent"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 127,
+      "name": "DisposeEnvironment",
+      "param_types": [
+        "jvmtiEnv*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 128,
+      "name": "GetErrorName",
+      "param_types": [
+        "jvmtiEnv*",
+        "jvmtiError",
+        "char**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 129,
+      "name": "GetJLocationFormat",
+      "param_types": [
+        "jvmtiEnv*",
+        "jvmtiJlocationFormat*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 130,
+      "name": "GetSystemProperties",
+      "param_types": [
+        "jvmtiEnv*",
+        "jint*",
+        "char***"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 131,
+      "name": "GetSystemProperty",
+      "param_types": [
+        "jvmtiEnv*",
+        "const char*",
+        "char**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 132,
+      "name": "SetSystemProperty",
+      "param_types": [
+        "jvmtiEnv*",
+        "const char*",
+        "const char*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 133,
+      "name": "GetPhase",
+      "param_types": [
+        "jvmtiEnv*",
+        "jvmtiPhase*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 134,
+      "name": "GetCurrentThreadCpuTimerInfo",
+      "param_types": [
+        "jvmtiEnv*",
+        "jvmtiTimerInfo*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 135,
+      "name": "GetCurrentThreadCpuTime",
+      "param_types": [
+        "jvmtiEnv*",
+        "jlong*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 136,
+      "name": "GetThreadCpuTimerInfo",
+      "param_types": [
+        "jvmtiEnv*",
+        "jvmtiTimerInfo*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 137,
+      "name": "GetThreadCpuTime",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jlong*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 138,
+      "name": "GetTimerInfo",
+      "param_types": [
+        "jvmtiEnv*",
+        "jvmtiTimerInfo*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 139,
+      "name": "GetTime",
+      "param_types": [
+        "jvmtiEnv*",
+        "jlong*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 140,
+      "name": "GetPotentialCapabilities",
+      "param_types": [
+        "jvmtiEnv*",
+        "jvmtiCapabilities*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 142,
+      "name": "AddCapabilities",
+      "param_types": [
+        "jvmtiEnv*",
+        "const jvmtiCapabilities*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 143,
+      "name": "RelinquishCapabilities",
+      "param_types": [
+        "jvmtiEnv*",
+        "const jvmtiCapabilities*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 144,
+      "name": "GetAvailableProcessors",
+      "param_types": [
+        "jvmtiEnv*",
+        "jint*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 145,
+      "name": "GetClassVersionNumbers",
+      "param_types": [
+        "jvmtiEnv*",
+        "jclass",
+        "jint*",
+        "jint*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 146,
+      "name": "GetConstantPool",
+      "param_types": [
+        "jvmtiEnv*",
+        "jclass",
+        "jint*",
+        "jint*",
+        "unsigned char**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 147,
+      "name": "GetEnvironmentLocalStorage",
+      "param_types": [
+        "jvmtiEnv*",
+        "void**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 148,
+      "name": "SetEnvironmentLocalStorage",
+      "param_types": [
+        "jvmtiEnv*",
+        "const void*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 149,
+      "name": "AddToBootstrapClassLoaderSearch",
+      "param_types": [
+        "jvmtiEnv*",
+        "const char*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 150,
+      "name": "SetVerboseFlag",
+      "param_types": [
+        "jvmtiEnv*",
+        "jvmtiVerboseFlag",
+        "jboolean"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 151,
+      "name": "AddToSystemClassLoaderSearch",
+      "param_types": [
+        "jvmtiEnv*",
+        "const char*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 152,
+      "name": "RetransformClasses",
+      "param_types": [
+        "jvmtiEnv*",
+        "jint",
+        "const jclass*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 153,
+      "name": "GetOwnedMonitorStackDepthInfo",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jint*",
+        "jvmtiMonitorStackDepthInfo**"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 154,
+      "name": "GetObjectSize",
+      "param_types": [
+        "jvmtiEnv*",
+        "jobject",
+        "jlong*"
+      ],
+      "return_type": "jvmtiError"
+    },
+    {
+      "index": 155,
+      "name": "GetLocalInstance",
+      "param_types": [
+        "jvmtiEnv*",
+        "jthread",
+        "jint",
+        "jobject*"
+      ],
+      "return_type": "jvmtiError"
+    }
+  ]
+}
