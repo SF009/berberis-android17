@@ -149,6 +149,34 @@ class GenericInsn : public MachineInsn {
 
 const MachineOpcode GenericInsn::kOpcode = MachineOpcode(0);
 
+class UseDefInsn : public MachineInsn {
+ public:
+  static constexpr int kNumRegs = 2;
+  static constexpr MachineRegKind kRegKinds[kNumRegs] = {
+      {&kRegClass, MachineRegKind::kUseDef},
+      {&kRegClass, MachineRegKind::kUse},
+  };
+  static const MachineOpcode kOpcode;
+
+  UseDefInsn(MachineReg dst, MachineReg src)
+      : MachineInsn(kOpcode, kNumRegs, kRegKinds, regs_, kMachineInsnDefault) {
+    SetRegAt(0, dst);
+    SetRegAt(1, src);
+  }
+
+  std::string GetDebugString() const override { return "USE_DEF"; }
+  void Emit(CodeEmitter* /*as*/) const override { FATAL("not implemented"); }
+
+ private:
+  UseDefInsn(const UseDefInsn& other) = delete;
+  MachineInsn* Clone(Arena* /*arena*/) const override { FATAL("not implemented"); }
+  MachineInsnList Lower(Arena* /*arena*/) const override { FATAL("not implemented"); }
+
+  MachineReg regs_[kNumRegs];
+};
+
+const MachineOpcode UseDefInsn::kOpcode = MachineOpcode(1);
+
 class VRegAccessTest : public ::testing::Test {
  protected:
   VRegAccessTest()
@@ -206,6 +234,29 @@ TEST_F(VRegAccessTest, RewriteVReg_ReloadForGenericInsn) {
   EXPECT_TRUE(reload->RegAt(1).IsSpilledReg());
   EXPECT_EQ(reload->RegAt(1).GetSpilledRegIndex(), machine_ir_.SpillSlotOffset(slot_));
   EXPECT_EQ(insn->RegAt(1), hard_reg_);
+}
+
+TEST_F(VRegAccessTest, RewriteVReg_UseDefInsn) {
+  auto* insn = machine_ir_.NewInsn<UseDefInsn>(vreg_dst_, vreg_src_);
+  ASSERT_NO_FATAL_FAILURE(TestRewriteVReg(insn, /*index=*/0));
+
+  ASSERT_EQ(bb_->insn_list().size(), 3u);
+
+  auto* reload = bb_->insn_list().front();
+  EXPECT_NE(reload, insn);
+  EXPECT_TRUE(reload->is_copy());
+  EXPECT_EQ(reload->RegAt(0), hard_reg_);
+  EXPECT_TRUE(reload->RegAt(1).IsSpilledReg());
+  EXPECT_EQ(reload->RegAt(1).GetSpilledRegIndex(), machine_ir_.SpillSlotOffset(slot_));
+
+  auto* spill = bb_->insn_list().back();
+  EXPECT_NE(spill, insn);
+  EXPECT_TRUE(spill->is_copy());
+  EXPECT_TRUE(spill->RegAt(0).IsSpilledReg());
+  EXPECT_EQ(spill->RegAt(0).GetSpilledRegIndex(), machine_ir_.SpillSlotOffset(slot_));
+  EXPECT_EQ(spill->RegAt(1), hard_reg_);
+
+  EXPECT_EQ(insn->RegAt(0), hard_reg_);
 }
 
 TEST_F(VRegAccessTest, RewriteVReg_SpillForCopy) {
