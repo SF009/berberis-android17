@@ -60,8 +60,7 @@ TEST(MachineIRLocalGuestContextOptimizer, UnmapOlderThan) {
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
 
   auto& mem_reg_map = optimizer.GetMemRegUsageMapForTesting();
-  auto& lifetime_map = optimizer.GetLifetimeCounterForTesting().GetMap();
-  ASSERT_TRUE(lifetime_map.contains(reg1));
+  ASSERT_TRUE(optimizer.GetLifetimeCounterForTesting().LifetimeAt(reg1).has_value());
   ASSERT_TRUE(IsOffsetMappedToReg(GetThreadStateRegOffset(0), mem_reg_map, reg1));
 
   // Try clearing an older pos which should do nothing.
