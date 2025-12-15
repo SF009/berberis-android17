@@ -99,31 +99,36 @@ inline FloatType ExecuteFloatOperation(uint8_t requested_rm,
 
 // From RISC-V ISA manual: Single-Precision Floating-Point Computational Instructions.
 // Covers behavior for both single and double precision floating point comparisons.
-#define DEFINE_FLOAT_COMPARE_FUNC(FuncName, FloatType, ZeroVal, Intrinsic) \
-  inline FloatType FuncName(FloatType op1, FloatType op2) {                \
-    FPInfo op1_class = FPClassify(op1);                                    \
-    FPInfo op2_class = FPClassify(op2);                                    \
-    if (op1_class == FPInfo::kZero && op2_class == FPInfo::kZero &&        \
-        SignBit(op1) != SignBit(op2)) {                                    \
-      return FloatType(ZeroVal);                                           \
-    }                                                                      \
-    /* If both inputs are NaNs, the result is the canonical NaN. */        \
-    if (op1_class == FPInfo::kNaN && op2_class == FPInfo::kNaN) {          \
-      return std::numeric_limits<FloatType>::quiet_NaN();                  \
-    }                                                                      \
-    /* If only one operand is a NaN, the result is the non-NaN operand. */ \
-    if (op1_class == FPInfo::kNaN) {                                       \
-      return op2;                                                          \
-    }                                                                      \
-    if (op2_class == FPInfo::kNaN) {                                       \
-      return op1;                                                          \
-    }                                                                      \
-    return FloatType(Intrinsic(op1.value_, op2.value_));                   \
+#define DEFINE_FLOAT_COMPARE_FUNC(FuncName, InnerType, FloatType, ZeroVal, Intrinsic) \
+  inline FloatType FuncName(FloatType op1, FloatType op2) {                           \
+    InnerType src1, src2;                                                             \
+    static_assert(sizeof(src1) == sizeof(op1));                                       \
+    memcpy(&src1, &op1, sizeof(op1));                                                 \
+    static_assert(sizeof(src2) == sizeof(op2));                                       \
+    memcpy(&src2, &op2, sizeof(op2));                                                 \
+    FPInfo op1_class = FPClassify(op1);                                               \
+    FPInfo op2_class = FPClassify(op2);                                               \
+    if (op1_class == FPInfo::kZero && op2_class == FPInfo::kZero &&                   \
+        SignBit(op1) != SignBit(op2)) {                                               \
+      return FloatType(ZeroVal);                                                      \
+    }                                                                                 \
+    /* If both inputs are NaNs, the result is the canonical NaN. */                   \
+    if (op1_class == FPInfo::kNaN && op2_class == FPInfo::kNaN) {                     \
+      return std::numeric_limits<FloatType>::quiet_NaN();                             \
+    }                                                                                 \
+    /* If only one operand is a NaN, the result is the non-NaN operand. */            \
+    if (op1_class == FPInfo::kNaN) {                                                  \
+      return op2;                                                                     \
+    }                                                                                 \
+    if (op2_class == FPInfo::kNaN) {                                                  \
+      return op1;                                                                     \
+    }                                                                                 \
+    return FloatType{Intrinsic(src1, src2)};                                          \
   }
-DEFINE_FLOAT_COMPARE_FUNC(Max, Float32, +0.f, std::fmax);
-DEFINE_FLOAT_COMPARE_FUNC(Max, Float64, +0.f, std::fmax);
-DEFINE_FLOAT_COMPARE_FUNC(Min, Float32, -0.f, std::fmin);
-DEFINE_FLOAT_COMPARE_FUNC(Min, Float64, -0.f, std::fmin);
+DEFINE_FLOAT_COMPARE_FUNC(Max, float, Float32, +0.f, std::fmax);
+DEFINE_FLOAT_COMPARE_FUNC(Max, double, Float64, +0.f, std::fmax);
+DEFINE_FLOAT_COMPARE_FUNC(Min, float, Float32, -0.f, std::fmin);
+DEFINE_FLOAT_COMPARE_FUNC(Min, double, Float64, -0.f, std::fmin);
 #undef DEFINE_FLOAT_COMPARE_FUNC
 
 // We only need Negative(long double) for FMA, b/120563432 doesn't affect this function.
