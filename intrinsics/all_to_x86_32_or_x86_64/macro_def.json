@@ -36,7 +36,7 @@
         { "class": "FLAGS", "usage": "use" }
       ],
       "asm": "ReadFlagsWithoutOverflow",
-      "mnemo": "READ_FLAGS_WITHOUT_OVEERFLOW"
+      "mnemo": "READ_FLAGS_WITHOUT_OVERFLOW"
     },
     {
       "name": "ReverseBitsU32",
