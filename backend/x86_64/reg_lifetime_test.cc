@@ -120,7 +120,6 @@ TEST(MachineIRReadFlagsOptimizer, CountRegLifetimeMap) {
 
   RegLifetimeCounter counter(&machine_ir);
   counter.Count(bb);
-  const auto& lifetime_map = counter.GetMap();
   const auto& lifetime0 = counter.LifetimeAt(reg0).value();
   ASSERT_TRUE(std::holds_alternative<LiveIn>(lifetime0.start));
   ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime0.end), reg0_end);
