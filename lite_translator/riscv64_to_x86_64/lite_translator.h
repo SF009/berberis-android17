@@ -57,8 +57,8 @@ class LiteTranslator {
   static constexpr auto no_fp_register = Assembler::no_xmm_register;
   using SimdRegister = Assembler::XMMRegister;
   using Condition = Assembler::Condition;
-  using Float32 = intrinsics::Float32;
-  using Float64 = intrinsics::Float64;
+  using Float32 = Float32;
+  using Float64 = Float64;
 
   using TemplateTypeId = intrinsics::TemplateTypeId;
   template <typename Type>

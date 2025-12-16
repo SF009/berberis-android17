@@ -2119,24 +2119,24 @@ TEST_F(Riscv64InterpreterTest, SyscallWrite) {
 
 TEST_F(Riscv64InterpreterTest, TestFPExceptions) {
   // Keep the same sort as Section 19 "Vector Instruction Listing".
-  TestFPExceptions<intrinsics::Float32>(0x012d'1557);  // Vfadd.vv v10, v18, v26, v0.t
-  TestFPExceptions<intrinsics::Float64>(0x010c'1457);  // Vfadd.vv v8, v16, v24, v0.t
-  TestFPExceptions<intrinsics::Float32>(0x0120'd557);  // Vfadd.vf v10, v18, f1, v0.t
-  TestFPExceptions<intrinsics::Float64>(0x0101'5457);  // Vfadd.vf v8, v16, f2, v0.t
-  TestFPExceptions<intrinsics::Float32>(0x092d'1557);  // Vfsub.vv v10, v18, v26, v0.t
-  TestFPExceptions<intrinsics::Float64>(0x090c'1457);  // Vfsub.vv v8, v16, v24, v0.t
-  TestFPExceptions<intrinsics::Float32>(0x0920'd557);  // Vfsub.vf v10, v18, f1, v0.t
-  TestFPExceptions<intrinsics::Float64>(0x0901'5457);  // Vfsub.vf v8, v16, f2, v0.t
-  TestFPExceptions<intrinsics::Float32>(0x812d'1557);  // Vfdiv.vv v10, v18, v26, v0.t
-  TestFPExceptions<intrinsics::Float64>(0x810c'1457);  // Vfdiv.vv v8, v16, v24, v0.t
-  TestFPExceptions<intrinsics::Float32>(0x8120'd557);  // Vfdiv.vf v10, v18, f1, v0.t
-  TestFPExceptions<intrinsics::Float64>(0x8101'5457);  // Vfdiv.vf v8, v16, f2, v0.t
-  TestFPExceptions<intrinsics::Float32>(0x912d'1557);  // Vfmul.vv v10, v18, v26, v0.t
-  TestFPExceptions<intrinsics::Float64>(0x910c'1457);  // Vfmul.vv v8, v16, v24, v0.t
-  TestFPExceptions<intrinsics::Float32>(0x9120'd557);  // Vfmul.vf v10, v18, f1, v0.t
-  TestFPExceptions<intrinsics::Float64>(0x9101'5457);  // Vfmul.vf v8, v16, f2, v0.t
-  TestFPExceptions<intrinsics::Float32>(0x9d20'd557);  // Vfrsub.vf v10, v18, f1, v0.t
-  TestFPExceptions<intrinsics::Float64>(0x9d01'5457);  // Vfrsub.vf v8, v16, f2, v0.t
+  TestFPExceptions<Float32>(0x012d'1557);  // Vfadd.vv v10, v18, v26, v0.t
+  TestFPExceptions<Float64>(0x010c'1457);  // Vfadd.vv v8, v16, v24, v0.t
+  TestFPExceptions<Float32>(0x0120'd557);  // Vfadd.vf v10, v18, f1, v0.t
+  TestFPExceptions<Float64>(0x0101'5457);  // Vfadd.vf v8, v16, f2, v0.t
+  TestFPExceptions<Float32>(0x092d'1557);  // Vfsub.vv v10, v18, v26, v0.t
+  TestFPExceptions<Float64>(0x090c'1457);  // Vfsub.vv v8, v16, v24, v0.t
+  TestFPExceptions<Float32>(0x0920'd557);  // Vfsub.vf v10, v18, f1, v0.t
+  TestFPExceptions<Float64>(0x0901'5457);  // Vfsub.vf v8, v16, f2, v0.t
+  TestFPExceptions<Float32>(0x812d'1557);  // Vfdiv.vv v10, v18, v26, v0.t
+  TestFPExceptions<Float64>(0x810c'1457);  // Vfdiv.vv v8, v16, v24, v0.t
+  TestFPExceptions<Float32>(0x8120'd557);  // Vfdiv.vf v10, v18, f1, v0.t
+  TestFPExceptions<Float64>(0x8101'5457);  // Vfdiv.vf v8, v16, f2, v0.t
+  TestFPExceptions<Float32>(0x912d'1557);  // Vfmul.vv v10, v18, v26, v0.t
+  TestFPExceptions<Float64>(0x910c'1457);  // Vfmul.vv v8, v16, v24, v0.t
+  TestFPExceptions<Float32>(0x9120'd557);  // Vfmul.vf v10, v18, f1, v0.t
+  TestFPExceptions<Float64>(0x9101'5457);  // Vfmul.vf v8, v16, f2, v0.t
+  TestFPExceptions<Float32>(0x9d20'd557);  // Vfrsub.vf v10, v18, f1, v0.t
+  TestFPExceptions<Float64>(0x9d01'5457);  // Vfrsub.vf v8, v16, f2, v0.t
 }
 
 TEST_F(Riscv64InterpreterTest, TestVlXreXX) {
@@ -2211,17 +2211,17 @@ TEST_F(Riscv64InterpreterTest, TestVfclass) {
 }
 
 TEST_F(Riscv64InterpreterTest, TestVfmvfs) {
-  TestVfmvfs<intrinsics::Float32>(0x4280'10d7, 0xffff'ffff'8302'8100);  // Vfmv.f.s f1, v8
-  TestVfmvfs<intrinsics::Float64>(0x4280'10d7, 0x8706'8504'8302'8100);  // Vfmv.f.s f1, v8
+  TestVfmvfs<Float32>(0x4280'10d7, 0xffff'ffff'8302'8100);  // Vfmv.f.s f1, v8
+  TestVfmvfs<Float64>(0x4280'10d7, 0x8706'8504'8302'8100);  // Vfmv.f.s f1, v8
 }
 
 TEST_F(Riscv64InterpreterTest, TestVfmvsf) {
-  TestVfmvsf<intrinsics::Float32>(0x4200'd457,  // Vfmv.s.f v8, f1
-                                  0xffff'ffff'40b4'0000,
-                                  intrinsics::Float32{5.625f});
-  TestVfmvsf<intrinsics::Float64>(0x4200'd457,  // Vfmv.s.f v8, f1
-                                  0x4016'8000'0000'0000,
-                                  intrinsics::Float64{5.625});
+  TestVfmvsf<Float32>(0x4200'd457,  // Vfmv.s.f v8, f1
+                      0xffff'ffff'40b4'0000,
+                      Float32{5.625f});
+  TestVfmvsf<Float64>(0x4200'd457,  // Vfmv.s.f v8, f1
+                      0x4016'8000'0000'0000,
+                      Float64{5.625});
 }
 
 TEST_F(Riscv64InterpreterTest, TestVmvsx) {

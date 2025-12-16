@@ -46,8 +46,8 @@ class HeavyOptimizerFrontend {
   static constexpr Register no_register = MachineReg{};
   using FpRegister = SimdReg;
   static constexpr SimdReg no_fp_register = SimdReg{};
-  using Float32 = intrinsics::Float32;
-  using Float64 = intrinsics::Float64;
+  using Float32 = Float32;
+  using Float64 = Float64;
 
   using TemplateTypeId = intrinsics::TemplateTypeId;
   template <typename Type>
@@ -763,12 +763,12 @@ auto HeavyOptimizerFrontend::CallIntrinsic(FunctionType func_ptr,
 
 template <>
 [[nodiscard]] inline HeavyOptimizerFrontend::FpRegister
-HeavyOptimizerFrontend::GetFRegAndUnboxNan<intrinsics::Float64>(uint8_t reg) {
+HeavyOptimizerFrontend::GetFRegAndUnboxNan<Float64>(uint8_t reg) {
   return GetFpReg(reg);
 }
 
 template <>
-inline HeavyOptimizerFrontend::FpRegister HeavyOptimizerFrontend::NanBoxFpReg<intrinsics::Float64>(
+inline HeavyOptimizerFrontend::FpRegister HeavyOptimizerFrontend::NanBoxFpReg<Float64>(
     FpRegister value) {
   return value;
 }

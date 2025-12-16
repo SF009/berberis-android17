@@ -25,10 +25,6 @@ using Register = typename Assembler::Register;
 using ScaleFactor = typename Assembler::ScaleFactor;
 using XMMRegister = typename Assembler::XMMRegister;
 
-using Float16 = intrinsics::Float16;
-using Float32 = intrinsics::Float32;
-using Float64 = intrinsics::Float64;
-
 template <typename IntType>
 using ImmFormat =
     std::conditional_t<sizeof(IntType) <= sizeof(int32_t), std::make_signed_t<IntType>, int32_t>;
