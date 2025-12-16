@@ -58,6 +58,7 @@ enum ConfigFlag {
   kAccurateSigsegv,
   kDisableIntrinsicInlining,
   kMergeProfilesForSameModeRegions,
+  kDetailRegionPropertiesInProfiling,
   kPrintTranslatedAddrs,
   kDeterministicTracing,
   kPrintIRs,
