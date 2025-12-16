@@ -951,7 +951,7 @@ class MachineIR : public berberis::MachineIR {
            insn->opcode() == kMachineOpIndirectJump || insn->opcode() == kMachineOpJump;
   }
 
-  [[nodiscard]] bool ContainsIrreducibleLoops() const { return contains_irreducible_loops_; }
+  [[nodiscard]] bool contains_irreducible_loops() const { return contains_irreducible_loops_; }
 
   [[nodiscard]] BasicBlockOrder bb_order() const { return bb_order_; }
 
@@ -959,8 +959,8 @@ class MachineIR : public berberis::MachineIR {
 
   [[nodiscard]] ABI abi() const { return abi_; }
 
-  void SetInsnFoldingExecuted() { insn_folding_executed_ = true; }
-  void SetContainsIrreducibleLoops() { contains_irreducible_loops_ = true; }
+  void set_insn_folding_executed() { insn_folding_executed_ = true; }
+  void set_contains_irreducible_loops() { contains_irreducible_loops_ = true; }
 
   using berberis::MachineIR::NewInsn;
 

@@ -311,7 +311,7 @@ void OptimizeLoopTree(MachineIR* machine_ir, LoopTreeNode* node, PredicateFuncti
 void RemoveLoopGuestContextAccesses(MachineIR* machine_ir) {
   // TODO(b/203826752): Provide a better heuristic for deciding which loop to optimize.
   auto loop_tree = BuildLoopTree(machine_ir);
-  if (IsConfigFlagSet(kVerboseTranslation) && machine_ir->ContainsIrreducibleLoops()) {
+  if (IsConfigFlagSet(kVerboseTranslation) && machine_ir->contains_irreducible_loops()) {
     TRACE("Region contains at least one irreducible loop.");
   }
 
