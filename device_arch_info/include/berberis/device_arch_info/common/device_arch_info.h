@@ -217,14 +217,16 @@ template <>
 inline constexpr bool kIsMemoryOperand<Mem64> = true;
 
 // Note: value of RegBindingKind and MachineRegKind have to be the same since we convert one to
-// another with a static_cast in berberis/backend/x86_64/machine_insn_intrinsics.h. We don't care
-// about these values in intrinsics module, but for optimizations it's important to have LSB set
-// when an instruction uses the value (which is true for kDefEarlyClobber: in that case the
-// instruction sets the value and then uses it), the next bit is set when register is output and MSB
-// bit is set when register is input. We have static_assert in the aforemetioned header that ensures
-// that an attempt to change these two enums and make them different would lead to a compile-time
-// error.
-enum RegBindingKind { kDef = 2, kDefEarlyClobber = 3, kUse = 5, kUseDef = 7 };
+// another with a static_cast in berberis/backend/x86_64/machine_insn_intrinsics.h. We have
+// static_assert in the aforemetioned header that ensures that an attempt to change these two enums
+// and make them different would lead to a compile-time error.
+enum RegBindingKind {
+    kNone = 0,
+    kUse,
+    kDef,
+    kUseDef,
+    kDefEarlyClobber,
+  };
 
 template <typename OperandClass, RegBindingKind kUsageTemplateName>
 class OperandInfo {

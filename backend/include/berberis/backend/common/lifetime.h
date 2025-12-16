@@ -85,10 +85,6 @@ class VRegAccess {
   // One line.
   std::string GetInsnDebugString() const { return pos_.insn()->GetDebugString(); }
 
-  bool IsUse() const { return pos_.insn()->RegKindAt(index_).IsUse(); }
-
-  // IsUse() is true for def-early-clobber, while IsInput() is true when some valid input must be
-  // provided.
   bool IsInput() const { return pos_.insn()->RegKindAt(index_).IsInput(); }
 
   bool IsDef() const { return pos_.insn()->RegKindAt(index_).IsDef(); }
@@ -248,7 +244,7 @@ class VRegLifetime {
   }
 
   void AppendAccess(const VRegAccess& access) {
-    if (access.IsDef() && !access.IsUse() && end() < access.begin()) {
+    if (access.IsDef() && !access.IsInput() && end() < access.begin()) {
       // This is write-only access and there is a gap between it and previous access.
       // Can insert lifetime hole.
       if (range_list_.back().access_list().empty()) {

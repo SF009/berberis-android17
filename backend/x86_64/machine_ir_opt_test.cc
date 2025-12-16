@@ -198,7 +198,7 @@ TEST(MachineIRRemoveDeadCodeTest, DefKilledBySecondResultOfAnotherDef) {
 
   x86_64::RemoveDeadCode(&machine_ir);
 
-  EXPECT_EQ(bb->insn_list().size(), 2UL);
+  ASSERT_EQ(bb->insn_list().size(), 2UL);
 
   auto insn_it = bb->insn_list().begin();
   MachineInsn* insn = *insn_it++;
