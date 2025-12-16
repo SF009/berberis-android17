@@ -82,7 +82,7 @@ void SetInsnResultsUnused(const berberis::MachineInsn* insn, RegUsageBitSet& is_
 
 void SetInsnArgumentsUsed(const berberis::MachineInsn* insn, RegUsageBitSet& is_reg_used) {
   for (int i = 0; i < insn->NumRegOperands(); ++i) {
-    if (insn->RegKindAt(i).IsUse()) {
+    if (insn->RegKindAt(i).IsInput()) {
       is_reg_used.Set(insn->RegAt(i));
     }
   }

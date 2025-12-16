@@ -169,32 +169,32 @@ struct MachineRegClass {
 };
 
 class MachineRegKind {
- private:
-  enum { kRegisterIsUsed = 0x01, kRegisterIsDefined = 0x02, kRegisterIsInput = 0x04 };
-
  public:
   enum StandardAccess {
-    kUse = kRegisterIsUsed | kRegisterIsInput,
-    kDef = kRegisterIsDefined,
-    kUseDef = kUse | kDef,
-    // Note: in kDefEarlyClobber, register is Used and Defined, but it's not an input!
-    kDefEarlyClobber = kRegisterIsUsed | kRegisterIsDefined
+    kNone = 0,
+    kUse,
+    kDef,
+    kUseDef,
+    kDefEarlyClobber,
   };
 
   // We need default constructor to initialize arrays
-  constexpr MachineRegKind() : reg_class_(nullptr), access_(StandardAccess(0)) {}
+  constexpr MachineRegKind() : reg_class_(nullptr), access_(StandardAccess(kNone)) {}
   constexpr MachineRegKind(const MachineRegClass* reg_class, StandardAccess access)
       : reg_class_(reg_class), access_(access) {}
 
   [[nodiscard]] constexpr const MachineRegClass* RegClass() const { return reg_class_; }
 
-  [[nodiscard]] constexpr bool IsUse() const { return access_ & kRegisterIsUsed; }
+  [[nodiscard]] constexpr bool IsDefEarlyClobber() const {
+    return access_ == kDefEarlyClobber;
+  }
 
-  [[nodiscard]] constexpr bool IsDef() const { return access_ & kRegisterIsDefined; }
+  [[nodiscard]] constexpr bool IsDef() const {
+    return access_ == kDef || access_ == kUseDef || access_ == kDefEarlyClobber;
+  }
 
-  // IsInput means that register must contain some kind of valid value and is not just used early.
-  // This allows us to distinguish between UseDef and DefEarlyClobber.
-  [[nodiscard]] constexpr bool IsInput() const { return access_ & kRegisterIsInput; }
+  // TODO(b/232598137): Rename to IsUse.
+  [[nodiscard]] constexpr bool IsInput() const { return access_ == kUse || access_ == kUseDef; }
 
  private:
   const MachineRegClass* reg_class_;

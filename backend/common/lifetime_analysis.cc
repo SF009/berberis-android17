@@ -84,47 +84,32 @@ void VRegLifetimeAnalysis::AddInsn(const MachineInsnListPosition& pos) {
   // To get lifetimes sorted by begin, first add use and use-def operands,
   // then def-only operands.
 
-  // Walk use and use-def register operands.
+  // Walk operands staring at tick_ : use, use-def and def-early-clobber.
   for (int i = 0; i < insn->NumRegOperands(); ++i) {
-    // Skip non-virtual registers.
-    MachineReg r = insn->RegAt(i);
-    if (!r.IsVReg()) {
+    if (!insn->RegAt(i).IsVReg()) {
       continue;
     }
 
-    // Skip def-only operands.
     const MachineRegKind& reg_kind = insn->RegKindAt(i);
-    if (!reg_kind.IsUse()) {
+    if (!reg_kind.IsInput() && !reg_kind.IsDefEarlyClobber()) {
       continue;
     }
-
-    // Get range.
-    int begin = tick_;
-    int end = tick_ + (reg_kind.IsDef() ? 2 : 1);
-
-    AppendAccess(VRegAccess(pos, i, begin, end));
+    AppendAccess(VRegAccess(pos, i, tick_, tick_ + (reg_kind.IsDef() ? 2 : 1)));
   }
 
   // Walk def-only register operands.
   for (int i = 0; i < insn->NumRegOperands(); ++i) {
-    // Skip non-virtual registers.
-    MachineReg r = insn->RegAt(i);
-    if (!r.IsVReg()) {
+    if (!insn->RegAt(i).IsVReg()) {
       continue;
     }
 
-    // Skip use and use-def operands.
+    // Skip accesses that are already processed.
     const MachineRegKind& reg_kind = insn->RegKindAt(i);
-    if (reg_kind.IsUse()) {
+    if (reg_kind.IsInput() || reg_kind.IsDefEarlyClobber()) {
       continue;
     }
 
-    // Get range.
-    int begin = tick_ + 1;
-    int end = tick_ + 2;
-
-    // Append access.
-    AppendAccess(VRegAccess(pos, i, begin, end));
+    AppendAccess(VRegAccess(pos, i, tick_ + 1, tick_ + 2));
   }
 
   TrySetMoveHint(insn);
