@@ -22,12 +22,14 @@
 #include <type_traits>
 
 #include "berberis/base/bit_util.h"
+#include "berberis/base/float.h"  // Float32/Float64/ProcessNans
+#include "berberis/base/limits.h" // std::numeric_limits for Float32/Float64
 #include "berberis/intrinsics/guest_cpu_flags.h"
 #include "berberis/intrinsics/intrinsics.h"
 #if defined(__aarch64__)
 #include "berberis/intrinsics/common/intrinsics_float.h"
 #else
-#include "berberis/intrinsics/intrinsics_float.h"  // Float32/Float64/ProcessNans
+#include "berberis/intrinsics/intrinsics_float.h"  // ProcessNans, Float32/Float64 operations
 #endif
 #include "berberis/base/type_traits.h"
 

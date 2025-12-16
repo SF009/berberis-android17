@@ -19,6 +19,8 @@
 #include <cstdint>
 #include <tuple>
 
+#include "berberis/base/float.h"
+#include "berberis/base/limits.h"
 #include "berberis/intrinsics/guest_cpu_flags.h"
 #include "berberis/intrinsics/intrinsics.h"
 
