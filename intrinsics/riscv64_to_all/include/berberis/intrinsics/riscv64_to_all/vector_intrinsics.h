@@ -33,8 +33,8 @@
 #else
 #include "berberis/intrinsics/intrinsics_float.h"  // Float32/Float64
 #endif
+#include "berberis/base/type_traits.h"
 #include "berberis/intrinsics/simd_register.h"
-#include "berberis/intrinsics/type_traits.h"
 
 namespace berberis::intrinsics {
 

@@ -19,10 +19,10 @@
 
 #include <cstdint>
 
+#include "berberis/base/type_traits.h"
 #include "berberis/intrinsics/intrinsics_args.h"
 #include "berberis/intrinsics/intrinsics_bindings.h"
 #include "berberis/intrinsics/intrinsics_float.h"
-#include "berberis/intrinsics/type_traits.h"
 
 namespace berberis::intrinsics::bindings {
 

@@ -21,9 +21,9 @@
 
 #include "berberis/base/dependent_false.h"
 #include "berberis/base/string_literal.h"
+#include "berberis/base/type_traits.h"
 #include "berberis/device_arch_info/common/device_arch_info.h"
 #include "berberis/intrinsics/intrinsics_args.h"
-#include "berberis/intrinsics/type_traits.h"
 
 namespace berberis {
 
