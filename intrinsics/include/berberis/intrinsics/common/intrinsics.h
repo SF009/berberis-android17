@@ -22,6 +22,8 @@
 
 #include "berberis/base/checks.h"
 #include "berberis/base/dependent_false.h"
+#include "berberis/base/float.h"
+#include "berberis/base/int.h"
 #include "berberis/base/tuple_processing.h"
 #include "berberis/intrinsics/common/intrinsics_float.h"  // Float16/Float32/Float64
 

@@ -21,9 +21,7 @@
 #include <cstring>
 
 #include "berberis/base/bit_util.h"
-#if !defined(__aarch64__)
-#include "berberis/intrinsics/intrinsics_float.h"
-#endif
+#include "berberis/base/float.h"
 
 namespace berberis {
 

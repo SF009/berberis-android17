@@ -22,14 +22,14 @@
 #include <tuple>
 
 #include "berberis/assembler/machine_code.h"
+#include "berberis/base/float.h"
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state.h"
 #include "berberis/heavy_optimizer/riscv64/heavy_optimize_region.h"
+#include "berberis/intrinsics/guest_cpu_flags.h"
 #include "berberis/runtime_primitives/memory_region_reservation.h"
 #include "berberis/test_utils/scoped_exec_region.h"
 #include "berberis/test_utils/testing_run_generated_code.h"
-
-#include "berberis/intrinsics/intrinsics_float.h"
 
 namespace berberis {
 
