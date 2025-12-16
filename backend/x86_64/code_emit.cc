@@ -304,9 +304,10 @@ void Copy::Emit(CodeEmitter* as) const {
   x86_64::EmitCopy(as, dst, src, size);
 }
 
-void MachineIR::Emit(CodeEmitter* as) const {
+bool MachineIR::Emit(CodeEmitter* as) const {
   EmitAllocStackFrame(as, as->frame_size());
   ArenaVector<std::pair<CodeEmitter::Label*, GuestAddr>> recovery_labels(arena());
+  bool contains_calls = false;
 
   for (auto bb_it = bb_list().begin(); bb_it != bb_list().end(); ++bb_it) {
     const MachineBasicBlock* bb = *bb_it;
@@ -331,11 +332,16 @@ void MachineIR::Emit(CodeEmitter* as) const {
         as->SetRecoveryPoint(label);
         recovery_labels.push_back(std::make_pair(label, insn->recovery_pc()));
       }
+      if (insn->opcode() == kMachineOpCallImm) {
+        contains_calls = true;
+      }
       insn->Emit(as);
     }
   }
 
   x86_64::EmitRecoveryLabels(as, recovery_labels);
+
+  return contains_calls;
 }
 
 }  // namespace berberis

@@ -97,7 +97,10 @@ void GenCode(MachineIR* machine_ir, MachineCode* machine_code, const GenCodePara
   if (!params.skip_emit) {
     CodeEmitter emitter(
         machine_code, machine_ir->FrameSize(), machine_ir->NumBasicBlocks(), machine_ir->arena());
-    machine_ir->Emit(&emitter);
+    bool region_contains_calls = machine_ir->Emit(&emitter);
+    if (region_contains_calls) {
+      machine_ir->set_contains_calls();
+    }
     emitter.Finalize();
   }
 }

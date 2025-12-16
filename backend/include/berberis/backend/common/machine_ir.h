@@ -406,7 +406,8 @@ class MachineIR {
         num_vreg_(num_vreg),
         num_arg_slots_(0),
         num_spill_slots_(0),
-        bb_list_(arena) {}
+        bb_list_(arena),
+        contains_calls_(false) {}
 
   [[nodiscard]] int NumVReg() const { return num_vreg_; }
 
@@ -437,6 +438,9 @@ class MachineIR {
     }
   }
 
+  void set_contains_calls() { contains_calls_ = true; }
+  [[nodiscard]] bool contains_calls() const { return contains_calls_; }
+
   [[nodiscard]] uint32_t AllocSpill() { return num_spill_slots_++; }
 
   [[nodiscard]] uint32_t SpillSlotOffset(uint32_t slot) const {
@@ -456,7 +460,7 @@ class MachineIR {
   // DOT is a graph description language, which tools like Graphviz can visualize for you.
   [[nodiscard]] std::string GetDebugStringAsDot() const;
 
-  void Emit(CodeEmitter* as) const;
+  bool Emit(CodeEmitter* as) const;
 
   [[nodiscard]] Arena* arena() const { return arena_; }
 
@@ -478,12 +482,12 @@ class MachineIR {
   // this number.
   uint32_t num_bb_;
 
- private:
   Arena* const arena_;
   int num_vreg_;
   uint32_t num_arg_slots_;    // 16-byte slots for call args/results
   uint32_t num_spill_slots_;  // 16-byte slots for spilled registers
   MachineBasicBlockList bb_list_;
+  bool contains_calls_;
 };
 
 class Branch final : public MachineInsn {
