@@ -29,7 +29,7 @@
 #else
 #include "berberis/intrinsics/intrinsics_float.h"  // Float32/Float64/ProcessNans
 #endif
-#include "berberis/intrinsics/type_traits.h"
+#include "berberis/base/type_traits.h"
 
 namespace berberis::intrinsics {
 
@@ -61,15 +61,15 @@ std::tuple<uint64_t> FClass(FloatType arg) {
   const IntType raw_bits = bit_cast<IntType>(arg);
 
   switch (FPClassify(arg)) {
-    case intrinsics::FPInfo::kNaN:
+    case FPInfo::kNaN:
       return (raw_bits & quiet_bit) ? 0b10'0000'0000 : 0b01'0000'0000;
-    case intrinsics::FPInfo::kInfinite:
+    case FPInfo::kInfinite:
       return intrinsics::SignBit(arg) ? 0b00'0000'0001 : 0b00'1000'0000;
-    case intrinsics::FPInfo::kNormal:
+    case FPInfo::kNormal:
       return intrinsics::SignBit(arg) ? 0b00'0000'0010 : 0b00'0100'0000;
-    case intrinsics::FPInfo::kSubnormal:
+    case FPInfo::kSubnormal:
       return intrinsics::SignBit(arg) ? 0b00'0000'0100 : 0b00'0010'0000;
-    case intrinsics::FPInfo::kZero:
+    case FPInfo::kZero:
       return intrinsics::SignBit(arg) ? 0b00'0000'1000 : 0b00'0001'0000;
   }
 }

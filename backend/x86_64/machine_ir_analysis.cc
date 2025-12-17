@@ -98,7 +98,7 @@ Loop* CollectLoop(MachineIR* ir, const MachineEdgeVector& back_edges, size_t beg
       if (bb->in_edges().size() == 0) {
         // Reached start-bb: head doesn't dominate back_branch_bb.
         // Loop is irreducible - ignore it.
-        ir->SetContainsIrreducibleLoops();
+        ir->set_contains_irreducible_loops();
         return nullptr;
       }
 

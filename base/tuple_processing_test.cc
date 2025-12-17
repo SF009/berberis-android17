@@ -32,9 +32,9 @@ namespace berberis {
 
 namespace {
 
-using Float16 = intrinsics::WrappedFloatType<_Float16>;
-using Float32 = intrinsics::WrappedFloatType<float>;
-using Float64 = intrinsics::WrappedFloatType<double>;
+using Float16 = WrappedFloatType<_Float16>;
+using Float32 = WrappedFloatType<float>;
+using Float64 = WrappedFloatType<double>;
 
 // Type checks.
 

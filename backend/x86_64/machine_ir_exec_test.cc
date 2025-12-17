@@ -40,10 +40,6 @@ constexpr auto kMachineRegRAX = x86_64::MachineRegs::kRAX;
 constexpr auto kMachineRegRBP = x86_64::MachineRegs::kRBP;
 constexpr auto kMachineRegXMM0 = x86_64::MachineRegs::kXMM0;
 
-using Float16 = intrinsics::Float16;
-using Float32 = intrinsics::Float32;
-using Float64 = intrinsics::Float64;
-
 // TODO(b/232598137): Maybe share with
 // heavy_optimizer/<guest>_to_<host>/call_intrinsic_tests.cc.
 class ExecTest {
@@ -398,6 +394,7 @@ std::tuple<Float64, Float64> CallImmFloat64OperandsTestFunc(Float64 arg0,
                                                             Float64 arg5,
                                                             Float64 arg6,
                                                             Float64 arg7) {
+  using namespace intrinsics;
   Float64 res = arg0 + arg1 + arg2 + arg3 + arg4 + arg5 + arg6 + arg7;
   return std::tuple{res, res * Float64{2.0}};
 }
@@ -432,8 +429,8 @@ TEST(ExecMachineIR, CallImmFloat64Operands) {
   ExecTest test;
   test.Init(machine_ir);
   test.Exec();
-  EXPECT_EQ(std::get<0>(result), data * Float64{8.0});
-  EXPECT_EQ(std::get<1>(result), data * Float64{16.0});
+  EXPECT_EQ(bit_cast<double>(std::get<0>(result)), bit_cast<double>(data) * 8.0);
+  EXPECT_EQ(bit_cast<double>(std::get<1>(result)), bit_cast<double>(data) * 16.0);
 }
 
 std::tuple<Float64, Float64, Float64> CallImmFloat64OperandsMemResultTestFunc(Float64 arg0,
@@ -444,6 +441,7 @@ std::tuple<Float64, Float64, Float64> CallImmFloat64OperandsMemResultTestFunc(Fl
                                                                               Float64 arg5,
                                                                               Float64 arg6,
                                                                               Float64 arg7) {
+  using namespace intrinsics;
   Float64 res = arg0 + arg1 + arg2 + arg3 + arg4 + arg5 + arg6 + arg7;
   return std::tuple{res, res * Float64{2.0}, res * Float64{3.0}};
 }
@@ -488,9 +486,9 @@ TEST(ExecMachineIR, CallImmFloat64MemResultOperands) {
   test.Exec();
 
   EXPECT_EQ(result_addr, bit_cast<uint64_t>(&result));
-  EXPECT_EQ(std::get<0>(result), data * Float64{8.0});
-  EXPECT_EQ(std::get<1>(result), data * Float64{16.0});
-  EXPECT_EQ(std::get<2>(result), data * Float64{24.0});
+  EXPECT_EQ(bit_cast<double>(std::get<0>(result)), bit_cast<double>(data) * 8.0);
+  EXPECT_EQ(bit_cast<double>(std::get<1>(result)), bit_cast<double>(data) * 16.0);
+  EXPECT_EQ(bit_cast<double>(std::get<2>(result)), bit_cast<double>(data) * 24.0);
 }
 
 std::tuple<Float32, Float32> CallImmFloat32OperandsTestFunc(Float32 arg0,
@@ -501,6 +499,7 @@ std::tuple<Float32, Float32> CallImmFloat32OperandsTestFunc(Float32 arg0,
                                                             Float32 arg5,
                                                             Float32 arg6,
                                                             Float32 arg7) {
+  using namespace intrinsics;
   Float32 res = arg0 + arg1 + arg2 + arg3 + arg4 + arg5 + arg6 + arg7;
   return std::tuple{res, res * Float32{2.0}};
 }
@@ -536,8 +535,8 @@ TEST(ExecMachineIR, CallImmFloat32Operands) {
   ExecTest test;
   test.Init(machine_ir);
   test.Exec();
-  EXPECT_EQ(std::get<0>(result), data * Float32{8.0});
-  EXPECT_EQ(std::get<1>(result), data * Float32{16.0});
+  EXPECT_EQ(bit_cast<float>(std::get<0>(result)), bit_cast<float>(data) * 8.0);
+  EXPECT_EQ(bit_cast<float>(std::get<1>(result)), bit_cast<float>(data) * 16.0);
 }
 
 // RAX+RDX, Float16 have to be moved to SSE registers properly, even from 0 position.
@@ -662,10 +661,10 @@ TEST(ExecMachineIR, CallImmFloat32InIntResisters) {
   ExecTest test;
   test.Init(machine_ir);
   test.Exec();
-  EXPECT_EQ(std::get<0>(result), Float32{1.0});
+  EXPECT_EQ(bit_cast<float>(std::get<0>(result)), 1.0f);
   EXPECT_EQ(std::get<1>(result), 2U);
   EXPECT_EQ(std::get<2>(result), 3U);
-  EXPECT_EQ(std::get<3>(result), Float32{4.0});
+  EXPECT_EQ(bit_cast<float>(std::get<3>(result)), 4.0f);
 }
 
 // Two inputs would occupy 4 registers and one result would occupy RAX+RDX.

@@ -462,9 +462,9 @@ TEST(MachineIRAnalysis, IrreducibleLoop) {
   builder.Gen<Jump>(kNullGuestAddr);
 
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
-  EXPECT_FALSE(machine_ir.ContainsIrreducibleLoops());
+  EXPECT_FALSE(machine_ir.contains_irreducible_loops());
   auto loops = x86_64::FindLoops(&machine_ir);
-  EXPECT_TRUE(machine_ir.ContainsIrreducibleLoops());
+  EXPECT_TRUE(machine_ir.contains_irreducible_loops());
   EXPECT_EQ(loops.size(), 0UL);
 }
 

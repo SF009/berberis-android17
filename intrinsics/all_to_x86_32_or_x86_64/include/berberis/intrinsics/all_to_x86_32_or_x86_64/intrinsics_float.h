@@ -26,28 +26,53 @@
 
 namespace berberis::intrinsics {
 
-#define MAKE_BINARY_OPERATOR(guest_name, operator_name, assignment_name)                \
-                                                                                        \
-  inline Float32 operator operator_name(const Float32& v1, const Float32& v2) {         \
-    Float32 result;                                                                     \
-    asm(#guest_name "ss %2,%0" : "=x"(result.value_) : "0"(v1.value_), "x"(v2.value_)); \
-    return result;                                                                      \
-  }                                                                                     \
-                                                                                        \
-  inline Float32& operator assignment_name(Float32 & v1, const Float32 & v2) {          \
-    asm(#guest_name "ss %2,%0" : "=x"(v1.value_) : "0"(v1.value_), "x"(v2.value_));     \
-    return v1;                                                                          \
-  }                                                                                     \
-                                                                                        \
-  inline Float64 operator operator_name(const Float64& v1, const Float64& v2) {         \
-    Float64 result;                                                                     \
-    asm(#guest_name "sd %2,%0" : "=x"(result.value_) : "0"(v1.value_), "x"(v2.value_)); \
-    return result;                                                                      \
-  }                                                                                     \
-                                                                                        \
-  inline Float64& operator assignment_name(Float64 & v1, const Float64 & v2) {          \
-    asm(#guest_name "sd %2,%0" : "=x"(v1.value_) : "0"(v1.value_), "x"(v2.value_));     \
-    return v1;                                                                          \
+// Note that on x86-32 it's not safe to return float or double from function, even if that function
+// is bit_cast! In addition to that we couldn't execute expressions that may use rounding modes in
+// C++ because clang may “optimize” code by exchanging them with functions that change the rounding
+// mode!
+
+#define MAKE_BINARY_OPERATOR(guest_name, operator_name, assignment_name)        \
+                                                                                \
+  inline Float32 operator operator_name(const Float32& v1, const Float32& v2) { \
+    float src1, src2;                                                           \
+    static_assert(sizeof(src1) == sizeof(v1));                                  \
+    memcpy(&src1, &v1, sizeof(v1));                                             \
+    static_assert(sizeof(src2) == sizeof(v2));                                  \
+    memcpy(&src2, &v2, sizeof(v2));                                             \
+    asm volatile(#guest_name "ss %2,%0" : "=x"(src1) : "0"(src1), "x"(src2));   \
+    return Float32{src1};                                                       \
+  }                                                                             \
+                                                                                \
+  inline Float32& operator assignment_name(Float32& v1, const Float32& v2) {    \
+    float src1, src2;                                                           \
+    static_assert(sizeof(src1) == sizeof(v1));                                  \
+    memcpy(&src1, &v1, sizeof(v1));                                             \
+    static_assert(sizeof(src2) == sizeof(v2));                                  \
+    memcpy(&src2, &v2, sizeof(v2));                                             \
+    asm volatile(#guest_name "ss %2,%0" : "=x"(src1) : "0"(src1), "x"(src2));   \
+    memcpy(&v1, &src1, sizeof(v1));                                             \
+    return v1;                                                                  \
+  }                                                                             \
+                                                                                \
+  inline Float64 operator operator_name(const Float64& v1, const Float64& v2) { \
+    double src1, src2;                                                          \
+    static_assert(sizeof(src1) == sizeof(v1));                                  \
+    memcpy(&src1, &v1, sizeof(v1));                                             \
+    static_assert(sizeof(src2) == sizeof(v2));                                  \
+    memcpy(&src2, &v2, sizeof(v2));                                             \
+    asm volatile(#guest_name "sd %2,%0" : "=x"(src1) : "0"(src1), "x"(src2));   \
+    return Float64{src1};                                                       \
+  }                                                                             \
+                                                                                \
+  inline Float64& operator assignment_name(Float64& v1, const Float64& v2) {    \
+    double src1, src2;                                                          \
+    static_assert(sizeof(src1) == sizeof(v1));                                  \
+    memcpy(&src1, &v1, sizeof(v1));                                             \
+    static_assert(sizeof(src2) == sizeof(v2));                                  \
+    memcpy(&src2, &v2, sizeof(v2));                                             \
+    asm volatile(#guest_name "sd %2,%0" : "=x"(src1) : "0"(src1), "x"(src2));   \
+    memcpy(&v1, &src1, sizeof(v1));                                             \
+    return v1;                                                                  \
   }
 
 MAKE_BINARY_OPERATOR(add, +, +=)
@@ -57,97 +82,98 @@ MAKE_BINARY_OPERATOR(div, /, /=)
 
 #undef MAKE_BINARY_OPERATOR
 
-inline bool operator<(const Float32& v1, const Float32& v2) {
-  bool result;
-  asm("ucomiss %1,%2\n seta %0" : "=q"(result) : "x"(v1.value_), "x"(v2.value_) : "cc");
-  return result;
-}
+#define MAKE_BINARY_OPERATOR(guest_name, operands, check_name, operator_name) \
+                                                                              \
+  inline bool operator operator_name(const Float32& v1, const Float32& v2) {  \
+    float src1, src2;                                                         \
+    static_assert(sizeof(src1) == sizeof(v1));                                \
+    memcpy(&src1, &v1, sizeof(v1));                                           \
+    static_assert(sizeof(src2) == sizeof(v2));                                \
+    memcpy(&src2, &v2, sizeof(v2));                                           \
+    bool result;                                                              \
+    asm volatile(#guest_name "ss " operands "\n " #check_name " %0"           \
+                 : "=q"(result)                                               \
+                 : "x"(src1), "x"(src2)                                       \
+                 : "cc");                                                     \
+    return result;                                                            \
+  }                                                                           \
+                                                                              \
+  inline bool operator operator_name(const Float64& v1, const Float64& v2) {  \
+    double src1, src2;                                                        \
+    static_assert(sizeof(src1) == sizeof(v1));                                \
+    memcpy(&src1, &v1, sizeof(v1));                                           \
+    static_assert(sizeof(src2) == sizeof(v2));                                \
+    memcpy(&src2, &v2, sizeof(v2));                                           \
+    bool result;                                                              \
+    asm volatile(#guest_name "sd " operands "\n " #check_name " %0"           \
+                 : "=q"(result)                                               \
+                 : "x"(src1), "x"(src2)                                       \
+                 : "cc");                                                     \
+    return result;                                                            \
+  }
 
-inline bool operator<(const Float64& v1, const Float64& v2) {
-  bool result;
-  asm("ucomisd %1,%2\n seta %0" : "=q"(result) : "x"(v1.value_), "x"(v2.value_) : "cc");
-  return result;
-}
+MAKE_BINARY_OPERATOR(ucomi, "%1,%2", seta, <)
+MAKE_BINARY_OPERATOR(ucomi, "%2,%1", seta, >)
+MAKE_BINARY_OPERATOR(ucomi, "%1,%2", setnb, <=)
+MAKE_BINARY_OPERATOR(ucomi, "%2,%1", setnb, >=)
 
-inline bool operator>(const Float32& v1, const Float32& v2) {
-  bool result;
-  asm("ucomiss %2,%1\n seta %0" : "=q"(result) : "x"(v1.value_), "x"(v2.value_) : "cc");
-  return result;
-}
+#undef MAKE_BINARY_OPERATOR
 
-inline bool operator>(const Float64& v1, const Float64& v2) {
-  bool result;
-  asm("ucomisd %2,%1\n seta %0" : "=q"(result) : "x"(v1.value_), "x"(v2.value_) : "cc");
-  return result;
-}
+#define MAKE_BINARY_OPERATOR(guest_name, operator_name)                         \
+                                                                                \
+  inline bool operator operator_name(const Float32& v1, const Float32& v2) {    \
+    float src1, src2;                                                           \
+    static_assert(sizeof(src1) == sizeof(v1));                                  \
+    memcpy(&src1, &v1, sizeof(v1));                                             \
+    static_assert(sizeof(src2) == sizeof(v2));                                  \
+    memcpy(&src2, &v2, sizeof(v2));                                             \
+    float result;                                                               \
+    asm volatile(#guest_name "ss %2,%0" : "=x"(result) : "0"(src1), "x"(src2)); \
+    return bit_cast<uint32_t, float>(result) & 0x1;                             \
+  }                                                                             \
+                                                                                \
+  inline bool operator operator_name(const Float64& v1, const Float64& v2) {    \
+    double src1, src2;                                                          \
+    static_assert(sizeof(src1) == sizeof(v1));                                  \
+    memcpy(&src1, &v1, sizeof(v1));                                             \
+    static_assert(sizeof(src2) == sizeof(v2));                                  \
+    memcpy(&src2, &v2, sizeof(v2));                                             \
+    double result;                                                              \
+    asm volatile(#guest_name "sd %2,%0" : "=x"(result) : "0"(src1), "x"(src2)); \
+    return bit_cast<uint64_t, double>(result) & 0x1;                            \
+  }
 
-inline bool operator<=(const Float32& v1, const Float32& v2) {
-  bool result;
-  asm("ucomiss %1,%2\n setnb %0" : "=q"(result) : "x"(v1.value_), "x"(v2.value_) : "cc");
-  return result;
-}
+MAKE_BINARY_OPERATOR(cmpeq, ==)
+MAKE_BINARY_OPERATOR(cmpneq, !=)
 
-inline bool operator<=(const Float64& v1, const Float64& v2) {
-  bool result;
-  asm("ucomisd %1,%2\n setnb %0" : "=q"(result) : "x"(v1.value_), "x"(v2.value_) : "cc");
-  return result;
-}
-
-inline bool operator>=(const Float32& v1, const Float32& v2) {
-  bool result;
-  asm("ucomiss %2,%1\n setnb %0" : "=q"(result) : "x"(v1.value_), "x"(v2.value_) : "cc");
-  return result;
-}
-
-inline bool operator>=(const Float64& v1, const Float64& v2) {
-  bool result;
-  asm("ucomisd %2,%1\n setnb %0" : "=q"(result) : "x"(v1.value_), "x"(v2.value_) : "cc");
-  return result;
-}
-
-inline bool operator==(const Float32& v1, const Float32& v2) {
-  float result;
-  asm("cmpeqss %2,%0" : "=x"(result) : "0"(v1.value_), "x"(v2.value_));
-  return bit_cast<uint32_t, float>(result) & 0x1;
-}
-
-inline bool operator==(const Float64& v1, const Float64& v2) {
-  double result;
-  asm("cmpeqsd %2,%0" : "=x"(result) : "0"(v1.value_), "x"(v2.value_));
-  return bit_cast<uint64_t, double>(result) & 0x1;
-}
-
-inline bool operator!=(const Float32& v1, const Float32& v2) {
-  float result;
-  asm("cmpneqss %2,%0" : "=x"(result) : "0"(v1.value_), "x"(v2.value_));
-  return bit_cast<uint32_t, float>(result) & 0x1;
-}
-
-inline bool operator!=(const Float64& v1, const Float64& v2) {
-  double result;
-  asm("cmpneqsd %2,%0" : "=x"(result) : "0"(v1.value_), "x"(v2.value_));
-  return bit_cast<uint64_t, double>(result) & 0x1;
-}
+#undef MAKE_BINARY_OPERATOR
 
 // It's NOT safe to use ANY functions which return float or double.  That's because IA32 ABI uses
 // x87 stack to pass arguments (and does that even with -mfpmath=sse) and NaN float and
 // double values would be corrupted if pushed on it.
 
 inline Float32 Negative(const Float32& v) {
-  // TODO(b/120563432): Simple -v.value_ doesn't work after a clang update.
-  Float32 result;
+  float result;
+  static_assert(sizeof(result) == sizeof(v));
+  memcpy(&result, &v, sizeof(v));
   uint64_t sign_bit = 0x8000'0000U;
-  asm("pxor %2, %0" : "=x"(result.value_) : "0"(v.value_), "x"(sign_bit));
-  return result;
+  // TODO(b/120563432): Simple -v.value_ doesn't work after a clang update.
+  asm volatile("pxor %2, %0" : "=x"(result) : "0"(result), "x"(sign_bit));
+  return Float32{result};
 }
 
 inline Float64 Negative(const Float64& v) {
   // TODO(b/120563432): Simple -v.value_ doesn't work after a clang update.
-  Float64 result;
+  double result;
+  static_assert(sizeof(result) == sizeof(v));
+  memcpy(&result, &v, sizeof(v));
   uint64_t sign_bit = 0x8000'0000'0000'0000ULL;
-  asm("pxor %2, %0" : "=x"(result.value_) : "0"(v.value_), "x"(sign_bit));
-  return result;
+  asm volatile("pxor %2, %0" : "=x"(result) : "0"(result), "x"(sign_bit));
+  return Float64{result};
 }
+
+inline Float32 FPRound(const Float32& value, int round_control);
+inline Float64 FPRound(const Float64& value, int round_control);
 
 template <typename FloatType>
 inline WrappedFloatType<FloatType> FPRoundTiesAway(WrappedFloatType<FloatType> value) {
@@ -172,59 +198,59 @@ inline WrappedFloatType<FloatType> FPRoundTiesAway(WrappedFloatType<FloatType> v
 }
 
 inline Float32 FPRound(const Float32& value, int round_control) {
-  Float32 result;
+  float result;
+  static_assert(sizeof(result) == sizeof(value));
+  memcpy(&result, &value, sizeof(value));
   switch (round_control) {
     case FE_HOSTROUND:
-      asm("roundss $4,%1,%0" : "=x"(result.value_) : "x"(value.value_));
+      asm volatile("roundss $4,%1,%0" : "=x"(result) : "x"(result));
       break;
     case FE_TONEAREST:
-      asm("roundss $0,%1,%0" : "=x"(result.value_) : "x"(value.value_));
+      asm volatile("roundss $0,%1,%0" : "=x"(result) : "x"(result));
       break;
     case FE_DOWNWARD:
-      asm("roundss $1,%1,%0" : "=x"(result.value_) : "x"(value.value_));
+      asm volatile("roundss $1,%1,%0" : "=x"(result) : "x"(result));
       break;
     case FE_UPWARD:
-      asm("roundss $2,%1,%0" : "=x"(result.value_) : "x"(value.value_));
+      asm volatile("roundss $2,%1,%0" : "=x"(result) : "x"(result));
       break;
     case FE_TOWARDZERO:
-      asm("roundss $3,%1,%0" : "=x"(result.value_) : "x"(value.value_));
+      asm volatile("roundss $3,%1,%0" : "=x"(result) : "x"(result));
       break;
     case FE_TIESAWAY:
-      result = FPRoundTiesAway(value);
-      break;
+      return FPRoundTiesAway(value);
     default:
-      LOG_ALWAYS_FATAL("Internal error: unknown round_control in FPRound!");
-      result.value_ = 0.f;
+      FATAL("Internal error: unknown round_control in FPRound!");
   }
-  return result;
+  return Float32{result};
 }
 
 inline Float64 FPRound(const Float64& value, int round_control) {
-  Float64 result;
+  double result;
+  static_assert(sizeof(result) == sizeof(value));
+  memcpy(&result, &value, sizeof(value));
   switch (round_control) {
     case FE_HOSTROUND:
-      asm("roundsd $4,%1,%0" : "=x"(result.value_) : "x"(value.value_));
+      asm volatile("roundsd $4,%1,%0" : "=x"(result) : "x"(result));
       break;
     case FE_TONEAREST:
-      asm("roundsd $0,%1,%0" : "=x"(result.value_) : "x"(value.value_));
+      asm volatile("roundsd $0,%1,%0" : "=x"(result) : "x"(result));
       break;
     case FE_DOWNWARD:
-      asm("roundsd $1,%1,%0" : "=x"(result.value_) : "x"(value.value_));
+      asm volatile("roundsd $1,%1,%0" : "=x"(result) : "x"(result));
       break;
     case FE_UPWARD:
-      asm("roundsd $2,%1,%0" : "=x"(result.value_) : "x"(value.value_));
+      asm volatile("roundsd $2,%1,%0" : "=x"(result) : "x"(result));
       break;
     case FE_TOWARDZERO:
-      asm("roundsd $3,%1,%0" : "=x"(result.value_) : "x"(value.value_));
+      asm volatile("roundsd $3,%1,%0" : "=x"(result) : "x"(result));
       break;
     case FE_TIESAWAY:
-      result = FPRoundTiesAway(value);
-      break;
+      return FPRoundTiesAway(value);
     default:
-      LOG_ALWAYS_FATAL("Internal error: unknown round_control in FPRound!");
-      result.value_ = 0.;
+      FATAL("Internal error: unknown round_control in FPRound!");
   }
-  return result;
+  return Float64{result};
 }
 
 }  // namespace berberis::intrinsics

@@ -54,93 +54,89 @@ class InlineIntrinsic {
                                         ResType result,
                                         ArgType... args) {
     std::tuple args_tuple = std::make_tuple(args...);
-    if constexpr (IsTagEq<&intrinsics::FMul<intrinsics::Float64>>) {
+    if constexpr (IsTagEq<&intrinsics::FMul<Float64>>) {
       auto [rm, frm, src1, src2] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
-      return TryInlineIntrinsic<&intrinsics::FMulHostRounding<intrinsics::Float64>>(
+      return TryInlineIntrinsic<&intrinsics::FMulHostRounding<Float64>>(
           as, reg_alloc, simd_reg_alloc, result, src1, src2);
-    } else if constexpr (IsTagEq<&intrinsics::FMul<intrinsics::Float32>>) {
+    } else if constexpr (IsTagEq<&intrinsics::FMul<Float32>>) {
       auto [rm, frm, src1, src2] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
-      return TryInlineIntrinsic<&intrinsics::FMulHostRounding<intrinsics::Float32>>(
+      return TryInlineIntrinsic<&intrinsics::FMulHostRounding<Float32>>(
           as, reg_alloc, simd_reg_alloc, result, src1, src2);
-    } else if constexpr (IsTagEq<&intrinsics::FAdd<intrinsics::Float64>>) {
+    } else if constexpr (IsTagEq<&intrinsics::FAdd<Float64>>) {
       auto [rm, frm, src1, src2] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
-      return TryInlineIntrinsic<&intrinsics::FAddHostRounding<intrinsics::Float64>>(
+      return TryInlineIntrinsic<&intrinsics::FAddHostRounding<Float64>>(
           as, reg_alloc, simd_reg_alloc, result, src1, src2);
-    } else if constexpr (IsTagEq<&intrinsics::FAdd<intrinsics::Float32>>) {
+    } else if constexpr (IsTagEq<&intrinsics::FAdd<Float32>>) {
       auto [rm, frm, src1, src2] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
-      return TryInlineIntrinsic<&intrinsics::FAddHostRounding<intrinsics::Float32>>(
+      return TryInlineIntrinsic<&intrinsics::FAddHostRounding<Float32>>(
           as, reg_alloc, simd_reg_alloc, result, src1, src2);
-    } else if constexpr (IsTagEq<&intrinsics::FSub<intrinsics::Float64>>) {
+    } else if constexpr (IsTagEq<&intrinsics::FSub<Float64>>) {
       auto [rm, frm, src1, src2] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
-      return TryInlineIntrinsic<&intrinsics::FSubHostRounding<intrinsics::Float64>>(
+      return TryInlineIntrinsic<&intrinsics::FSubHostRounding<Float64>>(
           as, reg_alloc, simd_reg_alloc, result, src1, src2);
-    } else if constexpr (IsTagEq<&intrinsics::FSub<intrinsics::Float32>>) {
+    } else if constexpr (IsTagEq<&intrinsics::FSub<Float32>>) {
       auto [rm, frm, src1, src2] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
-      return TryInlineIntrinsic<&intrinsics::FSubHostRounding<intrinsics::Float32>>(
+      return TryInlineIntrinsic<&intrinsics::FSubHostRounding<Float32>>(
           as, reg_alloc, simd_reg_alloc, result, src1, src2);
-    } else if constexpr (IsTagEq<&intrinsics::FDiv<intrinsics::Float64>>) {
+    } else if constexpr (IsTagEq<&intrinsics::FDiv<Float64>>) {
       auto [rm, frm, src1, src2] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
-      return TryInlineIntrinsic<&intrinsics::FDivHostRounding<intrinsics::Float64>>(
+      return TryInlineIntrinsic<&intrinsics::FDivHostRounding<Float64>>(
           as, reg_alloc, simd_reg_alloc, result, src1, src2);
-    } else if constexpr (IsTagEq<&intrinsics::FDiv<intrinsics::Float32>>) {
+    } else if constexpr (IsTagEq<&intrinsics::FDiv<Float32>>) {
       auto [rm, frm, src1, src2] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
-      return TryInlineIntrinsic<&intrinsics::FDivHostRounding<intrinsics::Float32>>(
+      return TryInlineIntrinsic<&intrinsics::FDivHostRounding<Float32>>(
           as, reg_alloc, simd_reg_alloc, result, src1, src2);
-    } else if constexpr (IsTagEq<&intrinsics::FCvtFloatToInteger<int64_t, intrinsics::Float64>>) {
+    } else if constexpr (IsTagEq<&intrinsics::FCvtFloatToInteger<int64_t, Float64>>) {
       auto [rm, frm, src] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
-      return TryInlineIntrinsic<
-          &intrinsics::FCvtFloatToIntegerHostRounding<int64_t, intrinsics::Float64>>(
+      return TryInlineIntrinsic<&intrinsics::FCvtFloatToIntegerHostRounding<int64_t, Float64>>(
           as, reg_alloc, simd_reg_alloc, result, src);
-    } else if constexpr (IsTagEq<&intrinsics::FCvtFloatToInteger<int64_t, intrinsics::Float32>>) {
+    } else if constexpr (IsTagEq<&intrinsics::FCvtFloatToInteger<int64_t, Float32>>) {
       auto [rm, frm, src] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
-      return TryInlineIntrinsic<
-          &intrinsics::FCvtFloatToIntegerHostRounding<int64_t, intrinsics::Float32>>(
+      return TryInlineIntrinsic<&intrinsics::FCvtFloatToIntegerHostRounding<int64_t, Float32>>(
           as, reg_alloc, simd_reg_alloc, result, src);
-    } else if constexpr (IsTagEq<&intrinsics::FCvtFloatToInteger<int32_t, intrinsics::Float64>>) {
+    } else if constexpr (IsTagEq<&intrinsics::FCvtFloatToInteger<int32_t, Float64>>) {
       auto [rm, frm, src] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
-      return TryInlineIntrinsic<
-          &intrinsics::FCvtFloatToIntegerHostRounding<int32_t, intrinsics::Float64>>(
+      return TryInlineIntrinsic<&intrinsics::FCvtFloatToIntegerHostRounding<int32_t, Float64>>(
           as, reg_alloc, simd_reg_alloc, result, src);
-    } else if constexpr (IsTagEq<&intrinsics::FCvtFloatToInteger<int32_t, intrinsics::Float32>>) {
+    } else if constexpr (IsTagEq<&intrinsics::FCvtFloatToInteger<int32_t, Float32>>) {
       auto [rm, frm, src] = args_tuple;
       if (rm != FPFlags::DYN) {
         return false;
       }
-      return TryInlineIntrinsic<
-          &intrinsics::FCvtFloatToIntegerHostRounding<int32_t, intrinsics::Float32>>(
+      return TryInlineIntrinsic<&intrinsics::FCvtFloatToIntegerHostRounding<int32_t, Float32>>(
           as, reg_alloc, simd_reg_alloc, result, src);
     }
     return false;
@@ -311,8 +307,8 @@ class TryBindingBasedInlineIntrinsic {
       } else if constexpr (std::is_integral_v<ReturnType> &&
                            sizeof(ReturnType) == sizeof(std::int64_t)) {
         // Do nothing, we have already produced expanded value.
-      } else if constexpr (std::is_same_v<ReturnType, intrinsics::Float32> ||
-                           std::is_same_v<ReturnType, intrinsics::Float64>) {
+      } else if constexpr (std::is_same_v<ReturnType, Float32> ||
+                           std::is_same_v<ReturnType, Float64>) {
         // Do nothing, NaN boxing is handled by semantics player.
       } else {
         static_assert(kDependentTypeFalse<ReturnType>);

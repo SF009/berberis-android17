@@ -209,8 +209,6 @@ constexpr bool InitArgs(MacroAssembler&& as, bool has_avx, AssemblerArgType... a
   using Assembler = std::decay_t<MacroAssembler>;
   using Register = typename Assembler::Register;
   using XMMRegister = typename Assembler::XMMRegister;
-  using Float32 = intrinsics::Float32;
-  using Float64 = intrinsics::Float64;
 
   // All ABI argument registers are saved among caller-saved registers, so we can safely initialize
   // them now. When intrinsic receives its argument from such register we'll read it from stack, so
@@ -308,8 +306,6 @@ StoredRegsInfo ForwardResults(MacroAssembler<x86_64::Assembler>& as, AssemblerRe
   using Assembler = MacroAssembler<x86_64::Assembler>;
   using Register = Assembler::Register;
   using XMMRegister = Assembler::XMMRegister;
-  using Float32 = intrinsics::Float32;
-  using Float64 = intrinsics::Float64;
 
   StoredRegsInfo regs_info = {.regs_on_stack = kRegOffsetsOnStack,
                               .simd_regs_on_stack = kSimdRegOffsetsOnStack};

@@ -38,12 +38,12 @@ void LocalGuestContextOptimizer::UnmapOlderThan(size_t pos, RegType reg_type) {
     }
 
     MachineReg reg = std::get<MachineReg>(reg_usage.value);
-    const auto& lifetime_map = reg_lifetime_counter_.GetMap();
-    if (lifetime_map.at(reg).reg_type != reg_type) {
+    const auto& lifetime = reg_lifetime_counter_.GetLifetimeAt(reg);
+    if (lifetime.reg_type != reg_type) {
       continue;
     }
 
-    if (lifetime_map.at(reg).end_pos <= pos) {
+    if (lifetime.end_pos <= pos) {
       mapping = std::nullopt;
     }
   }
@@ -91,11 +91,12 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(
           // active mapping, the lifetime for which is now prolonged, which
           // we need to reflect in reg_lifetimes_counter_.
           auto src_reg = src_reg_opt.value();
-          if (reg_lifetime_counter_.LifetimeAt(src_reg).reg_type == RegType::kUnknown) {
+          const auto& lifetime = reg_lifetime_counter_.GetLifetimeAt(src_reg);
+          if (lifetime.reg_type == RegType::kUnknown) {
             continue;
           }
-          auto reg_type = reg_lifetime_counter_.LifetimeAt(src_reg).reg_type;
-          const size_t kLimit = reg_type == RegType::kGeneral ? kGenRegLimit : kSimdRegLimit;
+          const size_t kLimit =
+              lifetime.reg_type == RegType::kGeneral ? kGenRegLimit : kSimdRegLimit;
           std::optional<size_t> pos_over_limit =
               reg_lifetime_counter_.UpdateLastUse(src_reg, *std::next(insn_it), pos + 1, kLimit);
 
@@ -104,7 +105,7 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(
           // all active mappings to make sure the next optimization doesn't
           // overflow that limit.
           if (pos_over_limit.has_value()) {
-            UnmapOlderThan(pos_over_limit.value(), reg_type);
+            UnmapOlderThan(pos_over_limit.value(), lifetime.reg_type);
           }
         }
       }

@@ -39,13 +39,15 @@ class VRegAccess {
 
   MachineReg GetVReg() const { return pos_.insn()->RegAt(index_); }
 
-  void RewriteVReg(MachineIR* machine_ir, MachineReg reg, int slot) {
+  void RewriteVReg(MachineIR* machine_ir, MachineReg reg, int slot, bool range_starts_with_def) {
     pos_.insn()->SetRegAt(index_, reg);
     if (slot != -1) {
       int offset = machine_ir->SpillSlotOffset(slot);
       MachineReg spill = MachineReg::CreateSpilledRegFromIndex(offset);
       int size = GetRegClass()->RegSize();
-      if (IsUse()) {
+      // If the range starts with a def, then the input is already present
+      // in the allocated hard register, so we don't need to reload it.
+      if (IsInput() && !range_starts_with_def) {
         if (pos_.insn()->is_copy() && !pos_.insn()->RegAt(0).IsSpilledReg()) {
           // Rewrite the src of the copy itself, unless the result is mem-to-mem copy.
           CHECK_EQ(1, index_);
@@ -55,7 +57,10 @@ class VRegAccess {
         }
       }
       if (IsDef()) {
-        if (pos_.insn()->is_copy() && !pos_.insn()->RegAt(1).IsSpilledReg()) {
+        // If the range starts with def we assume that this def writes to hard register, so
+        // we cannot replace copy with spill.
+        if (pos_.insn()->is_copy() && !pos_.insn()->RegAt(1).IsSpilledReg() &&
+            !range_starts_with_def) {
           // Rewrite the dst of the copy itself, unless the result is mem-to-mem copy.
           CHECK_EQ(0, index_);
           pos_.insn()->SetRegAt(0, spill);
@@ -146,6 +151,12 @@ class VRegLiveRange {
     if (end_ < access.end()) {
       end_ = access.end();
     }
+  }
+
+  bool StartsWithDef() const {
+    // Accesses are sorted by begin so the first one is the one we need to check.
+    auto it = access_list_.begin();
+    return it != access_list_.end() && it->IsDef() && !it->IsInput();
   }
 
   // Multiline
@@ -421,7 +432,7 @@ class VRegLifetime {
   void Rewrite(MachineIR* machine_ir) {
     for (auto& range : range_list_) {
       for (auto& access : range.access_list()) {
-        access.RewriteVReg(machine_ir, hard_reg_, spill_slot_);
+        access.RewriteVReg(machine_ir, hard_reg_, spill_slot_, range.StartsWithDef());
       }
     }
   }

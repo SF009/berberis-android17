@@ -27,28 +27,44 @@
 
 namespace berberis::intrinsics {
 
-#define MAKE_BINARY_OPERATOR(guest_name, operator_name, assignment_name)                         \
-                                                                                                 \
-  inline Float32 operator operator_name(const Float32& v1, const Float32& v2) {                  \
-    Float32 result;                                                                              \
-    asm("f" #guest_name ".s %0, %1, %2" : "=f"(result.value_) : "f"(v1.value_), "f"(v2.value_)); \
-    return result;                                                                               \
-  }                                                                                              \
-                                                                                                 \
-  inline Float32& operator assignment_name(Float32 & v1, const Float32 & v2) {                   \
-    asm("f" #guest_name ".s %0, %1, %2" : "=f"(v1.value_) : "f"(v1.value_), "f"(v2.value_));     \
-    return v1;                                                                                   \
-  }                                                                                              \
-                                                                                                 \
-  inline Float64 operator operator_name(const Float64& v1, const Float64& v2) {                  \
-    Float64 result;                                                                              \
-    asm("f" #guest_name ".d %0, %1, %2" : "=f"(result.value_) : "f"(v1.value_), "f"(v2.value_)); \
-    return result;                                                                               \
-  }                                                                                              \
-                                                                                                 \
-  inline Float64& operator assignment_name(Float64 & v1, const Float64 & v2) {                   \
-    asm("f" #guest_name ".d %0, %1, %2" : "=f"(v1.value_) : "f"(v1.value_), "f"(v2.value_));     \
-    return v1;                                                                                   \
+// We need more precise implementation of float operations than C++ standard guarantees, thus
+// operations below are implemented in inline assembler (with volatile modifier), but because we are
+// using inline assembler code is non-portable and couldn't be executed on any platform but RISC-V.
+// And that, in turn, guarantees that bit_cast is safe to use because it's only unsafe on x86-32
+// platform (see comment in the berberis/base/float.h).
+
+#define MAKE_BINARY_OPERATOR(guest_name, operator_name, assignment_name)        \
+                                                                                \
+  inline Float32 operator operator_name(const Float32& v1, const Float32& v2) { \
+    float result;                                                               \
+    asm volatile("f" #guest_name ".s %0, %1, %2"                                \
+                 : "=f"(result)                                                 \
+                 : "f"(bit_cast<float>(v1)), "f"(bit_cast<float>(v2)));         \
+    return bit_cast<Float32>(result);                                           \
+  }                                                                             \
+                                                                                \
+  inline Float32& operator assignment_name(Float32& v1, const Float32& v2) {    \
+    float result;                                                               \
+    asm volatile("f" #guest_name ".s %0, %1, %2"                                \
+                 : "=f"(result)                                                 \
+                 : "f"(bit_cast<float>(v1)), "f"(bit_cast<float>(v2)));         \
+    vi = bit_cast<Float32>(result) return v1;                                   \
+  }                                                                             \
+                                                                                \
+  inline Float64 operator operator_name(const Float64& v1, const Float64& v2) { \
+    double result;                                                              \
+    asm volatile("f" #guest_name ".d %0, %1, %2"                                \
+                 : "=f"(result)                                                 \
+                 : "f"(bit_cast<double>(v1)), "f"(bit_cast<double>(v2)));       \
+    return result;                                                              \
+  }                                                                             \
+                                                                                \
+  inline Float64& operator assignment_name(Float64& v1, const Float64& v2) {    \
+    double result;                                                              \
+    asm volatile("f" #guest_name ".d %0, %1, %2"                                \
+                 : "=f"(result)                                                 \
+                 : "f"(bit_cast<double>(v1)), "f"(bit_cast<double>(v2)));       \
+    vi = bit_cast<Float64>(result) return v1;                                   \
   }
 
 MAKE_BINARY_OPERATOR(add, +, +=)
@@ -58,75 +74,45 @@ MAKE_BINARY_OPERATOR(div, /, /=)
 
 #undef MAKE_BINARY_OPERATOR
 
-inline bool operator<(const Float32& v1, const Float32& v2) {
-  bool result;
-  asm("flt.s %0, %1, %2" : "=r"(result) : "f"(v1.value_), "f"(v2.value_));
-  return result;
-}
+#define MAKE_BINARY_OPERATOR(guest_name, operands, operator_name)            \
+                                                                             \
+  inline bool operator operator_name(const Float32& v1, const Float32& v2) { \
+    bool result;                                                             \
+    asm volatile("f" #guest_name ".s %0, " operands                          \
+                 : "=r"(result)                                              \
+                 : "f"(bit_cast<float>(v1)), "f"(bit_cast<float>(v2)));      \
+    return result;                                                           \
+  }                                                                          \
+                                                                             \
+  inline bool operator<(const Float64& v1, const Float64& v2) {              \
+    bool result;                                                             \
+    asm volatile("f" #guest_name ".d %0, " operands                          \
+                 : "=r"(result)                                              \
+                 : "f"(bit_cast<double>(v1)), "f"(bit_cast<double>(v2)));    \
+    return result;                                                           \
+  }
 
-inline bool operator<(const Float64& v1, const Float64& v2) {
-  bool result;
-  asm("flt.d %0, %1, %2" : "=r"(result) : "f"(v1.value_), "f"(v2.value_));
-  return result;
-}
+MAKE_BINARY_OPERATOR(lt, "%1,%2", <)
+MAKE_BINARY_OPERATOR(lt, "%2,%1", >)
+MAKE_BINARY_OPERATOR(le, "%1,%2", <=)
+MAKE_BINARY_OPERATOR(le, "%2,%1", >=)
+MAKE_BINARY_OPERATOR(eq, "%1,%2", ==)
 
-inline bool operator>(const Float32& v1, const Float32& v2) {
-  bool result;
-  asm("flt.s %0, %1, %2" : "=r"(result) : "f"(v2.value_), "f"(v1.value_));
-  return result;
-}
-
-inline bool operator>(const Float64& v1, const Float64& v2) {
-  bool result;
-  asm("flt.d %0, %1, %2" : "=r"(result) : "f"(v2.value_), "f"(v1.value_));
-  return result;
-}
-
-inline bool operator<=(const Float32& v1, const Float32& v2) {
-  bool result;
-  asm("fle.s %0, %1, %2" : "=r"(result) : "f"(v1.value_), "f"(v2.value_));
-  return result;
-}
-
-inline bool operator<=(const Float64& v1, const Float64& v2) {
-  bool result;
-  asm("fle.d %0, %1, %2" : "=r"(result) : "f"(v1.value_), "f"(v2.value_));
-  return result;
-}
-
-inline bool operator>=(const Float32& v1, const Float32& v2) {
-  bool result;
-  asm("fle.s %0, %1, %2" : "=r"(result) : "f"(v2.value_), "f"(v1.value_));
-  return result;
-}
-
-inline bool operator>=(const Float64& v1, const Float64& v2) {
-  bool result;
-  asm("fle.d %0, %1, %2" : "=r"(result) : "f"(v2.value_), "f"(v1.value_));
-  return result;
-}
-
-inline bool operator==(const Float32& v1, const Float32& v2) {
-  bool result;
-  asm("feq.s %0, %1, %2" : "=r"(result) : "f"(v1.value_), "f"(v2.value_));
-  return result;
-}
-
-inline bool operator==(const Float64& v1, const Float64& v2) {
-  bool result;
-  asm("feq.d %0, %1, %2" : "=r"(result) : "f"(v1.value_), "f"(v2.value_));
-  return result;
-}
+#undef MAKE_BINARY_OPERATOR
 
 inline bool operator!=(const Float32& v1, const Float32& v2) {
   bool result;
-  asm("feq.s %0, %1, %2" : "=r"(result) : "f"(v1.value_), "f"(v2.value_));
+  asm volatile("feq.s %0, %1, %2"
+               : "=r"(result)
+               : "f"(bit_cast<float>(v1)), "f"(bit_cast<float>(v2)));
   return !result;
 }
 
 inline bool operator!=(const Float64& v1, const Float64& v2) {
   bool result;
-  asm("feq.d %0, %1, %2" : "=r"(result) : "f"(v1.value_), "f"(v2.value_));
+  asm volatile("feq.d %0, %1, %2"
+               : "=r"(result)
+               : "f"(bit_cast<double>(v1)), "f"(bit_cast<double>(v2)));
   return !result;
 }
 
@@ -135,15 +121,15 @@ inline bool operator!=(const Float64& v1, const Float64& v2) {
 // double values would be corrupted if pushed on it.
 
 inline Float32 Negative(const Float32& v) {
-  Float32 result;
-  asm("fneg.s %0, %1" : "=f"(result.value_) : "f"(v.value_));
-  return result;
+  float result;
+  asm volatile("fneg.s %0, %1" : "=f"(result) : "f"(bit_cast<float>(v)));
+  return bit_cast<FLoat32>(result);
 }
 
 inline Float64 Negative(const Float64& v) {
   Float64 result;
-  asm("fneg.d %0, %1" : "=f"(result.value_) : "f"(v.value_));
-  return result;
+  asm volatile("fneg.d %0, %1" : "=f"(result) : "f"(bit_cast<double>(v)));
+  return bit_cast<Float64>(result);
 }
 
 inline Float32 FPRound(const Float32& value, int round_control) {
@@ -151,77 +137,83 @@ inline Float32 FPRound(const Float32& value, int round_control) {
   // because conversion to integer returns an actual int (int32_t or int64_t) and that fails for
   // values that are larger than 1/ϵ – but all such values couldn't have fraction parts which means
   // that we may return them unmodified and only deal with small values that fit into int32_t below.
-  Float32 result = value;
+  float result = bit_cast<float>(value);
   // First of all we need to obtain positive value.
-  Float32 positive_value;
-  asm("fabs.s %0, %1" : "=f"(positive_value.value_) : "f"(result.value_));
+  float positive_value;
+  asm volatile("fabs.s %0, %1" : "=f"(positive_value) : "f"(result));
   // Compare that positive value to 1/ϵ and return values that are not smaller unmodified.
   // Note: that includes ±∞ and NaNs!
   int64_t compare_result;
-  asm("flt.s %0, %1, %2"
-      : "=r"(compare_result)
-      : "f"(positive_value.value_), "f"(float{1 / std::numeric_limits<float>::epsilon()}));
+  asm volatile("flt.s %0, %1, %2"
+               : "=r"(compare_result)
+               : "f"(positive_value), "f"(float{1 / std::numeric_limits<float>::epsilon()}));
   if (compare_result == 0) [[unlikely]] {
     return result;
   }
   // Note: here we are dealing only with “small” values that can fit into int32_t.
   switch (round_control) {
     case FE_HOSTROUND:
-      asm("fcvt.w.s %1, %2, dyn\n"
+      asm volatile(
+          "fcvt.w.s %1, %2, dyn\n"
           "fcvt.s.w %0, %1, dyn"
-          : "=f"(result.value_), "=r"(compare_result)
-          : "f"(result.value_));
+          : "=f"(result), "=r"(compare_result)
+          : "f"(result));
       break;
     case FE_TONEAREST:
-      asm("fcvt.w.s %1, %2, rne\n"
+      asm volatile(
+          "fcvt.w.s %1, %2, rne\n"
           "fcvt.s.w %0, %1, rne"
-          : "=f"(result.value_), "=r"(compare_result)
-          : "f"(result.value_));
+          : "=f"(result), "=r"(compare_result)
+          : "f"(result));
       break;
     case FE_DOWNWARD:
-      asm("fcvt.w.s %1, %2, rdn\n"
+      asm volatile(
+          "fcvt.w.s %1, %2, rdn\n"
           "fcvt.s.w %0, %1, rdn"
-          : "=f"(result.value_), "=r"(compare_result)
-          : "f"(result.value_));
+          : "=f"(result), "=r"(compare_result)
+          : "f"(result));
       break;
     case FE_UPWARD:
-      asm("fcvt.w.s %1, %2, rup\n"
+      asm volatile(
+          "fcvt.w.s %1, %2, rup\n"
           "fcvt.s.w %0, %1, rup"
-          : "=f"(result.value_), "=r"(compare_result)
-          : "f"(result.value_));
+          : "=f"(result), "=r"(compare_result)
+          : "f"(result));
       break;
     case FE_TOWARDZERO:
-      asm("fcvt.w.s %1, %2, rtz\n"
+      asm volatile(
+          "fcvt.w.s %1, %2, rtz\n"
           "fcvt.s.w %0, %1, rtz"
-          : "=f"(result.value_), "=r"(compare_result)
-          : "f"(result.value_));
+          : "=f"(result), "=r"(compare_result)
+          : "f"(result));
       break;
     case FE_TIESAWAY:
       // Convert positive value to integer with rounding up.
-      asm("fcvt.w.s %0, %1, rup" : "=r"(compare_result) : "f"(positive_value.value_));
+      asm volatile("fcvt.w.s %0, %1, rup" : "=r"(compare_result) : "f"(positive_value));
       // Subtract .5 from the rounded avlue and compare to the previously calculated positive value.
       // Note: here we don't have to deal with infinities, NaNs, values that are too large, etc,
       // since they are all handled above before we reach that line.
       // But coding that in C++ gives compiler opportunity to use Zfa, if it's enabled.
-      if (positive_value.value_ ==
+      if (positive_value ==
           static_cast<float>(static_cast<float>(static_cast<int32_t>(compare_result)) - 0.5f)) {
         // If they are equal then we already have the final result (but without correct sign bit).
         // Thankfully RISC-V includes operation that can be used to pick sign from original value.
-        result.value_ = static_cast<float>(static_cast<int32_t>(compare_result));
+        result = static_cast<float>(static_cast<int32_t>(compare_result));
       } else {
         // Otherwise we may now use conversion to nearest.
-        asm("fcvt.w.s %1, %2, rne\n"
+        asm volatile(
+            "fcvt.w.s %1, %2, rne\n"
             "fcvt.s.w %0, %1, rne"
-            : "=f"(result.value_), "=r"(compare_result)
-            : "f"(result.value_));
+            : "=f"(result), "=r"(compare_result)
+            : "f"(result));
       }
       break;
     default:
       FATAL("Unknown round_control in FPRound!");
   }
   // Pick sign from original value. This is needed for -0 corner cases and ties away.
-  asm("fsgnj.s %0, %1, %2" : "=f"(result.value_) : "f"(result.value_), "f"(value.value_));
-  return result;
+  asm volatile("fsgnj.s %0, %1, %2" : "=f"(result) : "f"(result), "f"(value));
+  return bit_cast<Float32>(result);
 }
 
 inline Float64 FPRound(const Float64& value, int round_control) {
@@ -229,75 +221,81 @@ inline Float64 FPRound(const Float64& value, int round_control) {
   // because conversion to integer returns an actual int (int32_t or int64_t) and that fails for
   // values that are larger than 1/ϵ – but all such values couldn't have fraction parts which means
   // that we may return them unmodified and only deal with small values that fit into int64_t below.
-  Float64 result = value;
+  double result = bit_cast<double>(value);
   // First of all we need to obtain positive value.
-  Float64 positive_value;
-  asm("fabs.d %0, %1" : "=f"(positive_value.value_) : "f"(result.value_));
+  double positive_value;
+  asm volatile("fabs.d %0, %1" : "=f"(positive_value) : "f"(result));
   // Compare that positive value to 1/ϵ and return values that are not smaller unmodified.
   // Note: that includes ±∞ and NaNs!
   int64_t compare_result;
-  asm("flt.d %0, %1, %2"
-      : "=r"(compare_result)
-      : "f"(positive_value.value_), "f"(1 / std::numeric_limits<double>::epsilon()));
+  asm volatile("flt.d %0, %1, %2"
+               : "=r"(compare_result)
+               : "f"(positive_value), "f"(1 / std::numeric_limits<double>::epsilon()));
   if (compare_result == 0) [[unlikely]] {
     return result;
   }
   // Note: here we are dealing only with “small” values that can fit into int32_t.
   switch (round_control) {
     case FE_HOSTROUND:
-      asm("fcvt.l.d %1, %2, dyn\n"
+      asm volatile(
+          "fcvt.l.d %1, %2, dyn\n"
           "fcvt.d.l %0, %1, dyn"
-          : "=f"(result.value_), "=r"(compare_result)
-          : "f"(result.value_));
+          : "=f"(result), "=r"(compare_result)
+          : "f"(result));
       break;
     case FE_TONEAREST:
-      asm("fcvt.l.d %1, %2, rne\n"
+      asm volatile(
+          "fcvt.l.d %1, %2, rne\n"
           "fcvt.d.l %0, %1, rne"
-          : "=f"(result.value_), "=r"(compare_result)
-          : "f"(result.value_));
+          : "=f"(result), "=r"(compare_result)
+          : "f"(result));
       break;
     case FE_DOWNWARD:
-      asm("fcvt.l.d %1, %2, rdn\n"
+      asm volatile(
+          "fcvt.l.d %1, %2, rdn\n"
           "fcvt.d.l %0, %1, rdn"
-          : "=f"(result.value_), "=r"(compare_result)
-          : "f"(result.value_));
+          : "=f"(result), "=r"(compare_result)
+          : "f"(result));
       break;
     case FE_UPWARD:
-      asm("fcvt.l.d %1, %2, rup\n"
+      asm volatile(
+          "fcvt.l.d %1, %2, rup\n"
           "fcvt.d.l %0, %1, rup"
-          : "=f"(result.value_), "=r"(compare_result)
-          : "f"(result.value_));
+          : "=f"(result), "=r"(compare_result)
+          : "f"(result));
       break;
     case FE_TOWARDZERO:
-      asm("fcvt.l.d %1, %2, rtz\n"
+      asm volatile(
+          "fcvt.l.d %1, %2, rtz\n"
           "fcvt.d.l %0, %1, rtz"
-          : "=f"(result.value_), "=r"(compare_result)
-          : "f"(result.value_));
+          : "=f"(result), "=r"(compare_result)
+          : "f"(result));
       break;
     case FE_TIESAWAY:
       // Convert positive value to integer with rounding up.
-      asm("fcvt.l.d %0, %1, rup" : "=r"(compare_result) : "f"(positive_value.value_));
+      asm volatile("fcvt.l.d %0, %1, rup" : "=r"(compare_result) : "f"(positive_value));
       // Subtract .5 from the rounded value and compare to the previously calculated positive value.
       // Note: here we don't have to deal with infinities, NaNs, values that are too large, etc,
       // since they are all handled above before we reach that line.
       // But coding that in C++ gives compiler opportunity to use Zfa, if it's enabled.
-      if (positive_value.value_ == static_cast<double>(compare_result) - 0.5) {
+      if (positive_value == static_cast<double>(compare_result) - 0.5) {
         // If they are equal then we already have the final result (but without correct sign bit).
         // Thankfully RISC-V includes operation that can be used to pick sign from original value.
-        result.value_ = static_cast<double>(compare_result);
+        result = static_cast<double>(compare_result);
       } else {
         // Otherwise we may now use conversion to nearest.
-        asm("fcvt.l.d %1, %2, rne\n"
+        asm volatile(
+            "fcvt.l.d %1, %2, rne\n"
             "fcvt.d.l %0, %1, rne"
-            : "=f"(result.value_), "=r"(compare_result)
-            : "f"(result.value_));
+            : "=f"(result), "=r"(compare_result)
+            : "f"(result));
       }
       break;
     default:
       FATAL("Unknown round_control in FPRound!");
   }
   // Pick sign from original value. This is needed for -0 corner cases and ties away.
-  asm("fsgnj.d %0, %1, %2" : "=f"(result.value_) : "f"(result.value_), "f"(value.value_));
+  asm volatile("fsgnj.d %0, %1, %2" : "=f"(result) : "f"(result), "f"(value));
   return result;
 }
 

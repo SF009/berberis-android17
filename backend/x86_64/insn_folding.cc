@@ -920,7 +920,7 @@ void FoldInsns(MachineIR* machine_ir) {
       insn_it = insn_folding.ExecuteInsnFold(insn_list, insn_it, new_insn, folding_type);
     }
   }
-  machine_ir->SetInsnFoldingExecuted();
+  machine_ir->set_insn_folding_executed();
 }
 
 // TODO(b/179708579): Maybe combine with FoldInsns.

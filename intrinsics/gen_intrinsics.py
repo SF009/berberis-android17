@@ -922,10 +922,7 @@ template <typename MacroAssemblers,
           typename Callback,
           typename... Args>
 constexpr void ProcessAllBindings([[maybe_unused]] Callback callback,
-                        [[maybe_unused]] Args&&... args) {
-  using berberis::intrinsics::Float16;
-  using berberis::intrinsics::Float32;
-  using berberis::intrinsics::Float64;""",
+                        [[maybe_unused]] Args&&... args) {""",
     file=f)
   for line in callback_lines:
     print(line, file=f)
@@ -957,10 +954,7 @@ template <auto kFunc,
           typename Result,
           typename Callback,
           typename... Args>
-constexpr Result ProcessBindings(Callback callback, Result def_result, Args&&... args) {
-  using berberis::intrinsics::Float16;
-  using berberis::intrinsics::Float32;
-  using berberis::intrinsics::Float64;""",
+constexpr Result ProcessBindings(Callback callback, Result def_result, Args&&... args) {""",
     file=f)
   for line in callback_lines:
     print(line, file=f)

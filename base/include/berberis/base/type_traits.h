@@ -19,10 +19,13 @@
 
 #include <cstdint>
 
-#include "berberis/intrinsics/common/intrinsics_float.h"
-#include "berberis/intrinsics/simd_register.h"
+#include "berberis/base/float.h"
 
 namespace berberis {
+
+class SIMD128Register;
+
+using Float32x4 = float __attribute__((__vector_size__(16), __aligned__(16), may_alias));
 
 // In specializations we define various derivative types:
 //  Wide - type twice as wide, same signedness
@@ -40,7 +43,7 @@ template <>
 struct TypeTraits<uint16_t> {
   using Wide = uint32_t;
   using Narrow = uint8_t;
-  using Float = intrinsics::Float16;
+  using Float = Float16;
   static constexpr int kBits = 16;
   static constexpr char kName[] = "uint16_t";
 };
@@ -49,7 +52,7 @@ template <>
 struct TypeTraits<uint32_t> {
   using Wide = uint64_t;
   using Narrow = uint16_t;
-  using Float = intrinsics::Float32;
+  using Float = Float32;
   static constexpr int kBits = 32;
   static constexpr char kName[] = "uint32_t";
 };
@@ -60,7 +63,7 @@ struct TypeTraits<uint64_t> {
 #if defined(__LP64__)
   using Wide = __uint128_t;
 #endif
-  using Float = intrinsics::Float64;
+  using Float = Float64;
   static constexpr int kBits = 64;
   static constexpr char kName[] = "uint64_t";
 };
@@ -76,7 +79,7 @@ template <>
 struct TypeTraits<int16_t> {
   using Wide = int32_t;
   using Narrow = int8_t;
-  using Float = intrinsics::Float16;
+  using Float = Float16;
   static constexpr int kBits = 16;
   static constexpr char kName[] = "int16_t";
 };
@@ -85,7 +88,7 @@ template <>
 struct TypeTraits<int32_t> {
   using Wide = int64_t;
   using Narrow = int16_t;
-  using Float = intrinsics::Float32;
+  using Float = Float32;
   static constexpr int kBits = 32;
   static constexpr char kName[] = "int32_t";
 };
@@ -96,47 +99,47 @@ struct TypeTraits<int64_t> {
 #if defined(__LP64__)
   using Wide = __int128_t;
 #endif
-  using Float = intrinsics::Float64;
+  using Float = Float64;
   static constexpr int kBits = 64;
   static constexpr char kName[] = "int64_t";
 };
 
 template <>
-struct TypeTraits<intrinsics::Float8> {
+struct TypeTraits<Float8> {
   using Int = int8_t;
-  using Raw = intrinsics::Float8PhonyType;
-  using Wide = intrinsics::Float16;
+  using Raw = Float8PhonyType;
+  using Wide = Float16;
   static constexpr int kBits = 8;
   static constexpr char kName[] = "Float8";
 };
 
 template <>
-struct TypeTraits<intrinsics::Float16> {
+struct TypeTraits<Float16> {
   using Int = int16_t;
   using Raw = _Float16;
-  using Narrow = intrinsics::Float8;
-  using Wide = intrinsics::Float32;
+  using Narrow = Float8;
+  using Wide = Float32;
   static constexpr int kBits = 16;
   static constexpr char kName[] = "Float16";
 };
 
 template <>
-struct TypeTraits<intrinsics::Float32> {
+struct TypeTraits<Float32> {
   using Int = int32_t;
   using Raw = float;
-  using Narrow = intrinsics::Float16;
-  using Wide = intrinsics::Float64;
+  using Narrow = Float16;
+  using Wide = Float64;
   static constexpr int kBits = 32;
   static constexpr char kName[] = "Float32";
 };
 
 template <>
-struct TypeTraits<intrinsics::Float64> {
+struct TypeTraits<Float64> {
   using Int = int64_t;
   using Raw = double;
-  using Narrow = intrinsics::Float32;
+  using Narrow = Float32;
 #if defined(__LP64__)
-  static_assert(sizeof(long double) > sizeof(intrinsics::Float64));
+  static_assert(sizeof(long double) > sizeof(Float64));
   using Wide = long double;
 #endif
   static constexpr int kBits = 64;
@@ -146,7 +149,7 @@ struct TypeTraits<intrinsics::Float64> {
 template <>
 struct TypeTraits<_Float16> {
   using Int = int16_t;
-  using Wrapped = intrinsics::Float16;
+  using Wrapped = Float16;
   using Wide = float;
   static constexpr int kBits = 16;
   static constexpr char kName[] = "_Float16";
@@ -155,7 +158,7 @@ struct TypeTraits<_Float16> {
 template <>
 struct TypeTraits<float> {
   using Int = int32_t;
-  using Wrapped = intrinsics::Float32;
+  using Wrapped = Float32;
   using Wide = double;
   using Narrow = _Float16;
   static constexpr int kBits = 32;
@@ -165,9 +168,9 @@ struct TypeTraits<float> {
 template <>
 struct TypeTraits<double> {
   using Int = int64_t;
-  using Wrapped = intrinsics::Float64;
+  using Wrapped = Float64;
 #if defined(__LP64__)
-  static_assert(sizeof(long double) > sizeof(intrinsics::Float64));
+  static_assert(sizeof(long double) > sizeof(Float64));
   using Wide = long double;
 #endif
   using Narrow = float;
@@ -187,7 +190,7 @@ struct TypeTraits<SIMD128Register> {
 
 template <>
 struct TypeTraits<long double> {
-  using Narrow = intrinsics::Float64;
+  using Narrow = Float64;
   static constexpr char kName[] = "long double";
 };
 

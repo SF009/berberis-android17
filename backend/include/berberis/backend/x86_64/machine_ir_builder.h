@@ -281,8 +281,8 @@ template <auto kIntrinsic, typename... FuncInfo>
                         ((result_element.clobber_class_index <=
                           std::tuple_size_v<
                               device_arch_info::call_imm_impl::SSEArgumentetersRegisters>) &&
-                         (ElementType::template IsSame<intrinsics::Float16>() ||
-                          ElementType::template IsSame<intrinsics::Float32>()))) {
+                         (ElementType::template IsSame<Float16>() ||
+                          ElementType::template IsSame<Float32>()))) {
             if constexpr (result_element.clobber_class_index <=
                           std::tuple_size_v<
                               device_arch_info::call_imm_impl::SSEArgumentetersRegisters>) {
@@ -293,7 +293,7 @@ template <auto kIntrinsic, typename... FuncInfo>
                     static_cast<int8_t>(result_element.element_offset * 8),
                     flags_register));
               }
-              if constexpr (ElementType::template IsSame<intrinsics::Float16>()) {
+              if constexpr (ElementType::template IsSame<Float16>()) {
                 MachineReg empty_xmm_register = ir()->AllocVReg();
                 InsertInsn(ir()->NewInsn<PseudoDefReg>(empty_xmm_register));
                 MachineReg xmm_register = ir()->AllocVReg();
@@ -305,7 +305,7 @@ template <auto kIntrinsic, typename... FuncInfo>
                     xmm_register, empty_xmm_register, results[kIdx], int8_t{0}));
 #endif
                 results[kIdx] = xmm_register;
-              } else if constexpr (ElementType::template IsSame<intrinsics::Float32>()) {
+              } else if constexpr (ElementType::template IsSame<Float32>()) {
                 MachineReg xmm_register = ir()->AllocVReg();
 #ifdef __AVX__
                 InsertInsn(ir()->NewInsn<VmovdXRegReg>(xmm_register, results[kIdx]));

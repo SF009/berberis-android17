@@ -88,14 +88,10 @@ class Saturating;
 template <typename BaseType>
 class Wrapping;
 
-namespace intrinsics {
-
 class Float8PhonyType;  // This class doesn't exist but we may use it in template arguments.
 
 template <typename BaseType>
 class WrappedFloatType;
-
-}  // namespace intrinsics
 
 template <typename T>
 struct TypeTraits;
@@ -474,7 +470,7 @@ class MetaTypeTraits final {
   static constexpr auto Saturating() { return MetaType<berberis::Saturating<Type>>{}; }
   static constexpr auto UnderlyingType() { return MetaType<std::underlying_type_t<Type>>{}; }
   static constexpr auto Widen() { return MetaType<typename TypeTraits<Type>::Wide>{}; }
-  static constexpr auto Wrapped() { return MetaType<intrinsics::WrappedFloatType<Type>>{}; }
+  static constexpr auto Wrapped() { return MetaType<WrappedFloatType<Type>>{}; }
   static constexpr auto Wrapping() { return MetaType<berberis::Wrapping<Type>>{}; }
 };
 
@@ -576,12 +572,12 @@ class MetaTypeTraits<Wrapping<Type>> final {
 };
 
 template <typename Type>
-class MetaTypeTraits<intrinsics::WrappedFloatType<Type>> final {
+class MetaTypeTraits<WrappedFloatType<Type>> final {
  public:
-  static constexpr auto Float() { return MetaType<intrinsics::WrappedFloatType<Type>>{}; }
+  static constexpr auto Float() { return MetaType<WrappedFloatType<Type>>{}; }
   static constexpr auto Int() {
-    return MetaType<berberis::Raw<
-        std::make_unsigned_t<typename TypeTraits<intrinsics::WrappedFloatType<Type>>::Int>>>{};
+    return MetaType<
+        berberis::Raw<std::make_unsigned_t<typename TypeTraits<WrappedFloatType<Type>>::Int>>>{};
   }
   static constexpr bool IsFloatingPoint() {
     return std::is_same_v<Type, _Float16> || std::is_floating_point_v<Type>;
@@ -594,13 +590,13 @@ class MetaTypeTraits<intrinsics::WrappedFloatType<Type>> final {
   static constexpr bool IsWrappedFloat() { return true; }
   static constexpr bool IsWrappingInt() { return false; }
   static constexpr auto Narrow() {
-    return MetaType<typename TypeTraits<intrinsics::WrappedFloatType<Type>>::Narrow>{};
+    return MetaType<typename TypeTraits<WrappedFloatType<Type>>::Narrow>{};
   }
   static constexpr MetaType<Type> UnderlyingType() { return {}; }
   static constexpr auto Widen() {
-    return MetaType<typename TypeTraits<intrinsics::WrappedFloatType<Type>>::Wide>{};
+    return MetaType<typename TypeTraits<WrappedFloatType<Type>>::Wide>{};
   }
-  static constexpr auto Wrapped() { return MetaType<intrinsics::WrappedFloatType<Type>>{}; }
+  static constexpr auto Wrapped() { return MetaType<WrappedFloatType<Type>>{}; }
 };
 
 template <auto MetaType>

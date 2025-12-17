@@ -42,97 +42,9 @@
 #include <limits>
 
 #include "berberis/base/bit_util.h"
+#include "berberis/base/float.h"
 
-namespace berberis {
-
-namespace intrinsics {
-
-enum class FPInfo { kNaN, kInfinite, kNormal, kSubnormal, kZero };
-
-template <typename BaseType>
-class WrappedFloatType {
- public:
-  constexpr WrappedFloatType() = default;
-  explicit constexpr WrappedFloatType(BaseType value) : value_(value) {}
-  constexpr WrappedFloatType(const WrappedFloatType& other) = default;
-  constexpr WrappedFloatType(WrappedFloatType&& other) noexcept = default;
-  WrappedFloatType& operator=(const WrappedFloatType& other) = default;
-  WrappedFloatType& operator=(WrappedFloatType&& other) noexcept = default;
-  ~WrappedFloatType() = default;
-  template <typename IntType,
-            typename = std::enable_if_t<std::is_integral_v<IntType> &&
-                                        sizeof(BaseType) == sizeof(IntType)>>
-  [[nodiscard]] constexpr operator Raw<IntType>() const {
-    // Can't use bit_cast here because of IA32 ABI!
-    Raw<IntType> result;
-    memcpy(&result, &value_, sizeof(BaseType));
-    return result;
-  }
-  explicit constexpr operator int16_t() const { return value_; }
-  explicit constexpr operator uint16_t() const { return value_; }
-  explicit constexpr operator int32_t() const { return value_; }
-  explicit constexpr operator uint32_t() const { return value_; }
-  explicit constexpr operator int64_t() const { return value_; }
-  explicit constexpr operator uint64_t() const { return value_; }
-  explicit constexpr operator WrappedFloatType<_Float16>() const {
-    return WrappedFloatType<_Float16>(value_);
-  }
-  explicit constexpr operator WrappedFloatType<float>() const {
-    return WrappedFloatType<float>(value_);
-  }
-  explicit constexpr operator WrappedFloatType<double>() const {
-    return WrappedFloatType<double>(value_);
-  }
-#if defined(__i386__) || defined(__x86_64__)
-  explicit constexpr operator long double() const { return value_; }
-#endif
-  // Note: we don't provide unary operator-.  That's done on purpose: with floats -x and 0.-x
-  // produce different results which could be surprising.  Use fneg instead of unary operator-.
-  friend WrappedFloatType operator+(const WrappedFloatType& v1, const WrappedFloatType& v2);
-  friend WrappedFloatType& operator+=(WrappedFloatType& v1, const WrappedFloatType& v2);
-  friend WrappedFloatType operator-(const WrappedFloatType& v1, const WrappedFloatType& v2);
-  friend WrappedFloatType& operator-=(WrappedFloatType& v1, const WrappedFloatType& v2);
-  friend WrappedFloatType operator*(const WrappedFloatType& v1, const WrappedFloatType& v2);
-  friend WrappedFloatType& operator*=(WrappedFloatType& v1, const WrappedFloatType& v2);
-  friend WrappedFloatType operator/(const WrappedFloatType& v1, const WrappedFloatType& v2);
-  friend WrappedFloatType& operator/=(WrappedFloatType& v1, const WrappedFloatType& v2);
-  friend bool operator==(const WrappedFloatType& v1, const WrappedFloatType& v2);
-  friend bool operator!=(const WrappedFloatType& v1, const WrappedFloatType& v2);
-  friend bool operator<(const WrappedFloatType& v1, const WrappedFloatType& v2);
-  friend bool operator<=(const WrappedFloatType& v1, const WrappedFloatType& v2);
-  friend bool operator>(const WrappedFloatType& v1, const WrappedFloatType& v2);
-  friend bool operator>=(const WrappedFloatType& v1, const WrappedFloatType& v2);
-  friend inline WrappedFloatType CopySignBit(const WrappedFloatType& v1,
-                                             const WrappedFloatType& v2);
-  friend inline WrappedFloatType Absolute(const WrappedFloatType& v);
-  friend inline WrappedFloatType Negative(const WrappedFloatType& v);
-  friend inline FPInfo FPClassify(const WrappedFloatType& v);
-  friend inline WrappedFloatType FPRound(const WrappedFloatType& value, int round_control);
-  friend inline int IsNan(const WrappedFloatType& v);
-  friend inline int SignBit(const WrappedFloatType& v);
-  friend inline WrappedFloatType Sqrt(const WrappedFloatType& v);
-  friend inline WrappedFloatType MulAdd(const WrappedFloatType& v1,
-                                        const WrappedFloatType& v2,
-                                        const WrappedFloatType& v3);
-  friend inline WrappedFloatType Max(WrappedFloatType op1, WrappedFloatType op2);
-  friend inline WrappedFloatType Min(WrappedFloatType op1, WrappedFloatType op2);
-
- private:
-  static_assert(!std::numeric_limits<BaseType>::is_exact,
-                "WrappedFloatType should only be used with float types!");
-  BaseType value_;
-};
-
-// Note: Float8 is uninhabited and variables of such type couldn't be created. Nonetheless it's
-// useful for implementation of certain instructions. For example vfwcvt.f.x.v RISC-V instruction
-// converts from Int8 (single-width int) to Float16 (double-width float) if titular element size if
-// Float8. Because such instruction never actually accesses elements of Float8 type it's perfectly
-// valid and allowed (if CPU supports Float16).
-class Float8PhonyType;  // This class doesn't exist but we may use it in template arguments.
-using Float8 = WrappedFloatType<Float8PhonyType>;  // Ditto.
-using Float16 = WrappedFloatType<_Float16>;
-using Float32 = WrappedFloatType<float>;
-using Float64 = WrappedFloatType<double>;
+namespace berberis::intrinsics {
 
 // It's NOT safe to use ANY functions which return raw float or double.  That's because IA32 ABI
 // uses x87 stack to pass arguments (even with -mfpmath=sse) which clobbers NaN values.
@@ -143,80 +55,132 @@ using Float64 = WrappedFloatType<double>;
 // Clang uses SSE whenever possible by default. For GCC we need to specify -msse2 and -mfpmath=sse.
 
 inline Float32 CopySignBit(const Float32& v1, const Float32& v2) {
-  return Float32(__builtin_copysignf(v1.value_, v2.value_));
+  float src1, src2;
+  static_assert(sizeof(src1) == sizeof(v1));
+  memcpy(&src1, &v1, sizeof(v1));
+  static_assert(sizeof(src2) == sizeof(v2));
+  memcpy(&src2, &v2, sizeof(v2));
+  return Float32{__builtin_copysignf(src1, src2)};
 }
 
 inline Float64 CopySignBit(const Float64& v1, const Float64& v2) {
-  return Float64(__builtin_copysign(v1.value_, v2.value_));
+  double src1, src2;
+  static_assert(sizeof(src1) == sizeof(v1));
+  memcpy(&src1, &v1, sizeof(v1));
+  static_assert(sizeof(src2) == sizeof(v2));
+  memcpy(&src2, &v2, sizeof(v2));
+  return Float64{__builtin_copysign(src1, src2)};
 }
 
 inline Float32 Absolute(const Float32& v) {
-  return Float32(__builtin_fabsf(v.value_));
+  float src;
+  static_assert(sizeof(src) == sizeof(v));
+  memcpy(&src, &v, sizeof(v));
+  return Float32{__builtin_fabsf(src)};
 }
 
 inline Float64 Absolute(const Float64& v) {
-  return Float64(__builtin_fabs(v.value_));
+  double src;
+  static_assert(sizeof(src) == sizeof(v));
+  memcpy(&src, &v, sizeof(v));
+  return Float64{__builtin_fabs(src)};
 }
 
 inline FPInfo FPClassify(const Float32& v) {
+  float src;
+  static_assert(sizeof(src) == sizeof(v));
+  memcpy(&src, &v, sizeof(v));
   return static_cast<FPInfo>(__builtin_fpclassify(static_cast<int>(FPInfo::kNaN),
                                                   static_cast<int>(FPInfo::kInfinite),
                                                   static_cast<int>(FPInfo::kNormal),
                                                   static_cast<int>(FPInfo::kSubnormal),
                                                   static_cast<int>(FPInfo::kZero),
-                                                  v.value_));
+                                                  src));
 }
 
 inline FPInfo FPClassify(const Float64& v) {
+  double src;
+  static_assert(sizeof(src) == sizeof(v));
+  memcpy(&src, &v, sizeof(v));
   return static_cast<FPInfo>(__builtin_fpclassify(static_cast<int>(FPInfo::kNaN),
                                                   static_cast<int>(FPInfo::kInfinite),
                                                   static_cast<int>(FPInfo::kNormal),
                                                   static_cast<int>(FPInfo::kSubnormal),
                                                   static_cast<int>(FPInfo::kZero),
-                                                  v.value_));
+                                                  src));
 }
 
 inline int IsNan(const Float32& v) {
-  return __builtin_isnan(v.value_);
+  float src;
+  static_assert(sizeof(src) == sizeof(v));
+  memcpy(&src, &v, sizeof(v));
+  return __builtin_isnan(src);
 }
 
 inline int IsNan(const Float64& v) {
-  return __builtin_isnan(v.value_);
+  double src;
+  static_assert(sizeof(src) == sizeof(v));
+  memcpy(&src, &v, sizeof(v));
+  return __builtin_isnan(src);
 }
 
 inline int SignBit(const Float32& v) {
-  return __builtin_signbitf(v.value_);
+  float src;
+  static_assert(sizeof(src) == sizeof(v));
+  memcpy(&src, &v, sizeof(v));
+  return __builtin_signbitf(src);
 }
 
 inline int SignBit(const Float64& v) {
-  return __builtin_signbit(v.value_);
+  double src;
+  static_assert(sizeof(src) == sizeof(v));
+  memcpy(&src, &v, sizeof(v));
+  return __builtin_signbit(src);
 }
 
 inline Float32 Sqrt(const Float32& v) {
-  return Float32(__builtin_sqrtf(v.value_));
+  float src;
+  static_assert(sizeof(src) == sizeof(v));
+  memcpy(&src, &v, sizeof(v));
+  return Float32{__builtin_sqrtf(src)};
 }
 
 inline Float64 Sqrt(const Float64& v) {
-  return Float64(__builtin_sqrt(v.value_));
+  double src;
+  static_assert(sizeof(src) == sizeof(v));
+  memcpy(&src, &v, sizeof(v));
+  return Float64{__builtin_sqrt(src)};
 }
 
 // x*y + z
 inline Float32 MulAdd(const Float32& v1, const Float32& v2, const Float32& v3) {
-  return Float32(fmaf(v1.value_, v2.value_, v3.value_));
+  float src1, src2, src3;
+  static_assert(sizeof(src1) == sizeof(v1));
+  memcpy(&src1, &v1, sizeof(v1));
+  static_assert(sizeof(src2) == sizeof(v2));
+  memcpy(&src2, &v2, sizeof(v2));
+  static_assert(sizeof(src3) == sizeof(v3));
+  memcpy(&src3, &v3, sizeof(v3));
+  return Float32{fmaf(src1, src2, src3)};
 }
 
 inline Float64 MulAdd(const Float64& v1, const Float64& v2, const Float64& v3) {
-  return Float64(fma(v1.value_, v2.value_, v3.value_));
+  double src1, src2, src3;
+  static_assert(sizeof(src1) == sizeof(v1));
+  memcpy(&src1, &v1, sizeof(v1));
+  static_assert(sizeof(src2) == sizeof(v2));
+  memcpy(&src2, &v2, sizeof(v2));
+  static_assert(sizeof(src3) == sizeof(v3));
+  memcpy(&src3, &v3, sizeof(v3));
+  return Float64{fma(src1, src2, src3)};
 }
 
-}  // namespace intrinsics
-
-}  // namespace berberis
+}  // namespace berberis::intrinsics
 
 namespace std {
 
 template <typename BaseType>
-class numeric_limits<berberis::intrinsics::WrappedFloatType<BaseType>> {
+class numeric_limits<berberis::WrappedFloatType<BaseType>> {
  public:
   static constexpr bool is_specialized = true;
   static constexpr bool is_signed = true;
@@ -241,39 +205,32 @@ class numeric_limits<berberis::intrinsics::WrappedFloatType<BaseType>> {
   static constexpr int max_exponent10 = std::numeric_limits<BaseType>::max_exponent10;
   static constexpr bool traps = std::numeric_limits<BaseType>::traps;
   static constexpr bool tinyness_before = std::numeric_limits<BaseType>::tinyness_before;
-  static constexpr berberis::intrinsics::WrappedFloatType<BaseType> min() {
-    return berberis::intrinsics::WrappedFloatType<BaseType>(std::numeric_limits<BaseType>::min());
+  static constexpr berberis::WrappedFloatType<BaseType> min() {
+    return berberis::WrappedFloatType<BaseType>(std::numeric_limits<BaseType>::min());
   }
-  static constexpr berberis::intrinsics::WrappedFloatType<BaseType> lowest() {
-    return berberis::intrinsics::WrappedFloatType<BaseType>(
-        std::numeric_limits<BaseType>::lowest());
+  static constexpr berberis::WrappedFloatType<BaseType> lowest() {
+    return berberis::WrappedFloatType<BaseType>(std::numeric_limits<BaseType>::lowest());
   }
-  static constexpr berberis::intrinsics::WrappedFloatType<BaseType> max() {
-    return berberis::intrinsics::WrappedFloatType<BaseType>(std::numeric_limits<BaseType>::max());
+  static constexpr berberis::WrappedFloatType<BaseType> max() {
+    return berberis::WrappedFloatType<BaseType>(std::numeric_limits<BaseType>::max());
   }
-  static constexpr berberis::intrinsics::WrappedFloatType<BaseType> epsilon() {
-    return berberis::intrinsics::WrappedFloatType<BaseType>(
-        std::numeric_limits<BaseType>::epsilon());
+  static constexpr berberis::WrappedFloatType<BaseType> epsilon() {
+    return berberis::WrappedFloatType<BaseType>(std::numeric_limits<BaseType>::epsilon());
   }
-  static constexpr berberis::intrinsics::WrappedFloatType<BaseType> round_error() {
-    return berberis::intrinsics::WrappedFloatType<BaseType>(
-        std::numeric_limits<BaseType>::round_error());
+  static constexpr berberis::WrappedFloatType<BaseType> round_error() {
+    return berberis::WrappedFloatType<BaseType>(std::numeric_limits<BaseType>::round_error());
   }
-  static constexpr berberis::intrinsics::WrappedFloatType<BaseType> infinity() {
-    return berberis::intrinsics::WrappedFloatType<BaseType>(
-        std::numeric_limits<BaseType>::infinity());
+  static constexpr berberis::WrappedFloatType<BaseType> infinity() {
+    return berberis::WrappedFloatType<BaseType>(std::numeric_limits<BaseType>::infinity());
   }
-  static constexpr berberis::intrinsics::WrappedFloatType<BaseType> quiet_NaN() {
-    return berberis::intrinsics::WrappedFloatType<BaseType>(
-        std::numeric_limits<BaseType>::quiet_NaN());
+  static constexpr berberis::WrappedFloatType<BaseType> quiet_NaN() {
+    return berberis::WrappedFloatType<BaseType>(std::numeric_limits<BaseType>::quiet_NaN());
   }
-  static constexpr berberis::intrinsics::WrappedFloatType<BaseType> signaling_NaN() {
-    return berberis::intrinsics::WrappedFloatType<BaseType>(
-        std::numeric_limits<BaseType>::signaling_NaN());
+  static constexpr berberis::WrappedFloatType<BaseType> signaling_NaN() {
+    return berberis::WrappedFloatType<BaseType>(std::numeric_limits<BaseType>::signaling_NaN());
   }
-  static constexpr berberis::intrinsics::WrappedFloatType<BaseType> denorm_min() {
-    return berberis::intrinsics::WrappedFloatType<BaseType>(
-        std::numeric_limits<BaseType>::denorm_min());
+  static constexpr berberis::WrappedFloatType<BaseType> denorm_min() {
+    return berberis::WrappedFloatType<BaseType>(std::numeric_limits<BaseType>::denorm_min());
   }
 };
 
