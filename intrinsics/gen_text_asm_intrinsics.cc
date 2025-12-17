@@ -29,7 +29,6 @@
 #include "berberis/base/config.h"
 #include "berberis/base/type_traits.h"
 #include "berberis/intrinsics/common/intrinsics_bindings.h"
-#include "berberis/intrinsics/common/intrinsics_float.h"
 #include "berberis/intrinsics/intrinsics_args.h"
 #include "berberis/intrinsics/macro_assembler.h"
 #include "berberis/intrinsics/simd_register.h"

@@ -20,6 +20,7 @@
 #include <cstdint>
 
 #include "berberis/base/float.h"
+#include "berberis/base/int.h"
 
 namespace berberis {
 
@@ -215,6 +216,68 @@ struct TypeTraits<Float32x4> {
   static constexpr int kBits = 128;
   static constexpr char kName[] = "__m128";
 };
+
+template <typename BaseType>
+[[nodiscard]] constexpr auto BitCastToFloat(WrappedFloatType<BaseType> src) {
+  return src;
+}
+template <typename T>
+using FloatType = decltype(BitCastToFloat(std::declval<T>()));
+
+template <typename BaseType>
+[[nodiscard]] constexpr auto BitCastToRaw(WrappedFloatType<BaseType> src) {
+  return src.Int();
+}
+template <typename T>
+using RawType = decltype(BitCastToRaw(std::declval<T>()));
+
+template <typename T>
+using SignedType = decltype(BitCastToSigned(std::declval<T>()));
+
+template <typename T>
+using UnsignedType = decltype(BitCastToUnsigned(std::declval<T>()));
+
+template <typename T>
+using SaturatingType = decltype(BitCastToSaturating(std::declval<T>()));
+
+template <typename T>
+using WrappingType = decltype(BitCastToWrapping(std::declval<T>()));
+
+// When input type is exactly the same as output type we just return value without doing anything.
+template <typename ResultType>
+[[nodiscard]] ResultType constexpr MaybeTruncateTo(ResultType src) {
+  return src;
+}
+
+template <typename ResultType, typename IntType>
+[[nodiscard]] auto constexpr MaybeTruncateTo(IntType src)
+    -> std::enable_if_t<std::is_integral_v<IntType> &&
+                            sizeof(typename ResultType::BaseType) <= sizeof(IntType),
+                        ResultType> {
+  return ResultType{static_cast<ResultType::BaseType>(src)};
+}
+
+template <typename BaseType>
+[[nodiscard]] constexpr auto Narow(WrappedFloatType<BaseType> source) {
+  return source.Narrow();
+}
+template <typename T>
+using NarrowType = decltype(Narrow(std::declval<T>()));
+
+template <typename ResultType, typename IntType>
+[[nodiscard]] auto constexpr TruncateTo(IntType src)
+    -> std::enable_if_t<std::is_integral_v<IntType> &&
+                            sizeof(typename ResultType::BaseType) < sizeof(IntType),
+                        ResultType> {
+  return ResultType{static_cast<ResultType::BaseType>(src)};
+}
+
+template <typename BaseType>
+[[nodiscard]] constexpr auto Widen(const WrappedFloatType<BaseType>& source) {
+  return source.Widen();
+}
+template <typename T>
+using WideType = decltype(Widen(std::declval<T>()));
 
 }  // namespace berberis
 

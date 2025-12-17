@@ -89,6 +89,7 @@ cc_test_library {
         "forever_alloc_test.cc",
         "forever_pool_test.cc",
         "format_buffer_test.cc",
+        "int_test.cc",
         "lock_free_stack_test.cc",
         "large_mmap_test.cc",
         "maps_snapshot_test.cc",

@@ -21,8 +21,9 @@
 #include <cstring>
 #include <tuple>
 
-#include "berberis/base/bit_util.h"
-#include "berberis/intrinsics/common/intrinsics_float.h"
+#include "berberis/base/checks.h"
+#include "berberis/base/float.h"
+#include "berberis/base/int.h"
 
 namespace berberis {
 

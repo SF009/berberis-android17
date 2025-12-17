@@ -24,6 +24,8 @@
 
 #include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
+#include "berberis/base/float.h"
+#include "berberis/base/int.h"
 #include "berberis/base/macros.h"
 #include "berberis/base/type_traits.h"
 #include "berberis/decoder/riscv64/decoder.h"
@@ -38,7 +40,6 @@
 #include "berberis/runtime_primitives/memory_region_reservation.h"
 
 #if !defined(__aarch64__)
-#include "berberis/intrinsics/intrinsics_float.h"
 #include "berberis/runtime_primitives/interpret_helpers.h"
 #include "berberis/runtime_primitives/recovery_code.h"
 #endif
