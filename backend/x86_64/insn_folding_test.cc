@@ -979,7 +979,7 @@ void TestFoldCond(Cond input_cond, Cond expected_new_cond, LahfFlags expected_fl
 
   MachineReg flags_src = (*bb->insn_list().begin())->RegAt(0);
 
-  FoldWriteFlags(&machine_ir);
+  FoldInsns(&machine_ir);
 
   EXPECT_EQ(bb->insn_list().size(), 2UL);
 
@@ -1072,7 +1072,7 @@ void TryFoldScaleIntoMemRead(int shift_amount, Assembler::ScaleFactor expected_s
   EXPECT_EQ(42UL, folded_insn->recovery_pc());
 }
 
-TEST(InsnFoldingTest, FoldWriteFlags) {
+TEST(InsnFoldingTest, ReplaceWriteFlagsWithTest) {
   TestFoldCond(Cond::kEqual, Cond::kNotEqual, LahfFlags::kZero);
   TestFoldCond(Cond::kNotEqual, Cond::kEqual, LahfFlags::kZero);
   TestFoldCond(Cond::kCarry, Cond::kNotEqual, LahfFlags::kCarry);

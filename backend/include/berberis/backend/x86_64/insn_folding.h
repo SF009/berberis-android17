@@ -38,7 +38,9 @@ enum class FoldingType {
   kInsertInsn,
   kRemoveInsn,
   kReplaceInsn,
-  kReplaceInsnAndSwapOperands
+  kReplaceInsnAndSwapOperands,
+  kReplaceInsnAndSetBranchConditionToZero,
+  kReplaceInsnAndSetBranchConditionToNotZero
 };
 
 // The DefMap class stores a map between registers and their latest definitions and positions.
@@ -233,6 +235,9 @@ class InsnFolding {
   std::tuple<FoldingType, berberis::MachineInsn*> TryReplaceWriteFlagsWithCmp(
       const berberis::MachineInsn* insn,
       const MachineBasicBlock* bb);
+  std::tuple<FoldingType, berberis::MachineInsn*> TryReplaceWriteFlagsWithTest(
+      MachineInsnList::iterator insn_it,
+      const MachineBasicBlock* bb);
   berberis::MachineInsn* NewImmInsnFromRegInsn(const berberis::MachineInsn* insn, int32_t imm);
   berberis::MachineInsn* NewInsnFromTwoImmediatesOperation(const berberis::MachineInsn* insn,
                                                            uint64_t imm1,
@@ -246,8 +251,6 @@ class InsnFolding {
 };
 
 void FoldInsns(MachineIR* machine_ir);
-
-void FoldWriteFlags(MachineIR* machine_ir);
 
 }  // namespace berberis::x86_64
 
