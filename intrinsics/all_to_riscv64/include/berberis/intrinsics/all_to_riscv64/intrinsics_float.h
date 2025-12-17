@@ -21,6 +21,8 @@
 #include <cmath>
 
 #include "berberis/base/bit_util.h"
+#include "berberis/base/float.h"
+#include "berberis/base/limits.h"
 #include "berberis/base/logging.h"
 #include "berberis/intrinsics/common/intrinsics_float.h"  // Float32/Float64
 #include "berberis/intrinsics/guest_rounding_modes.h"     // FE_HOSTROUND/FE_TIESAWAY
