@@ -17,11 +17,11 @@
 #ifndef BERBERIS_BASE_FLOAT_H_
 #define BERBERIS_BASE_FLOAT_H_
 
-// We couldn't safely pass arguments using "raw" float and double on X86 because of peculiarities
-// of psABI (sometimes floating point registers are used by guest programs to pass integer value and
-// certain integers when converted to fp80 type and back become corrupted).
+// We cannot safely pass arguments using "raw" float and double on X86 because of peculiarities
+// of psABI: sometimes floating point registers are used by guest programs to pass integer value and
+// certain integers when converted to fp80 type and back become corrupted.
 //
-// To make sure that we wouldn't use it to return value by accident we would wrap them and use class
+// To make sure that we won't return results in raw floats by accident we would wrap them in a class
 // which makes such mistakes unlikely on x86.
 //
 // It's safe to pass "raw" values as float and double on modern ABI (RISC-V UABI, x86-64 psABI, etc)
@@ -39,7 +39,6 @@
 #include <stdint.h>
 
 #include <cmath>
-#include <limits>
 
 namespace berberis {
 

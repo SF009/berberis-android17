@@ -21,6 +21,8 @@
 #include <limits>
 
 #include "berberis/base/bit_util.h"
+#include "berberis/base/float.h"
+#include "berberis/base/limits.h"
 #include "berberis/base/type_traits.h"
 #include "berberis/intrinsics/all_to_x86_32_or_x86_64/intrinsics_float.h"
 #include "berberis/intrinsics/common/intrinsics_float.h"

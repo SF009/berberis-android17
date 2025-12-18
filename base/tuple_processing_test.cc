@@ -25,8 +25,8 @@
 #include <utility>
 #include <vector>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
+#include "berberis/base/type_traits.h"
 
 namespace berberis {
 

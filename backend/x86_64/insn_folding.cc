@@ -113,7 +113,7 @@ void ContextAccessInfo::ProcessInsn(const berberis::MachineInsn* insn) {
     // the context. Only after that can we process the 'def', which will unmap the register because
     // it now holds a new, computed value. If the order were reversed, we would incorrectly miss
     // counting the context read value usage.
-    if (reg_kind.IsUse()) {
+    if (reg_kind.IsInput()) {
       HandleRegisterUse(insn, reg);
     }
     if (reg_kind.IsDef()) {
