@@ -39,6 +39,7 @@
 #include <stdint.h>
 
 #include <cmath>
+#include <cstring>  // memcpy
 
 namespace berberis {
 
@@ -60,7 +61,9 @@ class WrappedFloatType {
   WrappedFloatType& operator=(const WrappedFloatType& other) = default;
   WrappedFloatType& operator=(WrappedFloatType&& other) noexcept = default;
   ~WrappedFloatType() = default;
-  auto Int() const {
+  friend constexpr auto BitCastToFloat(WrappedFloatType src) { return src; }
+  friend auto BitCastToRaw(WrappedFloatType src) { return src.Int(); }
+  [[nodiscard]] auto Int() const {
     // Can't use bit_cast here because of IA32 ABI!
     Raw<std::make_unsigned_t<typename TypeTraits<WrappedFloatType>::Int>> result;
     memcpy(&result, &value_, sizeof(BaseType));
@@ -69,18 +72,20 @@ class WrappedFloatType {
   template <typename IntType,
             typename = std::enable_if_t<std::is_integral_v<IntType> &&
                                         sizeof(BaseType) == sizeof(IntType)>>
-  [[nodiscard]] constexpr operator Raw<IntType>() const {
+  [[nodiscard]] operator Raw<IntType>() const {
     // Can't use bit_cast here because of IA32 ABI!
     Raw<IntType> result;
     memcpy(&result, &value_, sizeof(BaseType));
     return result;
   }
+  friend constexpr auto Narrow(WrappedFloatType src) { return src.Narrow(); }
   [[nodiscard]] constexpr auto Narrow() const {
     return typename TypeTraits<WrappedFloatType>::Narrow(value_);
   }
   [[nodiscard]] constexpr auto Wide() const {
     return typename TypeTraits<WrappedFloatType>::Wide(value_);
   }
+  friend constexpr auto Widen(WrappedFloatType src) { return src.Widen(); }
   [[nodiscard]] constexpr auto Widen() const {
     return typename TypeTraits<WrappedFloatType>::Wide(value_);
   }

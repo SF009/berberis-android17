@@ -86,6 +86,7 @@ cc_test_library {
         "arena_test.cc",
         "arena_zeroed_array_test.cc",
         "bit_util_test.cc",
+        "float_test.cc",
         "forever_alloc_test.cc",
         "forever_pool_test.cc",
         "format_buffer_test.cc",
