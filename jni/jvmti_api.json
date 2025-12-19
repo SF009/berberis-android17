@@ -1146,7 +1146,8 @@
         "jint*",
         "jvmtiExtensionFunctionInfo**"
       ],
-      "return_type": "jvmtiError"
+      "return_type": "jvmtiError",
+      "trampoline": "DoTrampoline_jvmtiEnv_GetExtensionFunctions"
     },
     {
       "index": 125,
