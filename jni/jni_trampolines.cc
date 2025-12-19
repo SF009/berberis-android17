@@ -266,8 +266,12 @@ jvmtiEnv* ToHostJvmtiEnv(GuestType<jvmtiEnv*> guest_jvmti_env) {
   return ToHostAddr(guest_jvmti_env);
 }
 
+void WrapJvmtiExtensionFunctionInfosIfNeeded(int extension_count,
+                                             jvmtiExtensionFunctionInfo* extensions);
+
 #include "jni_trampolines-inl.h"  // NOLINT(build/include)
 #include "jvmti_custom_trampolines-inl.h"  // NOLINT(build/include)
+#include "jvmti_ext_trampolines-inl.h"     // NOLINT(build/include)
 #include "jvmti_trampolines-inl.h"         // NOLINT(build/include)
 
 // According to our observations there is only one instance of JavaVM
@@ -408,6 +412,7 @@ void WrapJavaVM(void* java_vm) {
 std::atomic<uint32_t> g_jni_env_wrapped = {0};
 std::atomic<uint32_t> g_jvmti_env_wrapped = {0};
 std::atomic<uint32_t> g_java_vm_wrapped = {0};
+std::atomic<uint32_t> g_jvmti_extensions_wrapped = {0};
 
 GuestType<jvmtiEnv*> ToGuestJvmtiEnv(jvmtiEnv* host_jvmti_env) {
   if (host_jvmti_env == nullptr) {
@@ -420,6 +425,18 @@ GuestType<jvmtiEnv*> ToGuestJvmtiEnv(jvmtiEnv* host_jvmti_env) {
   }
 
   return host_jvmti_env;
+}
+
+void WrapJvmtiExtensionFunctionInfosIfNeeded(int extension_count,
+                                             jvmtiExtensionFunctionInfo* extensions) {
+  if (extension_count <= 0) {
+    return;
+  }
+
+  if (std::atomic_load_explicit(&g_jvmti_extensions_wrapped, std::memory_order_acquire) == 0U) {
+    WrapJvmtiExtensionFunctionInfos(extension_count, extensions);
+    std::atomic_store_explicit(&g_jvmti_extensions_wrapped, 1U, std::memory_order_release);
+  }
 }
 
 }  // namespace

@@ -209,3 +209,19 @@ void DoTrampoline_jvmtiEnv_SetEventCallbacks(HostCode /* callee */, ProcessState
   auto host_callbacks = WrapGuestJvmtiEventCallbacks(guest_callbacks);
   ret = arg_0->functions->SetEventCallbacks(arg_0, &host_callbacks, arg_2);
 }
+
+void DoTrampoline_jvmtiEnv_GetExtensionFunctions(HostCode /* callee */, ProcessState* state) {
+  LOG_JNI("DoTrampoline_jvmtiEnv_GetExtensionFunctions called");
+  using PFN_callee = decltype(std::declval<jvmtiEnv>().functions->GetExtensionFunctions);
+  auto [arg_env, arg_count_ptr, arg_extensions_ptr] = GuestParamsValues<PFN_callee>(state);
+  jvmtiEnv* host_jvmti_env = ToHostJvmtiEnv(arg_env);
+
+  auto&& [ret] = GuestReturnReference<PFN_callee>(state);
+
+  ret = host_jvmti_env->functions->GetExtensionFunctions(
+      host_jvmti_env, arg_count_ptr, arg_extensions_ptr);
+
+  if (ret == JVMTI_ERROR_NONE) {
+    WrapJvmtiExtensionFunctionInfosIfNeeded(*arg_count_ptr, *arg_extensions_ptr);
+  }
+}
