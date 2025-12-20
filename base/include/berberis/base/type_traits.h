@@ -217,17 +217,9 @@ struct TypeTraits<Float32x4> {
   static constexpr char kName[] = "__m128";
 };
 
-template <typename BaseType>
-[[nodiscard]] constexpr auto BitCastToFloat(WrappedFloatType<BaseType> src) {
-  return src;
-}
 template <typename T>
 using FloatType = decltype(BitCastToFloat(std::declval<T>()));
 
-template <typename BaseType>
-[[nodiscard]] constexpr auto BitCastToRaw(WrappedFloatType<BaseType> src) {
-  return src.Int();
-}
 template <typename T>
 using RawType = decltype(BitCastToRaw(std::declval<T>()));
 
@@ -257,10 +249,6 @@ template <typename ResultType, typename IntType>
   return ResultType{static_cast<ResultType::BaseType>(src)};
 }
 
-template <typename BaseType>
-[[nodiscard]] constexpr auto Narow(WrappedFloatType<BaseType> source) {
-  return source.Narrow();
-}
 template <typename T>
 using NarrowType = decltype(Narrow(std::declval<T>()));
 
@@ -272,10 +260,6 @@ template <typename ResultType, typename IntType>
   return ResultType{static_cast<ResultType::BaseType>(src)};
 }
 
-template <typename BaseType>
-[[nodiscard]] constexpr auto Widen(const WrappedFloatType<BaseType>& source) {
-  return source.Widen();
-}
 template <typename T>
 using WideType = decltype(Widen(std::declval<T>()));
 

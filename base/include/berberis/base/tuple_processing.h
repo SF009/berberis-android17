@@ -599,9 +599,6 @@ class MetaTypeTraits<WrappedFloatType<Type>> final {
   static constexpr auto Wrapped() { return MetaType<WrappedFloatType<Type>>{}; }
 };
 
-template <auto MetaType>
-using Type = std::remove_pointer_t<std::remove_reference_t<decltype(MetaType)>>::Type;
-
 template <typename LeftType, typename RightType>
 inline bool constexpr operator==(MetaType<LeftType>, MetaType<RightType>) {
   return std::is_same_v<LeftType, RightType>;
