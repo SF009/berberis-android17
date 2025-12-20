@@ -24,6 +24,12 @@ python_binary_host {
     srcs: ["gen_jni_trampolines.py"],
 }
 
+python_binary_host {
+    name: "gen_jvmti_ext_trampolines",
+    main: "gen_jvmti_ext_trampolines.py",
+    srcs: ["gen_jvmti_ext_trampolines.py"],
+}
+
 genrule {
     name: "libberberis_jni_gen_headers",
     out: ["jni_trampolines-inl.h"],
@@ -38,6 +44,14 @@ genrule {
     srcs: ["jvmti_api.json"],
     tools: ["gen_jni_trampolines"],
     cmd: "$(location gen_jni_trampolines) $(out) $(in)",
+}
+
+genrule {
+    name: "libberberis_jvmti_ext_gen_headers",
+    out: ["jvmti_ext_trampolines-inl.h"],
+    srcs: ["jvmti_ext_api.json"],
+    tools: ["gen_jvmti_ext_trampolines"],
+    cmd: "$(location gen_jvmti_ext_trampolines) $(out) $(in)",
 }
 
 cc_library_headers {
@@ -66,6 +80,7 @@ cc_defaults {
     generated_headers: [
         "libberberis_jni_gen_headers",
         "libberberis_jvmti_gen_headers",
+        "libberberis_jvmti_ext_gen_headers",
     ],
     header_libs: [
         "jni_headers",
