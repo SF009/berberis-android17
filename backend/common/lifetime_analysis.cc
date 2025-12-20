@@ -41,7 +41,7 @@ VRegLifetime* VRegLifetimeAnalysis::GetVRegLifetime(MachineReg r, int begin, boo
     }
   } else {
     if (is_input) {
-      TRACE("Error: first seen lifetime access must not be input : v%u", r.GetSpilledRegIndex());
+      TRACE("Error: first seen lifetime access must not be input : v%u", r.GetVRegIndex());
       return nullptr;
     }
     // Newly created lifetime last live range will start at 'begin'.
