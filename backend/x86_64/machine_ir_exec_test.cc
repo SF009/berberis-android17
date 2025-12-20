@@ -1357,6 +1357,48 @@ TEST(ExecMachineIR, WriteFlags) {
   EXPECT_EQ(res_flags & MakeFlags(0b1111), MakeFlags(0b0101));
 }
 
+TEST(MachineIR, EmitReturnsFalseWhenNoCall) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+  builder.StartBasicBlock(machine_ir.NewBasicBlock());
+
+  // Build a simple IR without any call instructions.
+  builder.Gen<x86_64::MovqRegImm>(kMachineRegRAX, 123);
+  builder.Gen<Jump>(0);
+
+  MachineCode machine_code;
+  CodeEmitter as(
+      &machine_code, machine_ir.FrameSize(), machine_ir.bb_list().size(), machine_ir.arena());
+
+  // Emit the machine IR and verify that it does not contain calls.
+  EXPECT_FALSE(machine_ir.Emit(&as));
+}
+
+TEST(MachineIR, EmitReturnsTrueWithCall) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+  builder.StartBasicBlock(machine_ir.NewBasicBlock());
+
+  // Build an IR with a call instruction.
+  MachineReg flags_register = machine_ir.AllocVReg();
+  std::array<MachineReg, 0> args;
+  builder.GenCallImm(+[]() {}, flags_register, args);
+  builder.Gen<Jump>(0);
+
+  AllocRegs(&machine_ir);
+
+  MachineCode machine_code;
+  CodeEmitter as(
+      &machine_code, machine_ir.FrameSize(), machine_ir.bb_list().size(), machine_ir.arena());
+
+  // Emit the machine IR and verify that it contains calls.
+  EXPECT_TRUE(machine_ir.Emit(&as));
+}
+
 }  // namespace
 
 }  // namespace berberis
