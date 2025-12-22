@@ -87,7 +87,7 @@ class DefMap {
   }
   void ProcessInsn(MachineInsnList::iterator insn_it);
   void Initialize();
-  std::tuple<std::optional<MachineInsnList::iterator>, int, int> FindNonPseudoCopyDef(
+  std::tuple<std::optional<MachineInsnList::iterator>, int, int> FindNonCopyDef(
       MachineReg src_reg) const;
 
   void SetForTesting(MachineReg reg, MachineInsnList::iterator insn_it, int reg_pos) {
