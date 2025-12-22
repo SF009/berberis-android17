@@ -17,6 +17,7 @@
 #include "berberis/base/tuple_processing.h"
 
 #include <array>
+#include <bit>
 #include <cstddef>
 #include <iostream>
 #include <string>
@@ -31,6 +32,9 @@
 namespace berberis {
 
 namespace {
+
+static_assert(kMeta<std::popcount<unsigned>, kMeta<7u>> == kMeta<3u>);
+static_assert(kMeta<[](auto x) { return std::popcount(x); }, kMeta<7u>> == kMeta<3u>);
 
 using Float16 = WrappedFloatType<_Float16>;
 using Float32 = WrappedFloatType<float>;
@@ -1578,7 +1582,7 @@ constexpr bool TestFunc() {
     int extra_arg1 = 0, extra_arg2 = 0;
     auto result = ValuesToValues::Filter(
         MoveToNonConst(kForEachTupleTypeIn),
-        []<typename T>(int& extra_arg1, int& extra_arg2) -> decltype(auto) {
+        []<typename T>(T&&, int& extra_arg1, int& extra_arg2) -> decltype(auto) {
           extra_arg1 += 1;
           extra_arg2 -= 1;
           if constexpr (std::is_same_v<T, const int&>) {
@@ -1601,7 +1605,7 @@ constexpr bool TestFunc() {
     int extra_arg1 = 0, extra_arg2 = 0;
     auto result = ValuesToValues::FilterWithTemporary<int>(
         MoveToNonConst(kForEachTupleTypeIn),
-        []<typename T>(int& idx, int& extra_arg1, int& extra_arg2) -> decltype(auto) {
+        []<typename T>(T&&, int& idx, int& extra_arg1, int& extra_arg2) -> decltype(auto) {
           extra_arg1 += 1;
           extra_arg2 -= 1;
           CHECK_EQ(++idx, extra_arg1);
@@ -1626,7 +1630,7 @@ constexpr bool TestFunc() {
     auto result = ValuesToValues::FilterWithTemporary(
         MoveToNonConst(kForEachTupleTypeIn),
         /* idx = */ 42,
-        []<typename T>(int& idx, int& extra_arg1, int& extra_arg2) -> decltype(auto) {
+        []<typename T>(T&&, int& idx, int& extra_arg1, int& extra_arg2) -> decltype(auto) {
           extra_arg1 += 1;
           extra_arg2 -= 1;
           CHECK_EQ(++idx, 42 + extra_arg1);
