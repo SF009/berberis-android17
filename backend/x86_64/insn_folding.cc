@@ -49,13 +49,20 @@ void DefMap::MapDefRegs(MachineInsnList::iterator insn_it) {
   }
 }
 
+void DefMap::ProcessLiveIns(MachineBasicBlock* bb) {
+  for (auto live_in : bb->live_in()) {
+    SetLiveIn(live_in, bb->insn_list().end(), 0);
+  }
+  index_++;
+}
+
 void DefMap::ProcessInsn(MachineInsnList::iterator insn_it) {
   MapDefRegs(insn_it);
   ++index_;
 }
 
 void DefMap::Initialize() {
-  std::fill(def_map_.begin(), def_map_.end(), std::tuple(std::nullopt, 0, 0));
+  std::fill(def_map_.begin(), def_map_.end(), std::tuple(std::nullopt, 0, 0, false));
   flags_reg_ = kInvalidMachineReg;
   index_ = 0;
   last_context_write_insn_ = 0;
@@ -63,13 +70,17 @@ void DefMap::Initialize() {
 
 std::tuple<std::optional<MachineInsnList::iterator>, int, int> DefMap::FindNonCopyDef(
     MachineReg src_reg) const {
-  auto [def_insn_it, def_insn_pos, reg_pos] = Get(src_reg);
+  auto [def_insn_it, def_insn_pos, reg_pos, value_is_live_in] = Get(src_reg);
   while (def_insn_it.has_value()) {
     const berberis::MachineInsn* def_insn = *def_insn_it.value();
+    if (value_is_live_in) {
+      return {std::nullopt, 0, 0};
+    }
     if (def_insn->opcode() != kMachineOpCopy) {
       return {def_insn_it, def_insn_pos, reg_pos};
     }
-    std::tie(def_insn_it, def_insn_pos, reg_pos) = Get(def_insn->RegAt(1), def_insn_pos);
+    std::tie(def_insn_it, def_insn_pos, reg_pos, value_is_live_in) =
+        Get(def_insn->RegAt(1), def_insn_pos);
   }
   return {std::nullopt, 0, 0};
 }
@@ -251,8 +262,7 @@ bool InsnFolding::IsWritingSameFlagsValue(MachineInsnList::iterator write_flags_
   if (write_flags_insn->RegAt(1) != def_insn->RegAt(1)) {
     return false;
   }
-  auto flag_def_insn = std::get<0>(def_map_.Get(write_flags_insn->RegAt(1), def_insn_pos));
-  return flag_def_insn.has_value();
+  return def_map_.IsRegisterValueStillLive(write_flags_insn->RegAt(1), def_insn_pos);
 }
 
 template <bool kIsInput64Bit>
@@ -445,7 +455,7 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldCountLeading
   }
   // If ReverseBits insn or any insn after overwrites copy->RegAt(1), this will return
   // std::nullopt.
-  if (std::get<0>(def_map_.Get(copy->RegAt(1), def_insn_pos)) == std::nullopt) {
+  if (!def_map_.IsRegisterValueStillLive(copy->RegAt(1), def_insn_pos)) {
     return {FoldingType::kImpossible, nullptr};
   }
   berberis::MachineInsn* new_insn;
@@ -708,8 +718,7 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldScaleIntoMem
   if (copy_dst_reg == copy_src_reg) {
     return {FoldingType::kImpossible, nullptr};
   }
-  auto src_insn_it = std::get<0>(def_map_.Get(copy_src_reg, shift_insn_pos));
-  if (!src_insn_it.has_value()) {
+  if (!def_map_.IsRegisterValueStillLive(copy_src_reg, shift_insn_pos)) {
     return {FoldingType::kImpossible, nullptr};
   }
 
@@ -762,11 +771,11 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryReplaceWriteFlag
   // Since cmp_insn immediately precedes read_flags_insn, the arguments to cmp_insn cannot be
   // modified between them. Therefore, it is sufficient to check that the registers have not
   // been modified since read_flags_insn_pos.
-  if (std::get<0>(def_map_.Get(cmp_insn->RegAt(0), read_flags_insn_pos)) == std::nullopt) {
+  if (!def_map_.IsRegisterValueStillLive(cmp_insn->RegAt(0), read_flags_insn_pos)) {
     return {FoldingType::kImpossible, nullptr};
   }
   if (cmp_insn->NumRegOperands() == 3) {
-    if (std::get<0>(def_map_.Get(cmp_insn->RegAt(1), read_flags_insn_pos)) == std::nullopt) {
+    if (!def_map_.IsRegisterValueStillLive(cmp_insn->RegAt(1), read_flags_insn_pos)) {
       return {FoldingType::kImpossible, nullptr};
     }
   }
@@ -1045,6 +1054,7 @@ void FoldInsns(MachineIR* machine_ir) {
     MachineInsnList& insn_list = bb->insn_list();
     context_access_info.Initialize(insn_list);
     def_map.Initialize();
+    def_map.ProcessLiveIns(bb);
     for (auto insn_it = insn_list.begin(); insn_it != insn_list.end();) {
       auto [folding_type, new_insn] = insn_folding.TryFoldInsn(insn_it, bb);
       insn_it = insn_folding.ExecuteInsnFold(insn_list, insn_it, new_insn, folding_type);
