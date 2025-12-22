@@ -734,6 +734,123 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldScaleIntoMem
   return {FoldingType::kReplaceInsn, new_insn};
 }
 
+std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryReplaceWriteFlagsWithCmp(
+    const berberis::MachineInsn* insn,
+    const MachineBasicBlock* bb) {
+  CHECK_EQ(insn->opcode(), kMachineOpWriteFlags);
+  auto flags_value_reg = insn->RegAt(0);
+  auto [read_flags_insn_it, read_flags_insn_pos, _] =
+      def_map_.FindNonPseudoCopyDef(flags_value_reg);
+  if (!read_flags_insn_it.has_value()) {
+    return {FoldingType::kImpossible, nullptr};
+  }
+  berberis::MachineInsn* read_flags_insn = *read_flags_insn_it.value();
+  if (read_flags_insn->opcode() != kMachineOpReadFlagsWithOverflow) {
+    return {FoldingType::kImpossible, nullptr};
+  }
+  if (read_flags_insn_it.value() == bb->insn_list().begin()) {
+    return {FoldingType::kImpossible, nullptr};
+  }
+  auto cmp_insn_it = std::prev(read_flags_insn_it.value());
+  berberis::MachineInsn* cmp_insn = *cmp_insn_it;
+
+  switch (cmp_insn->opcode()) {
+    case kMachineOpCmplRegReg:
+    case kMachineOpCmpqRegReg:
+    case kMachineOpCmplRegImm:
+    case kMachineOpCmpqRegImm:
+      break;
+    default:
+      return {FoldingType::kImpossible, nullptr};
+  }
+  // Since cmp_insn immediately precedes read_flags_insn, the arguments to cmp_insn cannot be
+  // modified between them. Therefore, it is sufficient to check that the registers have not
+  // been modified since read_flags_insn_pos.
+  if (std::get<0>(def_map_.Get(cmp_insn->RegAt(0), read_flags_insn_pos)) == std::nullopt) {
+    return {FoldingType::kImpossible, nullptr};
+  }
+  if (cmp_insn->NumRegOperands() == 3) {
+    if (std::get<0>(def_map_.Get(cmp_insn->RegAt(1), read_flags_insn_pos)) == std::nullopt) {
+      return {FoldingType::kImpossible, nullptr};
+    }
+  }
+  return {FoldingType::kReplaceInsn, machine_ir_->CloneInsn(cmp_insn)};
+}
+
+std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryReplaceWriteFlagsWithTest(
+    MachineInsnList::iterator insn_it,
+    const MachineBasicBlock* bb) {
+  auto write_flags_insn = *insn_it;
+  CHECK_EQ(write_flags_insn->opcode(), kMachineOpWriteFlags);
+  auto cond_branch_insn_it = std::next(insn_it);
+  if (cond_branch_insn_it == bb->insn_list().end()) {
+    return {FoldingType::kImpossible, nullptr};
+  }
+  auto cond_branch_insn = *cond_branch_insn_it;
+  if ((cond_branch_insn)->opcode() != kMachineOpCondBranch) {
+    return {FoldingType::kImpossible, nullptr};
+  }
+
+  auto* branch = static_cast<CondBranch*>(cond_branch_insn);
+  // There is only one flags register, so CondBranch must read flags from WriteFlags.
+  MachineReg flags = write_flags_insn->RegAt(1);
+  CHECK_EQ(flags.reg(), branch->RegAt(0).reg());
+
+  if (Contains(bb->live_out(), flags)) {
+    // Flags are living-out. Cannot remove.
+    // TODO(b/179708579): This shouldn't happen. Consider conversion to an assert.
+    return {FoldingType::kImpossible, nullptr};
+  }
+
+  using Cond = CodeEmitter::Condition;
+  FoldingType folding_type;
+  LahfFlags flags_mask;
+
+  switch (branch->cond()) {
+    // Verify that the flags are within the bottom 16 bits, so we can use Testw.
+    static_assert(sizeof(LahfFlags) == 2);
+    case Cond::kZero:
+      folding_type = FoldingType::kReplaceInsnAndSetBranchConditionToNotZero;
+      flags_mask = LahfFlags::kZero;
+      break;
+    case Cond::kNotZero:
+      folding_type = FoldingType::kReplaceInsnAndSetBranchConditionToZero;
+      flags_mask = LahfFlags::kZero;
+      break;
+    case Cond::kCarry:
+      folding_type = FoldingType::kReplaceInsnAndSetBranchConditionToNotZero;
+      flags_mask = LahfFlags::kCarry;
+      break;
+    case Cond::kNotCarry:
+      folding_type = FoldingType::kReplaceInsnAndSetBranchConditionToZero;
+      flags_mask = LahfFlags::kCarry;
+      break;
+    case Cond::kNegative:
+      folding_type = FoldingType::kReplaceInsnAndSetBranchConditionToNotZero;
+      flags_mask = LahfFlags::kNegative;
+      break;
+    case Cond::kNotSign:
+      folding_type = FoldingType::kReplaceInsnAndSetBranchConditionToZero;
+      flags_mask = LahfFlags::kNegative;
+      break;
+    case Cond::kOverflow:
+      folding_type = FoldingType::kReplaceInsnAndSetBranchConditionToNotZero;
+      flags_mask = LahfFlags::kOverflow;
+      break;
+    case Cond::kNoOverflow:
+      folding_type = FoldingType::kReplaceInsnAndSetBranchConditionToZero;
+      flags_mask = LahfFlags::kOverflow;
+      break;
+    default:
+      return {FoldingType::kImpossible, nullptr};
+  }
+
+  MachineReg flags_src = write_flags_insn->RegAt(0);
+  berberis::MachineInsn* new_write_flags =
+      machine_ir_->NewInsn<x86_64::TestwRegImm>(flags_src, static_cast<int16_t>(flags_mask), flags);
+  return {folding_type, new_write_flags};
+}
+
 std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldInsn(
     const MachineInsnList::iterator insn_it,
     const MachineBasicBlock* bb) {
@@ -818,7 +935,11 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldInsn(
       if (IsWritingSameFlagsValue(insn_it)) {
         return {FoldingType::kRemoveInsn, nullptr};
       }
-      break;
+      auto [folding_type, folded_insn] = TryReplaceWriteFlagsWithTest(insn_it, bb);
+      if (folding_type != FoldingType::kImpossible) {
+        return {folding_type, folded_insn};
+      }
+      return TryReplaceWriteFlagsWithCmp(insn, bb);
     }
     case kMachineOpShlqRegImm:
     case kMachineOpShrqRegImm:
@@ -903,6 +1024,21 @@ MachineInsnList::iterator InsnFolding::ExecuteInsnFold(MachineInsnList& insn_lis
     def_map_.ProcessInsn(folded_insn_it);
     def_map_.ProcessInsn(std::next(folded_insn_it));
     return std::next(folded_insn_it, 2);
+  } else if (folding_type == FoldingType::kReplaceInsnAndSetBranchConditionToZero ||
+             folding_type == FoldingType::kReplaceInsnAndSetBranchConditionToNotZero) {
+    CHECK(new_insn);
+    *folded_insn_it = new_insn;
+    def_map_.ProcessInsn(folded_insn_it);
+    auto branch_insn_it = std::next(folded_insn_it);
+    auto branch_insn = *branch_insn_it;
+    CHECK_EQ(branch_insn->opcode(), kMachineOpCondBranch);
+    auto* branch = static_cast<CondBranch*>(branch_insn);
+    if (folding_type == FoldingType::kReplaceInsnAndSetBranchConditionToZero) {
+      branch->set_cond(CodeEmitter::Condition::kZero);
+    } else {
+      branch->set_cond(CodeEmitter::Condition::kNotZero);
+    }
+    return branch_insn_it;
   }
   FATAL("Unsupported folding type %d", folding_type);
 }
@@ -921,83 +1057,6 @@ void FoldInsns(MachineIR* machine_ir) {
     }
   }
   machine_ir->set_insn_folding_executed();
-}
-
-// TODO(b/179708579): Maybe combine with FoldInsns.
-void FoldWriteFlags(MachineIR* machine_ir) {
-  for (auto* bb : machine_ir->bb_list()) {
-    CHECK(!bb->insn_list().empty());
-    auto insn_it = std::prev(bb->insn_list().end());
-    if ((*insn_it)->opcode() != kMachineOpCondBranch) {
-      continue;
-    }
-
-    auto* branch = static_cast<CondBranch*>(*insn_it);
-    const auto* write_flags = *(--insn_it);
-    if (write_flags->opcode() != kMachineOpWriteFlags) {
-      continue;
-    }
-    // There is only one flags register, so CondBranch must read flags from WriteFlags.
-    MachineReg flags = write_flags->RegAt(1);
-    CHECK_EQ(flags.reg(), branch->RegAt(0).reg());
-
-    const auto& live_out = bb->live_out();
-    if (Contains(live_out, flags)) {
-      // Flags are living-out. Cannot remove.
-      // TODO(b/179708579): This shouldn't happen. Consider conversion to an assert.
-      continue;
-    }
-
-    using Cond = CodeEmitter::Condition;
-    Cond new_cond = Cond::kInvalidCondition;
-    LahfFlags flags_mask;
-
-    switch (branch->cond()) {
-      // Verify that the flags are within the bottom 16 bits, so we can use Testw.
-      static_assert(sizeof(LahfFlags) == 2);
-      case Cond::kZero:
-        new_cond = Cond::kNotZero;
-        flags_mask = LahfFlags::kZero;
-        break;
-      case Cond::kNotZero:
-        new_cond = Cond::kZero;
-        flags_mask = LahfFlags::kZero;
-        break;
-      case Cond::kCarry:
-        new_cond = Cond::kNotZero;
-        flags_mask = LahfFlags::kCarry;
-        break;
-      case Cond::kNotCarry:
-        new_cond = Cond::kZero;
-        flags_mask = LahfFlags::kCarry;
-        break;
-      case Cond::kNegative:
-        new_cond = Cond::kNotZero;
-        flags_mask = LahfFlags::kNegative;
-        break;
-      case Cond::kNotSign:
-        new_cond = Cond::kZero;
-        flags_mask = LahfFlags::kNegative;
-        break;
-      case Cond::kOverflow:
-        new_cond = Cond::kNotZero;
-        flags_mask = LahfFlags::kOverflow;
-        break;
-      case Cond::kNoOverflow:
-        new_cond = Cond::kZero;
-        flags_mask = LahfFlags::kOverflow;
-        break;
-      default:
-        continue;
-    }
-
-    MachineReg flags_src = write_flags->RegAt(0);
-    berberis::MachineInsn* new_write_flags = machine_ir->NewInsn<x86_64::TestwRegImm>(
-        flags_src, static_cast<int16_t>(flags_mask), flags);
-    insn_it = bb->insn_list().erase(insn_it);
-    bb->insn_list().insert(insn_it, new_write_flags);
-    branch->set_cond(new_cond);
-  }
 }
 
 }  // namespace berberis::x86_64
