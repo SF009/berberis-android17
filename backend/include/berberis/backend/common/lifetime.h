@@ -39,35 +39,36 @@ class VRegAccess {
 
   MachineReg GetVReg() const { return pos_.insn()->RegAt(index_); }
 
-  void RewriteVReg(MachineIR* machine_ir, MachineReg reg, int slot, bool range_starts_with_def) {
-    pos_.insn()->SetRegAt(index_, reg);
-    if (slot != -1) {
-      int offset = machine_ir->SpillSlotOffset(slot);
-      MachineReg spill = MachineReg::CreateSpilledRegFromIndex(offset);
-      int size = GetRegClass()->RegSize();
-      // If the range starts with a def, then the input is already present
-      // in the allocated hard register, so we don't need to reload it.
-      if (IsInput() && !range_starts_with_def) {
-        if (pos_.insn()->is_copy() && !pos_.insn()->RegAt(0).IsSpilledReg()) {
-          // Rewrite the src of the copy itself, unless the result is mem-to-mem copy.
-          CHECK_EQ(1, index_);
-          pos_.insn()->SetRegAt(1, spill);
-        } else {
-          pos_.InsertBefore(machine_ir->NewInsn<Copy>(reg, spill, size));
-        }
-      }
-      if (IsDef()) {
-        // If the range starts with def we assume that this def writes to hard register, so
-        // we cannot replace copy with spill.
-        if (pos_.insn()->is_copy() && !pos_.insn()->RegAt(1).IsSpilledReg() &&
-            !range_starts_with_def) {
-          // Rewrite the dst of the copy itself, unless the result is mem-to-mem copy.
-          CHECK_EQ(0, index_);
-          pos_.insn()->SetRegAt(0, spill);
-        } else {
-          pos_.InsertAfter(machine_ir->NewInsn<Copy>(spill, reg, size));
-        }
-      }
+  void RewriteVReg(MachineReg hard_reg) {
+    CHECK(pos_.insn()->RegAt(index_).IsVReg());
+    pos_.insn()->SetRegAt(index_, hard_reg);
+  }
+
+  void Spill(MachineIR* machine_ir, MachineReg hard_reg, int slot, bool needs_value_in_hard_reg) {
+    CHECK_NE(slot, -1);
+    CHECK(IsDef());
+    MachineReg spill = MachineReg::CreateSpilledRegFromIndex(machine_ir->SpillSlotOffset(slot));
+    if (!needs_value_in_hard_reg && pos_.insn()->is_copy() &&
+        !pos_.insn()->RegAt(1).IsSpilledReg()) {
+      // Rewrite the dst of the copy itself, unless the result is mem-to-mem copy.
+      CHECK_EQ(0, index_);
+      pos_.insn()->SetRegAt(0, spill);
+    } else {
+      pos_.InsertAfter(machine_ir->NewInsn<Copy>(spill, hard_reg, GetRegClass()->RegSize()));
+    }
+  }
+
+  void Reload(MachineIR* machine_ir, MachineReg hard_reg, int slot, bool needs_value_in_hard_reg) {
+    CHECK_NE(slot, -1);
+    CHECK(IsInput());
+    MachineReg spill = MachineReg::CreateSpilledRegFromIndex(machine_ir->SpillSlotOffset(slot));
+    if (!needs_value_in_hard_reg && pos_.insn()->is_copy() &&
+        !pos_.insn()->RegAt(0).IsSpilledReg()) {
+      // Rewrite the src of the copy itself, unless the result is mem-to-mem copy.
+      CHECK_EQ(1, index_);
+      pos_.insn()->SetRegAt(1, spill);
+    } else {
+      pos_.InsertBefore(machine_ir->NewInsn<Copy>(hard_reg, spill, GetRegClass()->RegSize()));
     }
   }
 
@@ -156,8 +157,31 @@ class VRegLiveRange {
   }
 
   void RewriteVReg(MachineIR* machine_ir, MachineReg hard_reg, int spill_slot) {
-    for (auto& access : access_list()) {
-      access.RewriteVReg(machine_ir, hard_reg, spill_slot, StartsWithDef());
+    std::optional<std::tuple<VRegAccess*, bool>> last_def;
+
+    for (auto it = access_list().begin(); it != access_list().end(); ++it) {
+      VRegAccess& access = *it;
+      access.RewriteVReg(hard_reg);
+
+      if (spill_slot != -1 && access.IsDef()) {
+        last_def = {&access, DoesAccessNeedValueInHardReg(it)};
+      }
+    }
+
+    // Note that for COPY insns we may overwrite the hard register assigned above with
+    // a stack register.
+    if (spill_slot != -1) {
+      // We only need one reload per range, and only if the first access is an input.
+      if (!access_list().empty() && access_list().front().IsInput()) {
+        auto first_input = access_list().begin();
+        first_input->Reload(
+            machine_ir, hard_reg, spill_slot, DoesAccessNeedValueInHardReg(first_input));
+      }
+      // Only the last def in the range needs to be spilled to pass the value to other ranges.
+      if (last_def.has_value()) {
+        auto [def_acc, needs_value_in_hard_reg] = last_def.value();
+        def_acc->Spill(machine_ir, hard_reg, spill_slot, needs_value_in_hard_reg);
+      }
     }
   }
 
@@ -174,6 +198,10 @@ class VRegLiveRange {
   }
 
  private:
+  bool DoesAccessNeedValueInHardReg(VRegAccessList::const_iterator it) const {
+    return std::next(it) != access_list_.end() && std::next(it)->IsInput();
+  }
+
   // Actual live range, might start before first use and end after last use.
   int begin_;
   int end_;
