@@ -207,178 +207,217 @@ class VRegAccessTest : public ::testing::Test {
  protected:
   VRegAccessTest()
       : machine_ir_(&arena_, 0, 0),
-        bb_(machine_ir_.NewBasicBlock()),
-        vreg_src_(MachineReg::CreateVRegFromIndex(0)),
-        vreg_dst_(MachineReg::CreateVRegFromIndex(1)),
-        hard_reg_(MachineReg::CreateHardRegFromIndexForTesting(0)),
-        slot_(3) {}
+        bb_(machine_ir_.NewBasicBlock()) {}
 
-  void TestRewriteVReg(MachineInsn* insn, int index, bool range_starts_with_def) {
+  void TestRewriteVReg(MachineInsn* insn, int index) {
     ASSERT_TRUE(bb_->insn_list().empty());
     bb_->insn_list().push_back(insn);
 
-    VRegAccess access(MachineInsnListPosition(&bb_->insn_list(), bb_->insn_list().begin()),
+    VRegLiveRange range(&arena_,
+        VRegAccess(MachineInsnListPosition(&bb_->insn_list(), bb_->insn_list().begin()),
                       index,
                       /*begin=*/0,
-                      /*end=*/1);
-    ASSERT_EQ(access.GetVReg(), index == 0 ? vreg_dst_ : vreg_src_);
-    access.RewriteVReg(&machine_ir_, hard_reg_, slot_, range_starts_with_def);
+                      /*end=*/1));
+    ASSERT_EQ(range.access_list().back().GetVReg(), index == 0 ? vreg_dst_ : vreg_src_);
+
+    range.RewriteVReg(&machine_ir_, hard_reg_, slot_);
   }
 
+  // Use to make a range that starts with a def.
+  void TestRewriteVRegWithDef(MachineInsn* insn, int index) {
+    MachineReg active_reg = index == 0 ? vreg_dst_ : vreg_src_;
+
+    auto& insn_list = bb_->insn_list();
+    ASSERT_TRUE(insn_list.empty());
+
+    insn_list.push_back(machine_ir_.NewInsn<PseudoDefReg>(active_reg));
+
+    insn_list.push_back(insn);
+
+    // First add the access from PseudoDefReg to create a range that starts with def.
+    VRegLiveRange range(&arena_,
+        VRegAccess(MachineInsnListPosition(&insn_list, insn_list.begin()),
+                      /*index=*/0,
+                      /*begin=*/0,
+                      /*end=*/1));
+    // Then add the access from the actual instruction.
+    range.AppendAccess(VRegAccess(MachineInsnListPosition(&insn_list, std::next(insn_list.begin())),
+                                  index,
+                                  /*begin=*/1,
+                                  /*end=*/2));
+    ASSERT_EQ(range.access_list().back().GetVReg(), active_reg);
+
+    range.RewriteVReg(&machine_ir_, hard_reg_, slot_);
+
+    // The spill is always inserted after the first def.
+    ASSERT_TRUE(IsSpill(*std::next(insn_list.begin())));
+  }
+
+  // Use to make a range that starts with a use.
+  void TestRewriteVRegWithUse(MachineInsn* insn, int index) {
+    MachineReg active_reg = index == 0 ? vreg_dst_ : vreg_src_;
+
+    auto& insn_list = bb_->insn_list();
+    ASSERT_TRUE(insn_list.empty());
+
+    // We don't have generic use-only instructions, so we use GenericInsn for the use.
+    // Ignore the def here, as it is not relevant for the test.
+    insn_list.push_back(
+        machine_ir_.NewInsn<GenericInsn>(MachineReg::CreateVRegFromIndex(10), active_reg));
+
+    insn_list.push_back(insn);
+
+    // First add use access of GenericInsn to create a range that starts with use.
+    VRegLiveRange range(&arena_,
+        VRegAccess(MachineInsnListPosition(&insn_list, insn_list.begin()),
+                      /*index=*/1,
+                      /*begin=*/0,
+                      /*end=*/1));
+    // Then add the access from the actual instruction.
+    range.AppendAccess(VRegAccess(MachineInsnListPosition(&insn_list, std::next(insn_list.begin())),
+                                  index,
+                                  /*begin=*/1,
+                                  /*end=*/2));
+    ASSERT_EQ(range.access_list().back().GetVReg(), active_reg);
+
+    range.RewriteVReg(&machine_ir_, hard_reg_, slot_);
+
+    // The reload is always inserted before the first use.
+    ASSERT_TRUE(IsReload(*insn_list.begin()));
+  }
+
+  bool IsSpill(MachineInsn* spill_insn, MachineReg expected_src = hard_reg_) {
+    if (!spill_insn->is_copy() || spill_insn->RegAt(1) != expected_src ||
+        !spill_insn->RegAt(0).IsSpilledReg()) {
+      return false;
+    }
+    return spill_insn->RegAt(0).GetSpilledRegIndex() == machine_ir_.SpillSlotOffset(slot_);
+  }
+
+  bool IsReload(MachineInsn* reload_insn, MachineReg expected_dst = hard_reg_) {
+    if (!reload_insn->is_copy() || reload_insn->RegAt(0) != expected_dst ||
+        !reload_insn->RegAt(1).IsSpilledReg()) {
+      return false;
+    }
+    return reload_insn->RegAt(1).GetSpilledRegIndex() == machine_ir_.SpillSlotOffset(slot_);
+  }
   Arena arena_;
   MachineIR machine_ir_;
   MachineBasicBlock* bb_;
-  MachineReg vreg_src_;
-  MachineReg vreg_dst_;
-  MachineReg hard_reg_;
-  int slot_;
+  static constexpr MachineReg vreg_src_ = MachineReg::CreateVRegFromIndex(0);
+  static constexpr MachineReg vreg_dst_ = MachineReg::CreateVRegFromIndex(1);
+  static constexpr MachineReg hard_reg_ = MachineReg::CreateHardRegFromIndexForTesting(0);
+  static constexpr int slot_ = 3;
 };
+
+
 
 TEST_F(VRegAccessTest, RewriteVReg_SpillForGenericInsn) {
   auto* insn = machine_ir_.NewInsn<GenericInsn>(vreg_dst_, vreg_src_);
-  ASSERT_NO_FATAL_FAILURE(TestRewriteVReg(insn, /*index=*/ 0, /*range_starts_with_def=*/ false));
-
+  ASSERT_NO_FATAL_FAILURE(TestRewriteVReg(insn, /*index=*/ 0));
   ASSERT_EQ(bb_->insn_list().size(), 2u);
   auto* spill = bb_->insn_list().back();
-  EXPECT_NE(spill, insn);
-  EXPECT_TRUE(spill->is_copy());
-  EXPECT_TRUE(spill->RegAt(0).IsSpilledReg());
-  EXPECT_EQ(spill->RegAt(0).GetSpilledRegIndex(), machine_ir_.SpillSlotOffset(slot_));
-  EXPECT_EQ(spill->RegAt(1), hard_reg_);
-  EXPECT_EQ(insn->RegAt(0), hard_reg_);
+  ASSERT_NE(spill, insn); // The spill is a newly inserted instruction
+  ASSERT_TRUE(IsSpill(spill));
+  ASSERT_EQ(insn->RegAt(0), hard_reg_);
 }
 
 TEST_F(VRegAccessTest, RewriteVReg_ReloadForGenericInsn) {
   auto* insn = machine_ir_.NewInsn<GenericInsn>(vreg_dst_, vreg_src_);
-  ASSERT_NO_FATAL_FAILURE(TestRewriteVReg(insn, /*index=*/ 1, /*range_starts_with_def=*/ false));
-
+  ASSERT_NO_FATAL_FAILURE(TestRewriteVReg(insn, /*index=*/ 1));
   ASSERT_EQ(bb_->insn_list().size(), 2u);
   auto* reload = bb_->insn_list().front();
-  EXPECT_NE(reload, insn);
-  EXPECT_TRUE(reload->is_copy());
-  EXPECT_EQ(reload->RegAt(0), hard_reg_);
-  EXPECT_TRUE(reload->RegAt(1).IsSpilledReg());
-  EXPECT_EQ(reload->RegAt(1).GetSpilledRegIndex(), machine_ir_.SpillSlotOffset(slot_));
-  EXPECT_EQ(insn->RegAt(1), hard_reg_);
+  ASSERT_NE(reload, insn); // The reload is a newly inserted instruction
+  ASSERT_TRUE(IsReload(reload));
 }
 
 TEST_F(VRegAccessTest, RewriteVReg_NoReloadForGenericInsnIfRangeStartsWithDef) {
   auto* insn = machine_ir_.NewInsn<GenericInsn>(vreg_dst_, vreg_src_);
-  ASSERT_NO_FATAL_FAILURE(TestRewriteVReg(insn, /*index=*/ 1, /*range_starts_with_def=*/ true));
-
-  ASSERT_EQ(bb_->insn_list().size(), 1u);
-  EXPECT_EQ(insn->RegAt(1), hard_reg_);
+  ASSERT_NO_FATAL_FAILURE(TestRewriteVRegWithDef(insn, /*index=*/ 1));
+  ASSERT_EQ(bb_->insn_list().size(), 3u);
+  ASSERT_EQ(insn->RegAt(1), hard_reg_);
 }
 
 TEST_F(VRegAccessTest, RewriteVReg_UseDefInsn) {
   auto* insn = machine_ir_.NewInsn<UseDefInsn>(vreg_dst_, vreg_src_);
-  ASSERT_NO_FATAL_FAILURE(TestRewriteVReg(insn, /*index=*/ 0, /*range_starts_with_def=*/ false));
-
+  ASSERT_NO_FATAL_FAILURE(TestRewriteVReg(insn, /*index=*/ 0));
   ASSERT_EQ(bb_->insn_list().size(), 3u);
 
   auto* reload = bb_->insn_list().front();
-  EXPECT_NE(reload, insn);
-  EXPECT_TRUE(reload->is_copy());
-  EXPECT_EQ(reload->RegAt(0), hard_reg_);
-  EXPECT_TRUE(reload->RegAt(1).IsSpilledReg());
-  EXPECT_EQ(reload->RegAt(1).GetSpilledRegIndex(), machine_ir_.SpillSlotOffset(slot_));
+  ASSERT_NE(reload, insn); // The reload is a newly inserted instruction
+  ASSERT_TRUE(IsReload(reload));
 
   auto* spill = bb_->insn_list().back();
-  EXPECT_NE(spill, insn);
-  EXPECT_TRUE(spill->is_copy());
-  EXPECT_TRUE(spill->RegAt(0).IsSpilledReg());
-  EXPECT_EQ(spill->RegAt(0).GetSpilledRegIndex(), machine_ir_.SpillSlotOffset(slot_));
-  EXPECT_EQ(spill->RegAt(1), hard_reg_);
+  ASSERT_NE(spill, insn); // The spill is a newly inserted instruction.
+  ASSERT_TRUE(IsSpill(spill));
 
-  EXPECT_EQ(insn->RegAt(0), hard_reg_);
+  ASSERT_EQ(insn->RegAt(0), hard_reg_);
 }
 
 TEST_F(VRegAccessTest, RewriteVReg_NoReloadForUseDefInsnIfRangeStartsWithDef) {
   auto* insn = machine_ir_.NewInsn<UseDefInsn>(vreg_dst_, vreg_src_);
-  ASSERT_NO_FATAL_FAILURE(TestRewriteVReg(insn, /*index=*/ 0, /*range_starts_with_def=*/ true));
+  ASSERT_NO_FATAL_FAILURE(TestRewriteVRegWithDef(insn, /*index=*/ 0));
 
-  ASSERT_EQ(bb_->insn_list().size(), 2u);
-
+  ASSERT_EQ(bb_->insn_list().size(), 4u);
   auto* spill = bb_->insn_list().back();
-  EXPECT_NE(spill, insn);
-  EXPECT_TRUE(spill->is_copy());
-  EXPECT_TRUE(spill->RegAt(0).IsSpilledReg());
-  EXPECT_EQ(spill->RegAt(0).GetSpilledRegIndex(), machine_ir_.SpillSlotOffset(slot_));
-  EXPECT_EQ(spill->RegAt(1), hard_reg_);
-
-  EXPECT_EQ(insn->RegAt(0), hard_reg_);
+  ASSERT_NE(spill, insn); // The spill is a newly inserted instruction.
+  ASSERT_TRUE(IsSpill(spill));
+  ASSERT_EQ(insn->RegAt(0), hard_reg_);
 }
 
 TEST_F(VRegAccessTest, RewriteVReg_NoReloadForDefEarlyClobber) {
   auto* insn = machine_ir_.NewInsn<DefEarlyClobberInsn>(vreg_dst_);
-  // In this test we use range_starts_with_def = false, as this is the case where reload
-  // might be inserted.
-  ASSERT_NO_FATAL_FAILURE(TestRewriteVReg(insn, /*index=*/0, /*range_starts_with_def=*/false));
+  ASSERT_NO_FATAL_FAILURE(TestRewriteVReg(insn, /*index=*/0));
 
   // No reload is inserted, only spill.
   ASSERT_EQ(bb_->insn_list().size(), 2u);
 
   auto* original_insn = bb_->insn_list().front();
-  EXPECT_EQ(original_insn, insn);
+  ASSERT_EQ(original_insn, insn);
 
   auto* spill = bb_->insn_list().back();
-  EXPECT_NE(spill, insn);
-  EXPECT_TRUE(spill->is_copy());
-  EXPECT_TRUE(spill->RegAt(0).IsSpilledReg());
-  EXPECT_EQ(spill->RegAt(0).GetSpilledRegIndex(), machine_ir_.SpillSlotOffset(slot_));
-  EXPECT_EQ(spill->RegAt(1), hard_reg_);
-
-  EXPECT_EQ(insn->RegAt(0), hard_reg_);
+  ASSERT_NE(spill, insn); // The spill is a newly inserted instruction.
+  ASSERT_TRUE(IsSpill(spill));
+  ASSERT_EQ(insn->RegAt(0), hard_reg_);
 }
 
 TEST_F(VRegAccessTest, RewriteVReg_SpillForCopy) {
   auto* copy = machine_ir_.NewInsn<Copy>(vreg_dst_, vreg_src_, 8);
-  ASSERT_NO_FATAL_FAILURE(TestRewriteVReg(copy, /*index=*/ 0, /*range_starts_with_def=*/ false));
+  ASSERT_NO_FATAL_FAILURE(TestRewriteVRegWithUse(copy, /*index=*/ 0));
 
+  ASSERT_EQ(bb_->insn_list().size(), 3u);
   auto* spill = bb_->insn_list().back();
-  EXPECT_EQ(spill, copy);
-  EXPECT_TRUE(spill->is_copy());
-  EXPECT_TRUE(spill->RegAt(0).IsSpilledReg());
-  EXPECT_EQ(spill->RegAt(0).GetSpilledRegIndex(), machine_ir_.SpillSlotOffset(slot_));
-  EXPECT_EQ(spill->RegAt(1), vreg_src_);
+  ASSERT_EQ(spill, copy); // The copy instruction itself is rewritten to a spill.
+  ASSERT_TRUE(IsSpill(spill, vreg_src_));
 }
 
 TEST_F(VRegAccessTest, RewriteVReg_SpillForCopyIfRangeStartsWithDef) {
-  auto* copy = machine_ir_.NewInsn<Copy>(vreg_dst_, vreg_src_, 8);
-  ASSERT_NO_FATAL_FAILURE(TestRewriteVReg(copy, /*index=*/ 0, /*range_starts_with_def=*/ true));
+    auto* copy = machine_ir_.NewInsn<Copy>(vreg_dst_, vreg_src_, 8);
+  ASSERT_NO_FATAL_FAILURE(TestRewriteVRegWithDef(copy, /*index=*/ 0));
 
-  ASSERT_EQ(bb_->insn_list().size(), 2u);
+  ASSERT_EQ(bb_->insn_list().size(), 4u);
   auto* spill = bb_->insn_list().back();
-  EXPECT_NE(spill, copy);
-  EXPECT_TRUE(spill->is_copy());
-  EXPECT_TRUE(spill->RegAt(0).IsSpilledReg());
-  EXPECT_EQ(spill->RegAt(0).GetSpilledRegIndex(), machine_ir_.SpillSlotOffset(slot_));
-  EXPECT_EQ(spill->RegAt(1), hard_reg_);
+  ASSERT_TRUE(IsSpill(spill));
 }
 
 TEST_F(VRegAccessTest, RewriteVReg_ReloadForCopy) {
   auto* copy = machine_ir_.NewInsn<Copy>(vreg_dst_, vreg_src_, 8);
-  ASSERT_NO_FATAL_FAILURE(TestRewriteVReg(copy, /*index=*/ 1, /*range_starts_with_def=*/ false));
+  ASSERT_NO_FATAL_FAILURE(TestRewriteVReg(copy, /*index=*/ 1));
 
   ASSERT_EQ(bb_->insn_list().size(), 1u);
   auto* reload = bb_->insn_list().back();
-  EXPECT_EQ(reload, copy);
-  EXPECT_TRUE(reload->is_copy());
-  EXPECT_EQ(reload->RegAt(0), vreg_dst_);
-  EXPECT_TRUE(reload->RegAt(1).IsSpilledReg());
-  EXPECT_EQ(reload->RegAt(1).GetSpilledRegIndex(), machine_ir_.SpillSlotOffset(slot_));
+  ASSERT_EQ(reload, copy);
+  ASSERT_TRUE(IsReload(reload, vreg_dst_));
 }
 
 TEST_F(VRegAccessTest, RewriteVReg_ReloadForCopyIfRangeStartsWithDef) {
   auto* copy = machine_ir_.NewInsn<Copy>(vreg_dst_, vreg_src_, 8);
-  ASSERT_NO_FATAL_FAILURE(TestRewriteVReg(copy, /*index=*/ 1, /*range_starts_with_def=*/ true));
+  ASSERT_NO_FATAL_FAILURE(TestRewriteVRegWithDef(copy, /*index=*/ 1));
 
-  ASSERT_EQ(bb_->insn_list().size(), 1u);
-  auto* reload = bb_->insn_list().back();
-  EXPECT_EQ(reload, copy);
-  EXPECT_TRUE(reload->is_copy());
-  EXPECT_EQ(reload->RegAt(0), vreg_dst_);
-  EXPECT_EQ(reload->RegAt(1), hard_reg_);
+  ASSERT_EQ(bb_->insn_list().size(), 3u);
+  // Reload not needed since the range starts with def.
+  ASSERT_EQ(bb_->insn_list().back(), copy);
+  ASSERT_EQ(copy->RegAt(1), hard_reg_);
 }
 
 }  // namespace

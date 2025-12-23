@@ -155,6 +155,12 @@ class VRegLiveRange {
     return it != access_list_.end() && it->IsDef() && !it->IsInput();
   }
 
+  void RewriteVReg(MachineIR* machine_ir, MachineReg hard_reg, int spill_slot) {
+    for (auto& access : access_list()) {
+      access.RewriteVReg(machine_ir, hard_reg, spill_slot, StartsWithDef());
+    }
+  }
+
   // Multiline
   std::string GetDebugString() const {
     std::string out(StringPrintf("[%d, %d) {\n", begin(), end()));
@@ -427,9 +433,7 @@ class VRegLifetime {
   // Walk reg accesses and replace vreg with assigned hard reg.
   void Rewrite(MachineIR* machine_ir) {
     for (auto& range : range_list_) {
-      for (auto& access : range.access_list()) {
-        access.RewriteVReg(machine_ir, hard_reg_, spill_slot_, range.StartsWithDef());
-      }
+      range.RewriteVReg(machine_ir, hard_reg_, spill_slot_);
     }
   }
 
