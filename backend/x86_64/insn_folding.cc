@@ -756,30 +756,84 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryReplaceWriteFlag
   if (read_flags_insn_it.value() == bb->insn_list().begin()) {
     return {FoldingType::kImpossible, nullptr};
   }
-  auto cmp_insn_it = std::prev(read_flags_insn_it.value());
-  berberis::MachineInsn* cmp_insn = *cmp_insn_it;
+  auto flags_producing_insn_it = std::prev(read_flags_insn_it.value());
+  berberis::MachineInsn* flags_producing_insn = *flags_producing_insn_it;
 
-  switch (cmp_insn->opcode()) {
+  switch (flags_producing_insn->opcode()) {
     case kMachineOpCmplRegReg:
     case kMachineOpCmpqRegReg:
     case kMachineOpCmplRegImm:
-    case kMachineOpCmpqRegImm:
+    case kMachineOpCmpqRegImm: {
+      // Since flags_producing_insn immediately precedes read_flags_insn, the arguments to
+      // flags_producing_insn cannot be modified between them. Therefore, it is sufficient to
+      // check that the registers have not been modified since read_flags_insn_pos.
+      if (!def_map_.IsRegisterValueStillLive(flags_producing_insn->RegAt(0), read_flags_insn_pos)) {
+        return {FoldingType::kImpossible, nullptr};
+      }
       break;
+    }
+    case kMachineOpSublRegReg:
+    case kMachineOpSubqRegReg:
+    case kMachineOpSublRegImm:
+    case kMachineOpSubqRegImm: {
+      if (flags_producing_insn_it == bb->insn_list().begin()) {
+        return {FoldingType::kImpossible, nullptr};
+      }
+      berberis::MachineInsn* copy_before_flags_producing_insn = *std::prev(flags_producing_insn_it);
+      if (copy_before_flags_producing_insn->opcode() != kMachineOpCopy) {
+        return {FoldingType::kImpossible, nullptr};
+      }
+      if (copy_before_flags_producing_insn->RegAt(0) != flags_producing_insn->RegAt(0)) {
+        return {FoldingType::kImpossible, nullptr};
+      }
+      if (copy_before_flags_producing_insn->RegAt(0) ==
+          copy_before_flags_producing_insn->RegAt(1)) {
+        return {FoldingType::kImpossible, nullptr};
+      }
+      if (!def_map_.IsRegisterValueStillLive(copy_before_flags_producing_insn->RegAt(1),
+                                             read_flags_insn_pos)) {
+        return {FoldingType::kImpossible, nullptr};
+      }
+      break;
+    }
     default:
       return {FoldingType::kImpossible, nullptr};
   }
-  // Since cmp_insn immediately precedes read_flags_insn, the arguments to cmp_insn cannot be
-  // modified between them. Therefore, it is sufficient to check that the registers have not
-  // been modified since read_flags_insn_pos.
-  if (!def_map_.IsRegisterValueStillLive(cmp_insn->RegAt(0), read_flags_insn_pos)) {
-    return {FoldingType::kImpossible, nullptr};
-  }
-  if (cmp_insn->NumRegOperands() == 3) {
-    if (!def_map_.IsRegisterValueStillLive(cmp_insn->RegAt(1), read_flags_insn_pos)) {
+  if (flags_producing_insn->NumRegOperands() == 3) {
+    if (!def_map_.IsRegisterValueStillLive(flags_producing_insn->RegAt(1), read_flags_insn_pos)) {
       return {FoldingType::kImpossible, nullptr};
     }
   }
-  return {FoldingType::kReplaceInsn, machine_ir_->CloneInsn(cmp_insn)};
+
+  if (!flags_producing_insn->RegKindAt(0).IsDef()) {
+    return {FoldingType::kReplaceInsn, machine_ir_->CloneInsn(flags_producing_insn)};
+  }
+
+  berberis::MachineInsn* copy_before_flags_producing_insn = *std::prev(flags_producing_insn_it);
+  switch (flags_producing_insn->opcode()) {
+    case kMachineOpSublRegReg:
+      return {FoldingType::kReplaceInsn,
+              machine_ir_->NewInsn<CmplRegReg>(copy_before_flags_producing_insn->RegAt(1),
+                                               flags_producing_insn->RegAt(1),
+                                               flags_producing_insn->RegAt(2))};
+    case kMachineOpSubqRegReg:
+      return {FoldingType::kReplaceInsn,
+              machine_ir_->NewInsn<CmpqRegReg>(copy_before_flags_producing_insn->RegAt(1),
+                                               flags_producing_insn->RegAt(1),
+                                               flags_producing_insn->RegAt(2))};
+    case kMachineOpSublRegImm:
+      return {FoldingType::kReplaceInsn,
+              machine_ir_->NewInsn<CmplRegImm>(copy_before_flags_producing_insn->RegAt(1),
+                                               AsMachineInsnX86_64(flags_producing_insn)->imm(),
+                                               flags_producing_insn->RegAt(1))};
+    case kMachineOpSubqRegImm:
+      return {FoldingType::kReplaceInsn,
+              machine_ir_->NewInsn<CmpqRegImm>(copy_before_flags_producing_insn->RegAt(1),
+                                               AsMachineInsnX86_64(flags_producing_insn)->imm(),
+                                               flags_producing_insn->RegAt(1))};
+    default:
+      FATAL("unexpected opcode");
+  }
 }
 
 std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryReplaceWriteFlagsWithTest(

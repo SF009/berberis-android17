@@ -401,7 +401,7 @@ void TrySwapRegOperandsAndFoldContextReadArithmetic() {
 
 template <template <typename> typename InsnTypeRegReg,
           berberis::MachineOpcode ReplacementCmpInsnOpcode>
-void TryReplaceWriteFlagsWithCmpRegRegInsn() {
+void TryReplaceWriteFlagsAfterCmpWithCmpRegRegInsn() {
   Arena arena;
   MachineIR machine_ir(&arena);
 
@@ -434,9 +434,46 @@ void TryReplaceWriteFlagsWithCmpRegRegInsn() {
   EXPECT_EQ(bb->insn_list().size(), 5UL);
 }
 
+template <template <typename> typename InsnTypeRegReg,
+          berberis::MachineOpcode ReplacementCmpInsnOpcode>
+void TryReplaceWriteFlagsAfterSubWithCmpRegRegInsn() {
+  Arena arena;
+  MachineIR machine_ir(&arena);
+
+  MachineIRBuilder builder(&machine_ir);
+
+  auto* bb = machine_ir.NewBasicBlock();
+
+  MachineReg vreg1 = machine_ir.AllocVReg();
+  MachineReg vreg2 = machine_ir.AllocVReg();
+  MachineReg vreg3 = machine_ir.AllocVReg();
+  MachineReg vreg4 = machine_ir.AllocVReg();
+  MachineReg vreg5 = machine_ir.AllocVReg();
+  MachineReg vreg_rax = machine_ir.AllocVReg();
+  MachineReg flags = machine_ir.AllocVReg();
+
+  builder.StartBasicBlock(bb);
+  bb->live_in().push_back(vreg2);
+  bb->live_in().push_back(vreg3);
+  builder.Gen<Copy>(vreg1, vreg2, 8);
+  builder.Gen<InsnTypeRegReg, kNoSSA>(vreg1, vreg3, flags);
+  builder.Gen<ReadFlagsWithOverflow>(vreg_rax, flags);
+  builder.Gen<AddqRegReg, kNoSSA>(vreg4, vreg5, flags);
+  builder.Gen<WriteFlags, kNoSSA>(vreg_rax, flags);
+
+  MachineInsnList::iterator folded_insn_it = FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
+  berberis::MachineInsn* folded_insn = *folded_insn_it;
+
+  ASSERT_EQ(ReplacementCmpInsnOpcode, folded_insn->opcode());
+  EXPECT_EQ(vreg2, folded_insn->RegAt(0));
+  EXPECT_EQ(vreg3, folded_insn->RegAt(1));
+  EXPECT_EQ(flags, folded_insn->RegAt(2));
+  EXPECT_EQ(bb->insn_list().size(), 5UL);
+}
+
 template <template <typename> typename InsnTypeRegImm,
           berberis::MachineOpcode ReplacementCmpInsnOpcode>
-void TryReplaceWriteFlagsWithCmpRegImmInsn() {
+void TryReplaceWriteFlagsAfterCmpWithCmpRegImmInsn() {
   Arena arena;
   MachineIR machine_ir(&arena);
 
@@ -465,6 +502,41 @@ void TryReplaceWriteFlagsWithCmpRegImmInsn() {
   EXPECT_EQ(5UL, AsMachineInsnX86_64(folded_insn)->imm());
   EXPECT_EQ(flags, folded_insn->RegAt(1));
   EXPECT_EQ(bb->insn_list().size(), 4UL);
+}
+
+template <template <typename> typename InsnTypeRegImm,
+          berberis::MachineOpcode ReplacementCmpInsnOpcode>
+void TryReplaceWriteFlagsAfterSubWithCmpRegImmInsn() {
+  Arena arena;
+  MachineIR machine_ir(&arena);
+
+  MachineIRBuilder builder(&machine_ir);
+
+  auto* bb = machine_ir.NewBasicBlock();
+
+  MachineReg vreg1 = machine_ir.AllocVReg();
+  MachineReg vreg2 = machine_ir.AllocVReg();
+  MachineReg vreg3 = machine_ir.AllocVReg();
+  MachineReg vreg4 = machine_ir.AllocVReg();
+  MachineReg vreg_rax = machine_ir.AllocVReg();
+  MachineReg flags = machine_ir.AllocVReg();
+
+  builder.StartBasicBlock(bb);
+  bb->live_in().push_back(vreg2);
+  builder.Gen<Copy>(vreg1, vreg2, 8);
+  builder.Gen<InsnTypeRegImm, kNoSSA>(vreg1, 5, flags);
+  builder.Gen<ReadFlagsWithOverflow>(vreg_rax, flags);
+  builder.Gen<AddqRegReg, kNoSSA>(vreg3, vreg4, flags);
+  builder.Gen<WriteFlags, kNoSSA>(vreg_rax, flags);
+
+  MachineInsnList::iterator folded_insn_it = FoldInsnsAndGetLastInsnIt(&machine_ir, bb);
+  berberis::MachineInsn* folded_insn = *folded_insn_it;
+
+  ASSERT_EQ(ReplacementCmpInsnOpcode, folded_insn->opcode());
+  EXPECT_EQ(vreg2, folded_insn->RegAt(0));
+  EXPECT_EQ(5UL, AsMachineInsnX86_64(folded_insn)->imm());
+  EXPECT_EQ(flags, folded_insn->RegAt(1));
+  EXPECT_EQ(bb->insn_list().size(), 5UL);
 }
 
 TEST(InsnFoldingTest, DefMapGetsLatestDef) {
@@ -1700,13 +1772,17 @@ TEST(InsnFoldingTest, FoldScaleIntoMemAccessCancelledIfShiftTooLarge) {
 }
 
 TEST(InsnFoldingTest, ReplaceWriteFlagsWithCmpRegRegInsn) {
-  TryReplaceWriteFlagsWithCmpRegRegInsn<CmpqRegReg, kMachineOpCmpqRegReg>();
-  TryReplaceWriteFlagsWithCmpRegRegInsn<CmplRegReg, kMachineOpCmplRegReg>();
+  TryReplaceWriteFlagsAfterCmpWithCmpRegRegInsn<CmpqRegReg, kMachineOpCmpqRegReg>();
+  TryReplaceWriteFlagsAfterCmpWithCmpRegRegInsn<CmplRegReg, kMachineOpCmplRegReg>();
+  TryReplaceWriteFlagsAfterSubWithCmpRegRegInsn<SubqRegReg, kMachineOpCmpqRegReg>();
+  TryReplaceWriteFlagsAfterSubWithCmpRegRegInsn<SublRegReg, kMachineOpCmplRegReg>();
 }
 
 TEST(InsnFoldingTest, ReplaceWriteFlagsWithCmpRegImmInsn) {
-  TryReplaceWriteFlagsWithCmpRegImmInsn<CmpqRegImm, kMachineOpCmpqRegImm>();
-  TryReplaceWriteFlagsWithCmpRegImmInsn<CmplRegImm, kMachineOpCmplRegImm>();
+  TryReplaceWriteFlagsAfterCmpWithCmpRegImmInsn<CmpqRegImm, kMachineOpCmpqRegImm>();
+  TryReplaceWriteFlagsAfterCmpWithCmpRegImmInsn<CmplRegImm, kMachineOpCmplRegImm>();
+  TryReplaceWriteFlagsAfterSubWithCmpRegImmInsn<SubqRegImm, kMachineOpCmpqRegImm>();
+  TryReplaceWriteFlagsAfterSubWithCmpRegImmInsn<SublRegImm, kMachineOpCmplRegImm>();
 }
 
 TEST(InsnFoldingTest, WriteFlagsNotReplacedByCmpRegImmIfRegArgumentChanged) {
