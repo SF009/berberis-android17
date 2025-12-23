@@ -39,8 +39,23 @@ class MetaValue final {
   constexpr operator ValueType() const { return kValue; }
 };
 
+template <auto... kValues>
+class MetaValueBuilder;
+
 template <auto kValue_>
-constexpr MetaValue<kValue_> kMeta = MetaValue<kValue_>{};
+class MetaValueBuilder<kValue_> {
+ public:
+  static constexpr auto kValue = MetaValue<kValue_>{};
+};
+
+template <auto kLambda, auto... kValues_, MetaValue<kValues_>... kValues__>
+class MetaValueBuilder<kLambda, kValues__...> {
+ public:
+  static constexpr auto kValue = MetaValue<kLambda(kValues_...)>{};
+};
+
+template <auto... kValues>
+constexpr auto kMeta = MetaValueBuilder<kValues...>::kValue;
 
 // Sometimes we need an address of variable (e.g. function name) that's passed to a template
 // function by value. We can create static constexpr in the function, but then all these different
@@ -76,6 +91,18 @@ DEFINE_VALUE_OPERATOR(||)
 DEFINE_VALUE_OPERATOR(&)
 DEFINE_VALUE_OPERATOR(|)
 DEFINE_VALUE_OPERATOR(^)
+
+#undef DEFINE_VALUE_OPERATOR
+#define DEFINE_VALUE_OPERATOR(operator_name)                                              \
+  template <auto kValue>                                                                  \
+  constexpr MetaValue<(operator_name kValue)> operator operator_name(MetaValue<kValue>) { \
+    return {};                                                                            \
+  }
+
+DEFINE_VALUE_OPERATOR(+)
+DEFINE_VALUE_OPERATOR(-)
+DEFINE_VALUE_OPERATOR(!)
+DEFINE_VALUE_OPERATOR(~)
 
 #pragma pop_macro("DEFINE_VALUE_OPERATOR")
 
@@ -2147,19 +2174,20 @@ class ValuesToValues {
                                                Lambda&& lambda,
                                                std::index_sequence<Is...>,
                                                ExtraLambdaArgTypes&&... extra_types) {
-    return std::tuple_cat(
-        [lambda = std::forward<Lambda>(lambda)]<typename ElementType>(
-            ElementType&& element, ExtraLambdaArgTypes&&... extra_types) {
-          auto lambda_result = lambda.template operator()<ElementType>(
-              std::forward<ExtraLambdaArgTypes>(extra_types)...);
-          constexpr bool kCheckResult = decltype(lambda_result){};
-          if constexpr (kCheckResult) {
-            return std::tuple<ElementType>{element};
-          } else {
-            return std::tuple<>{};
-          }
-        }(std::get<Is>(std::forward<TupleType>(tuple)),
-          std::forward<ExtraLambdaArgTypes>(extra_types)...)...);
+    return std::tuple_cat([lambda = std::forward<Lambda>(lambda)]<typename ElementType>(
+                              ElementType&& element, ExtraLambdaArgTypes&&... extra_types) {
+      auto lambda_result = lambda(std::forward<ElementType>(element),
+                                  std::forward<ExtraLambdaArgTypes>(extra_types)...);
+      // Detect an attempt to use normal bool as a result.
+      static_assert(!std::is_same_v<decltype(lambda_result), bool>);
+      constexpr bool kCheckResult = decltype(lambda_result){};
+      if constexpr (kCheckResult) {
+        return std::tuple<ElementType>{element};
+      } else {
+        return std::tuple<>{};
+      }
+    }(std::get<Is>(std::forward<TupleType>(tuple)),
+                          std::forward<ExtraLambdaArgTypes>(extra_types)...)...);
   }
 
   template <typename... ExtraLambdaArgTypes, typename TupleType, std::size_t... Is, typename Lambda>
@@ -2201,7 +2229,7 @@ class ValuesToValues {
     // Note: we don't really need the return value of TypesToValues::All here, instead we rely on
     // the fact that TypesToValues::All stops calculations when it finds first false.
     TypesToValues::All<TupleType>(
-        []<typename Type>(auto& value, std::size_t& size) {
+        []<typename Type>(decltype(initial_value)& value, std::size_t& size) {
           if (kLambda.template operator()<Type>(value, extra_lambda_values...)) {
             size++;
             return true;

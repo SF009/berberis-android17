@@ -38,7 +38,9 @@ enum class FoldingType {
   kInsertInsn,
   kRemoveInsn,
   kReplaceInsn,
-  kReplaceInsnAndSwapOperands
+  kReplaceInsnAndSwapOperands,
+  kReplaceInsnAndSetBranchConditionToZero,
+  kReplaceInsnAndSetBranchConditionToNotZero
 };
 
 // The DefMap class stores a map between registers and their latest definitions and positions.
@@ -85,7 +87,7 @@ class DefMap {
   }
   void ProcessInsn(MachineInsnList::iterator insn_it);
   void Initialize();
-  std::tuple<std::optional<MachineInsnList::iterator>, int, int> FindNonPseudoCopyDef(
+  std::tuple<std::optional<MachineInsnList::iterator>, int, int> FindNonCopyDef(
       MachineReg src_reg) const;
 
   void SetForTesting(MachineReg reg, MachineInsnList::iterator insn_it, int reg_pos) {
@@ -230,6 +232,12 @@ class InsnFolding {
   template <bool kIsMemWrite>
   std::tuple<FoldingType, berberis::MachineInsn*> TryFoldScaleIntoMemAccess(
       const berberis::MachineInsn* insn);
+  std::tuple<FoldingType, berberis::MachineInsn*> TryReplaceWriteFlagsWithCmp(
+      const berberis::MachineInsn* insn,
+      const MachineBasicBlock* bb);
+  std::tuple<FoldingType, berberis::MachineInsn*> TryReplaceWriteFlagsWithTest(
+      MachineInsnList::iterator insn_it,
+      const MachineBasicBlock* bb);
   berberis::MachineInsn* NewImmInsnFromRegInsn(const berberis::MachineInsn* insn, int32_t imm);
   berberis::MachineInsn* NewInsnFromTwoImmediatesOperation(const berberis::MachineInsn* insn,
                                                            uint64_t imm1,
@@ -243,8 +251,6 @@ class InsnFolding {
 };
 
 void FoldInsns(MachineIR* machine_ir);
-
-void FoldWriteFlags(MachineIR* machine_ir);
 
 }  // namespace berberis::x86_64
 

@@ -61,7 +61,7 @@ void DefMap::Initialize() {
   last_context_write_insn_ = 0;
 }
 
-std::tuple<std::optional<MachineInsnList::iterator>, int, int> DefMap::FindNonPseudoCopyDef(
+std::tuple<std::optional<MachineInsnList::iterator>, int, int> DefMap::FindNonCopyDef(
     MachineReg src_reg) const {
   auto [def_insn_it, def_insn_pos, reg_pos] = Get(src_reg);
   while (def_insn_it.has_value()) {
@@ -76,7 +76,7 @@ std::tuple<std::optional<MachineInsnList::iterator>, int, int> DefMap::FindNonPs
 
 void ContextAccessInfo::HandleRegisterUse(const berberis::MachineInsn* insn, MachineReg reg) {
   auto offset = GetOffset(reg);
-  // PseudoCopy simply propagates a value between virtual registers, and can be removed.
+  // The Copy insn simply propagates a value between virtual registers, and can be removed.
   // It doesn't count as a substantive use of a value loaded from CPU context, and so we skip
   // them when counting context read usages.
   if (offset.has_value() && insn->opcode() != kMachineOpCopy) {
@@ -131,7 +131,7 @@ void ContextAccessInfo::Initialize(const MachineInsnList& insn_list) {
 }
 
 std::optional<uint64_t> InsnFolding::GetImmValueIfPossible(MachineReg reg) const {
-  auto general_insn_it = std::get<0>(def_map_.FindNonPseudoCopyDef(reg));
+  auto general_insn_it = std::get<0>(def_map_.FindNonCopyDef(reg));
   if (!general_insn_it.has_value()) {
     return std::nullopt;
   }
@@ -238,7 +238,7 @@ bool InsnFolding::IsWritingSameFlagsValue(MachineInsnList::iterator write_flags_
   const berberis::MachineInsn* write_flags_insn = *write_flags_insn_it;
   CHECK(write_flags_insn && write_flags_insn->opcode() == kMachineOpWriteFlags);
   MachineReg src_reg = write_flags_insn->RegAt(0);
-  auto [def_insn_it, def_insn_pos, _] = def_map_.FindNonPseudoCopyDef(src_reg);
+  auto [def_insn_it, def_insn_pos, _] = def_map_.FindNonCopyDef(src_reg);
   if (!def_insn_it.has_value()) {
     return false;
   }
@@ -247,7 +247,7 @@ bool InsnFolding::IsWritingSameFlagsValue(MachineInsnList::iterator write_flags_
       def_insn->opcode() != kMachineOpReadFlagsWithoutOverflow) {
     return false;
   }
-  // Instruction is PseudoReadFlags.
+  // Instruction is ReadFlags.
   if (write_flags_insn->RegAt(1) != def_insn->RegAt(1)) {
     return false;
   }
@@ -386,7 +386,7 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldRedundantMov
   const berberis::MachineInsn* insn = *insn_it;
   CHECK_EQ(insn->opcode(), kMachineOpMovlRegReg);
   auto src = insn->RegAt(1);
-  auto [def_insn_it, def_insn_pos, def_reg_pos] = def_map_.FindNonPseudoCopyDef(src);
+  auto [def_insn_it, def_insn_pos, def_reg_pos] = def_map_.FindNonCopyDef(src);
   if (!def_insn_it.has_value()) {
     return {FoldingType::kImpossible, nullptr};
   }
@@ -394,7 +394,7 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldRedundantMov
   int def_reg_size = def_insn->RegKindAt(def_reg_pos).RegClass()->RegSize();
   if (def_reg_size == 4) {
     // Size of output is 32 bits, meaning upper 32 bits are cleared (zero extension).
-    // If the definition of src is zero extended, then we can replace MOVL with PseudoCopy.
+    // If the definition of src is zero extended, then we can replace MOVL with Copy.
     switch (def_insn->opcode()) {
       // Instructions below are special cases which do not guarantee zero extension. We do not
       // optimize in this case.
@@ -420,7 +420,7 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldCountLeading
                       : kMachineOpCountLeadingZerosU32;
   CHECK_EQ(insn->opcode(), clz_insn_opcode);
   MachineReg clz_src_reg = insn->RegAt(1);
-  auto [def_insn_it, def_insn_pos, _] = def_map_.FindNonPseudoCopyDef(clz_src_reg);
+  auto [def_insn_it, def_insn_pos, _] = def_map_.FindNonCopyDef(clz_src_reg);
   if (!def_insn_it.has_value()) {
     return {FoldingType::kImpossible, nullptr};
   }
@@ -439,32 +439,29 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldCountLeading
   if (insn_before_reverse_bits->opcode() != kMachineOpCopy) {
     return {FoldingType::kImpossible, nullptr};
   }
-  const berberis::MachineInsn* pseudo_copy = insn_before_reverse_bits;
-  if (pseudo_copy->RegAt(0) != reverse_bits_insn->RegAt(1) ||
-      pseudo_copy->RegAt(0) == pseudo_copy->RegAt(1)) {
+  const berberis::MachineInsn* copy = insn_before_reverse_bits;
+  if (copy->RegAt(0) != reverse_bits_insn->RegAt(1) || copy->RegAt(0) == copy->RegAt(1)) {
     return {FoldingType::kImpossible, nullptr};
   }
-  // If ReverseBits insn or any insn after overwrites pseudo_copy->RegAt(1), this will return
+  // If ReverseBits insn or any insn after overwrites copy->RegAt(1), this will return
   // std::nullopt.
-  if (std::get<0>(def_map_.Get(pseudo_copy->RegAt(1), def_insn_pos)) == std::nullopt) {
+  if (std::get<0>(def_map_.Get(copy->RegAt(1), def_insn_pos)) == std::nullopt) {
     return {FoldingType::kImpossible, nullptr};
   }
   berberis::MachineInsn* new_insn;
   if (kBMI) {
     if (kIsInput64Bit) {
-      new_insn =
-          machine_ir_->NewInsn<TzcntqRegReg>(insn->RegAt(0), pseudo_copy->RegAt(1), insn->RegAt(2));
+      new_insn = machine_ir_->NewInsn<TzcntqRegReg>(insn->RegAt(0), copy->RegAt(1), insn->RegAt(2));
     } else {
-      new_insn =
-          machine_ir_->NewInsn<TzcntlRegReg>(insn->RegAt(0), pseudo_copy->RegAt(1), insn->RegAt(2));
+      new_insn = machine_ir_->NewInsn<TzcntlRegReg>(insn->RegAt(0), copy->RegAt(1), insn->RegAt(2));
     }
   } else {
     if (kIsInput64Bit) {
       new_insn = machine_ir_->NewInsn<CountTrailingZerosU64>(
-          insn->RegAt(0), pseudo_copy->RegAt(1), insn->RegAt(2));
+          insn->RegAt(0), copy->RegAt(1), insn->RegAt(2));
     } else {
       new_insn = machine_ir_->NewInsn<CountTrailingZerosU32>(
-          insn->RegAt(0), pseudo_copy->RegAt(1), insn->RegAt(2));
+          insn->RegAt(0), copy->RegAt(1), insn->RegAt(2));
     }
   }
   return {FoldingType::kReplaceInsn, new_insn};
@@ -586,7 +583,7 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldContextRead(
     const berberis::MachineInsn* insn,
     int32_t mem_reg_pos) {
   const MachineReg arith_src_reg = insn->RegAt(mem_reg_pos);
-  auto [def_insn_it, def_insn_pos, _] = def_map_.FindNonPseudoCopyDef(arith_src_reg);
+  auto [def_insn_it, def_insn_pos, _] = def_map_.FindNonCopyDef(arith_src_reg);
   if (!def_insn_it.has_value()) {
     return {FoldingType::kImpossible, nullptr};
   }
@@ -662,7 +659,7 @@ berberis::MachineInsn* InsnFolding::NewArithmeticInsnWithSwappedOperands(
 std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldContextReadAndSwapOperands(
     const berberis::MachineInsn* insn) {
   const MachineReg arith_dst_reg = insn->RegAt(0);
-  auto [def_insn_it, def_insn_pos, _] = def_map_.FindNonPseudoCopyDef(arith_dst_reg);
+  auto [def_insn_it, def_insn_pos, _] = def_map_.FindNonCopyDef(arith_dst_reg);
   if (!def_insn_it.has_value()) {
     return {FoldingType::kImpossible, nullptr};
   }
@@ -690,7 +687,7 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldScaleIntoMem
     const berberis::MachineInsn* insn) {
   CHECK_EQ(AsMachineInsnX86_64(insn)->scale(), Assembler::ScaleFactor::kTimesOne);
   MachineReg index_reg = insn->RegAt(kIsMemWrite ? 1 : 2);
-  auto [shift_insn_it, shift_insn_pos, _] = def_map_.FindNonPseudoCopyDef(index_reg);
+  auto [shift_insn_it, shift_insn_pos, _] = def_map_.FindNonCopyDef(index_reg);
   if (!shift_insn_it.has_value()) {
     return {FoldingType::kImpossible, nullptr};
   }
@@ -698,20 +695,20 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldScaleIntoMem
   if (shift_insn->opcode() != kMachineOpShlqRegImm) {
     return {FoldingType::kImpossible, nullptr};
   }
-  auto pseudo_copy_insn_it = std::prev(shift_insn_it.value());
-  berberis::MachineInsn* pseudo_copy_insn = *pseudo_copy_insn_it;
-  if (pseudo_copy_insn->opcode() != kMachineOpCopy) {
+  auto copy_insn_it = std::prev(shift_insn_it.value());
+  berberis::MachineInsn* copy_insn = *copy_insn_it;
+  if (copy_insn->opcode() != kMachineOpCopy) {
     return {FoldingType::kImpossible, nullptr};
   }
-  auto pseudo_copy_dst_reg = pseudo_copy_insn->RegAt(0);
-  if (pseudo_copy_dst_reg != shift_insn->RegAt(0)) {
+  auto copy_dst_reg = copy_insn->RegAt(0);
+  if (copy_dst_reg != shift_insn->RegAt(0)) {
     return {FoldingType::kImpossible, nullptr};
   }
-  auto pseudo_copy_src_reg = pseudo_copy_insn->RegAt(1);
-  if (pseudo_copy_dst_reg == pseudo_copy_src_reg) {
+  auto copy_src_reg = copy_insn->RegAt(1);
+  if (copy_dst_reg == copy_src_reg) {
     return {FoldingType::kImpossible, nullptr};
   }
-  auto src_insn_it = std::get<0>(def_map_.Get(pseudo_copy_src_reg, shift_insn_pos));
+  auto src_insn_it = std::get<0>(def_map_.Get(copy_src_reg, shift_insn_pos));
   if (!src_insn_it.has_value()) {
     return {FoldingType::kImpossible, nullptr};
   }
@@ -729,9 +726,125 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldScaleIntoMem
   }
   berberis::MachineInsn* new_insn = machine_ir_->CloneInsn(insn);
   AsMachineInsnX86_64(new_insn)->set_scale(new_scale_factor);
-  new_insn->SetRegAt(kIsMemWrite ? 1 : 2, pseudo_copy_src_reg);
+  new_insn->SetRegAt(kIsMemWrite ? 1 : 2, copy_src_reg);
 
   return {FoldingType::kReplaceInsn, new_insn};
+}
+
+std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryReplaceWriteFlagsWithCmp(
+    const berberis::MachineInsn* insn,
+    const MachineBasicBlock* bb) {
+  CHECK_EQ(insn->opcode(), kMachineOpWriteFlags);
+  auto flags_value_reg = insn->RegAt(0);
+  auto [read_flags_insn_it, read_flags_insn_pos, _] = def_map_.FindNonCopyDef(flags_value_reg);
+  if (!read_flags_insn_it.has_value()) {
+    return {FoldingType::kImpossible, nullptr};
+  }
+  berberis::MachineInsn* read_flags_insn = *read_flags_insn_it.value();
+  if (read_flags_insn->opcode() != kMachineOpReadFlagsWithOverflow) {
+    return {FoldingType::kImpossible, nullptr};
+  }
+  if (read_flags_insn_it.value() == bb->insn_list().begin()) {
+    return {FoldingType::kImpossible, nullptr};
+  }
+  auto cmp_insn_it = std::prev(read_flags_insn_it.value());
+  berberis::MachineInsn* cmp_insn = *cmp_insn_it;
+
+  switch (cmp_insn->opcode()) {
+    case kMachineOpCmplRegReg:
+    case kMachineOpCmpqRegReg:
+    case kMachineOpCmplRegImm:
+    case kMachineOpCmpqRegImm:
+      break;
+    default:
+      return {FoldingType::kImpossible, nullptr};
+  }
+  // Since cmp_insn immediately precedes read_flags_insn, the arguments to cmp_insn cannot be
+  // modified between them. Therefore, it is sufficient to check that the registers have not
+  // been modified since read_flags_insn_pos.
+  if (std::get<0>(def_map_.Get(cmp_insn->RegAt(0), read_flags_insn_pos)) == std::nullopt) {
+    return {FoldingType::kImpossible, nullptr};
+  }
+  if (cmp_insn->NumRegOperands() == 3) {
+    if (std::get<0>(def_map_.Get(cmp_insn->RegAt(1), read_flags_insn_pos)) == std::nullopt) {
+      return {FoldingType::kImpossible, nullptr};
+    }
+  }
+  return {FoldingType::kReplaceInsn, machine_ir_->CloneInsn(cmp_insn)};
+}
+
+std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryReplaceWriteFlagsWithTest(
+    MachineInsnList::iterator insn_it,
+    const MachineBasicBlock* bb) {
+  auto write_flags_insn = *insn_it;
+  CHECK_EQ(write_flags_insn->opcode(), kMachineOpWriteFlags);
+  auto cond_branch_insn_it = std::next(insn_it);
+  if (cond_branch_insn_it == bb->insn_list().end()) {
+    return {FoldingType::kImpossible, nullptr};
+  }
+  auto cond_branch_insn = *cond_branch_insn_it;
+  if ((cond_branch_insn)->opcode() != kMachineOpCondBranch) {
+    return {FoldingType::kImpossible, nullptr};
+  }
+
+  auto* branch = static_cast<CondBranch*>(cond_branch_insn);
+  // There is only one flags register, so CondBranch must read flags from WriteFlags.
+  MachineReg flags = write_flags_insn->RegAt(1);
+  CHECK_EQ(flags.reg(), branch->RegAt(0).reg());
+
+  if (Contains(bb->live_out(), flags)) {
+    // Flags are living-out. Cannot remove.
+    // TODO(b/179708579): This shouldn't happen. Consider conversion to an assert.
+    return {FoldingType::kImpossible, nullptr};
+  }
+
+  using Cond = CodeEmitter::Condition;
+  FoldingType folding_type;
+  LahfFlags flags_mask;
+
+  switch (branch->cond()) {
+    // Verify that the flags are within the bottom 16 bits, so we can use Testw.
+    static_assert(sizeof(LahfFlags) == 2);
+    case Cond::kZero:
+      folding_type = FoldingType::kReplaceInsnAndSetBranchConditionToNotZero;
+      flags_mask = LahfFlags::kZero;
+      break;
+    case Cond::kNotZero:
+      folding_type = FoldingType::kReplaceInsnAndSetBranchConditionToZero;
+      flags_mask = LahfFlags::kZero;
+      break;
+    case Cond::kCarry:
+      folding_type = FoldingType::kReplaceInsnAndSetBranchConditionToNotZero;
+      flags_mask = LahfFlags::kCarry;
+      break;
+    case Cond::kNotCarry:
+      folding_type = FoldingType::kReplaceInsnAndSetBranchConditionToZero;
+      flags_mask = LahfFlags::kCarry;
+      break;
+    case Cond::kNegative:
+      folding_type = FoldingType::kReplaceInsnAndSetBranchConditionToNotZero;
+      flags_mask = LahfFlags::kNegative;
+      break;
+    case Cond::kNotSign:
+      folding_type = FoldingType::kReplaceInsnAndSetBranchConditionToZero;
+      flags_mask = LahfFlags::kNegative;
+      break;
+    case Cond::kOverflow:
+      folding_type = FoldingType::kReplaceInsnAndSetBranchConditionToNotZero;
+      flags_mask = LahfFlags::kOverflow;
+      break;
+    case Cond::kNoOverflow:
+      folding_type = FoldingType::kReplaceInsnAndSetBranchConditionToZero;
+      flags_mask = LahfFlags::kOverflow;
+      break;
+    default:
+      return {FoldingType::kImpossible, nullptr};
+  }
+
+  MachineReg flags_src = write_flags_insn->RegAt(0);
+  berberis::MachineInsn* new_write_flags =
+      machine_ir_->NewInsn<x86_64::TestwRegImm>(flags_src, static_cast<int16_t>(flags_mask), flags);
+  return {folding_type, new_write_flags};
 }
 
 std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldInsn(
@@ -818,7 +931,11 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldInsn(
       if (IsWritingSameFlagsValue(insn_it)) {
         return {FoldingType::kRemoveInsn, nullptr};
       }
-      break;
+      auto [folding_type, folded_insn] = TryReplaceWriteFlagsWithTest(insn_it, bb);
+      if (folding_type != FoldingType::kImpossible) {
+        return {folding_type, folded_insn};
+      }
+      return TryReplaceWriteFlagsWithCmp(insn, bb);
     }
     case kMachineOpShlqRegImm:
     case kMachineOpShrqRegImm:
@@ -891,18 +1008,31 @@ MachineInsnList::iterator InsnFolding::ExecuteInsnFold(MachineInsnList& insn_lis
     MachineReg op_reg_0 = curr_op_insn->RegAt(0);
     MachineReg op_reg_1 = curr_op_insn->RegAt(1);
     MachineReg new_reg = new_insn->RegAt(0);
-    berberis::MachineInsn* new_pseudo_copy_1 =
-        machine_ir_->NewInsn<Copy>(new_reg, op_reg_1, 8);
-    berberis::MachineInsn* new_pseudo_copy_2 =
-        machine_ir_->NewInsn<Copy>(op_reg_0, new_reg, 8);
-    insn_list.insert(folded_insn_it, new_pseudo_copy_1);
+    berberis::MachineInsn* new_copy_1 = machine_ir_->NewInsn<Copy>(new_reg, op_reg_1, 8);
+    berberis::MachineInsn* new_copy_2 = machine_ir_->NewInsn<Copy>(op_reg_0, new_reg, 8);
+    insn_list.insert(folded_insn_it, new_copy_1);
     *folded_insn_it = new_insn;
-    insn_list.insert(std::next(folded_insn_it), new_pseudo_copy_2);
+    insn_list.insert(std::next(folded_insn_it), new_copy_2);
 
     def_map_.ProcessInsn(std::prev(folded_insn_it));
     def_map_.ProcessInsn(folded_insn_it);
     def_map_.ProcessInsn(std::next(folded_insn_it));
     return std::next(folded_insn_it, 2);
+  } else if (folding_type == FoldingType::kReplaceInsnAndSetBranchConditionToZero ||
+             folding_type == FoldingType::kReplaceInsnAndSetBranchConditionToNotZero) {
+    CHECK(new_insn);
+    *folded_insn_it = new_insn;
+    def_map_.ProcessInsn(folded_insn_it);
+    auto branch_insn_it = std::next(folded_insn_it);
+    auto branch_insn = *branch_insn_it;
+    CHECK_EQ(branch_insn->opcode(), kMachineOpCondBranch);
+    auto* branch = static_cast<CondBranch*>(branch_insn);
+    if (folding_type == FoldingType::kReplaceInsnAndSetBranchConditionToZero) {
+      branch->set_cond(CodeEmitter::Condition::kZero);
+    } else {
+      branch->set_cond(CodeEmitter::Condition::kNotZero);
+    }
+    return branch_insn_it;
   }
   FATAL("Unsupported folding type %d", folding_type);
 }
@@ -921,83 +1051,6 @@ void FoldInsns(MachineIR* machine_ir) {
     }
   }
   machine_ir->set_insn_folding_executed();
-}
-
-// TODO(b/179708579): Maybe combine with FoldInsns.
-void FoldWriteFlags(MachineIR* machine_ir) {
-  for (auto* bb : machine_ir->bb_list()) {
-    CHECK(!bb->insn_list().empty());
-    auto insn_it = std::prev(bb->insn_list().end());
-    if ((*insn_it)->opcode() != kMachineOpCondBranch) {
-      continue;
-    }
-
-    auto* branch = static_cast<CondBranch*>(*insn_it);
-    const auto* write_flags = *(--insn_it);
-    if (write_flags->opcode() != kMachineOpWriteFlags) {
-      continue;
-    }
-    // There is only one flags register, so CondBranch must read flags from WriteFlags.
-    MachineReg flags = write_flags->RegAt(1);
-    CHECK_EQ(flags.reg(), branch->RegAt(0).reg());
-
-    const auto& live_out = bb->live_out();
-    if (Contains(live_out, flags)) {
-      // Flags are living-out. Cannot remove.
-      // TODO(b/179708579): This shouldn't happen. Consider conversion to an assert.
-      continue;
-    }
-
-    using Cond = CodeEmitter::Condition;
-    Cond new_cond = Cond::kInvalidCondition;
-    LahfFlags flags_mask;
-
-    switch (branch->cond()) {
-      // Verify that the flags are within the bottom 16 bits, so we can use Testw.
-      static_assert(sizeof(LahfFlags) == 2);
-      case Cond::kZero:
-        new_cond = Cond::kNotZero;
-        flags_mask = LahfFlags::kZero;
-        break;
-      case Cond::kNotZero:
-        new_cond = Cond::kZero;
-        flags_mask = LahfFlags::kZero;
-        break;
-      case Cond::kCarry:
-        new_cond = Cond::kNotZero;
-        flags_mask = LahfFlags::kCarry;
-        break;
-      case Cond::kNotCarry:
-        new_cond = Cond::kZero;
-        flags_mask = LahfFlags::kCarry;
-        break;
-      case Cond::kNegative:
-        new_cond = Cond::kNotZero;
-        flags_mask = LahfFlags::kNegative;
-        break;
-      case Cond::kNotSign:
-        new_cond = Cond::kZero;
-        flags_mask = LahfFlags::kNegative;
-        break;
-      case Cond::kOverflow:
-        new_cond = Cond::kNotZero;
-        flags_mask = LahfFlags::kOverflow;
-        break;
-      case Cond::kNoOverflow:
-        new_cond = Cond::kZero;
-        flags_mask = LahfFlags::kOverflow;
-        break;
-      default:
-        continue;
-    }
-
-    MachineReg flags_src = write_flags->RegAt(0);
-    berberis::MachineInsn* new_write_flags = machine_ir->NewInsn<x86_64::TestwRegImm>(
-        flags_src, static_cast<int16_t>(flags_mask), flags);
-    insn_it = bb->insn_list().erase(insn_it);
-    bb->insn_list().insert(insn_it, new_write_flags);
-    branch->set_cond(new_cond);
-  }
 }
 
 }  // namespace berberis::x86_64
