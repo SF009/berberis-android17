@@ -626,6 +626,8 @@ class Copy final : public MachineInsn {
 // Example: xor rax, rax
 class PseudoDefReg final : public MachineInsn {
  public:
+  static const MachineOpcode kOpcode;
+
   explicit PseudoDefReg(MachineReg reg);
 
   [[nodiscard]] std::string GetDebugString() const override;
