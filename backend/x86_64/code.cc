@@ -211,6 +211,8 @@ MachineInsnList Copy::Lower(Arena* arena) const {
   return {1, NewInArena<Copy, const Copy&>(arena, *this), arena};
 }
 
+const MachineOpcode PseudoDefReg::kOpcode = kMachineOpPseudoDefReg;
+
 PseudoDefReg::PseudoDefReg(MachineReg reg)
     : MachineInsn(kMachineOpPseudoDefReg,
                   1,
