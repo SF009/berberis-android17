@@ -172,14 +172,6 @@ class ConstExprCheckAssembler {
   constexpr void Vmovs(XMMRegister, XMMRegister, XMMRegister) const {}
 };
 
-// Helper wrapper to pass the intrinsic type down the generic lambda.
-template <typename T, typename U>
-struct ArgWrap {
-  using AssemblerType = T;
-  using IntrinsicType = U;
-  AssemblerType value;
-};
-
 static constexpr x86_64::Assembler::Register kAbiArgs[] = {
     x86_64::Assembler::rdi,
     x86_64::Assembler::rsi,
@@ -225,77 +217,73 @@ constexpr bool InitArgs(MacroAssembler&& as, bool has_avx, AssemblerArgType... a
         return std::is_same_v<IntrinsicType, Float32> || std::is_same_v<IntrinsicType, Float64>;
       }>{};
   static_assert(kSimdArgs < std::size(kAbiSimdArgs));
-  size_t gp_index = 0;
-  size_t simd_index = 0;
-  ((
-      [&as, &gp_index, &simd_index, has_avx](auto arg) {
-        using AssemblerType = typename decltype(arg)::AssemblerType;
-        using IntrinsicType = typename decltype(arg)::IntrinsicType;
+  ValuesToValues::ForEachWithTemporary</* gp_index, simd_index = */ std::pair<size_t, size_t>>(
+      ValuesToValues::Zip(std::tuple{kMetaType<IntrinsicArgType>...}, std::tuple{args...}),
+      [&as, has_avx]<typename AssemblerType, typename IntrinsicType>(
+          std::pair<MetaType<IntrinsicType>, AssemblerType>&& arg_info,
+          std::pair<size_t, size_t>& indexes) {
+        auto [_, arg] = arg_info;
+        auto& [gp_index, simd_index] = indexes;
 
         // Note, ABI mandates extension up to 32-bit and zero-filling the upper half.
         if constexpr (std::is_integral_v<IntrinsicType> &&
                       sizeof(IntrinsicType) <= sizeof(int32_t) &&
                       std::is_integral_v<AssemblerType> &&
                       sizeof(AssemblerType) <= sizeof(int32_t)) {
-          as.Movl(kAbiArgs[gp_index++], static_cast<int32_t>(arg.value));
+          as.Movl(kAbiArgs[gp_index++], static_cast<int32_t>(arg));
         } else if constexpr (std::is_integral_v<IntrinsicType> &&
                              sizeof(IntrinsicType) == sizeof(int64_t) &&
                              std::is_integral_v<AssemblerType> &&
                              sizeof(AssemblerType) == sizeof(int64_t)) {
           as.template Expand<int64_t, IntrinsicType>(kAbiArgs[gp_index++],
-                                                     static_cast<int64_t>(arg.value));
+                                                     static_cast<int64_t>(arg));
         } else if constexpr (std::is_integral_v<IntrinsicType> &&
                              sizeof(IntrinsicType) <= sizeof(int32_t) &&
                              std::is_same_v<AssemblerType, Register>) {
-          if (kRegOffsetsOnStack[arg.value.GetPhysicalIndex()] == kRegIsNotOnStack) {
-            as.template Expand<int32_t, IntrinsicType>(kAbiArgs[gp_index++], arg.value);
+          if (kRegOffsetsOnStack[arg.GetPhysicalIndex()] == kRegIsNotOnStack) {
+            as.template Expand<int32_t, IntrinsicType>(kAbiArgs[gp_index++], arg);
           } else {
             as.template Expand<int32_t, IntrinsicType>(
                 kAbiArgs[gp_index++],
-                {.base = Assembler::rsp,
-                 .disp = kRegOffsetsOnStack[arg.value.GetPhysicalIndex()] * 8});
+                {.base = Assembler::rsp, .disp = kRegOffsetsOnStack[arg.GetPhysicalIndex()] * 8});
           }
         } else if constexpr (std::is_integral_v<IntrinsicType> &&
                              sizeof(IntrinsicType) == sizeof(int64_t) &&
                              std::is_same_v<AssemblerType, Register>) {
-          if (kRegOffsetsOnStack[arg.value.GetPhysicalIndex()] == kRegIsNotOnStack) {
-            as.template Expand<int64_t, IntrinsicType>(kAbiArgs[gp_index++], arg.value);
+          if (kRegOffsetsOnStack[arg.GetPhysicalIndex()] == kRegIsNotOnStack) {
+            as.template Expand<int64_t, IntrinsicType>(kAbiArgs[gp_index++], arg);
           } else {
             as.template Expand<int64_t, IntrinsicType>(
                 kAbiArgs[gp_index++],
-                {.base = Assembler::rsp,
-                 .disp = kRegOffsetsOnStack[arg.value.GetPhysicalIndex()] * 8});
+                {.base = Assembler::rsp, .disp = kRegOffsetsOnStack[arg.GetPhysicalIndex()] * 8});
           }
         } else if constexpr ((std::is_same_v<IntrinsicType, Float32> ||
                               std::is_same_v<IntrinsicType, Float64>) &&
                              std::is_same_v<AssemblerType, XMMRegister>) {
-          if (kSimdRegOffsetsOnStack[arg.value.GetPhysicalIndex()] == kRegIsNotOnStack) {
+          if (kSimdRegOffsetsOnStack[arg.GetPhysicalIndex()] == kRegIsNotOnStack) {
             if (has_avx) {
               as.template Vmovs<IntrinsicType>(
-                  kAbiSimdArgs[simd_index], kAbiSimdArgs[simd_index], arg.value);
+                  kAbiSimdArgs[simd_index], kAbiSimdArgs[simd_index], arg);
               simd_index++;
             } else {
-              as.template Movs<IntrinsicType>(kAbiSimdArgs[simd_index++], arg.value);
+              as.template Movs<IntrinsicType>(kAbiSimdArgs[simd_index++], arg);
             }
           } else {
             if (has_avx) {
               as.template Vmovs<IntrinsicType>(
                   kAbiSimdArgs[simd_index++],
-                  {.base = as.rsp,
-                   .disp = kSimdRegOffsetsOnStack[arg.value.GetPhysicalIndex()] * 8});
+                  {.base = as.rsp, .disp = kSimdRegOffsetsOnStack[arg.GetPhysicalIndex()] * 8});
             } else {
               as.template Movs<IntrinsicType>(
                   kAbiSimdArgs[simd_index++],
-                  {.base = as.rsp,
-                   .disp = kSimdRegOffsetsOnStack[arg.value.GetPhysicalIndex()] * 8});
+                  {.base = as.rsp, .disp = kSimdRegOffsetsOnStack[arg.GetPhysicalIndex()] * 8});
             }
           }
         } else {
           static_assert(kDependentTypeFalse<std::tuple<IntrinsicType, AssemblerType>>,
                         "Unknown parameter type, please add support to CallIntrinsic");
         }
-      }(ArgWrap<AssemblerArgType, IntrinsicArgType>{.value = args}),
-      ...));
+      });
   return true;
 }
 
