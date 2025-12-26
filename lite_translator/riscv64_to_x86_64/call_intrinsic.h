@@ -128,50 +128,6 @@ inline void PopCallerSaved(MacroAssembler<x86_64::Assembler>& as, const StoredRe
   as.Addq(as.rsp, kSaveAreaSize * 8);
 }
 
-// Nonfunctional assembler used by static_assert expression. It doesn't do anything but allows us
-// to call InitArgs during compilation time with the same argument types as would happen during
-// execution.
-//
-// This turns runtime check into compile time check and thus allows us to catch weird corner cases
-// faster.
-class ConstExprCheckAssembler {
- public:
-  using Operand = MacroAssembler<x86_64::Assembler>::Operand;
-  using Register = MacroAssembler<x86_64::Assembler>::Register;
-  using XMMRegister = MacroAssembler<x86_64::Assembler>::XMMRegister;
-  static constexpr auto rsp = MacroAssembler<x86_64::Assembler>::rsp;
-
-  constexpr ConstExprCheckAssembler() = default;
-
-  template <typename U, typename V>
-  constexpr void Expand(Register, Operand) const {}
-  template <typename U, typename V>
-  constexpr void Expand(Register, Register) const {}
-
-  template <typename U>
-  constexpr void Mov(Operand, Register) const {}
-  template <typename U>
-  constexpr void Mov(Register, Operand) const {}
-  template <typename U>
-  constexpr void Mov(Register, Register) const {}
-
-  constexpr void Movl(Register, int32_t) const {}
-
-  template <typename U>
-  constexpr void Movs(Operand, XMMRegister) const {}
-  template <typename U>
-  constexpr void Movs(XMMRegister, Operand) const {}
-  template <typename U>
-  constexpr void Movs(XMMRegister, XMMRegister) const {}
-
-  template <typename U>
-  constexpr void Vmovs(Operand, XMMRegister) const {}
-  template <typename U>
-  constexpr void Vmovs(XMMRegister, Operand) const {}
-  template <typename U>
-  constexpr void Vmovs(XMMRegister, XMMRegister, XMMRegister) const {}
-};
-
 static constexpr x86_64::Assembler::Register kAbiArgs[] = {
     x86_64::Assembler::rdi,
     x86_64::Assembler::rsi,
@@ -197,7 +153,7 @@ template <typename IntrinsicResType,
           typename... IntrinsicArgType,
           typename MacroAssembler,
           typename... AssemblerArgType>
-constexpr bool InitArgs(MacroAssembler&& as, bool has_avx, AssemblerArgType... args) {
+void InitArgs(MacroAssembler&& as, bool has_avx, AssemblerArgType... args) {
   using Assembler = std::decay_t<MacroAssembler>;
   using Register = typename Assembler::Register;
   using XMMRegister = typename Assembler::XMMRegister;
@@ -292,7 +248,6 @@ constexpr bool InitArgs(MacroAssembler&& as, bool has_avx, AssemblerArgType... a
                         "Unknown parameter type, please add support to CallIntrinsic");
         }
       });
-  return true;
 }
 
 // Forward results from ABI registers to result-specified registers and mark registers in the
@@ -355,34 +310,6 @@ StoredRegsInfo ForwardResults(MacroAssembler<x86_64::Assembler>& as, AssemblerRe
   return regs_info;
 }
 
-// Note: we can ignore status in the actual InitArgs call because we know that InitArgs would
-// succeed if the call in static_assert succeeded.
-//
-// AVX flag shouldn't change the outcome, but better safe than sorry.
-
-template <typename IntrinsicResType, typename... IntrinsicArgType, typename... AssemblerArgType>
-void InitArgsVerify(AssemblerArgType...) {
-  constexpr auto MakeDummyAssemblerType = []<typename AssemblerType>() {
-    if constexpr (std::is_same_v<AssemblerType, x86_64::Assembler::Register>) {
-      // Note: we couldn't use no_register here, but any “real” register should work.
-      return x86_64::Assembler::rax;
-    } else if constexpr (std::is_same_v<AssemblerType, x86_64::Assembler::XMMRegister>) {
-      // Note: we couldn't use no_xmm_register here, but any “real” register should work.
-      return x86_64::Assembler::xmm0;
-    } else {
-      return AssemblerType{0};
-    }
-  };
-  static_assert(InitArgs<IntrinsicResType, IntrinsicArgType...>(
-      ConstExprCheckAssembler(),
-      true,
-      MakeDummyAssemblerType.template operator()<AssemblerArgType>()...));
-  static_assert(InitArgs<IntrinsicResType, IntrinsicArgType...>(
-      ConstExprCheckAssembler(),
-      false,
-      MakeDummyAssemblerType.template operator()<AssemblerArgType>()...));
-}
-
 template <typename AssemblerResType,
           typename IntrinsicResType,
           typename... IntrinsicArgType,
@@ -393,7 +320,6 @@ void CallIntrinsic(MacroAssembler<x86_64::Assembler>& as,
                    AssemblerArgType... args) {
   PushCallerSaved(as);
 
-  InitArgsVerify<IntrinsicResType, IntrinsicArgType...>(args...);
   InitArgs<IntrinsicResType, IntrinsicArgType...>(as, host_platform::kHasAVX, args...);
 
   as.Call(reinterpret_cast<void*>(function));
