@@ -150,12 +150,6 @@ class VRegLiveRange {
     }
   }
 
-  bool StartsWithDef() const {
-    // Accesses are sorted by begin so the first one is the one we need to check.
-    auto it = access_list_.begin();
-    return it != access_list_.end() && it->IsDef() && !it->IsInput();
-  }
-
   void RewriteVReg(MachineIR* machine_ir, MachineReg hard_reg, int spill_slot) {
     std::optional<std::tuple<VRegAccess*, bool>> last_def;
 
@@ -254,6 +248,15 @@ class VRegLifetime {
  public:
   using List = ArenaList<VRegLifetime>;
 
+  explicit VRegLifetime(Arena* arena)
+      : arena_(arena),
+        range_list_(arena),
+        reg_class_(nullptr),
+        hard_reg_(0),
+        spill_slot_(-1),
+        spill_weight_(0),
+        move_hint_(nullptr) {}
+
   VRegLifetime(Arena* arena, int begin)
       : arena_(arena),
         range_list_(1, VRegLiveRange(arena, begin), arena),
@@ -273,11 +276,18 @@ class VRegLifetime {
         move_hint_(nullptr) {}
 
   void StartLiveRange(int begin) {
-    CHECK_LE(end(), begin);
+    // Range list may be empty in tests.
+    if (!range_list_.empty()) {
+      CHECK_LE(end(), begin);
+    }
     range_list_.push_back(VRegLiveRange(arena_, begin));
   }
 
   void AppendAccess(const VRegAccess& access) {
+    if (range_list_.empty()) {
+      // This may happen for lifetimes constructed from split accesses.
+      range_list_.push_back(VRegLiveRange(arena_, access.begin()));
+    }
     if (access.IsDef() && !access.IsInput() && end() < access.begin()) {
       // This is write-only access and there is a gap between it and previous access.
       // Can insert lifetime hole.
@@ -397,7 +407,8 @@ class VRegLifetime {
         continue;
       }
 
-      for (auto access_it = range_it->access_list().begin(); access_it != range_it->access_list().end();
+      for (auto access_it = range_it->access_list().begin();
+           access_it != range_it->access_list().end();
            ++access_it) {
         if (access_it->end() <= begin) {
           // Future tiny lifetime ends before 'begin'.
@@ -423,39 +434,37 @@ class VRegLifetime {
     return SPLIT_OK;
   }
 
-  void Split(const SplitPos& split_pos, ArenaList<VRegLifetime>* tiny_lifetimes) {
+  void Split(const SplitPos& split_pos, ArenaList<VRegLifetime>* new_lifetimes) {
     if (split_pos.range_it == range_list_.end()) {
       return;
     }
-    // Create tiny lifetime from each use after split pos.
-    for (auto [range_it, access_it] = std::tuple{split_pos.range_it, split_pos.access_it};
-         range_it != range_list_.end();
-         access_it = (++range_it)->access_list().begin()) {
-      for (; access_it != range_it->access_list().end(); ++access_it) {
-        tiny_lifetimes->emplace_back(arena_, *access_it);
-        tiny_lifetimes->back().SetSpill(GetSpill());
-      }
-    }
+    VRegLiveRangeList::iterator first_range_to_split = split_pos.range_it;
+    VRegAccessList& access_list = split_pos.range_it->access_list();
+    // Create special lifetime for the range for which we split the list of accesses.
+    if (split_pos.access_it != access_list.begin()) {
+      AddLifetimeFromAccessList(
+          new_lifetimes, split_pos.access_it, access_list.end(), GetSpill(), arena_);
 
-    // Erase transferred accesses (so they are not rewritten twice).
-    VRegLiveRangeList::iterator first_range_to_erase = split_pos.range_it;
-    if (split_pos.access_it != split_pos.range_it->access_list().begin()) {
-      // Erase only tail of the first range.
-      split_pos.range_it->access_list().erase(split_pos.access_it, split_pos.range_it->access_list().end());
-
-      // Recompute the end of the first range.
+      // Erase the accesses that were split off.
+      access_list.erase(split_pos.access_it, access_list.end());
+      // Recompute the end of the split range.
       int new_end = 0;
       // Since we erase after the begin, there must be at least one access
       // left in the front.
-      CHECK(!split_pos.range_it->access_list().empty());
-      for (auto access : split_pos.range_it->access_list()) {
+      CHECK(!access_list.empty());
+      for (auto access : access_list) {
         new_end = std::max(new_end, access.end());
       }
       split_pos.range_it->set_end</* kAllowShrink */ true>(new_end);
-
-      ++first_range_to_erase;
+      ++first_range_to_split;
     }
-    range_list_.erase(first_range_to_erase, range_list_.end());
+    // Create new lifetimes from ranges after split pos.
+    // Note: live ranges for live-ins/outs are shrunk to the actual range of the accesses.
+    for (auto range_it = first_range_to_split; range_it != range_list_.end(); ++range_it) {
+      AddLifetimeFromAccessList(new_lifetimes, range_it->access_list().begin(),
+                                range_it->access_list().end(), GetSpill(), arena_);
+    }
+    range_list_.erase(first_range_to_split, range_list_.end());
   }
 
   // Walk reg accesses and replace vreg with assigned hard reg.
@@ -465,7 +474,25 @@ class VRegLifetime {
     }
   }
 
+  const VRegLiveRangeList& GetLiveRangesForTesting() const { return range_list_; }
+
  private:
+  // Helper function to create a new VRegLifetime from a list of VRegAccesses.
+  // Declaring it inside the class to avoid complicated forward declarations.
+  static void AddLifetimeFromAccessList(ArenaList<VRegLifetime>* lifetimes,
+                                        VRegAccessList::iterator start_it,
+                                        VRegAccessList::iterator end_it,
+                                        int spill_slot,
+                                        Arena* arena) {
+    if (start_it == end_it) {
+      return;
+    }
+    lifetimes->emplace_back(arena);
+    lifetimes->back().SetSpill(spill_slot);
+    for (auto it = start_it; it != end_it; ++it) {
+      lifetimes->back().AppendAccess(*it);
+    }
+  }
   // Arena for allocations.
   Arena* arena_;
   // List of live ranges, must be non-empty after lifetime is populated!
