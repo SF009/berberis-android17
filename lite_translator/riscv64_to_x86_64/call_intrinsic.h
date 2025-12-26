@@ -209,12 +209,12 @@ constexpr bool InitArgs(MacroAssembler&& as, bool has_avx, AssemblerArgType... a
 
   constexpr std::size_t kIntArgs =
       TypesToTypes::CountIf<std::tuple<IntrinsicArgType...>, []<typename IntrinsicType>() {
-        return std::is_integral_v<IntrinsicType>;
+        return kMetaType<IntrinsicType>.IsIntegral();
       }>{};
   static_assert(kIntArgs < std::size(kAbiArgs));
   constexpr std::size_t kSimdArgs =
       TypesToTypes::CountIf<std::tuple<IntrinsicArgType...>, []<typename IntrinsicType>() {
-        return std::is_same_v<IntrinsicType, Float32> || std::is_same_v<IntrinsicType, Float64>;
+        return kMetaType<IntrinsicType>.IsWrappedFloat();
       }>{};
   static_assert(kSimdArgs < std::size(kAbiSimdArgs));
   ValuesToValues::ForEachWithTemporary</* gp_index, simd_index = */ std::pair<size_t, size_t>>(
@@ -225,60 +225,68 @@ constexpr bool InitArgs(MacroAssembler&& as, bool has_avx, AssemblerArgType... a
         auto [_, arg] = arg_info;
         auto& [gp_index, simd_index] = indexes;
 
-        // Note, ABI mandates extension up to 32-bit and zero-filling the upper half.
-        if constexpr (std::is_integral_v<IntrinsicType> &&
-                      sizeof(IntrinsicType) <= sizeof(int32_t) &&
-                      std::is_integral_v<AssemblerType> &&
-                      sizeof(AssemblerType) <= sizeof(int32_t)) {
-          as.Movl(kAbiArgs[gp_index++], static_cast<int32_t>(arg));
-        } else if constexpr (std::is_integral_v<IntrinsicType> &&
-                             sizeof(IntrinsicType) == sizeof(int64_t) &&
-                             std::is_integral_v<AssemblerType> &&
-                             sizeof(AssemblerType) == sizeof(int64_t)) {
-          as.template Expand<int64_t, IntrinsicType>(kAbiArgs[gp_index++],
-                                                     static_cast<int64_t>(arg));
-        } else if constexpr (std::is_integral_v<IntrinsicType> &&
-                             sizeof(IntrinsicType) <= sizeof(int32_t) &&
-                             std::is_same_v<AssemblerType, Register>) {
-          if (kRegOffsetsOnStack[arg.GetPhysicalIndex()] == kRegIsNotOnStack) {
-            as.template Expand<int32_t, IntrinsicType>(kAbiArgs[gp_index++], arg);
-          } else {
-            as.template Expand<int32_t, IntrinsicType>(
-                kAbiArgs[gp_index++],
-                {.base = Assembler::rsp, .disp = kRegOffsetsOnStack[arg.GetPhysicalIndex()] * 8});
-          }
-        } else if constexpr (std::is_integral_v<IntrinsicType> &&
-                             sizeof(IntrinsicType) == sizeof(int64_t) &&
-                             std::is_same_v<AssemblerType, Register>) {
-          if (kRegOffsetsOnStack[arg.GetPhysicalIndex()] == kRegIsNotOnStack) {
-            as.template Expand<int64_t, IntrinsicType>(kAbiArgs[gp_index++], arg);
-          } else {
-            as.template Expand<int64_t, IntrinsicType>(
-                kAbiArgs[gp_index++],
-                {.base = Assembler::rsp, .disp = kRegOffsetsOnStack[arg.GetPhysicalIndex()] * 8});
-          }
-        } else if constexpr ((std::is_same_v<IntrinsicType, Float32> ||
-                              std::is_same_v<IntrinsicType, Float64>) &&
-                             std::is_same_v<AssemblerType, XMMRegister>) {
-          if (kSimdRegOffsetsOnStack[arg.GetPhysicalIndex()] == kRegIsNotOnStack) {
-            if (has_avx) {
-              as.template Vmovs<IntrinsicType>(
-                  kAbiSimdArgs[simd_index], kAbiSimdArgs[simd_index], arg);
-              simd_index++;
+        if constexpr (MetaType<IntrinsicType>::IsIntegral()) {
+          // Note, clang errorneously mandates extension up to 32-bit.
+          // See: https://github.com/llvm/llvm-project/issues/43573
+          if constexpr (MetaType<IntrinsicType>::SizeOf() <= sizeof(int32_t) &&
+                        std::is_integral_v<AssemblerType> &&
+                        sizeof(AssemblerType) <= sizeof(int32_t)) {
+            as.Movl(kAbiArgs[gp_index], static_cast<int32_t>(arg));
+          } else if constexpr (MetaType<IntrinsicType>::SizeOf() == sizeof(int64_t) &&
+                               std::is_integral_v<AssemblerType> &&
+                               sizeof(AssemblerType) == sizeof(int64_t)) {
+            as.template Expand<int64_t, IntrinsicType>(kAbiArgs[gp_index],
+                                                       static_cast<int64_t>(arg));
+            // Note, clang errorneously mandates extension up to 32-bit.
+            // See: https://github.com/llvm/llvm-project/issues/43573
+          } else if constexpr (MetaType<IntrinsicType>::SizeOf() <= sizeof(int32_t) &&
+                               std::is_same_v<AssemblerType, Register>) {
+            if (kRegOffsetsOnStack[arg.GetPhysicalIndex()] == kRegIsNotOnStack) {
+              as.template Expand<int32_t, IntrinsicType>(kAbiArgs[gp_index], arg);
             } else {
-              as.template Movs<IntrinsicType>(kAbiSimdArgs[simd_index++], arg);
+              as.template Expand<int32_t, IntrinsicType>(
+                  kAbiArgs[gp_index],
+                  {.base = Assembler::rsp, .disp = kRegOffsetsOnStack[arg.GetPhysicalIndex()] * 8});
+            }
+          } else if constexpr (MetaType<IntrinsicType>::SizeOf() == sizeof(int64_t) &&
+                               std::is_same_v<AssemblerType, Register>) {
+            if (kRegOffsetsOnStack[arg.GetPhysicalIndex()] == kRegIsNotOnStack) {
+              as.template Expand<int64_t, IntrinsicType>(kAbiArgs[gp_index], arg);
+            } else {
+              as.template Expand<int64_t, IntrinsicType>(
+                  kAbiArgs[gp_index],
+                  {.base = Assembler::rsp, .disp = kRegOffsetsOnStack[arg.GetPhysicalIndex()] * 8});
             }
           } else {
-            if (has_avx) {
-              as.template Vmovs<IntrinsicType>(
-                  kAbiSimdArgs[simd_index++],
-                  {.base = as.rsp, .disp = kSimdRegOffsetsOnStack[arg.GetPhysicalIndex()] * 8});
-            } else {
-              as.template Movs<IntrinsicType>(
-                  kAbiSimdArgs[simd_index++],
-                  {.base = as.rsp, .disp = kSimdRegOffsetsOnStack[arg.GetPhysicalIndex()] * 8});
-            }
+            static_assert(kDependentTypeFalse<std::tuple<IntrinsicType, AssemblerType>>,
+                          "Unknown parameter type, please add support to CallIntrinsic");
           }
+          ++gp_index;
+        } else if constexpr (MetaType<IntrinsicType>::IsWrappedFloat()) {
+          if constexpr (std::is_same_v<AssemblerType, XMMRegister>) {
+            if (kSimdRegOffsetsOnStack[arg.GetPhysicalIndex()] == kRegIsNotOnStack) {
+              if (has_avx) {
+                as.template Vmovs<IntrinsicType>(
+                    kAbiSimdArgs[simd_index], kAbiSimdArgs[simd_index], arg);
+              } else {
+                as.template Movs<IntrinsicType>(kAbiSimdArgs[simd_index], arg);
+              }
+            } else {
+              if (has_avx) {
+                as.template Vmovs<IntrinsicType>(
+                    kAbiSimdArgs[simd_index],
+                    {.base = as.rsp, .disp = kSimdRegOffsetsOnStack[arg.GetPhysicalIndex()] * 8});
+              } else {
+                as.template Movs<IntrinsicType>(
+                    kAbiSimdArgs[simd_index],
+                    {.base = as.rsp, .disp = kSimdRegOffsetsOnStack[arg.GetPhysicalIndex()] * 8});
+              }
+            }
+          } else {
+            static_assert(kDependentTypeFalse<std::tuple<IntrinsicType, AssemblerType>>,
+                          "Unknown parameter type, please add support to CallIntrinsic");
+          }
+          ++simd_index;
         } else {
           static_assert(kDependentTypeFalse<std::tuple<IntrinsicType, AssemblerType>>,
                         "Unknown parameter type, please add support to CallIntrinsic");
