@@ -94,12 +94,12 @@ constexpr void MacroAssembler<Assembler, AssemblerBase>::FeGetExceptionsTranslat
   // Store MXCSR in scratch slot.
   Stmxcsr(mxcsr_scratch);
   // Merge x87 status word and MXCSR.
-  Or<uint32_t>(gpr_a, mxcsr_scratch);
+  Or<uint32_t>(kAccumulatorRegister, mxcsr_scratch);
   // Leave only exceptions.
-  And<uint32_t>(gpr_a, kX87MxcsrExceptionBits);
+  And<uint32_t>(kAccumulatorRegister, kX87MxcsrExceptionBits);
   // Convert exception bits.
-  Expand<uint64_t, uint8_t>(gpr_a,
-                            {.index = gpr_a,
+  Expand<uint64_t, uint8_t>(kAccumulatorRegister,
+                            {.index = kAccumulatorRegister,
                              .scale = Assembler::kTimesOne,
                              .disp = constants_offsets::kX87ToRiscVExceptions});
 }

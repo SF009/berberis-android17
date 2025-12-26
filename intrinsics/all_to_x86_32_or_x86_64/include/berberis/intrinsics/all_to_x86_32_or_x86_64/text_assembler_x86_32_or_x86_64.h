@@ -86,9 +86,9 @@ class TextAssembler {
     constexpr bool operator!=(const Register& other) const { return arg_no() != other.arg_no(); }
 
     static constexpr int kNoRegister = -1;
-    static constexpr int kStackPointer = -2;
+    static constexpr int kStackPointerRegister = -2;
     // Used in Operand to deal with references to scratch area.
-    static constexpr int kScratchPointer = -3;
+    static constexpr int kScratchPointerRegister = -3;
 
    private:
     friend struct Operand;
@@ -190,7 +190,7 @@ class TextAssembler {
             ToGasArgument(
                 typename DerivedAssemblerType::RegisterDefaultBit(as->gpr_macroassembler_constants),
                 as);
-      } else if (op.base.arg_no_ == Register::kScratchPointer) {
+      } else if (op.base.arg_no_ == Register::kScratchPointerRegister) {
         CHECK(op.index.arg_no_ == Register::kNoRegister);
         // Only support two pointers to scratch area for now.
         if (op.disp == 0) {
@@ -223,15 +223,15 @@ class TextAssembler {
   // These start as Register::kNoRegister but can be changed if they are used as arguments to
   // something else.
   // If they are not coming as arguments then using them is compile-time error!
-  Register gpr_a{Register::kNoRegister};
-  Register gpr_b{Register::kNoRegister};
-  Register gpr_c{Register::kNoRegister};
-  Register gpr_d{Register::kNoRegister};
+  Register kAccumulatorRegister{Register::kNoRegister};
+  Register kBaseRegister{Register::kNoRegister};
+  Register kCounterRegister{Register::kNoRegister};
+  Register kDataRegister{Register::kNoRegister};
   // Note: stack pointer is not reflected in list of arguments, intrinsics use
   // it implicitly.
-  Register gpr_s{Register::kStackPointer};
+  Register kStackPointerRegister{Register::kStackPointerRegister};
   // Used in Operand as pseudo-register to temporary operand.
-  Register gpr_scratch{Register::kScratchPointer};
+  Register gpr_scratch{Register::kScratchPointerRegister};
 
   // In x86-64 case we could refer to kBerberisMacroAssemblerConstants via %rip.
   // In x86-32 mode, on the other hand, we need complex dance to access it via GOT.
@@ -365,7 +365,7 @@ class TextAssembler {
 
     template <typename MacroAssembler>
     friend const std::string ToGasArgument(const RegisterTemplate& reg, MacroAssembler*) {
-      if (reg.reg_.arg_no() == Register::kStackPointer) {
+      if (reg.reg_.arg_no() == Register::kStackPointerRegister) {
         return kSpPrefix;
       } else {
         if (kRegisterPrefix) {

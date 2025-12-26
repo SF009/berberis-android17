@@ -45,14 +45,14 @@ template <typename Assembler, typename AssemblerBase, typename SpecificMacroAsse
 constexpr void MacroAssemblerX86GuestAgnostic<Assembler, AssemblerBase, SpecificMacroAssembler>::
     ReadFlagsWithOverflow() {
   Lahf();
-  Setcc(Condition::kOverflow, gpr_a);
+  Setcc(Condition::kOverflow, kAccumulatorRegister);
 }
 
 template <typename Assembler, typename AssemblerBase, typename SpecificMacroAssembler>
 constexpr void MacroAssemblerX86GuestAgnostic<Assembler, AssemblerBase, SpecificMacroAssembler>::
     ReadFlagsWithoutOverflow() {
   Lahf();
-  Movb(gpr_a, int8_t{0});
+  Movb(kAccumulatorRegister, int8_t{0});
 }
 
 template <typename Assembler, typename AssemblerBase, typename SpecificMacroAssembler>
@@ -91,7 +91,7 @@ MacroAssemblerX86GuestAgnostic<Assembler, AssemblerBase, SpecificMacroAssembler>
 template <typename Assembler, typename AssemblerBase, typename SpecificMacroAssembler>
 constexpr void
 MacroAssemblerX86GuestAgnostic<Assembler, AssemblerBase, SpecificMacroAssembler>::WriteFlags() {
-  Addb(gpr_a, int8_t{0x7f});
+  Addb(kAccumulatorRegister, int8_t{0x7f});
   Sahf();
 }
 
