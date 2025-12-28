@@ -65,7 +65,7 @@ struct MemoryOperand {
   }                                                                                               \
                                                                                                   \
   template <template <typename> typename InsnType __VA_OPT__(, ) __VA_ARGS__>                     \
-  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleName, kSSAMode) arg0)                   \
+  AdapterName(MACHINE_INSN_TUPLE_ELEM(0, TupleName, kSSAMode) arg0)                               \
       ->std::enable_if_t<std::tuple_size_v<typename x86_64::MachineInsn<                          \
                              typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, \
                              kSSAMode>::TupleName> == 1,                                          \
@@ -73,15 +73,13 @@ struct MemoryOperand {
                          ResultType2> {                                                           \
     return ForwarderName<                                                                         \
         x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,  \
-                            kSSAMode>,                                                            \
-        typename x86_64::MachineInsn<                                                             \
-            typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,                  \
-            kSSAMode>::TupleName>({arg0});                                                        \
+                            kSSAMode>>(                                                           \
+        std::tuple<MACHINE_INSN_TUPLE_ELEM(0, TupleName, kSSAMode)>{arg0});                       \
   }                                                                                               \
                                                                                                   \
   template <template <typename> typename InsnType __VA_OPT__(, ) __VA_ARGS__>                     \
-  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleName, kSSAMode) arg0,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleName, kSSAMode) arg1)                   \
+  AdapterName(MACHINE_INSN_TUPLE_ELEM(0, TupleName, kSSAMode) arg0,                               \
+              MACHINE_INSN_TUPLE_ELEM(1, TupleName, kSSAMode) arg1)                               \
       ->std::enable_if_t<std::tuple_size_v<typename x86_64::MachineInsn<                          \
                              typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, \
                              kSSAMode>::TupleName> == 2,                                          \
@@ -89,16 +87,15 @@ struct MemoryOperand {
                          ResultType2> {                                                           \
     return ForwarderName<                                                                         \
         x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,  \
-                            kSSAMode>,                                                            \
-        typename x86_64::MachineInsn<                                                             \
-            typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,                  \
-            kSSAMode>::TupleName>({arg0, arg1});                                                  \
+                            kSSAMode>>(                                                           \
+        std::tuple<MACHINE_INSN_TUPLE_ELEM(0, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(1, TupleName, kSSAMode)>{arg0, arg1});                 \
   }                                                                                               \
                                                                                                   \
   template <template <typename> typename InsnType __VA_OPT__(, ) __VA_ARGS__>                     \
-  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleName, kSSAMode) arg0,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleName, kSSAMode) arg1,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleName, kSSAMode) arg2)                   \
+  AdapterName(MACHINE_INSN_TUPLE_ELEM(0, TupleName, kSSAMode) arg0,                               \
+              MACHINE_INSN_TUPLE_ELEM(1, TupleName, kSSAMode) arg1,                               \
+              MACHINE_INSN_TUPLE_ELEM(2, TupleName, kSSAMode) arg2)                               \
       ->std::enable_if_t<std::tuple_size_v<typename x86_64::MachineInsn<                          \
                              typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, \
                              kSSAMode>::TupleName> == 3,                                          \
@@ -106,17 +103,17 @@ struct MemoryOperand {
                          ResultType2> {                                                           \
     return ForwarderName<                                                                         \
         x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,  \
-                            kSSAMode>,                                                            \
-        typename x86_64::MachineInsn<                                                             \
-            typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,                  \
-            kSSAMode>::TupleName>({arg0, arg1, arg2});                                            \
+                            kSSAMode>>(                                                           \
+        std::tuple<MACHINE_INSN_TUPLE_ELEM(0, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(1, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(2, TupleName, kSSAMode)>{arg0, arg1, arg2});           \
   }                                                                                               \
                                                                                                   \
   template <template <typename> typename InsnType __VA_OPT__(, ) __VA_ARGS__>                     \
-  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleName, kSSAMode) arg0,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleName, kSSAMode) arg1,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleName, kSSAMode) arg2,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleName, kSSAMode) arg3)                   \
+  AdapterName(MACHINE_INSN_TUPLE_ELEM(0, TupleName, kSSAMode) arg0,                               \
+              MACHINE_INSN_TUPLE_ELEM(1, TupleName, kSSAMode) arg1,                               \
+              MACHINE_INSN_TUPLE_ELEM(2, TupleName, kSSAMode) arg2,                               \
+              MACHINE_INSN_TUPLE_ELEM(3, TupleName, kSSAMode) arg3)                               \
       ->std::enable_if_t<std::tuple_size_v<typename x86_64::MachineInsn<                          \
                              typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, \
                              kSSAMode>::TupleName> == 4,                                          \
@@ -124,18 +121,19 @@ struct MemoryOperand {
                          ResultType2> {                                                           \
     return ForwarderName<                                                                         \
         x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,  \
-                            kSSAMode>,                                                            \
-        typename x86_64::MachineInsn<                                                             \
-            typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,                  \
-            kSSAMode>::TupleName>({arg0, arg1, arg2, arg3});                                      \
+                            kSSAMode>>(                                                           \
+        std::tuple<MACHINE_INSN_TUPLE_ELEM(0, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(1, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(2, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(3, TupleName, kSSAMode)>{arg0, arg1, arg2, arg3});     \
   }                                                                                               \
                                                                                                   \
   template <template <typename> typename InsnType __VA_OPT__(, ) __VA_ARGS__>                     \
-  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleName, kSSAMode) arg0,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleName, kSSAMode) arg1,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleName, kSSAMode) arg2,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleName, kSSAMode) arg3,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleName, kSSAMode) arg4)                   \
+  AdapterName(MACHINE_INSN_TUPLE_ELEM(0, TupleName, kSSAMode) arg0,                               \
+              MACHINE_INSN_TUPLE_ELEM(1, TupleName, kSSAMode) arg1,                               \
+              MACHINE_INSN_TUPLE_ELEM(2, TupleName, kSSAMode) arg2,                               \
+              MACHINE_INSN_TUPLE_ELEM(3, TupleName, kSSAMode) arg3,                               \
+              MACHINE_INSN_TUPLE_ELEM(4, TupleName, kSSAMode) arg4)                               \
       ->std::enable_if_t<std::tuple_size_v<typename x86_64::MachineInsn<                          \
                              typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, \
                              kSSAMode>::TupleName> == 5,                                          \
@@ -143,19 +141,22 @@ struct MemoryOperand {
                          ResultType2> {                                                           \
     return ForwarderName<                                                                         \
         x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,  \
-                            kSSAMode>,                                                            \
-        typename x86_64::MachineInsn<                                                             \
-            typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,                  \
-            kSSAMode>::TupleName>({arg0, arg1, arg2, arg3, arg4});                                \
+                            kSSAMode>>(                                                           \
+        std::tuple<MACHINE_INSN_TUPLE_ELEM(0, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(1, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(2, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(3, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(4, TupleName, kSSAMode)>{                              \
+            arg0, arg1, arg2, arg3, arg4});                                                       \
   }                                                                                               \
                                                                                                   \
   template <template <typename> typename InsnType __VA_OPT__(, ) __VA_ARGS__>                     \
-  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleName, kSSAMode) arg0,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleName, kSSAMode) arg1,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleName, kSSAMode) arg2,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleName, kSSAMode) arg3,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleName, kSSAMode) arg4,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleName, kSSAMode) arg5)                   \
+  AdapterName(MACHINE_INSN_TUPLE_ELEM(0, TupleName, kSSAMode) arg0,                               \
+              MACHINE_INSN_TUPLE_ELEM(1, TupleName, kSSAMode) arg1,                               \
+              MACHINE_INSN_TUPLE_ELEM(2, TupleName, kSSAMode) arg2,                               \
+              MACHINE_INSN_TUPLE_ELEM(3, TupleName, kSSAMode) arg3,                               \
+              MACHINE_INSN_TUPLE_ELEM(4, TupleName, kSSAMode) arg4,                               \
+              MACHINE_INSN_TUPLE_ELEM(5, TupleName, kSSAMode) arg5)                               \
       ->std::enable_if_t<std::tuple_size_v<typename x86_64::MachineInsn<                          \
                              typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, \
                              kSSAMode>::TupleName> == 6,                                          \
@@ -163,20 +164,24 @@ struct MemoryOperand {
                          ResultType2> {                                                           \
     return ForwarderName<                                                                         \
         x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,  \
-                            kSSAMode>,                                                            \
-        typename x86_64::MachineInsn<                                                             \
-            typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,                  \
-            kSSAMode>::TupleName>({arg0, arg1, arg2, arg3, arg4, arg5});                          \
+                            kSSAMode>>(                                                           \
+        std::tuple<MACHINE_INSN_TUPLE_ELEM(0, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(1, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(2, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(3, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(4, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(5, TupleName, kSSAMode)>{                              \
+            arg0, arg1, arg2, arg3, arg4, arg5});                                                 \
   }                                                                                               \
                                                                                                   \
   template <template <typename> typename InsnType __VA_OPT__(, ) __VA_ARGS__>                     \
-  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleName, kSSAMode) arg0,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleName, kSSAMode) arg1,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleName, kSSAMode) arg2,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleName, kSSAMode) arg3,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleName, kSSAMode) arg4,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleName, kSSAMode) arg5,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(6, TupleName, kSSAMode) arg6)                   \
+  AdapterName(MACHINE_INSN_TUPLE_ELEM(0, TupleName, kSSAMode) arg0,                               \
+              MACHINE_INSN_TUPLE_ELEM(1, TupleName, kSSAMode) arg1,                               \
+              MACHINE_INSN_TUPLE_ELEM(2, TupleName, kSSAMode) arg2,                               \
+              MACHINE_INSN_TUPLE_ELEM(3, TupleName, kSSAMode) arg3,                               \
+              MACHINE_INSN_TUPLE_ELEM(4, TupleName, kSSAMode) arg4,                               \
+              MACHINE_INSN_TUPLE_ELEM(5, TupleName, kSSAMode) arg5,                               \
+              MACHINE_INSN_TUPLE_ELEM(6, TupleName, kSSAMode) arg6)                               \
       ->std::enable_if_t<std::tuple_size_v<typename x86_64::MachineInsn<                          \
                              typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, \
                              kSSAMode>::TupleName> == 7,                                          \
@@ -184,21 +189,26 @@ struct MemoryOperand {
                          ResultType2> {                                                           \
     return ForwarderName<                                                                         \
         x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,  \
-                            kSSAMode>,                                                            \
-        typename x86_64::MachineInsn<                                                             \
-            typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,                  \
-            kSSAMode>::TupleName>({arg0, arg1, arg2, arg3, arg4, arg5, arg6});                    \
+                            kSSAMode>>(                                                           \
+        std::tuple<MACHINE_INSN_TUPLE_ELEM(0, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(1, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(2, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(3, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(4, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(5, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(6, TupleName, kSSAMode)>{                              \
+            arg0, arg1, arg2, arg3, arg4, arg5, arg6});                                           \
   }                                                                                               \
                                                                                                   \
   template <template <typename> typename InsnType __VA_OPT__(, ) __VA_ARGS__>                     \
-  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleName, kSSAMode) arg0,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleName, kSSAMode) arg1,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleName, kSSAMode) arg2,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleName, kSSAMode) arg3,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleName, kSSAMode) arg4,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleName, kSSAMode) arg5,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(6, TupleName, kSSAMode) arg6,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(7, TupleName, kSSAMode) arg7)                   \
+  AdapterName(MACHINE_INSN_TUPLE_ELEM(0, TupleName, kSSAMode) arg0,                               \
+              MACHINE_INSN_TUPLE_ELEM(1, TupleName, kSSAMode) arg1,                               \
+              MACHINE_INSN_TUPLE_ELEM(2, TupleName, kSSAMode) arg2,                               \
+              MACHINE_INSN_TUPLE_ELEM(3, TupleName, kSSAMode) arg3,                               \
+              MACHINE_INSN_TUPLE_ELEM(4, TupleName, kSSAMode) arg4,                               \
+              MACHINE_INSN_TUPLE_ELEM(5, TupleName, kSSAMode) arg5,                               \
+              MACHINE_INSN_TUPLE_ELEM(6, TupleName, kSSAMode) arg6,                               \
+              MACHINE_INSN_TUPLE_ELEM(7, TupleName, kSSAMode) arg7)                               \
       ->std::enable_if_t<std::tuple_size_v<typename x86_64::MachineInsn<                          \
                              typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, \
                              kSSAMode>::TupleName> == 8,                                          \
@@ -206,22 +216,28 @@ struct MemoryOperand {
                          ResultType2> {                                                           \
     return ForwarderName<                                                                         \
         x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,  \
-                            kSSAMode>,                                                            \
-        typename x86_64::MachineInsn<                                                             \
-            typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,                  \
-            kSSAMode>::TupleName>({arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7});              \
+                            kSSAMode>>(                                                           \
+        std::tuple<MACHINE_INSN_TUPLE_ELEM(0, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(1, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(2, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(3, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(4, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(5, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(6, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(7, TupleName, kSSAMode)>{                              \
+            arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7});                                     \
   }                                                                                               \
                                                                                                   \
   template <template <typename> typename InsnType __VA_OPT__(, ) __VA_ARGS__>                     \
-  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleName, kSSAMode) arg0,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleName, kSSAMode) arg1,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleName, kSSAMode) arg2,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleName, kSSAMode) arg3,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleName, kSSAMode) arg4,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleName, kSSAMode) arg5,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(6, TupleName, kSSAMode) arg6,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(7, TupleName, kSSAMode) arg7,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(8, TupleName, kSSAMode) arg8)                   \
+  AdapterName(MACHINE_INSN_TUPLE_ELEM(0, TupleName, kSSAMode) arg0,                               \
+              MACHINE_INSN_TUPLE_ELEM(1, TupleName, kSSAMode) arg1,                               \
+              MACHINE_INSN_TUPLE_ELEM(2, TupleName, kSSAMode) arg2,                               \
+              MACHINE_INSN_TUPLE_ELEM(3, TupleName, kSSAMode) arg3,                               \
+              MACHINE_INSN_TUPLE_ELEM(4, TupleName, kSSAMode) arg4,                               \
+              MACHINE_INSN_TUPLE_ELEM(5, TupleName, kSSAMode) arg5,                               \
+              MACHINE_INSN_TUPLE_ELEM(6, TupleName, kSSAMode) arg6,                               \
+              MACHINE_INSN_TUPLE_ELEM(7, TupleName, kSSAMode) arg7,                               \
+              MACHINE_INSN_TUPLE_ELEM(8, TupleName, kSSAMode) arg8)                               \
       ->std::enable_if_t<std::tuple_size_v<typename x86_64::MachineInsn<                          \
                              typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, \
                              kSSAMode>::TupleName> == 9,                                          \
@@ -229,23 +245,30 @@ struct MemoryOperand {
                          ResultType2> {                                                           \
     return ForwarderName<                                                                         \
         x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,  \
-                            kSSAMode>,                                                            \
-        typename x86_64::MachineInsn<                                                             \
-            typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,                  \
-            kSSAMode>::TupleName>({arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8});        \
+                            kSSAMode>>(                                                           \
+        std::tuple<MACHINE_INSN_TUPLE_ELEM(0, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(1, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(2, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(3, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(4, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(5, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(6, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(7, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(8, TupleName, kSSAMode)>{                              \
+            arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8});                               \
   }                                                                                               \
                                                                                                   \
   template <template <typename> typename InsnType __VA_OPT__(, ) __VA_ARGS__>                     \
-  AdapterName(BERBERIS_DECLARE_MACHINE_INSN_TUPLE(0, TupleName, kSSAMode) arg0,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(1, TupleName, kSSAMode) arg1,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(2, TupleName, kSSAMode) arg2,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(3, TupleName, kSSAMode) arg3,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(4, TupleName, kSSAMode) arg4,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(5, TupleName, kSSAMode) arg5,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(6, TupleName, kSSAMode) arg6,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(7, TupleName, kSSAMode) arg7,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(8, TupleName, kSSAMode) arg8,                   \
-              BERBERIS_DECLARE_MACHINE_INSN_TUPLE(9, TupleName, kSSAMode) arg9)                   \
+  AdapterName(MACHINE_INSN_TUPLE_ELEM(0, TupleName, kSSAMode) arg0,                               \
+              MACHINE_INSN_TUPLE_ELEM(1, TupleName, kSSAMode) arg1,                               \
+              MACHINE_INSN_TUPLE_ELEM(2, TupleName, kSSAMode) arg2,                               \
+              MACHINE_INSN_TUPLE_ELEM(3, TupleName, kSSAMode) arg3,                               \
+              MACHINE_INSN_TUPLE_ELEM(4, TupleName, kSSAMode) arg4,                               \
+              MACHINE_INSN_TUPLE_ELEM(5, TupleName, kSSAMode) arg5,                               \
+              MACHINE_INSN_TUPLE_ELEM(6, TupleName, kSSAMode) arg6,                               \
+              MACHINE_INSN_TUPLE_ELEM(7, TupleName, kSSAMode) arg7,                               \
+              MACHINE_INSN_TUPLE_ELEM(8, TupleName, kSSAMode) arg8,                               \
+              MACHINE_INSN_TUPLE_ELEM(9, TupleName, kSSAMode) arg9)                               \
       ->std::enable_if_t<std::tuple_size_v<typename x86_64::MachineInsn<                          \
                              typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, \
                              kSSAMode>::TupleName> == 10,                                         \
@@ -253,21 +276,28 @@ struct MemoryOperand {
                          ResultType2> {                                                           \
     return ForwarderName<                                                                         \
         x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,  \
-                            kSSAMode>,                                                            \
-        typename x86_64::MachineInsn<                                                             \
-            typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,                  \
-            kSSAMode>::TupleName>({arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9});  \
+                            kSSAMode>>(                                                           \
+        std::tuple<MACHINE_INSN_TUPLE_ELEM(0, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(1, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(2, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(3, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(4, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(5, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(6, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(7, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(8, TupleName, kSSAMode),                               \
+                   MACHINE_INSN_TUPLE_ELEM(9, TupleName, kSSAMode)>{                              \
+            arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9});                         \
   }                                                                                               \
                                                                                                   \
   template <template <typename> typename InsnType __VA_OPT__(, ) __VA_ARGS__, typename... Args>   \
-  AdapterName(Args... args)->std::enable_if_t<10 < sizeof...(Args), ResultType1, ResultType2> {   \
+  AdapterName(Args&&... args)->std::enable_if_t<10 < sizeof...(Args), ResultType1, ResultType2> { \
     return ForwarderName<                                                                         \
         x86_64::MachineInsn<typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo,  \
-                            kSSAMode>,                                                            \
-        std::tuple<Args...>>({args...});                                                          \
+                            kSSAMode>>(std::tuple{std::forward<Args>(args)...});                  \
   }
 
-#define BERBERIS_DECLARE_MACHINE_INSN_TUPLE(N, TupleName, kSSAMode)                             \
+#define MACHINE_INSN_TUPLE_ELEM(N, TupleName, kSSAMode)                                         \
   std::tuple_element_t<N,                                                                       \
                        typename x86_64::MachineInsn<                                            \
                            typename InsnType<typename CodeEmitter::Assemblers>::DeviceInsnInfo, \

@@ -519,10 +519,8 @@ class HeavyOptimizerFrontend {
                                                   MachineBasicBlock* failure_bb);
 
   // Syntax sugar.
-  template <typename InsnType, typename ArgsTuple>
-  auto Gen(ArgsTuple args_tuple)
-      -> std::enable_if_t<std::is_same_v<typename InsnType::InputArgsTuple, ArgsTuple>,
-                          std::array<MachineReg, InsnType::kInfo.OutputRegistersCount()>> {
+  template <typename InsnType>
+  auto Gen(typename InsnType::InputArgsTuple args_tuple) {
     enum ProcessWay {
       kFlagRegister,
       kOutputRegister,

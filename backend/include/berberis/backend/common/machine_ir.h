@@ -465,8 +465,8 @@ class MachineIR {
   [[nodiscard]] Arena* arena() const { return arena_; }
 
   template <typename T, typename... Args>
-  [[nodiscard]] T* NewInsn(Args... args) {
-    return NewInArena<T>(arena(), args...);
+  [[nodiscard]] T* NewInsn(Args&&... args) {
+    return NewInArena<T>(arena(), std::forward<Args>(args)...);
   }
 
   MachineInsn* CloneInsn(const MachineInsn* insn) { return insn->Clone(arena()); }
