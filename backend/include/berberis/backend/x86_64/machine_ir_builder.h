@@ -50,6 +50,76 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
       kSSAMode,
       auto kSSAMode = false)
 
+  template <typename InsnType>
+  auto GenMachineInsn(typename InsnType::InputArgsTuple&& args_tuple, MachineReg flags_register) {
+    enum ProcessWay {
+      kFlagRegister,
+      kOutputRegister,
+      kImplicitInputRegister,
+      kPassthroughOperand,  // Input register, immediate or memory operand
+    };
+    struct ProcessInfo {
+      ProcessWay process_way;
+      int arg_index;
+      int pseudo_copy_size;
+    };
+    constexpr auto kOperands = ValuesToValues::ToArray<ProcessInfo>(
+        TypesToValues::MapWithTemporary<typename InsnType::OperandsTuple,
+                                        /* arg_index, reg_index = */ std::tuple<int, int>>(
+            []<typename Operand>(std::tuple<int, int>& indexes) -> decltype(auto) {
+              auto& [arg_index, reg_index] = indexes;
+              if constexpr (device_arch_info::kIsRegister<Operand>) {
+                CHECK_NE(InsnType::kInfo.reg_kinds[reg_index].IsDef(),
+                         InsnType::kInfo.reg_kinds[reg_index].IsInput());
+                if (InsnType::kInfo.reg_kinds[reg_index].IsDef()) {
+                  if (InsnType::kInfo.reg_kinds[reg_index++].RegClass() == &x86_64::kFLAGS) {
+                    return ProcessInfo{.process_way = kFlagRegister};
+                  } else {
+                    return ProcessInfo{.process_way = kOutputRegister};
+                  }
+                } else if (InsnType::kInfo.reg_kinds[reg_index].RegClass()->num_regs == 1 &&
+                           InsnType::kInfo.reg_kinds[reg_index].RegClass() != &x86_64::kFLAGS) {
+                  return ProcessInfo{
+                      .process_way = kImplicitInputRegister,
+                      .arg_index = arg_index++,
+                      .pseudo_copy_size =
+                          InsnType::kInfo.reg_kinds[reg_index++].RegClass()->reg_size};
+                } else {
+                  reg_index++;
+                }
+              }
+              return ProcessInfo{.process_way = kPassthroughOperand, .arg_index = arg_index++};
+            }));
+
+    std::array<MachineReg, InsnType::kInfo.OutputRegistersCount()> output;
+    Gen<InsnType>(ValuesToValues::MapWithTemporary</* output_idx = */ size_t>(
+        kTupleMetaTypes<TypesToTypes::Zip<typename InsnType::ConstructorArgsTuple,
+                                          ValuesToTypes::MetaValues<kOperands>>>,
+        [&args_tuple, &output, flags_register, this]<typename OperandType, ProcessInfo kOperand>(
+            MetaType<std::pair<OperandType, MetaValue<kOperand>>>,
+            std::size_t& output_idx) -> OperandType {
+          if constexpr (kOperand.process_way == kFlagRegister) {
+            return output[output_idx++] = flags_register;
+          } else if constexpr (kOperand.process_way == kOutputRegister) {
+            return output[output_idx++] = ir()->AllocVReg();
+          } else if constexpr (kOperand.process_way == kImplicitInputRegister) {
+            // If register is implicit we need to add extra PseudoCopy here even if it's pure
+            // input. Otherwise we may attempt to make the same register to belong to two
+            // different, incompatible register classes if it's ALSO output of another
+            // instruction with a different implicit class. E.g. if output of division is used
+            // as input for shift.
+            auto dst = ir()->AllocVReg();
+            auto src = std::get<kOperand.arg_index>(args_tuple);
+            Gen<berberis::Copy>(dst, src, kOperand.pseudo_copy_size);
+            return dst;
+          } else {
+            static_assert(kOperand.process_way == kPassthroughOperand);
+            return std::get<kOperand.arg_index>(args_tuple);
+          }
+        }));
+    return output;
+  }
+
   void GenGet(MachineReg dst_reg, int32_t offset) {
     Gen<x86_64::MovqRegOp>(dst_reg, {.base = x86_64::kMachineRegRBP, .disp = offset});
   }
