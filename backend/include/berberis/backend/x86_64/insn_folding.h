@@ -21,6 +21,7 @@
 
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/base/arena_vector.h"
+#include "berberis/base/page_size.h"
 #include "berberis/guest_state/guest_state.h"
 
 namespace berberis::x86_64 {
@@ -41,6 +42,17 @@ enum class FoldingType {
   kReplaceInsnAndSwapOperands,
   kReplaceInsnAndSetBranchConditionToZero,
   kReplaceInsnAndSetBranchConditionToNotZero
+};
+
+struct DefMapEntry {
+  // The iterator to the instruction that defines the register
+  MachineInsnList::iterator def_insn_it;
+  // The index of the instruction that defines the register
+  int def_insn_index;
+  // The position of the register in the instruction that defines it
+  int def_insn_reg_pos;
+  // Whether the register holds a live_in value
+  bool value_is_live_in;
 };
 
 // The DefMap class stores a map between registers and their latest definitions and positions.
@@ -67,20 +79,13 @@ class DefMap {
   void ProcessLiveIns(MachineBasicBlock* bb);
   void ProcessInsn(MachineInsnList::iterator insn_it);
   void Initialize();
-  std::optional<std::tuple<MachineInsnList::iterator, int, int>> FindNonCopyDef(
-      MachineReg src_reg) const;
+  std::optional<DefMapEntry> FindNonCopyDef(MachineReg src_reg) const;
 
-  [[nodiscard]] std::optional<std::tuple<MachineInsnList::iterator, int, int, bool>> GetForTesting(
-      MachineReg reg) const {
-    return Get(reg);
-  }
-  [[nodiscard]] std::optional<std::tuple<MachineInsnList::iterator, int, int, bool>> GetForTesting(
-      MachineReg reg,
-      int use_index) const {
+  [[nodiscard]] std::optional<DefMapEntry> GetForTesting(MachineReg reg) const { return Get(reg); }
+  [[nodiscard]] std::optional<DefMapEntry> GetForTesting(MachineReg reg, int use_index) const {
     return Get(reg, use_index);
   }
-  [[nodiscard]] std::optional<std::tuple<MachineInsnList::iterator, int, int, bool>>
-  SafeGetForTesting(MachineReg reg) const {
+  [[nodiscard]] std::optional<DefMapEntry> SafeGetForTesting(MachineReg reg) const {
     if (!reg.IsVReg() || reg.GetVRegIndex() >= def_map_.size()) {
       return {std::nullopt};
     }
@@ -91,35 +96,26 @@ class DefMap {
   }
 
  private:
-  [[nodiscard]] std::optional<std::tuple<MachineInsnList::iterator, int, int, bool>> Get(
-      MachineReg reg) const {
+  [[nodiscard]] std::optional<DefMapEntry> Get(MachineReg reg) const {
     if (!reg.IsVReg()) {
       return std::nullopt;
     }
     uint32_t reg_index = reg.GetVRegIndex();
-    auto def_map_value_opt = def_map_.at(reg_index);
-    if (!def_map_value_opt.has_value()) {
-      return std::nullopt;
-    }
-    auto [def_insn, def_insn_index, reg_pos, value_is_live_in] = def_map_value_opt.value();
-    return std::make_tuple(def_insn, def_insn_index, reg_pos, value_is_live_in);
+    return def_map_.at(reg_index);
   }
-  [[nodiscard]] std::optional<std::tuple<MachineInsnList::iterator, int, int, bool>> Get(
-      MachineReg reg,
-      int use_index) const {
+  [[nodiscard]] std::optional<DefMapEntry> Get(MachineReg reg, int use_index) const {
     if (!reg.IsVReg()) {
       return std::nullopt;
     }
     uint32_t reg_index = reg.GetVRegIndex();
-    auto def_map_value_opt = def_map_.at(reg_index);
-    if (!def_map_value_opt.has_value()) {
+    auto def_map_entry = def_map_.at(reg_index);
+    if (!def_map_entry.has_value()) {
       return std::nullopt;
     }
-    auto [def_insn, def_insn_index, reg_pos, value_is_live_in] = def_map_value_opt.value();
-    if (def_insn_index >= use_index) {
+    if (def_map_entry.value().def_insn_index >= use_index) {
       return std::nullopt;
     }
-    return std::make_tuple(def_insn, def_insn_index, reg_pos, value_is_live_in);
+    return def_map_entry.value();
   }
   void Set(MachineReg reg, const MachineInsnList::iterator insn_it, int reg_pos) {
     if (!reg.IsVReg()) {
@@ -145,12 +141,7 @@ class DefMap {
   }
   void MapDefRegs(MachineInsnList::iterator insn_it);
 
-  // Each tuple in the def_map_ vector contains:
-  // - The iterator to the instruction that defines the register
-  // - The index of the instruction that defines the register
-  // - The position of the register in the instruction that defines it
-  // - Whether the register holds a live_in value
-  ArenaVector<std::optional<std::tuple<MachineInsnList::iterator, int, int, bool>>> def_map_;
+  ArenaVector<std::optional<DefMapEntry>> def_map_;
   MachineIR* machine_ir_;
   MachineReg flags_reg_;
   int index_;

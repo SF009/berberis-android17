@@ -68,19 +68,18 @@ void DefMap::Initialize() {
   last_context_write_insn_ = 0;
 }
 
-std::optional<std::tuple<MachineInsnList::iterator, int, int>> DefMap::FindNonCopyDef(
-    MachineReg src_reg) const {
-  auto non_copy_def = Get(src_reg);
-  while (non_copy_def.has_value()) {
-    auto [def_insn_it, def_insn_pos, reg_pos, value_is_live_in] = non_copy_def.value();
-    const berberis::MachineInsn* def_insn = *def_insn_it;
-    if (value_is_live_in) {
+std::optional<DefMapEntry> DefMap::FindNonCopyDef(MachineReg src_reg) const {
+  auto non_copy_def_opt = Get(src_reg);
+  while (non_copy_def_opt.has_value()) {
+    auto non_copy_def = non_copy_def_opt.value();
+    if (non_copy_def.value_is_live_in) {
       return std::nullopt;
     }
+    const berberis::MachineInsn* def_insn = *non_copy_def.def_insn_it;
     if (def_insn->opcode() != kMachineOpCopy) {
-      return std::make_tuple(def_insn_it, def_insn_pos, reg_pos);
+      return non_copy_def;
     }
-    non_copy_def = Get(def_insn->RegAt(1), def_insn_pos);
+    non_copy_def_opt = Get(def_insn->RegAt(1), non_copy_def.def_insn_index);
   }
   return std::nullopt;
 }
@@ -142,12 +141,12 @@ void ContextAccessInfo::Initialize(const MachineInsnList& insn_list) {
 }
 
 std::optional<uint64_t> InsnFolding::GetImmValueIfPossible(MachineReg reg) const {
-  auto non_copy_def = def_map_.FindNonCopyDef(reg);
-  if (!non_copy_def.has_value()) {
+  auto non_copy_def_opt = def_map_.FindNonCopyDef(reg);
+  if (!non_copy_def_opt.has_value()) {
     return std::nullopt;
   }
-  auto general_insn_it = std::get<0>(non_copy_def.value());
-  const berberis::MachineInsn* general_insn = *general_insn_it;
+  auto non_copy_def = non_copy_def_opt.value();
+  const berberis::MachineInsn* general_insn = *non_copy_def.def_insn_it;
   const auto* insn = AsMachineInsnX86_64(general_insn);
   if (insn->opcode() == kMachineOpMovqRegImm) {
     return insn->imm();
@@ -250,12 +249,12 @@ bool InsnFolding::IsWritingSameFlagsValue(MachineInsnList::iterator write_flags_
   const berberis::MachineInsn* write_flags_insn = *write_flags_insn_it;
   CHECK(write_flags_insn && write_flags_insn->opcode() == kMachineOpWriteFlags);
   MachineReg src_reg = write_flags_insn->RegAt(0);
-  auto non_copy_def = def_map_.FindNonCopyDef(src_reg);
-  if (!non_copy_def.has_value()) {
+  auto non_copy_def_opt = def_map_.FindNonCopyDef(src_reg);
+  if (!non_copy_def_opt.has_value()) {
     return false;
   }
-  auto [def_insn_it, def_insn_pos, _] = non_copy_def.value();
-  const berberis::MachineInsn* def_insn = *def_insn_it;
+  auto non_copy_def = non_copy_def_opt.value();
+  const berberis::MachineInsn* def_insn = *non_copy_def.def_insn_it;
   if (def_insn->opcode() != kMachineOpReadFlagsWithOverflow &&
       def_insn->opcode() != kMachineOpReadFlagsWithoutOverflow) {
     return false;
@@ -264,7 +263,7 @@ bool InsnFolding::IsWritingSameFlagsValue(MachineInsnList::iterator write_flags_
   if (write_flags_insn->RegAt(1) != def_insn->RegAt(1)) {
     return false;
   }
-  return def_map_.IsRegisterValueStillLive(write_flags_insn->RegAt(1), def_insn_pos);
+  return def_map_.IsRegisterValueStillLive(write_flags_insn->RegAt(1), non_copy_def.def_insn_index);
 }
 
 template <bool kIsInput64Bit>
@@ -398,13 +397,13 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldRedundantMov
   const berberis::MachineInsn* insn = *insn_it;
   CHECK_EQ(insn->opcode(), kMachineOpMovlRegReg);
   auto src = insn->RegAt(1);
-  auto non_copy_def = def_map_.FindNonCopyDef(src);
-  if (!non_copy_def.has_value()) {
+  auto non_copy_def_opt = def_map_.FindNonCopyDef(src);
+  if (!non_copy_def_opt.has_value()) {
     return {FoldingType::kImpossible, nullptr};
   }
-  auto [def_insn_it, def_insn_pos, def_reg_pos] = non_copy_def.value();
-  const berberis::MachineInsn* def_insn = *def_insn_it;
-  int def_reg_size = def_insn->RegKindAt(def_reg_pos).RegClass()->RegSize();
+  auto non_copy_def = non_copy_def_opt.value();
+  const berberis::MachineInsn* def_insn = *non_copy_def.def_insn_it;
+  int def_reg_size = def_insn->RegKindAt(non_copy_def.def_insn_reg_pos).RegClass()->RegSize();
   if (def_reg_size == 4) {
     // Size of output is 32 bits, meaning upper 32 bits are cleared (zero extension).
     // If the definition of src is zero extended, then we can replace MOVL with Copy.
@@ -433,22 +432,22 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldCountLeading
                       : kMachineOpCountLeadingZerosU32;
   CHECK_EQ(insn->opcode(), clz_insn_opcode);
   MachineReg clz_src_reg = insn->RegAt(1);
-  auto non_copy_def = def_map_.FindNonCopyDef(clz_src_reg);
-  if (!non_copy_def.has_value()) {
+  auto non_copy_def_opt = def_map_.FindNonCopyDef(clz_src_reg);
+  if (!non_copy_def_opt.has_value()) {
     return {FoldingType::kImpossible, nullptr};
   }
-  auto [def_insn_it, def_insn_pos, _] = non_copy_def.value();
-  if (def_insn_it == bb->insn_list().begin()) {
+  auto non_copy_def = non_copy_def_opt.value();
+  if (non_copy_def.def_insn_it == bb->insn_list().begin()) {
     return {FoldingType::kImpossible, nullptr};
   }
-  const berberis::MachineInsn* def_insn = *def_insn_it;
+  const berberis::MachineInsn* def_insn = *non_copy_def.def_insn_it;
   const MachineOpcode reverse_bits_insn_opcode =
       kIsInput64Bit ? kMachineOpReverseBitsU64 : kMachineOpReverseBitsU32;
   if (def_insn->opcode() != reverse_bits_insn_opcode) {
     return {FoldingType::kImpossible, nullptr};
   }
   const berberis::MachineInsn* reverse_bits_insn = def_insn;
-  MachineInsnList::iterator insn_before_reverse_bits_it = std::prev(def_insn_it);
+  MachineInsnList::iterator insn_before_reverse_bits_it = std::prev(non_copy_def.def_insn_it);
   const berberis::MachineInsn* insn_before_reverse_bits = *insn_before_reverse_bits_it;
   if (insn_before_reverse_bits->opcode() != kMachineOpCopy) {
     return {FoldingType::kImpossible, nullptr};
@@ -459,7 +458,7 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldCountLeading
   }
   // If ReverseBits insn or any insn after overwrites copy->RegAt(1), this will return
   // std::nullopt.
-  if (!def_map_.IsRegisterValueStillLive(copy->RegAt(1), def_insn_pos)) {
+  if (!def_map_.IsRegisterValueStillLive(copy->RegAt(1), non_copy_def.def_insn_index)) {
     return {FoldingType::kImpossible, nullptr};
   }
   berberis::MachineInsn* new_insn;
@@ -597,16 +596,16 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldContextRead(
     const berberis::MachineInsn* insn,
     int32_t mem_reg_pos) {
   const MachineReg arith_src_reg = insn->RegAt(mem_reg_pos);
-  auto non_copy_def = def_map_.FindNonCopyDef(arith_src_reg);
-  if (!non_copy_def.has_value()) {
+  auto non_copy_def_opt = def_map_.FindNonCopyDef(arith_src_reg);
+  if (!non_copy_def_opt.has_value()) {
     return {FoldingType::kImpossible, nullptr};
   }
-  auto [def_insn_it, def_insn_pos, _] = non_copy_def.value();
-  const berberis::MachineInsn* def_insn = *def_insn_it;
+  auto non_copy_def = non_copy_def_opt.value();
+  const berberis::MachineInsn* def_insn = *non_copy_def.def_insn_it;
   if (!machine_ir_->IsCPUStateGet(def_insn)) {
     return {FoldingType::kImpossible, nullptr};
   }
-  if (!def_map_.IsContextReadActive(def_insn_pos)) {
+  if (!def_map_.IsContextReadActive(non_copy_def.def_insn_index)) {
     return {FoldingType::kImpossible, nullptr};
   }
   int32_t def_insn_disp = AsMachineInsnX86_64(def_insn)->disp();
@@ -674,16 +673,16 @@ berberis::MachineInsn* InsnFolding::NewArithmeticInsnWithSwappedOperands(
 std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldContextReadAndSwapOperands(
     const berberis::MachineInsn* insn) {
   const MachineReg arith_dst_reg = insn->RegAt(0);
-  auto non_copy_def = def_map_.FindNonCopyDef(arith_dst_reg);
-  if (!non_copy_def.has_value()) {
+  auto non_copy_def_opt = def_map_.FindNonCopyDef(arith_dst_reg);
+  if (!non_copy_def_opt.has_value()) {
     return {FoldingType::kImpossible, nullptr};
   }
-  auto [def_insn_it, def_insn_pos, _] = non_copy_def.value();
-  const berberis::MachineInsn* def_insn = *def_insn_it;
+  auto non_copy_def = non_copy_def_opt.value();
+  const berberis::MachineInsn* def_insn = *non_copy_def.def_insn_it;
   if (!machine_ir_->IsCPUStateGet(def_insn)) {
     return {FoldingType::kImpossible, nullptr};
   }
-  if (!def_map_.IsContextReadActive(def_insn_pos)) {
+  if (!def_map_.IsContextReadActive(non_copy_def.def_insn_index)) {
     return {FoldingType::kImpossible, nullptr};
   }
   int32_t context_read_disp = AsMachineInsnX86_64(def_insn)->disp();
@@ -703,16 +702,16 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldScaleIntoMem
     const berberis::MachineInsn* insn) {
   CHECK_EQ(AsMachineInsnX86_64(insn)->scale(), Assembler::ScaleFactor::kTimesOne);
   MachineReg index_reg = insn->RegAt(kIsMemWrite ? 1 : 2);
-  auto non_copy_def = def_map_.FindNonCopyDef(index_reg);
-  if (!non_copy_def.has_value()) {
+  auto non_copy_def_opt = def_map_.FindNonCopyDef(index_reg);
+  if (!non_copy_def_opt.has_value()) {
     return {FoldingType::kImpossible, nullptr};
   }
-  auto [shift_insn_it, shift_insn_pos, _] = non_copy_def.value();
-  berberis::MachineInsn* shift_insn = *shift_insn_it;
+  auto non_copy_def = non_copy_def_opt.value();
+  berberis::MachineInsn* shift_insn = *non_copy_def.def_insn_it;
   if (shift_insn->opcode() != kMachineOpShlqRegImm) {
     return {FoldingType::kImpossible, nullptr};
   }
-  auto copy_insn_it = std::prev(shift_insn_it);
+  auto copy_insn_it = std::prev(non_copy_def.def_insn_it);
   berberis::MachineInsn* copy_insn = *copy_insn_it;
   if (copy_insn->opcode() != kMachineOpCopy) {
     return {FoldingType::kImpossible, nullptr};
@@ -725,7 +724,7 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldScaleIntoMem
   if (copy_dst_reg == copy_src_reg) {
     return {FoldingType::kImpossible, nullptr};
   }
-  if (!def_map_.IsRegisterValueStillLive(copy_src_reg, shift_insn_pos)) {
+  if (!def_map_.IsRegisterValueStillLive(copy_src_reg, non_copy_def.def_insn_index)) {
     return {FoldingType::kImpossible, nullptr};
   }
 
@@ -752,19 +751,19 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryReplaceWriteFlag
     const MachineBasicBlock* bb) {
   CHECK_EQ(insn->opcode(), kMachineOpWriteFlags);
   auto flags_value_reg = insn->RegAt(0);
-  auto non_copy_def = def_map_.FindNonCopyDef(flags_value_reg);
-  if (!non_copy_def.has_value()) {
+  auto non_copy_def_opt = def_map_.FindNonCopyDef(flags_value_reg);
+  if (!non_copy_def_opt.has_value()) {
     return {FoldingType::kImpossible, nullptr};
   }
-  auto [read_flags_insn_it, read_flags_insn_pos, _] = non_copy_def.value();
-  berberis::MachineInsn* read_flags_insn = *read_flags_insn_it;
+  auto non_copy_def = non_copy_def_opt.value();
+  berberis::MachineInsn* read_flags_insn = *non_copy_def.def_insn_it;
   if (read_flags_insn->opcode() != kMachineOpReadFlagsWithOverflow) {
     return {FoldingType::kImpossible, nullptr};
   }
-  if (read_flags_insn_it == bb->insn_list().begin()) {
+  if (non_copy_def.def_insn_it == bb->insn_list().begin()) {
     return {FoldingType::kImpossible, nullptr};
   }
-  auto flags_producing_insn_it = std::prev(read_flags_insn_it);
+  auto flags_producing_insn_it = std::prev(non_copy_def.def_insn_it);
   berberis::MachineInsn* flags_producing_insn = *flags_producing_insn_it;
 
   switch (flags_producing_insn->opcode()) {
@@ -775,7 +774,8 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryReplaceWriteFlag
       // Since flags_producing_insn immediately precedes read_flags_insn, the arguments to
       // flags_producing_insn cannot be modified between them. Therefore, it is sufficient to
       // check that the registers have not been modified since read_flags_insn_pos.
-      if (!def_map_.IsRegisterValueStillLive(flags_producing_insn->RegAt(0), read_flags_insn_pos)) {
+      if (!def_map_.IsRegisterValueStillLive(flags_producing_insn->RegAt(0),
+                                             non_copy_def.def_insn_index)) {
         return {FoldingType::kImpossible, nullptr};
       }
       break;
@@ -799,7 +799,7 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryReplaceWriteFlag
         return {FoldingType::kImpossible, nullptr};
       }
       if (!def_map_.IsRegisterValueStillLive(copy_before_flags_producing_insn->RegAt(1),
-                                             read_flags_insn_pos)) {
+                                             non_copy_def.def_insn_index)) {
         return {FoldingType::kImpossible, nullptr};
       }
       break;
@@ -808,7 +808,8 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryReplaceWriteFlag
       return {FoldingType::kImpossible, nullptr};
   }
   if (flags_producing_insn->NumRegOperands() == 3) {
-    if (!def_map_.IsRegisterValueStillLive(flags_producing_insn->RegAt(1), read_flags_insn_pos)) {
+    if (!def_map_.IsRegisterValueStillLive(flags_producing_insn->RegAt(1),
+                                           non_copy_def.def_insn_index)) {
       return {FoldingType::kImpossible, nullptr};
     }
   }
