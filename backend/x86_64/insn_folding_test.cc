@@ -565,16 +565,18 @@ TEST(InsnFoldingTest, DefMapGetsLatestDef) {
     def_map.ProcessInsn(insn_it);
   }
 
-  auto [vreg1_def_it, index1, _1, _2] = def_map.GetForTesting(vreg1);
-  ASSERT_TRUE(vreg1_def_it.has_value());
-  const berberis::MachineInsn* vreg1_def = *vreg1_def_it.value();
+  auto vreg1_get_result = def_map.GetForTesting(vreg1);
+  ASSERT_TRUE(vreg1_get_result.has_value());
+  auto [vreg1_def_it, index1, _1, _2] = vreg1_get_result.value();
+  const berberis::MachineInsn* vreg1_def = *vreg1_def_it;
   EXPECT_EQ(kMachineOpMovqRegImm, vreg1_def->opcode());
   EXPECT_EQ(vreg1, vreg1_def->RegAt(0));
   EXPECT_EQ(index1, 0);
 
-  auto [vreg2_def_it, index2, _3, _4] = def_map.GetForTesting(vreg2);
-  ASSERT_TRUE(vreg2_def_it.has_value());
-  const berberis::MachineInsn* vreg2_def = *vreg2_def_it.value();
+  auto vreg2_get_result = def_map.GetForTesting(vreg2);
+  ASSERT_TRUE(vreg2_get_result.has_value());
+  auto [vreg2_def_it, index2, _3, _4] = vreg2_get_result.value();
+  const berberis::MachineInsn* vreg2_def = *vreg2_def_it;
   EXPECT_EQ(kMachineOpAddqRegReg, vreg2_def->opcode());
   EXPECT_EQ(vreg2, vreg2_def->RegAt(0));
   EXPECT_EQ(index2, 2);
@@ -603,13 +605,14 @@ TEST(InsnFoldingTest, DefMapReturnsNoDefIfVRegIsOverwrittenByInsn) {
     def_map.ProcessInsn(insn_it);
   }
 
-  auto [vreg1_def_insn_it, vreg_def_insn_pos, _1, _2] = def_map.GetForTesting(vreg1);
-  ASSERT_TRUE(vreg1_def_insn_it.has_value());
-  EXPECT_EQ(kMachineOpAddqRegReg, (*vreg1_def_insn_it.value())->opcode());
+  auto vreg1_get_result = def_map.GetForTesting(vreg1);
+  ASSERT_TRUE(vreg1_get_result.has_value());
+  auto [vreg1_def_insn_it, vreg_def_insn_pos, _1, _2] = vreg1_get_result.value();
+  EXPECT_EQ(kMachineOpAddqRegReg, (*vreg1_def_insn_it)->opcode());
 
   // Checking def_map for vreg1 at the position of an instruction that overwrites it.
-  auto vreg1_overwritten_def_it = std::get<0>(def_map.GetForTesting(vreg1, vreg_def_insn_pos));
-  EXPECT_FALSE(vreg1_overwritten_def_it.has_value());
+  auto vreg1_overwritten_def_result = def_map.GetForTesting(vreg1, vreg_def_insn_pos);
+  EXPECT_FALSE(vreg1_overwritten_def_result.has_value());
 }
 
 TEST(InsnFoldingTest, DefMapReturnsCorrectRegisterPosition) {
@@ -632,9 +635,9 @@ TEST(InsnFoldingTest, DefMapReturnsCorrectRegisterPosition) {
     def_map.ProcessInsn(insn_it);
   }
 
-  EXPECT_EQ(std::get<2>(def_map.GetForTesting(vreg1)), 0);
-  EXPECT_EQ(std::get<0>(def_map.GetForTesting(vreg2)), std::nullopt);
-  EXPECT_EQ(std::get<2>(def_map.GetForTesting(flags)), 2);
+  EXPECT_EQ(std::get<2>(def_map.GetForTesting(vreg1).value()), 0);
+  EXPECT_FALSE(def_map.GetForTesting(vreg2).has_value());
+  EXPECT_EQ(std::get<2>(def_map.GetForTesting(flags).value()), 2);
 }
 
 TEST(InsnFoldingTest, DefMapHandlesNewlyAllocatedVreg) {
@@ -652,15 +655,15 @@ TEST(InsnFoldingTest, DefMapHandlesNewlyAllocatedVreg) {
 
   MachineReg vreg2 = machine_ir.AllocVReg();
   builder.Gen<SubqRegReg, kNoSSA>(vreg2, vreg1, flags);
-  auto failed_get_def_it = std::get<0>(def_map.SafeGetForTesting(vreg2));
-  ASSERT_EQ(std::nullopt, failed_get_def_it);
+  ASSERT_FALSE(def_map.SafeGetForTesting(vreg2).has_value());
 
   def_map.SetForTesting(vreg2, std::prev(bb->insn_list().end()), 0);
 
+  auto vreg_get_result = def_map.GetForTesting(vreg2);
+  ASSERT_TRUE(vreg_get_result.has_value());
   auto [vreg2_def_it, vreg2_def_insn_pos, vreg2_def_reg_pos, value_is_live_in] =
-      def_map.GetForTesting(vreg2);
-  ASSERT_TRUE(vreg2_def_it.has_value());
-  berberis::MachineInsn* vreg2_def_insn = *vreg2_def_it.value();
+      vreg_get_result.value();
+  berberis::MachineInsn* vreg2_def_insn = *vreg2_def_it;
   EXPECT_EQ(kMachineOpSubqRegReg, vreg2_def_insn->opcode());
   EXPECT_EQ(0, vreg2_def_insn_pos);
   EXPECT_EQ(0, vreg2_def_reg_pos);
@@ -684,18 +687,19 @@ TEST(InsnFoldingTest, DefMapHandlesLiveIns) {
   DefMap def_map(&machine_ir);
   def_map.ProcessLiveIns(bb);
 
-  auto [def_insn_it, def_insn_index, def_insn_reg_pos, value_is_live_in] =
-      def_map.GetForTesting(live_in_vreg);
-  ASSERT_TRUE(def_insn_it.has_value());
+  auto get_result = def_map.GetForTesting(live_in_vreg);
+  ASSERT_TRUE(get_result.has_value());
+
+  auto [def_insn_it, def_insn_index, def_insn_reg_pos, value_is_live_in] = get_result.value();
   EXPECT_EQ(def_insn_it, bb->insn_list().end());
   EXPECT_EQ(def_insn_index, 0);
   EXPECT_EQ(def_insn_reg_pos, 0);
   EXPECT_TRUE(value_is_live_in);
 
   def_map.ProcessInsn(bb->insn_list().begin());
-  std::tie(def_insn_it, def_insn_index, def_insn_reg_pos, value_is_live_in) =
-      def_map.GetForTesting(live_in_vreg);
-  ASSERT_TRUE(def_insn_it.has_value());
+  get_result = def_map.GetForTesting(live_in_vreg);
+  ASSERT_TRUE(get_result.has_value());
+  std::tie(def_insn_it, def_insn_index, def_insn_reg_pos, value_is_live_in) = get_result.value();
   EXPECT_EQ(def_insn_it, bb->insn_list().begin());
   EXPECT_EQ(def_insn_index, 1);
   EXPECT_EQ(def_insn_reg_pos, 0);

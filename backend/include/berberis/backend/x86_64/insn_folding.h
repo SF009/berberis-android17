@@ -48,7 +48,7 @@ enum class FoldingType {
 class DefMap {
  public:
   DefMap(MachineIR* machine_ir)
-      : def_map_(machine_ir->NumVReg(), {std::nullopt, 0, 0, false}, machine_ir->arena()),
+      : def_map_(machine_ir->NumVReg(), std::nullopt, machine_ir->arena()),
         machine_ir_(machine_ir),
         flags_reg_(kInvalidMachineReg),
         index_(0),
@@ -62,27 +62,27 @@ class DefMap {
   }
   [[nodiscard]] bool IsRegisterValueStillLive(MachineReg reg, int use_index) {
     CHECK(reg.IsVReg());
-    return std::get<0>(Get(reg, use_index)).has_value();
+    return Get(reg, use_index).has_value();
   }
   void ProcessLiveIns(MachineBasicBlock* bb);
   void ProcessInsn(MachineInsnList::iterator insn_it);
   void Initialize();
-  std::tuple<std::optional<MachineInsnList::iterator>, int, int> FindNonCopyDef(
+  std::optional<std::tuple<MachineInsnList::iterator, int, int>> FindNonCopyDef(
       MachineReg src_reg) const;
 
-  [[nodiscard]] std::tuple<std::optional<MachineInsnList::iterator>, int, int, bool> GetForTesting(
+  [[nodiscard]] std::optional<std::tuple<MachineInsnList::iterator, int, int, bool>> GetForTesting(
       MachineReg reg) const {
     return Get(reg);
   }
-  [[nodiscard]] std::tuple<std::optional<MachineInsnList::iterator>, int, int, bool> GetForTesting(
+  [[nodiscard]] std::optional<std::tuple<MachineInsnList::iterator, int, int, bool>> GetForTesting(
       MachineReg reg,
       int use_index) const {
     return Get(reg, use_index);
   }
-  [[nodiscard]] std::tuple<std::optional<MachineInsnList::iterator>, int, int, bool>
+  [[nodiscard]] std::optional<std::tuple<MachineInsnList::iterator, int, int, bool>>
   SafeGetForTesting(MachineReg reg) const {
     if (!reg.IsVReg() || reg.GetVRegIndex() >= def_map_.size()) {
-      return {std::nullopt, 0, 0, false};
+      return {std::nullopt};
     }
     return Get(reg);
   }
@@ -91,30 +91,35 @@ class DefMap {
   }
 
  private:
-  [[nodiscard]] std::tuple<std::optional<MachineInsnList::iterator>, int, int, bool> Get(
+  [[nodiscard]] std::optional<std::tuple<MachineInsnList::iterator, int, int, bool>> Get(
       MachineReg reg) const {
     if (!reg.IsVReg()) {
-      return {std::nullopt, 0, 0, false};
+      return std::nullopt;
     }
     uint32_t reg_index = reg.GetVRegIndex();
-    auto [def_insn, def_insn_index, reg_pos, value_is_live_in] = def_map_.at(reg_index);
-    if (!def_insn) {
-      return {std::nullopt, 0, 0, false};
+    auto def_map_value_opt = def_map_.at(reg_index);
+    if (!def_map_value_opt.has_value()) {
+      return std::nullopt;
     }
-    return {def_insn, def_insn_index, reg_pos, value_is_live_in};
+    auto [def_insn, def_insn_index, reg_pos, value_is_live_in] = def_map_value_opt.value();
+    return std::make_tuple(def_insn, def_insn_index, reg_pos, value_is_live_in);
   }
-  [[nodiscard]] std::tuple<std::optional<MachineInsnList::iterator>, int, int, bool> Get(
+  [[nodiscard]] std::optional<std::tuple<MachineInsnList::iterator, int, int, bool>> Get(
       MachineReg reg,
       int use_index) const {
     if (!reg.IsVReg()) {
-      return {std::nullopt, 0, 0, false};
+      return std::nullopt;
     }
     uint32_t reg_index = reg.GetVRegIndex();
-    auto [def_insn, def_insn_index, reg_pos, value_is_live_in] = def_map_.at(reg_index);
-    if (!def_insn || def_insn_index >= use_index) {
-      return {std::nullopt, 0, 0, false};
+    auto def_map_value_opt = def_map_.at(reg_index);
+    if (!def_map_value_opt.has_value()) {
+      return std::nullopt;
     }
-    return {def_insn, def_insn_index, reg_pos, value_is_live_in};
+    auto [def_insn, def_insn_index, reg_pos, value_is_live_in] = def_map_value_opt.value();
+    if (def_insn_index >= use_index) {
+      return std::nullopt;
+    }
+    return std::make_tuple(def_insn, def_insn_index, reg_pos, value_is_live_in);
   }
   void Set(MachineReg reg, const MachineInsnList::iterator insn_it, int reg_pos) {
     if (!reg.IsVReg()) {
@@ -123,7 +128,7 @@ class DefMap {
     uint32_t reg_index = reg.GetVRegIndex();
     if (reg_index >= def_map_.size()) {
       // Resize with a buffer to avoid frequent resizes.
-      def_map_.resize(reg_index + 256, {std::nullopt, 0, 0, false});
+      def_map_.resize(reg_index + 256, std::nullopt);
     }
     def_map_.at(reg_index) = {insn_it, index_, reg_pos, false};
   }
@@ -134,7 +139,7 @@ class DefMap {
     uint32_t reg_index = reg.GetVRegIndex();
     if (reg_index >= def_map_.size()) {
       // Resize with a buffer to avoid frequent resizes.
-      def_map_.resize(reg_index + 256, {std::nullopt, 0, 0, false});
+      def_map_.resize(reg_index + 256, std::nullopt);
     }
     def_map_.at(reg_index) = {insn_it, index_, reg_pos, true};
   }
@@ -145,7 +150,7 @@ class DefMap {
   // - The index of the instruction that defines the register
   // - The position of the register in the instruction that defines it
   // - Whether the register holds a live_in value
-  ArenaVector<std::tuple<std::optional<MachineInsnList::iterator>, int, int, bool>> def_map_;
+  ArenaVector<std::optional<std::tuple<MachineInsnList::iterator, int, int, bool>>> def_map_;
   MachineIR* machine_ir_;
   MachineReg flags_reg_;
   int index_;
