@@ -643,7 +643,19 @@ template <typename... Types>
 inline constexpr auto kMetaTypes = std::tuple<MetaType<Types>...>{};
 
 template <auto kMetaType>
-using Type = typename std::remove_pointer_t<std::remove_reference_t<decltype(kMetaType)>>::Type;
+class MetaTypeToTypeHelper {
+ public:
+  using Type = typename std::remove_pointer_t<std::remove_reference_t<decltype(kMetaType)>>::Type;
+};
+
+template <typename... TupleTypes, const std::tuple<MetaType<TupleTypes>...>* kValue>
+class MetaTypeToTypeHelper<kValue> {
+ public:
+  using Type = std::tuple<TupleTypes...>;
+};
+
+template <auto kMetaType>
+using Type = MetaTypeToTypeHelper<kMetaType>::Type;
 
 class TypesToValues;
 class ValuesToValues;

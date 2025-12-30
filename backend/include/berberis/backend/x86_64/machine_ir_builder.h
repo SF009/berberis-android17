@@ -50,71 +50,61 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
       kSSAMode,
       auto kSSAMode = false)
 
-  template <typename InsnType>
-  auto GenMachineInsn(typename InsnType::InputArgsTuple&& args_tuple, MachineReg flags_register) {
-    enum ProcessWay {
-      kFlagRegister,
-      kOutputRegister,
-      kImplicitInputRegister,
-      kPassthroughOperand,  // Input register, immediate or memory operand
-    };
-    struct ProcessInfo {
-      ProcessWay process_way;
-      int arg_index;
-      int pseudo_copy_size;
-    };
-    constexpr auto kOperands = ValuesToValues::ToArray<ProcessInfo>(
-        TypesToValues::MapWithTemporary<typename InsnType::OperandsTuple,
-                                        /* arg_index, reg_index = */ std::tuple<int, int>>(
-            []<typename Operand>(std::tuple<int, int>& indexes) -> decltype(auto) {
-              auto& [arg_index, reg_index] = indexes;
-              if constexpr (device_arch_info::kIsRegister<Operand>) {
-                CHECK_NE(InsnType::kInfo.reg_kinds[reg_index].IsDef(),
-                         InsnType::kInfo.reg_kinds[reg_index].IsInput());
-                if (InsnType::kInfo.reg_kinds[reg_index].IsDef()) {
-                  if (InsnType::kInfo.reg_kinds[reg_index++].RegClass() == &x86_64::kFLAGS) {
-                    return ProcessInfo{.process_way = kFlagRegister};
-                  } else {
-                    return ProcessInfo{.process_way = kOutputRegister};
-                  }
-                } else if (InsnType::kInfo.reg_kinds[reg_index].RegClass()->num_regs == 1 &&
-                           InsnType::kInfo.reg_kinds[reg_index].RegClass() != &x86_64::kFLAGS) {
-                  return ProcessInfo{
-                      .process_way = kImplicitInputRegister,
-                      .arg_index = arg_index++,
-                      .pseudo_copy_size =
-                          InsnType::kInfo.reg_kinds[reg_index++].RegClass()->reg_size};
-                } else {
-                  reg_index++;
-                }
-              }
-              return ProcessInfo{.process_way = kPassthroughOperand, .arg_index = arg_index++};
-            }));
-
+  template <typename InsnType,
+            typename Bindings = typename InsnType::BindingsTuple,
+            typename InputArgsTuple>
+  auto GenMachineInsn(InputArgsTuple&& args_tuple, MachineReg flags_register) {
     std::array<MachineReg, InsnType::kInfo.OutputRegistersCount()> output;
-    Gen<InsnType>(ValuesToValues::MapWithTemporary</* output_idx = */ size_t>(
-        kTupleMetaTypes<TypesToTypes::Zip<typename InsnType::ConstructorArgsTuple,
-                                          ValuesToTypes::MetaValues<kOperands>>>,
-        [&args_tuple, &output, flags_register, this]<typename OperandType, ProcessInfo kOperand>(
-            MetaType<std::pair<OperandType, MetaValue<kOperand>>>,
-            std::size_t& output_idx) -> OperandType {
-          if constexpr (kOperand.process_way == kFlagRegister) {
-            return output[output_idx++] = flags_register;
-          } else if constexpr (kOperand.process_way == kOutputRegister) {
-            return output[output_idx++] = ir()->AllocVReg();
-          } else if constexpr (kOperand.process_way == kImplicitInputRegister) {
+    Gen<InsnType>(TypesToValues::FlatMap<
+                  TypesToTypes::Zip<typename InsnType::DeviceInsnInfo::Operands, Bindings>>(
+        [&args_tuple, &output, flags_register, this]<typename BindingInfo>() -> decltype(auto) {
+          using Operand = std::tuple_element_t<0, BindingInfo>;
+          using Binding = std::tuple_element_t<1, BindingInfo>;
+          if constexpr (IsImmediate(Binding::kArgInfo) ||
+                        device_arch_info::kIsMemoryOperand<Operand>) {
+            return std::array{std::get<Binding::kArgInfo.from>(args_tuple)};
+          } else if constexpr (HaveInput(Binding::kArgInfo)) {
+            static_assert(device_arch_info::kIsRegister<Operand>);
             // If register is implicit we need to add extra PseudoCopy here even if it's pure
             // input. Otherwise we may attempt to make the same register to belong to two
             // different, incompatible register classes if it's ALSO output of another
             // instruction with a different implicit class. E.g. if output of division is used
             // as input for shift.
-            auto dst = ir()->AllocVReg();
-            auto src = std::get<kOperand.arg_index>(args_tuple);
-            Gen<Copy>(dst, src, kOperand.pseudo_copy_size);
-            return dst;
+            auto src = std::get<Binding::kArgInfo.from>(args_tuple);
+            if constexpr (std::tuple_size_v<typename Operand::Class::RegistersList> == 1 &&
+                          !device_arch_info::kIsFLAGS<Operand>) {
+              auto dst = ir()->AllocVReg();
+              Gen<Copy>(dst, src, Operand::Class::kSizeInBits / 8);
+              src = dst;
+            }
+            if constexpr (HaveOutput(Binding::kArgInfo)) {
+              static_assert(Operand::kUsage == device_arch_info::kUseDef);
+              std::enable_if_t<!kDependentTypeFalse<Binding>, MachineReg> out_reg;
+              if constexpr (device_arch_info::kIsFLAGS<Operand>) {
+                out_reg = flags_register;
+              } else {
+                out_reg = ir()->AllocVReg();
+              }
+              output[Binding::kArgInfo.to] = out_reg;
+              return std::pair{out_reg, src};
+            } else {
+              static_assert(Operand::kUsage == device_arch_info::kUse);
+              return std::array{src};
+            }
+          } else if constexpr (HaveOutput(Binding::kArgInfo)) {
+            static_assert(device_arch_info::kIsRegister<Operand>);
+            static_assert(Operand::kUsage == device_arch_info::kDef ||
+                          Operand::kUsage == device_arch_info::kDefEarlyClobber);
+            std::enable_if_t<!kDependentTypeFalse<Binding>, MachineReg> out_reg;
+            if constexpr (device_arch_info::kIsFLAGS<Operand>) {
+              out_reg = flags_register;
+            } else {
+              out_reg = ir()->AllocVReg();
+            }
+            output[Binding::kArgInfo.to] = out_reg;
+            return std::tuple{out_reg};
           } else {
-            static_assert(kOperand.process_way == kPassthroughOperand);
-            return std::get<kOperand.arg_index>(args_tuple);
+            static_assert(kDependentTypeFalse<Binding>, "Unsupported binding");
           }
         }));
     return output;
