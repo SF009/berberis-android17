@@ -17,6 +17,7 @@
 #ifndef BERBERIS_BACKEND_X86_64_MACHINE_IR_BUILDER_H_
 #define BERBERIS_BACKEND_X86_64_MACHINE_IR_BUILDER_H_
 
+#include <algorithm>
 #include <array>
 #include <iterator>
 #include <tuple>
@@ -52,16 +53,42 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
 
   template <typename InsnType,
             typename Bindings = typename InsnType::BindingsTuple,
-            typename InputArgsTuple>
-  auto GenMachineInsn(InputArgsTuple&& args_tuple, MachineReg flags_register) {
-    std::array<MachineReg, InsnType::kInfo.OutputRegistersCount()> output;
+            typename InputArgsTuple,
+            typename FlagsRegister>
+  auto GenMachineInsn(InputArgsTuple&& args_tuple, FlagsRegister flags_register) {
+    constexpr std::size_t kOutputSize = TypesToValues::Produce<Bindings>(
+        /* output = */ std::size_t{0}, []<typename Binding>(std::size_t& output_size) {
+          // Note: order of outputs in Intrinsic and [Macro]Instructions may not match.
+          // Ensure that outputs can fit all elements.
+          if constexpr (HaveOutput(Binding::kArgInfo)) {
+            output_size = std::max<std::size_t>(output_size, Binding::kArgInfo.to + 1);
+          }
+        });
+    TypesToTypes::Concat<std::array<MachineReg, kOutputSize>> output;
+    std::int32_t scratch_arg_idx = 0;
     Gen<InsnType>(TypesToValues::FlatMap<
                   TypesToTypes::Zip<typename InsnType::DeviceInsnInfo::Operands, Bindings>>(
-        [&args_tuple, &output, flags_register, this]<typename BindingInfo>() -> decltype(auto) {
+        [&args_tuple, &output, flags_register, &scratch_arg_idx, this]<typename BindingInfo>()
+            -> decltype(auto) {
           using Operand = std::tuple_element_t<0, BindingInfo>;
           using Binding = std::tuple_element_t<1, BindingInfo>;
-          if constexpr (IsImmediate(Binding::kArgInfo) ||
-                        device_arch_info::kIsMemoryOperand<Operand>) {
+          if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
+            if constexpr (IsTemporary(Binding::kArgInfo)) {
+              if (scratch_arg_idx >= 2) {
+                FATAL("Only two scratch registers are supported for now");
+              }
+              using ThreadState =
+                  std::enable_if_t<!kDependentTypeFalse<Binding>, berberis::ThreadState>;
+              return std::tuple{x86_64::MemoryOperand{
+                  .base = x86_64::kMachineRegRBP,
+                  .disp = static_cast<int32_t>(offsetof(ThreadState, intrinsics_scratch_area) +
+                                               config::kScratchAreaSlotSize * scratch_arg_idx++)}};
+            } else {
+              static_assert(HaveInput(Binding::kArgInfo));
+              static_assert(!HaveOutput(Binding::kArgInfo));
+              return std::array{std::get<Binding::kArgInfo.from>(args_tuple)};
+            }
+          } else if constexpr (IsImmediate(Binding::kArgInfo)) {
             return std::array{std::get<Binding::kArgInfo.from>(args_tuple)};
           } else if constexpr (HaveInput(Binding::kArgInfo)) {
             static_assert(device_arch_info::kIsRegister<Operand>);
@@ -85,8 +112,15 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
               } else {
                 out_reg = ir()->AllocVReg();
               }
-              output[Binding::kArgInfo.to] = out_reg;
+              std::get<Binding::kArgInfo.to>(output) = out_reg;
               return std::pair{out_reg, src};
+            } else if constexpr (Operand::kUsage == device_arch_info::kUseDef) {
+              // Register is used as input and then is clobbered in calculations.
+              if constexpr (device_arch_info::kIsFLAGS<Operand>) {
+                return std::pair{flags_register, src};
+              } else {
+                return std::pair{ir()->AllocVReg(), src};
+              }
             } else {
               static_assert(Operand::kUsage == device_arch_info::kUse);
               return std::array{src};
@@ -101,8 +135,21 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
             } else {
               out_reg = ir()->AllocVReg();
             }
-            output[Binding::kArgInfo.to] = out_reg;
+            std::get<Binding::kArgInfo.to>(output) = out_reg;
             return std::tuple{out_reg};
+          } else if constexpr (IsTemporary(Binding::kArgInfo)) {
+            // Temporary operands are often kDefEarlyClobber. However, if a temporary is used only
+            // after all inputs are consumed, it is not an early clobber. Sometimes, the verifier
+            // allows both kDef and kDefEarlyClobber; in such cases, we use kDef to avoid
+            // ambiguity.
+            static_assert(Operand::kUsage == device_arch_info::kDef ||
+                          Operand::kUsage == device_arch_info::kDefEarlyClobber);
+            if constexpr (device_arch_info::kIsFLAGS<Operand>) {
+              return std::tuple{flags_register};
+            } else {
+              static_assert(device_arch_info::kIsRegister<Operand>);
+              return std::tuple{ir()->AllocVReg()};
+            }
           } else {
             static_assert(kDependentTypeFalse<Binding>, "Unsupported binding");
           }
