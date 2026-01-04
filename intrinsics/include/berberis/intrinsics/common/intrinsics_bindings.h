@@ -73,21 +73,6 @@ class IntrinsicBindingInfo<kIntrinsic_,
       TypeTraits<InputArgumentsTypes>::kName...};
   static constexpr const char* OutputArgumentsTypeNames[] = {
       TypeTraits<OutputArgumentsTypes>::kName...};
-  template <typename Callback, typename... Args>
-  constexpr static void ProcessBindings(Callback&& callback, Args&&... args) {
-    (callback.template operator()<BindingsTypes, OperandsTypes>(std::forward<Args>(args)...), ...);
-  }
-  template <typename Callback, typename... Args>
-  constexpr static bool VerifyBindings(Callback&& callback, Args&&... args) {
-    return (
-        callback.template operator()<BindingsTypes, OperandsTypes>(std::forward<Args>(args)...) &&
-        ...);
-  }
-  template <typename Callback, typename... Args>
-  constexpr static auto MakeTuplefromBindings(Callback&& callback, Args&&... args) {
-    return std::tuple_cat(
-        callback.template operator()<BindingsTypes, OperandsTypes>(std::forward<Args>(args)...)...);
-  }
   using InputArguments = std::tuple<InputArgumentsTypes...>;
   using OutputArguments = std::tuple<OutputArgumentsTypes...>;
   using Bindings = std::tuple<BindingsTypes...>;
@@ -103,8 +88,11 @@ class IntrinsicBindingInfo<kIntrinsic_,
 
 template <typename IntrinsicBindingInfo, typename AssemblerType>
 constexpr void Check32BitRegistersAreZeroExtended(AssemblerType* as) {
-  int id = 0;
-  IntrinsicBindingInfo::ProcessBindings([&as, &id]<typename Binding, typename Operand> {
+  TypesToValues::ForEachWithTemporary<TypesToTypes::Zip<typename IntrinsicBindingInfo::Operands,
+                                                        typename IntrinsicBindingInfo::Bindings>,
+                                      /* id = */ int>([&as]<typename BindingInfo>(int& id) {
+    using Operand = std::tuple_element_t<0, BindingInfo>;
+    using Binding = std::tuple_element_t<1, BindingInfo>;
     if constexpr (!device_arch_info::kIsImmediate<Operand> &&
                   !device_arch_info::kIsFLAGS<Operand>) {
       if constexpr (HaveOutput(Binding::kArgInfo)) {
@@ -128,13 +116,12 @@ constexpr void Check32BitRegistersAreZeroExtended(AssemblerType* as) {
   });
 }
 
-template <typename IntrinsicBindingInfo>
+template <typename DeviceInsnInfo>
 constexpr void AssignRegisterNumbers(int* register_numbers) {
-  // Assign number for output (and temporary) arguments.
   std::size_t id = 0;
-  int arg_counter = 0;
-  IntrinsicBindingInfo::ProcessBindings(
-      [&id, &arg_counter, &register_numbers]<typename Binding, typename Operand> {
+  // Assign number for output (and temporary) arguments.
+  TypesToValues::ForEachWithTemporary<typename DeviceInsnInfo::Operands, /* arg_counter = */ int>(
+      [&id, &register_numbers]<typename Operand>(int& arg_counter) {
         if constexpr (!device_arch_info::kIsImmediate<Operand> &&
                       !device_arch_info::kIsFLAGS<Operand>) {
           if constexpr (Operand::kUsage != device_arch_info::kUse) {
@@ -144,9 +131,8 @@ constexpr void AssignRegisterNumbers(int* register_numbers) {
         }
       });
   // Assign numbers for input arguments.
-  arg_counter = 0;
-  IntrinsicBindingInfo::ProcessBindings(
-      [&id, &arg_counter, &register_numbers]<typename Binding, typename Operand> {
+  TypesToValues::ForEachWithTemporary<typename DeviceInsnInfo::Operands, /* arg_counter = */ int>(
+      [&id, &register_numbers]<typename Operand>(int& arg_counter) {
         if constexpr (!device_arch_info::kIsImmediate<Operand> &&
                       !device_arch_info::kIsFLAGS<Operand>) {
           if constexpr (Operand::kUsage == device_arch_info::kUse) {
@@ -159,42 +145,35 @@ constexpr void AssignRegisterNumbers(int* register_numbers) {
 
 template <typename DeviceInsnInfo>
 constexpr bool CheckIntrinsicHasFlagsBinding() {
-  bool expect_flags = false;
-  DeviceInsnInfo::ProcessBindings([&expect_flags]<typename Binding, typename Operand> {
-    if constexpr (device_arch_info::kIsFLAGS<Operand>) {
-      expect_flags = true;
-    }
-  });
-  return expect_flags;
+  return TypesToValues::Any<typename DeviceInsnInfo::Operands>(
+      []<typename Operand>() { return device_arch_info::kIsFLAGS<Operand>; });
 }
 
-template <typename IntrinsicBindingInfo, typename AssemblerType>
+template <typename DeviceInsnInfo, typename AssemblerType>
 constexpr void CallVerifierAssembler(AssemblerType* as, int* register_numbers) {
-  int arg_counter = 0;
-  IntrinsicBindingInfo::ProcessBindings(
-      [&arg_counter, &as, register_numbers]<typename Binding, typename Operand> {
-        if constexpr (device_arch_info::kIsImplicitReg<Operand> &&
-                      !device_arch_info::kIsFLAGS<Operand>) {
-          as->*(Operand::Class::template kAssemblerRegisterPointer<AssemblerType>) =
-              typename AssemblerType::Register{register_numbers[arg_counter], Operand::kUsage};
-        }
-        ++arg_counter;
-      });
+  int gpr_macroassembler_constants_index =
+      TypesToValues::Produce<typename DeviceInsnInfo::Operands>(
+          /* arg_counter = */ 0, [&as, register_numbers]<typename Operand>(int& arg_counter) {
+            if constexpr (device_arch_info::kIsImplicitReg<Operand> &&
+                          !device_arch_info::kIsFLAGS<Operand>) {
+              as->*(Operand::Class::template kAssemblerRegisterPointer<AssemblerType>) =
+                  typename AssemblerType::Register{register_numbers[arg_counter], Operand::kUsage};
+            }
+            ++arg_counter;
+          });
   // Macroassembler constants register points to the constant pool. Intrinsics can read from it
   // but shouldn't change it's address, that's why it's always kUse.
   as->gpr_macroassembler_constants =
-      typename AssemblerType::Register{arg_counter, device_arch_info::kUse};
-  arg_counter = 0;
-  int scratch_counter = 0;
+      typename AssemblerType::Register{gpr_macroassembler_constants_index, device_arch_info::kUse};
   std::apply(
-      IntrinsicBindingInfo::kEmitInsnFunc,
+      DeviceInsnInfo::kEmitInsnFunc,
       std::tuple_cat(
           std::tuple<AssemblerType&>{*as},
-          IntrinsicBindingInfo::MakeTuplefromBindings(
-              [&as,
-               &arg_counter,
-               &scratch_counter,
-               register_numbers]<typename Binding, typename Operand> {
+          TypesToValues::FlatMapWithTemporary<
+              typename DeviceInsnInfo::Operands,
+              /* arg_counter, scratch_counter = */ std::pair<int, int>>(
+              [&as, register_numbers]<typename Operand>(std::pair<int, int>& counters) {
+                auto& [arg_counter, scratch_counter] = counters;
                 if constexpr (device_arch_info::kIsImmediate<Operand>) {
                   // TODO(b/394278175): We don't have access to the value of the immediate argument
                   // here. The value of the immediate argument often decides which instructions in
