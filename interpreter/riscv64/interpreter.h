@@ -1703,16 +1703,18 @@ class Interpreter {
           if (args.src1 != 0) {
             return Undefined();
           }
-          return OpVectorx<intrinsics::Vcopyx<ElementType>, ElementType, vlmul, kVta, kVma>(
-              args.dst, arg2);
+          return OpVectorx<intrinsics::Vcopyx<ElementType>>(
+              args.dst, arg2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
         } else {
-          return OpVectorx<intrinsics::Vcopyx<ElementType>,
-                           ElementType,
-                           vlmul,
-                           kVta,
-                           // Always use "undisturbed" value from source register.
-                           InactiveProcessing::kUndisturbed>(
-              args.dst, arg2, /*dst_mask=*/args.src1);
+          return OpVectorx<intrinsics::Vcopyx<ElementType>>(
+              args.dst,
+              arg2,
+              kElementType,
+              vlmul,
+              kMeta<kVta>,
+              // Always use "undisturbed" value from source register.
+              kMeta<InactiveProcessing::kUndisturbed>,
+              /*dst_mask=*/args.src1);
         }
       case Decoder::VOpFVfOpcode::kVmfeqvf:
         return OpVectorToMaskvx<intrinsics::Vfeqvx<ElementType>>(
@@ -2494,16 +2496,18 @@ class Interpreter {
           if (args.src != 0) {
             return Undefined();
           }
-          return OpVectorx<intrinsics::Vcopyx<SignedType>, SignedType, vlmul, kVta, kVma>(
-              args.dst, SignedType{args.imm});
+          return OpVectorx<intrinsics::Vcopyx<SignedType>>(
+              args.dst, SignedType{args.imm}, kType<SignedType>, vlmul, kMeta<kVta>, kMeta<kVma>);
         } else {
-          return OpVectorx<intrinsics::Vcopyx<SignedType>,
-                           SignedType,
-                           vlmul,
-                           kVta,
-                           // Always use "undisturbed" value from source register.
-                           InactiveProcessing::kUndisturbed>(
-              args.dst, SignedType{args.imm}, /*dst_mask=*/args.src);
+          return OpVectorx<intrinsics::Vcopyx<SignedType>>(
+              args.dst,
+              SignedType{args.imm},
+              kType<SignedType>,
+              vlmul,
+              kMeta<kVta>,
+              // Always use "undisturbed" value from source register.
+              kMeta<InactiveProcessing::kUndisturbed>,
+              /*dst_mask=*/args.src);
         }
       case Decoder::VOpIViOpcode::kVmvXrv:
         // kVmv<nr>rv instruction
@@ -2874,16 +2878,18 @@ class Interpreter {
           if (args.src1 != 0) {
             return Undefined();
           }
-          return OpVectorx<intrinsics::Vcopyx<ElementType>, ElementType, vlmul, kVta, kVma>(
-              args.dst, arg2);
+          return OpVectorx<intrinsics::Vcopyx<ElementType>>(
+              args.dst, arg2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
         } else {
-          return OpVectorx<intrinsics::Vcopyx<ElementType>,
-                           ElementType,
-                           vlmul,
-                           kVta,
-                           // Always use "undisturbed" value from source register.
-                           InactiveProcessing::kUndisturbed>(
-              args.dst, MaybeTruncateTo<ElementType>(arg2), /*dst_mask=*/args.src1);
+          return OpVectorx<intrinsics::Vcopyx<ElementType>>(
+              args.dst,
+              MaybeTruncateTo<ElementType>(arg2),
+              kElementType,
+              vlmul,
+              kMeta<kVta>,
+              // Always use "undisturbed" value from source register.
+              kMeta<InactiveProcessing::kUndisturbed>,
+              /*dst_mask=*/args.src1);
         }
       case Decoder::VOpIVxOpcode::kVnsrawx:
         return OpVectorNarrowwx<intrinsics::Vnsrwx<SignedType>, SignedType, vlmul, kVta, kVma>(
@@ -4590,26 +4596,34 @@ class Interpreter {
                                                        Vec{dst});
   }
 
-  template <auto Intrinsic,
-            typename ElementType,
-            VectorRegisterGroupMultiplier vlmul,
-            const TailProcessing kVta,
-            const auto kVma,
-            typename... DstMaskType>
-  void OpVectorx(uint8_t dst, auto arg2, DstMaskType... dst_mask) {
-    return OpVectorx<Intrinsic, ElementType, NumberOfRegistersInvolved(vlmul), kVta, kVma>(
-        dst, MaybeTruncateTo<ElementType>(arg2), dst_mask...);
+  template <auto Intrinsic>
+  void OpVectorx(uint8_t dst,
+                 auto arg2,
+                 const auto kElementType,
+                 const VectorRegisterGroupMultiplier kVlmul,
+                 const auto kVta,
+                 const auto kVma,
+                 auto... dst_mask) {
+    using ElementType = WrappedTypeFromId<kElementType>;
+    return OpVectorx<Intrinsic>(dst,
+                                MaybeTruncateTo<ElementType>(arg2),
+                                kElementType,
+                                NumberOfRegistersInvolved(kVlmul),
+                                kVta,
+                                kVma,
+                                dst_mask...);
   }
 
-  template <auto Intrinsic,
-            typename ElementType,
-            size_t kRegistersInvolved,
-            const TailProcessing kVta,
-            const auto kVma,
-            typename... DstMaskType>
-  void OpVectorx(uint8_t dst, ElementType arg2, DstMaskType... dst_mask) {
+  template <auto Intrinsic>
+  void OpVectorx(uint8_t dst,
+                 auto arg2,
+                 const auto kElementType,
+                 const size_t kRegistersInvolved,
+                 const auto kVta,
+                 const auto kVma,
+                 auto... dst_mask) {
     static_assert(sizeof...(dst_mask) <= 1);
-    if (!IsAligned<kRegistersInvolved>(dst | (dst_mask | ... | 0))) {
+    if (!IsAligned(dst | (dst_mask | ... | 0), kRegistersInvolved)) {
       return Undefined();
     }
     size_t vstart = GetCsr<CsrName::kVstart>();
@@ -4620,11 +4634,11 @@ class Interpreter {
     if (vstart >= vl) [[unlikely]] {
       return;
     }
-    auto mask = GetMaskForVectorOperations(kMeta<kVma>);
+    auto mask = GetMaskForVectorOperations(kVma);
     for (size_t index = 0; index < kRegistersInvolved; ++index) {
       SIMD128Register result(state_->cpu.v[dst + index]);
       SIMD128Register result_mask;
-      if constexpr (sizeof...(DstMaskType) == 0) {
+      if constexpr (sizeof...(dst_mask) == 0) {
         result_mask.Set(state_->cpu.v[dst + index]);
       } else {
         uint8_t dst_mask_unpacked[1] = {dst_mask...};
@@ -4637,9 +4651,9 @@ class Interpreter {
                              vl,
                              index,
                              mask,
-                             kType<ElementType>,
-                             kMeta<kVta>,
-                             kMeta<kVma>);
+                             kElementType,
+                             kVta,
+                             kVma);
       state_->cpu.v[dst + index] = result.Get<__uint128_t>();
     }
   }
@@ -4648,7 +4662,7 @@ class Interpreter {
                        uint8_t src,
                        Register offset,
                        const auto kElementType,
-                       VectorRegisterGroupMultiplier kVlmul,
+                       const VectorRegisterGroupMultiplier kVlmul,
                        const auto kVta,
                        const auto kVma) {
     return OpVectorslideup(
