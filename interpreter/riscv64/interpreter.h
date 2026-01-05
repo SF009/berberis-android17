@@ -1385,7 +1385,7 @@ class Interpreter {
     // ensures that memory is always accessed in ordered fashion.
     SIMD128Register result[kSegmentSize];
     char* ptr = ToHostAddr<char>(src);
-    auto mask = GetMaskForVectorOperations<kVma>();
+    auto mask = GetMaskForVectorOperations(kMeta<kVma>);
     for (size_t within_group_id = vstart / kElementsCount; within_group_id < kNumRegistersInGroup;
          ++within_group_id) {
       // No need to continue if we have kUndisturbed kVta strategy.
@@ -1545,7 +1545,7 @@ class Interpreter {
 
     size_t vstart = GetCsr<CsrName::kVstart>();
     size_t vl = GetCsr<CsrName::kVl>();
-    auto mask = GetMaskForVectorOperations<kVma>();
+    auto mask = GetMaskForVectorOperations(kMeta<kVma>);
     SetCsr<CsrName::kVstart>(0);
     // When vstart >= vl, there are no body elements, and no elements are updated in any destination
     // vector register group, including that no tail elements are updated with agnostic values.
@@ -3546,7 +3546,7 @@ class Interpreter {
       return;
     }
     SIMD128Register arg1(state_->cpu.v[src1]);
-    auto mask = GetMaskForVectorOperations<kVma>();
+    auto mask = GetMaskForVectorOperations(kMeta<kVma>);
     if constexpr (std::is_same_v<decltype(mask), SIMD128Register>) {
       arg1 &= mask;
     }
@@ -3589,7 +3589,7 @@ class Interpreter {
     if (vstart >= vl) [[unlikely]] {
       return;
     }
-    auto mask = GetMaskForVectorOperations<kVma>();
+    auto mask = GetMaskForVectorOperations(kMeta<kVma>);
     for (size_t index = 0; index < kRegistersInvolved; ++index) {
       SIMD128Register result{state_->cpu.v[dst + index]};
       result = VectorMasking<ElementType, kVta, kVma>(
@@ -3858,7 +3858,7 @@ class Interpreter {
     if (vstart >= vl) [[unlikely]] {
       return;
     }
-    auto mask = GetMaskForVectorOperations<kVma>();
+    auto mask = GetMaskForVectorOperations(kMeta<kVma>);
     for (size_t index = 0; index < kRegistersInvolved; ++index) {
       SIMD128Register result{state_->cpu.v[dst + index]};
       SIMD128Register result_mask;
@@ -3933,7 +3933,7 @@ class Interpreter {
     if (vl == 0) [[unlikely]] {
       return;
     }
-    auto mask = GetMaskForVectorOperations<kVma>();
+    auto mask = GetMaskForVectorOperations(kMeta<kVma>);
     ResultType init = SIMD128Register{state_->cpu.v[src2]}.Get<ResultType>(0);
     for (size_t index = 0; index < kRegistersInvolved; ++index) {
       init = std::get<0>(
@@ -4166,7 +4166,7 @@ class Interpreter {
     if (vstart >= vl) [[unlikely]] {
       return;
     }
-    auto mask = GetMaskForVectorOperations<kVma>();
+    auto mask = GetMaskForVectorOperations(kMeta<kVma>);
     for (size_t index = 0; index < kRegistersInvolved; ++index) {
       SIMD128Register result(state_->cpu.v[dst + 2 * index]);
       result = VectorMasking<WideType<ElementType>, kVta, kVma>(
@@ -4322,7 +4322,7 @@ class Interpreter {
     if (vstart >= vl) [[unlikely]] {
       return;
     }
-    auto mask = GetMaskForVectorOperations<kVma>();
+    auto mask = GetMaskForVectorOperations(kMeta<kVma>);
     for (size_t index = 0; index < kRegistersInvolved; ++index) {
       SIMD128Register result(state_->cpu.v[dst + index]);
       result = VectorMasking<ElementType, kVta, kVma>(
@@ -4440,7 +4440,7 @@ class Interpreter {
     if (vstart >= vl) [[unlikely]] {
       return;
     }
-    auto mask = GetMaskForVectorOperations<kVma>();
+    auto mask = GetMaskForVectorOperations(kMeta<kVma>);
     for (size_t index = 0; index < kRegistersInvolved; index++) {
       SIMD128Register orig_result(state_->cpu.v[dst + index]);
       SIMD128Register intrinsic_result = std::get<0>(Intrinsic(
@@ -4480,7 +4480,7 @@ class Interpreter {
       SetCsr<CsrName::kVstart>(0);
       return;
     }
-    auto mask = GetMaskForVectorOperations<kVma>();
+    auto mask = GetMaskForVectorOperations(kMeta<kVma>);
     for (size_t dst_index = 0; dst_index < kDestRegistersInvolved; dst_index++) {
       size_t src_index = dst_index / kFactor;
       size_t src_elem = dst_index % kFactor;
@@ -4541,7 +4541,7 @@ class Interpreter {
     if (vstart >= vl) [[unlikely]] {
       return;
     }
-    auto mask = GetMaskForVectorOperations<kVma>();
+    auto mask = GetMaskForVectorOperations(kMeta<kVma>);
     for (size_t index = 0; index < kRegistersInvolved; ++index) {
       SIMD128Register result(state_->cpu.v[dst + index]);
       SIMD128Register result_mask;
@@ -4588,7 +4588,7 @@ class Interpreter {
       // register unchanged.
       return;
     }
-    auto mask = GetMaskForVectorOperations<kVma>();
+    auto mask = GetMaskForVectorOperations(kMeta<kVma>);
     // The slideup operation leaves Elements 0 through MAX(vstart, OFFSET) unchanged.
     //
     // From 16.3.1: Destination elements OFFSET through vl-1 are written if
@@ -4645,7 +4645,7 @@ class Interpreter {
     // otherwise the destination element update follows the current mask
     // agnostic/undisturbed policy.
     if constexpr (std::is_same_v<decltype(kVma), intrinsics::InactiveProcessing>) {
-      auto mask = GetMaskForVectorOperations<kVma>();
+      auto mask = GetMaskForVectorOperations(kMeta<kVma>);
       if (!(mask.template Get<uint8_t>(0) & 0x1)) {
         // The first element is masked. OpVectorslideup already applied the proper masking to it.
         return;
@@ -4688,7 +4688,7 @@ class Interpreter {
       // register unchanged.
       return;
     }
-    auto mask = GetMaskForVectorOperations<kVma>();
+    auto mask = GetMaskForVectorOperations(kMeta<kVma>);
     for (size_t index = 0; index < kRegistersInvolved; ++index) {
       SIMD128Register result(state_->cpu.v[dst + index]);
 
@@ -4732,7 +4732,7 @@ class Interpreter {
     const size_t last_elem_within_reg_pos = (vl - 1) % kElementsPerRegister;
     bool set_last_element = true;
     if constexpr (std::is_same_v<decltype(kVma), intrinsics::InactiveProcessing>) {
-      auto mask = GetMaskForVectorOperations<kVma>();
+      auto mask = GetMaskForVectorOperations(kMeta<kVma>);
       auto [mask_bits] =
           intrinsics::MaskForRegisterInSequence<ElementType>(mask, last_elem_register);
       using MaskType = decltype(mask_bits);
@@ -5039,7 +5039,7 @@ class Interpreter {
   std::conditional_t<std::is_same_v<decltype(kVma), intrinsics::NoInactiveProcessing>,
                      intrinsics::NoInactiveProcessing,
                      SIMD128Register>
-  GetMaskForVectorOperations() {
+  GetMaskForVectorOperations(MetaValue<kVma>) {
     return GetMaskForVectorOperationsIfNeeded<
         !std::is_same_v<decltype(kVma), intrinsics::NoInactiveProcessing>>();
   }
