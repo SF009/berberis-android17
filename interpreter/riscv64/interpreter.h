@@ -3029,62 +3029,38 @@ class Interpreter {
         switch (args.vxunary0_opcode) {
           case Decoder::VXUnary0Opcode::kVzextvf2m:
             if constexpr (sizeof(UnsignedType) >= 2) {
-              return OpVectorVXUnary0<intrinsics::Vextf2<UnsignedType>,
-                                      UnsignedType,
-                                      2,
-                                      vlmul,
-                                      kVta,
-                                      kVma>(args.dst, args.src1);
+              return OpVectorVXUnary0<intrinsics::Vextf2<UnsignedType>>(
+                  args.dst, args.src1, kElementType, kMeta<2>, vlmul, kMeta<kVta>, kMeta<kVma>);
             }
             break;
           case Decoder::VXUnary0Opcode::kVsextvf2m:
             if constexpr (sizeof(SignedType) >= 2) {
-              return OpVectorVXUnary0<intrinsics::Vextf2<SignedType>,
-                                      SignedType,
-                                      2,
-                                      vlmul,
-                                      kVta,
-                                      kVma>(args.dst, args.src1);
+              return OpVectorVXUnary0<intrinsics::Vextf2<SignedType>>(
+                  args.dst, args.src1, kElementType, kMeta<2>, vlmul, kMeta<kVta>, kMeta<kVma>);
             }
             break;
           case Decoder::VXUnary0Opcode::kVzextvf4m:
             if constexpr (sizeof(UnsignedType) >= 4) {
-              return OpVectorVXUnary0<intrinsics::Vextf4<UnsignedType>,
-                                      UnsignedType,
-                                      4,
-                                      vlmul,
-                                      kVta,
-                                      kVma>(args.dst, args.src1);
+              return OpVectorVXUnary0<intrinsics::Vextf4<UnsignedType>>(
+                  args.dst, args.src1, kElementType, kMeta<4>, vlmul, kMeta<kVta>, kMeta<kVma>);
             }
             break;
           case Decoder::VXUnary0Opcode::kVsextvf4m:
             if constexpr (sizeof(SignedType) >= 4) {
-              return OpVectorVXUnary0<intrinsics::Vextf4<SignedType>,
-                                      SignedType,
-                                      4,
-                                      vlmul,
-                                      kVta,
-                                      kVma>(args.dst, args.src1);
+              return OpVectorVXUnary0<intrinsics::Vextf4<SignedType>>(
+                  args.dst, args.src1, kElementType, kMeta<4>, vlmul, kMeta<kVta>, kMeta<kVma>);
             }
             break;
           case Decoder::VXUnary0Opcode::kVzextvf8m:
             if constexpr (sizeof(UnsignedType) >= 8) {
-              return OpVectorVXUnary0<intrinsics::Vextf8<UnsignedType>,
-                                      UnsignedType,
-                                      8,
-                                      vlmul,
-                                      kVta,
-                                      kVma>(args.dst, args.src1);
+              return OpVectorVXUnary0<intrinsics::Vextf8<UnsignedType>>(
+                  args.dst, args.src1, kElementType, kMeta<8>, vlmul, kMeta<kVta>, kMeta<kVma>);
             }
             break;
           case Decoder::VXUnary0Opcode::kVsextvf8m:
             if constexpr (sizeof(SignedType) >= 8) {
-              return OpVectorVXUnary0<intrinsics::Vextf8<SignedType>,
-                                      SignedType,
-                                      8,
-                                      vlmul,
-                                      kVta,
-                                      kVma>(args.dst, args.src1);
+              return OpVectorVXUnary0<intrinsics::Vextf8<SignedType>>(
+                  args.dst, args.src1, kElementType, kMeta<8>, vlmul, kMeta<kVta>, kMeta<kVma>);
             }
             break;
           case Decoder::VXUnary0Opcode::kVbrev8v:
@@ -4521,17 +4497,18 @@ class Interpreter {
     }
   }
 
-  template <auto Intrinsic,
-            typename DestElementType,
-            const uint8_t kFactor,
-            VectorRegisterGroupMultiplier vlmul,
-            const TailProcessing kVta,
-            const auto kVma>
-  void OpVectorVXUnary0(uint8_t dst, uint8_t src) {
-    static_assert(kFactor == 2 || kFactor == 4 || kFactor == 8);
-    constexpr size_t kDestRegistersInvolved = NumberOfRegistersInvolved(vlmul);
-    constexpr size_t kSourceRegistersInvolved = (kDestRegistersInvolved / kFactor) ?: 1;
-    if (!IsAligned<kDestRegistersInvolved>(dst) || !IsAligned<kSourceRegistersInvolved>(src)) {
+  template <auto Intrinsic>
+  void OpVectorVXUnary0(uint8_t dst,
+                        uint8_t src,
+                        const auto kDestElementType,
+                        const auto kFactor,
+                        const VectorRegisterGroupMultiplier kVlmul,
+                        const auto kVta,
+                        const auto kVma) {
+    static_assert(kFactor == kMeta<2> || kFactor == kMeta<4> || kFactor == kMeta<8>);
+    const size_t kDestRegistersInvolved = NumberOfRegistersInvolved(kVlmul);
+    const size_t kSourceRegistersInvolved = (kDestRegistersInvolved / kFactor) ?: 1;
+    if (!IsAligned(dst, kDestRegistersInvolved) || !IsAligned(src, kSourceRegistersInvolved)) {
       return Undefined();
     }
     size_t vstart = GetCsr<CsrName::kVstart>();
@@ -4542,7 +4519,7 @@ class Interpreter {
       SetCsr<CsrName::kVstart>(0);
       return;
     }
-    auto mask = GetMaskForVectorOperations(kMeta<kVma>);
+    auto mask = GetMaskForVectorOperations(kVma);
     for (size_t dst_index = 0; dst_index < kDestRegistersInvolved; dst_index++) {
       size_t src_index = dst_index / kFactor;
       size_t src_elem = dst_index % kFactor;
@@ -4555,9 +4532,9 @@ class Interpreter {
                              vl,
                              dst_index,
                              mask,
-                             kType<DestElementType>,
-                             kMeta<kVta>,
-                             kMeta<kVma>);
+                             kDestElementType,
+                             kVta,
+                             kVma);
       state_->cpu.v[dst + dst_index] = result.Get<__uint128_t>();
     }
     SetCsr<CsrName::kVstart>(0);
