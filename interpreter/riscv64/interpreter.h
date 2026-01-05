@@ -561,8 +561,8 @@ class Interpreter {
     kMaxValue = 0b111,
   };
 
-  static constexpr size_t NumberOfRegistersInvolved(VectorRegisterGroupMultiplier vlmul) {
-    switch (vlmul) {
+  static constexpr size_t NumberOfRegistersInvolved(VectorRegisterGroupMultiplier kVlmul) {
+    switch (kVlmul) {
       case VectorRegisterGroupMultiplier::k2registers:
         return 2;
       case VectorRegisterGroupMultiplier::k4registers:
@@ -574,13 +574,14 @@ class Interpreter {
     }
   }
 
-  template <VectorRegisterGroupMultiplier vlmul>
-  static constexpr auto NumberOfRegistersInvolved(MetaValue<vlmul>) {
-    return kMeta<NumberOfRegistersInvolved(vlmul)>;
+  template <VectorRegisterGroupMultiplier kVlmul>
+  static constexpr MetaValue<NumberOfRegistersInvolved(kVlmul)> NumberOfRegistersInvolved(
+      MetaValue<kVlmul>) {
+    return {};
   }
 
-  static constexpr size_t NumRegistersInvolvedForWideOperand(VectorRegisterGroupMultiplier vlmul) {
-    switch (vlmul) {
+  static constexpr size_t NumRegistersInvolvedForWideOperand(VectorRegisterGroupMultiplier kVlmul) {
+    switch (kVlmul) {
       case VectorRegisterGroupMultiplier::k1register:
         return 2;
       case VectorRegisterGroupMultiplier::k2registers:
@@ -592,9 +593,9 @@ class Interpreter {
     }
   }
 
-  template <VectorRegisterGroupMultiplier vlmul>
-  static constexpr auto NumRegistersInvolvedForWideOperand(MetaValue<vlmul>) {
-    return kMeta<NumRegistersInvolvedForWideOperand(vlmul)>;
+  template <VectorRegisterGroupMultiplier kVlmul>
+  static constexpr auto NumRegistersInvolvedForWideOperand(MetaValue<kVlmul>) {
+    return kMeta<NumRegistersInvolvedForWideOperand(kVlmul)>;
   }
 
   static constexpr size_t GetVlmax(TemplateTypeId kElementType,
@@ -623,6 +624,12 @@ class Interpreter {
   template <typename ElementType, const VectorRegisterGroupMultiplier kVlmul>
   static constexpr size_t GetVlmax() {
     return GetVlmax(kType<ElementType>, kVlmul);
+  }
+
+  template <TemplateTypeId kElementType, const VectorRegisterGroupMultiplier kVlmul>
+  static constexpr MetaValue<GetVlmax(kElementType, kVlmul)> GetVlmax(const MetaValue<kElementType>,
+                                                                      const MetaValue<kVlmul>) {
+    return {};
   }
 
   template <typename VOpArgs>
@@ -1678,9 +1685,11 @@ class Interpreter {
         return OpVectorvx<intrinsics::Vfsgnjxvx<ElementType>, ElementType, vlmul, kVta, kVma>(
             args.dst, args.src1, arg2);
       case Decoder::VOpFVfOpcode::kVfslide1upvf:
-        return OpVectorslide1up<ElementType, vlmul, kVta, kVma>(args.dst, args.src1, arg2);
+        return OpVectorslide1up(
+            args.dst, args.src1, arg2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
       case Decoder::VOpFVfOpcode::kVfslide1downvf:
-        return OpVectorslide1down<ElementType, vlmul, kVta, kVma>(args.dst, args.src1, arg2);
+        return OpVectorslide1down(
+            args.dst, args.src1, arg2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
       case Decoder::VOpFVfOpcode::kVfmvsf:
         if constexpr (!std::is_same_v<decltype(kVma), intrinsics::NoInactiveProcessing>) {
           return Undefined();
@@ -2523,11 +2532,21 @@ class Interpreter {
         return OpVectorNarrowwx<intrinsics::Vnsrwx<UnsignedType>, UnsignedType, vlmul, kVta, kVma>(
             args.dst, args.src, UnsignedType{args.uimm});
       case Decoder::VOpIViOpcode::kVslideupvi:
-        return OpVectorslideup<UnsignedType, vlmul, kVta, kVma>(
-            args.dst, args.src, UnsignedType{args.uimm});
+        return OpVectorslideup(args.dst,
+                               args.src,
+                               UnsignedType{args.uimm},
+                               kElementType,
+                               vlmul,
+                               kMeta<kVta>,
+                               kMeta<kVma>);
       case Decoder::VOpIViOpcode::kVslidedownvi:
-        return OpVectorslidedown<UnsignedType, vlmul, kVta, kVma>(
-            args.dst, args.src, UnsignedType{args.uimm});
+        return OpVectorslidedown(args.dst,
+                                 args.src,
+                                 UnsignedType{args.uimm},
+                                 kElementType,
+                                 vlmul,
+                                 kMeta<kVta>,
+                                 kMeta<kVma>);
       case Decoder::VOpIViOpcode::kVnclipuwi:
         return OpVectorNarrowwx<intrinsics::Vnclipwx<SaturatingUnsignedType>,
                                 ElementType,
@@ -2873,9 +2892,11 @@ class Interpreter {
         return OpVectorNarrowwx<intrinsics::Vnsrwx<UnsignedType>, UnsignedType, vlmul, kVta, kVma>(
             args.dst, args.src1, arg2);
       case Decoder::VOpIVxOpcode::kVslideupvx:
-        return OpVectorslideup<ElementType, vlmul, kVta, kVma>(args.dst, args.src1, arg2);
+        return OpVectorslideup(
+            args.dst, args.src1, arg2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
       case Decoder::VOpIVxOpcode::kVslidedownvx:
-        return OpVectorslidedown<ElementType, vlmul, kVta, kVma>(args.dst, args.src1, arg2);
+        return OpVectorslidedown(
+            args.dst, args.src1, arg2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
       case Decoder::VOpIVxOpcode::kVsmulvx:
         return OpVectorvx<intrinsics::Vsmulvx<SaturatingSignedType>,
                           ElementType,
@@ -3224,9 +3245,11 @@ class Interpreter {
         return OpVectorvx<intrinsics::Vasubvx<SignedType>, SignedType, vlmul, kVta, kVma, kVxrm>(
             args.dst, args.src1, arg2);
       case Decoder::VOpMVxOpcode::kVslide1upvx:
-        return OpVectorslide1up<SignedType, vlmul, kVta, kVma>(args.dst, args.src1, arg2);
+        return OpVectorslide1up(
+            args.dst, args.src1, arg2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
       case Decoder::VOpMVxOpcode::kVslide1downvx:
-        return OpVectorslide1down<SignedType, vlmul, kVta, kVma>(args.dst, args.src1, arg2);
+        return OpVectorslide1down(
+            args.dst, args.src1, arg2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
       case Decoder::VOpMVxOpcode::kVRXUnary0:
         switch (args.vrxunary0_opcode) {
           case Decoder::VRXUnary0Opcode::kVmvsx:
@@ -4621,22 +4644,26 @@ class Interpreter {
     }
   }
 
-  template <typename ElementType,
-            VectorRegisterGroupMultiplier vlmul,
-            const TailProcessing kVta,
-            const auto kVma>
-  void OpVectorslideup(uint8_t dst, uint8_t src, Register offset) {
-    return OpVectorslideup<ElementType, NumberOfRegistersInvolved(vlmul), kVta, kVma>(
-        dst, src, offset);
+  void OpVectorslideup(uint8_t dst,
+                       uint8_t src,
+                       Register offset,
+                       const auto kElementType,
+                       VectorRegisterGroupMultiplier kVlmul,
+                       const auto kVta,
+                       const auto kVma) {
+    return OpVectorslideup(
+        dst, src, offset, kElementType, NumberOfRegistersInvolved(kVlmul), kVta, kVma);
   }
 
-  template <typename ElementType,
-            size_t kRegistersInvolved,
-            const TailProcessing kVta,
-            const auto kVma>
-  void OpVectorslideup(uint8_t dst, uint8_t src, Register offset) {
-    constexpr size_t kElementsPerRegister = 16 / sizeof(ElementType);
-    if (!IsAligned<kRegistersInvolved>(dst | src)) {
+  void OpVectorslideup(uint8_t dst,
+                       uint8_t src,
+                       Register offset,
+                       const auto kElementType,
+                       const size_t kRegistersInvolved,
+                       const auto kVta,
+                       const auto kVma) {
+    constexpr size_t kElementsPerRegister = 16 / SizeOf(kElementType);
+    if (!IsAligned(dst | src, kRegistersInvolved)) {
       return Undefined();
     }
     // Source and destination must not intersect.
@@ -4652,7 +4679,7 @@ class Interpreter {
       // register unchanged.
       return;
     }
-    auto mask = GetMaskForVectorOperations(kMeta<kVma>);
+    auto mask = GetMaskForVectorOperations(kVma);
     // The slideup operation leaves Elements 0 through MAX(vstart, OFFSET) unchanged.
     //
     // From 16.3.1: Destination elements OFFSET through vl-1 are written if
@@ -4675,6 +4702,7 @@ class Interpreter {
       SIMD128Register arg2 =
           (first_arg_disp + 1 < 0) ? SIMD128Register{0} : state_->cpu.v[src + first_arg_disp + 1];
 
+      using ElementType = WrappedTypeFromId<kElementType>;
       result = VectorMasking(result,
                              std::get<0>(intrinsics::VectorSlideUp<ElementType>(
                                  offset % kElementsPerRegister, arg1, arg2)),
@@ -4682,22 +4710,24 @@ class Interpreter {
                              vl,
                              index,
                              mask,
-                             kType<ElementType>,
-                             kMeta<kVta>,
-                             kMeta<kVma>);
+                             kElementType,
+                             kVta,
+                             kVma);
       state_->cpu.v[dst + index] = result.Get<__uint128_t>();
     }
   }
 
-  template <typename ElementType,
-            VectorRegisterGroupMultiplier vlmul,
-            const TailProcessing kVta,
-            const auto kVma>
-  void OpVectorslide1up(uint8_t dst, uint8_t src, auto xval) {
+  void OpVectorslide1up(uint8_t dst,
+                        uint8_t src,
+                        auto xval,
+                        const auto kElementType,
+                        const VectorRegisterGroupMultiplier kVlmul,
+                        const auto kVta,
+                        const auto kVma) {
     // Save the vstart before it's reset by vslideup.
     size_t vstart = GetCsr<CsrName::kVstart>();
     // Slide all the elements by one.
-    OpVectorslideup<ElementType, NumberOfRegistersInvolved(vlmul), kVta, kVma>(dst, src, 1);
+    OpVectorslideup(dst, src, 1, kElementType, NumberOfRegistersInvolved(kVlmul), kVta, kVma);
     if (exception_raised_) {
       return;
     }
@@ -4710,8 +4740,9 @@ class Interpreter {
     // destination vector register group provided that element 0 is active,
     // otherwise the destination element update follows the current mask
     // agnostic/undisturbed policy.
-    if constexpr (std::is_same_v<decltype(kVma), intrinsics::InactiveProcessing>) {
-      auto mask = GetMaskForVectorOperations(kMeta<kVma>);
+    if constexpr (!std::is_same_v<decltype(kVma),
+                                  const MetaValue<intrinsics::NoInactiveProcessing{}>>) {
+      auto mask = GetMaskForVectorOperations(kVma);
       if (!(mask.template Get<uint8_t>(0) & 0x1)) {
         // The first element is masked. OpVectorslideup already applied the proper masking to it.
         return;
@@ -4719,30 +4750,38 @@ class Interpreter {
     }
 
     SIMD128Register result = state_->cpu.v[dst];
+    using ElementType = WrappedTypeFromId<kElementType>;
     result.Set(MaybeTruncateTo<ElementType>(xval), 0);
     state_->cpu.v[dst] = result.Get<__uint128_t>();
   }
 
-  template <typename ElementType,
-            VectorRegisterGroupMultiplier vlmul,
-            const TailProcessing kVta,
-            const auto kVma>
-  void OpVectorslidedown(uint8_t dst, uint8_t src, Register offset) {
-    return OpVectorslidedown<ElementType,
-                             NumberOfRegistersInvolved(vlmul),
-                             GetVlmax<ElementType, vlmul>(),
+  void OpVectorslidedown(uint8_t dst,
+                         uint8_t src,
+                         Register offset,
+                         const auto kElementType,
+                         const VectorRegisterGroupMultiplier kVlmul,
+                         const auto kVta,
+                         const auto kVma) {
+    return OpVectorslidedown(dst,
+                             src,
+                             offset,
+                             kElementType,
+                             NumberOfRegistersInvolved(kVlmul),
+                             GetVlmax(kElementType, kVlmul),
                              kVta,
-                             kVma>(dst, src, offset);
+                             kVma);
   }
 
-  template <typename ElementType,
-            size_t kRegistersInvolved,
-            size_t kVlmax,
-            const TailProcessing kVta,
-            const auto kVma>
-  void OpVectorslidedown(uint8_t dst, uint8_t src, Register offset) {
-    constexpr size_t kElementsPerRegister = 16 / sizeof(ElementType);
-    if (!IsAligned<kRegistersInvolved>(dst | src)) {
+  void OpVectorslidedown(uint8_t dst,
+                         uint8_t src,
+                         Register offset,
+                         const auto kElementType,
+                         const size_t kRegistersInvolved,
+                         const size_t kVlmax,
+                         const auto kVta,
+                         const auto kVma) {
+    constexpr size_t kElementsPerRegister = 16 / SizeOf(kElementType);
+    if (!IsAligned(dst | src, kRegistersInvolved)) {
       return Undefined();
     }
     size_t vstart = GetCsr<CsrName::kVstart>();
@@ -4754,7 +4793,7 @@ class Interpreter {
       // register unchanged.
       return;
     }
-    auto mask = GetMaskForVectorOperations(kMeta<kVma>);
+    auto mask = GetMaskForVectorOperations(kVma);
     for (size_t index = 0; index < kRegistersInvolved; ++index) {
       SIMD128Register result(state_->cpu.v[dst + index]);
 
@@ -4766,31 +4805,27 @@ class Interpreter {
       if (offset >= kVlmax) {
         tunnel_shift_result = SIMD128Register{0};
       } else {
+        using ElementType = WrappedTypeFromId<kElementType>;
         tunnel_shift_result = std::get<0>(
             intrinsics::VectorSlideDown<ElementType>(offset % kElementsPerRegister, arg1, arg2));
         tunnel_shift_result =
-            VectorZeroFill(tunnel_shift_result, kVlmax - offset, kVlmax, index, kType<ElementType>);
+            VectorZeroFill(tunnel_shift_result, kVlmax - offset, kVlmax, index, kElementType);
       }
 
-      result = VectorMasking(result,
-                             tunnel_shift_result,
-                             vstart,
-                             vl,
-                             index,
-                             mask,
-                             kType<ElementType>,
-                             kMeta<kVta>,
-                             kMeta<kVma>);
+      result = VectorMasking(
+          result, tunnel_shift_result, vstart, vl, index, mask, kElementType, kVta, kVma);
       state_->cpu.v[dst + index] = result.Get<__uint128_t>();
     }
   }
 
-  template <typename ElementType,
-            VectorRegisterGroupMultiplier vlmul,
-            const TailProcessing kVta,
-            const auto kVma>
-  void OpVectorslide1down(uint8_t dst, uint8_t src, auto xval) {
-    constexpr size_t kElementsPerRegister = 16 / sizeof(ElementType);
+  void OpVectorslide1down(uint8_t dst,
+                          uint8_t src,
+                          auto xval,
+                          const auto kElementType,
+                          const VectorRegisterGroupMultiplier kVlmul,
+                          const auto kVta,
+                          const auto kVma) {
+    constexpr size_t kElementsPerRegister = 16 / SizeOf(kElementType);
     const size_t vl = GetCsr<CsrName::kVl>();
 
     // From 16.3.4: ... places the x register argument at location vl-1 in the
@@ -4800,12 +4835,14 @@ class Interpreter {
     // This means that element at vl-1 would not follow the Mask Agnostic policy
     // and would stay Unchanged when inactive. So we need to undo just this one
     // element if using agnostic masking.
+    using ElementType = WrappedTypeFromId<kElementType>;
     ElementType last_elem_value = MaybeTruncateTo<ElementType>(xval);
     const size_t last_elem_register = (vl - 1) / kElementsPerRegister;
     const size_t last_elem_within_reg_pos = (vl - 1) % kElementsPerRegister;
     bool set_last_element = true;
-    if constexpr (std::is_same_v<decltype(kVma), intrinsics::InactiveProcessing>) {
-      auto mask = GetMaskForVectorOperations(kMeta<kVma>);
+    if constexpr (!std::is_same_v<decltype(kVma),
+                                  const MetaValue<intrinsics::NoInactiveProcessing{}>>) {
+      auto mask = GetMaskForVectorOperations(kVma);
       auto [mask_bits] =
           intrinsics::MaskForRegisterInSequence<ElementType>(mask, last_elem_register);
       using MaskType = decltype(mask_bits);
@@ -4825,11 +4862,14 @@ class Interpreter {
     }
 
     // Slide all the elements by one.
-    OpVectorslidedown<ElementType,
-                      NumberOfRegistersInvolved(vlmul),
-                      GetVlmax<ElementType, vlmul>(),
+    OpVectorslidedown(dst,
+                      src,
+                      1,
+                      kElementType,
+                      NumberOfRegistersInvolved(kVlmul),
+                      GetVlmax(kElementType, kVlmul),
                       kVta,
-                      kVma>(dst, src, 1);
+                      kVma);
     if (exception_raised_) {
       return;
     }
