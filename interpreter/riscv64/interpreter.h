@@ -3797,12 +3797,17 @@ class Interpreter {
     if (vstart >= vl) [[unlikely]] {
       result_before_vl_masking = original_result;
     } else {
-      using ElementType = WrappedTypeFromId<kElementType>;
       result_before_vl_masking = CollectBitmaskResult(
-          kElementType, kRegistersInvolved, [this, vstart, vl, args...](auto index) {
+          kElementType, kRegistersInvolved, [this, kElementType, vstart, vl, args...](auto index) {
             return Intrinsic(this->GetCsr<kExtraCsrs>()...,
-                             this->GetVectorArgument<ElementType, TailProcessing::kAgnostic, kVma>(
-                                 args, vstart, vl, index, intrinsics::NoInactiveProcessing{})...);
+                             this->GetVectorArgument(args,
+                                                     vstart,
+                                                     vl,
+                                                     index,
+                                                     intrinsics::NoInactiveProcessing{},
+                                                     kElementType,
+                                                     kMeta<TailProcessing::kAgnostic>,
+                                                     kMeta<kVma>)...);
           });
       if constexpr (!std::is_same_v<decltype(kVma), intrinsics::NoInactiveProcessing>) {
         SIMD128Register mask(state_->cpu.v[0]);
@@ -3936,10 +3941,11 @@ class Interpreter {
     auto mask = GetMaskForVectorOperations(kMeta<kVma>);
     ResultType init = SIMD128Register{state_->cpu.v[src2]}.Get<ResultType>(0);
     for (size_t index = 0; index < kRegistersInvolved; ++index) {
-      init = std::get<0>(
-          Intrinsic(GetCsr<kExtraCsrs>()...,
-                    init,
-                    GetVectorArgument<ElementType, kVta, kVma>(src1, vstart, vl, index, mask)));
+      init = std::get<0>(Intrinsic(
+          GetCsr<kExtraCsrs>()...,
+          init,
+          GetVectorArgument(
+              src1, vstart, vl, index, mask, kType<ElementType>, kMeta<kVta>, kMeta<kVma>)));
     }
     SIMD128Register result{state_->cpu.v[dst]};
     result.Set(init, 0);
@@ -4173,7 +4179,8 @@ class Interpreter {
           result,
           std::get<0>(Intrinsic(
               GetCsr<kExtraCsrs>()...,
-              GetLowVectorArgument<ElementType, kVta, kVma>(args, vstart, vl, index, mask)...)),
+              GetLowVectorArgument(
+                  args, vstart, vl, index, mask, kType<ElementType>, kMeta<kVta>, kMeta<kVma>)...)),
           vstart,
           vl,
           2 * index,
@@ -4183,9 +4190,15 @@ class Interpreter {
         result.Set(state_->cpu.v[dst + 2 * index + 1]);
         result = VectorMasking<WideType<ElementType>, kVta, kVma>(
             result,
-            std::get<0>(Intrinsic(
-                GetCsr<kExtraCsrs>()...,
-                GetHighVectorArgument<ElementType, kVta, kVma>(args, vstart, vl, index, mask)...)),
+            std::get<0>(Intrinsic(GetCsr<kExtraCsrs>()...,
+                                  GetHighVectorArgument(args,
+                                                        vstart,
+                                                        vl,
+                                                        index,
+                                                        mask,
+                                                        kType<ElementType>,
+                                                        kMeta<kVta>,
+                                                        kMeta<kVma>)...)),
             vstart,
             vl,
             2 * index + 1,
@@ -4329,7 +4342,8 @@ class Interpreter {
           result,
           std::get<0>(Intrinsic(
               GetCsr<kExtraCsrs>()...,
-              GetVectorArgument<ElementType, kVta, kVma>(args, vstart, vl, index, mask)...)),
+              GetVectorArgument(
+                  args, vstart, vl, index, mask, kType<ElementType>, kMeta<kVta>, kMeta<kVma>)...)),
           vstart,
           vl,
           index,
@@ -4445,11 +4459,13 @@ class Interpreter {
       SIMD128Register orig_result(state_->cpu.v[dst + index]);
       SIMD128Register intrinsic_result = std::get<0>(Intrinsic(
           GetCsr<kExtraCsrs>()...,
-          GetLowVectorArgument<ElementType, kVta, kVma>(args, vstart, vl, index, mask)...));
+          GetLowVectorArgument(
+              args, vstart, vl, index, mask, kType<ElementType>, kMeta<kVta>, kMeta<kVma>)...));
       if constexpr (kWideSrcRegistersInvolved > 1) {
         SIMD128Register result_high = std::get<0>(Intrinsic(
             GetCsr<kExtraCsrs>()...,
-            GetHighVectorArgument<ElementType, kVta, kVma>(args, vstart, vl, index, mask)...));
+            GetHighVectorArgument(
+                args, vstart, vl, index, mask, kType<ElementType>, kMeta<kVta>, kMeta<kVma>)...));
         intrinsic_result = std::get<0>(
             intrinsics::VMergeBottomHalfToTop<ElementType>(intrinsic_result, result_high));
       }
@@ -4938,90 +4954,118 @@ class Interpreter {
 
   void CheckFpRegIsValid(uint8_t reg) const { CHECK_LT(reg, std::size(state_->cpu.f)); }
 
-  template <typename ElementType, const TailProcessing kVta, const auto kVma, typename MaskType>
+  template <const TailProcessing kVta, const auto kVma>
   SIMD128Register GetHighVectorArgument(Vec<intrinsics::NoInactiveProcessing{}> src,
                                         size_t /*vstart*/,
                                         size_t /*vl*/,
                                         size_t index,
-                                        MaskType /*mask*/) {
+                                        const auto /*mask*/,
+                                        const auto kElementType,
+                                        const MetaValue<kVta>,
+                                        const MetaValue<kVma>) {
+    using ElementType = WrappedTypeFromId<kElementType>;
     return std::get<0>(intrinsics::VMovTopHalfToBottom<ElementType>(
         SIMD128Register{state_->cpu.v[src.start_no + index]}));
   }
 
-  template <typename ElementType, const TailProcessing kVta, const auto kVma, typename MaskType>
+  template <const TailProcessing kVta, const auto kVma>
   SIMD128Register GetHighVectorArgument(WideVec<intrinsics::NoInactiveProcessing{}> src,
                                         size_t /*vstart*/,
                                         size_t /*vl*/,
                                         size_t index,
-                                        MaskType /*mask*/) {
+                                        const auto /*mask*/,
+                                        const auto /*kElementType*/,
+                                        const MetaValue<kVta>,
+                                        const MetaValue<kVma>) {
     return SIMD128Register{state_->cpu.v[src.start_no + 2 * index + 1]};
   }
 
-  template <typename ElementType, const TailProcessing kVta, const auto kVma, typename MaskType>
+  template <typename ElementType, const TailProcessing kVta, const auto kVma>
   ElementType GetHighVectorArgument(ElementType arg,
                                     size_t /*vstart*/,
                                     size_t /*vl*/,
                                     size_t /*index*/,
-                                    MaskType /*mask*/) {
+                                    const auto /*mask*/,
+                                    const auto kElementType,
+                                    const MetaValue<kVta>,
+                                    const MetaValue<kVma>) {
+    static_assert(std::is_same_v<ElementType, WrappedTypeFromId<kElementType>>);
     return arg;
   }
 
-  template <typename ElementType, const TailProcessing kVta, const auto kVma, typename MaskType>
+  template <const TailProcessing kVta, const auto kVma>
   SIMD128Register GetLowVectorArgument(Vec<intrinsics::NoInactiveProcessing{}> src,
                                        size_t /*vstart*/,
                                        size_t /*vl*/,
                                        size_t index,
-                                       MaskType /*mask*/) {
+                                       const auto /*mask*/,
+                                       const auto /*kElementType*/,
+                                       const MetaValue<kVta>,
+                                       const MetaValue<kVma>) {
     return SIMD128Register{state_->cpu.v[src.start_no + index]};
   }
 
-  template <typename ElementType, const TailProcessing kVta, const auto kVma, typename MaskType>
+  template <const TailProcessing kVta, const auto kVma>
   SIMD128Register GetLowVectorArgument(WideVec<intrinsics::NoInactiveProcessing{}> src,
                                        size_t /*vstart*/,
                                        size_t /*vl*/,
                                        size_t index,
-                                       MaskType /*mask*/) {
+                                       const auto /*mask*/,
+                                       const auto /*kElementType*/,
+                                       const MetaValue<kVta>,
+                                       const MetaValue<kVma>) {
     return SIMD128Register{state_->cpu.v[src.start_no + 2 * index]};
   }
 
-  template <typename ElementType, const TailProcessing kVta, const auto kVma, typename MaskType>
+  template <typename ElementType, const TailProcessing kVta, const auto kVma>
   ElementType GetLowVectorArgument(ElementType arg,
                                    size_t /*vstart*/,
                                    size_t /*vl*/,
                                    size_t /*index*/,
-                                   MaskType /*mask*/) {
+                                   const auto /*mask*/,
+                                   const auto kElementType,
+                                   const MetaValue<kVta>,
+                                   const MetaValue<kVma>) {
+    static_assert(std::is_same_v<ElementType, WrappedTypeFromId<kElementType>>);
     return arg;
   }
 
-  template <typename ElementType, const TailProcessing kVta, const auto kVma, typename MaskType>
+  template <const TailProcessing kVta, const auto kVma>
   SIMD128Register GetVectorArgument(Vec<intrinsics::NoInactiveProcessing{}> src,
                                     size_t /*vstart*/,
                                     size_t /*vl*/,
                                     size_t index,
-                                    MaskType /*mask*/) {
+                                    const auto /*mask*/,
+                                    const auto /*kElementType*/,
+                                    const MetaValue<kVta>,
+                                    const MetaValue<kVma>) {
     return SIMD128Register{state_->cpu.v[src.start_no + index]};
   }
 
-  template <typename ElementType,
-            const TailProcessing kVta,
-            const auto kVma,
-            typename MaskType,
-            auto kDefaultElement>
+  template <auto kDefaultElement, const TailProcessing kVta, const auto kVma>
   SIMD128Register GetVectorArgument(Vec<kDefaultElement> src,
                                     size_t vstart,
                                     size_t vl,
                                     size_t index,
-                                    MaskType mask) {
+                                    const auto mask,
+                                    const auto kElementType,
+                                    const MetaValue<kVta>,
+                                    const MetaValue<kVma>) {
+    static_assert(sizeof(kDefaultElement) == sizeof(WrappedTypeFromId<kElementType>));
     return VectorMasking<kDefaultElement, kVta, kVma>(
         SIMD128Register{state_->cpu.v[src.start_no + index]}, vstart, vl, index, mask);
   }
 
-  template <typename ElementType, const TailProcessing kVta, const auto kVma, typename MaskType>
+  template <typename ElementType, const TailProcessing kVta, const auto kVma>
   ElementType GetVectorArgument(ElementType arg,
                                 size_t /*vstart*/,
                                 size_t /*vl*/,
                                 size_t /*index*/,
-                                MaskType /*mask*/) {
+                                const auto /*mask*/,
+                                const auto kElementType,
+                                const MetaValue<kVta>,
+                                const MetaValue<kVma>) {
+    static_assert(std::is_same_v<ElementType, WrappedTypeFromId<kElementType>>);
     return arg;
   }
 
