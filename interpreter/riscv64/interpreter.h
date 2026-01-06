@@ -1938,33 +1938,17 @@ class Interpreter {
           return OpVectorWidenwv<intrinsics::Vfwsubwv<ElementType>, kFrm>(
               args.dst, args.src1, args.src2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
         case Decoder::VOpFVvOpcode::kVfwmaccvv:
-          return OpVectorWidenvvw<intrinsics::Vfwmaccvv<ElementType>,
-                                  ElementType,
-                                  vlmul,
-                                  kVta,
-                                  kVma,
-                                  kFrm>(args.dst, args.src1, args.src2);
+          return OpVectorWidenvvw<intrinsics::Vfwmaccvv<ElementType>, kFrm>(
+              args.dst, args.src1, args.src2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
         case Decoder::VOpFVvOpcode::kVfwnmaccvv:
-          return OpVectorWidenvvw<intrinsics::Vfwnmaccvv<ElementType>,
-                                  ElementType,
-                                  vlmul,
-                                  kVta,
-                                  kVma,
-                                  kFrm>(args.dst, args.src1, args.src2);
+          return OpVectorWidenvvw<intrinsics::Vfwnmaccvv<ElementType>, kFrm>(
+              args.dst, args.src1, args.src2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
         case Decoder::VOpFVvOpcode::kVfwmsacvv:
-          return OpVectorWidenvvw<intrinsics::Vfwmsacvv<ElementType>,
-                                  ElementType,
-                                  vlmul,
-                                  kVta,
-                                  kVma,
-                                  kFrm>(args.dst, args.src1, args.src2);
+          return OpVectorWidenvvw<intrinsics::Vfwmsacvv<ElementType>, kFrm>(
+              args.dst, args.src1, args.src2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
         case Decoder::VOpFVvOpcode::kVfwnmsacvv:
-          return OpVectorWidenvvw<intrinsics::Vfwnmsacvv<ElementType>,
-                                  ElementType,
-                                  vlmul,
-                                  kVta,
-                                  kVma,
-                                  kFrm>(args.dst, args.src1, args.src2);
+          return OpVectorWidenvvw<intrinsics::Vfwnmsacvv<ElementType>, kFrm>(
+              args.dst, args.src1, args.src2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
         case Decoder::VOpFVvOpcode::kVFUnary0:
           switch (args.vfunary0_opcode) {
             case Decoder::VFUnary0Opcode::kVfwcvtxufv:
@@ -3151,20 +3135,14 @@ class Interpreter {
         return OpVectorWidenvv<intrinsics::Vwmulvv<SignedType>, SignedType, vlmul, kVta, kVma>(
             args.dst, args.src1, args.src2);
       case Decoder::VOpMVvOpcode::kVwmaccuvv:
-        return OpVectorWidenvvw<intrinsics::Vwmaccvv<UnsignedType>,
-                                UnsignedType,
-                                vlmul,
-                                kVta,
-                                kVma>(args.dst, args.src1, args.src2);
+        return OpVectorWidenvvw<intrinsics::Vwmaccvv<UnsignedType>>(
+            args.dst, args.src1, args.src2, kType<UnsignedType>, vlmul, kMeta<kVta>, kMeta<kVma>);
       case Decoder::VOpMVvOpcode::kVwmaccvv:
-        return OpVectorWidenvvw<intrinsics::Vwmaccvv<SignedType>, SignedType, vlmul, kVta, kVma>(
-            args.dst, args.src1, args.src2);
+        return OpVectorWidenvvw<intrinsics::Vwmaccvv<SignedType>>(
+            args.dst, args.src1, args.src2, kType<SignedType>, vlmul, kMeta<kVta>, kMeta<kVma>);
       case Decoder::VOpMVvOpcode::kVwmaccsuvv:
-        return OpVectorWidenvvw<intrinsics::Vwmaccsuvv<ElementType>,
-                                ElementType,
-                                vlmul,
-                                kVta,
-                                kVma>(args.dst, args.src1, args.src2);
+        return OpVectorWidenvvw<intrinsics::Vwmaccsuvv<ElementType>>(
+            args.dst, args.src1, args.src2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
       default:
         Undefined();
     }
@@ -4013,23 +3991,23 @@ class Interpreter {
   }
 
   // 2*SEW = SEW op SEW op 2*SEW
-  template <auto Intrinsic,
-            typename ElementType,
-            VectorRegisterGroupMultiplier vlmul,
-            const TailProcessing kVta,
-            const auto kVma,
-            CsrName... kExtraCsrs>
-  void OpVectorWidenvvw(uint8_t dst, uint8_t src1, uint8_t src2) {
-    if constexpr (sizeof(ElementType) < sizeof(Int64) &&
-                  vlmul != VectorRegisterGroupMultiplier::k8registers) {
+  template <auto Intrinsic, CsrName... kExtraCsrs>
+  void OpVectorWidenvvw(uint8_t dst,
+                        uint8_t src1,
+                        uint8_t src2,
+                        const auto kElementType,
+                        const auto kVlmul,
+                        const auto kVta,
+                        const auto kVma) {
+    if constexpr (SizeOf(kElementType) < sizeof(Int64) &&
+                  kVlmul != kMeta<VectorRegisterGroupMultiplier::k8registers>) {
       return OpVectorWiden<Intrinsic, kExtraCsrs...>(
           dst,
-          kType<ElementType>,
-          NumberOfRegistersInvolved(vlmul),
-          NumberOfRegistersInvolved(kMeta<vlmul>) ==
-              NumRegistersInvolvedForWideOperand(kMeta<vlmul>),
-          kMeta<kVta>,
-          kMeta<kVma>,
+          kElementType,
+          NumberOfRegistersInvolved(kVlmul),
+          NumberOfRegistersInvolved(kVlmul) == NumRegistersInvolvedForWideOperand(kVlmul),
+          kVta,
+          kVma,
           Vec{src1},
           Vec{src2},
           WideVec{dst});
