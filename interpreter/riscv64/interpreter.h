@@ -2419,11 +2419,13 @@ class Interpreter {
                               kMeta<kVma>,
                               [&args](size_t /*index*/) { return ElementType{args.uimm}; });
       case Decoder::VOpIViOpcode::kVadcvi:
-        return OpVectorvxm<intrinsics::Vadcvx<SignedType>,
-                           SignedType,
-                           NumberOfRegistersInvolved(vlmul),
-                           kVta,
-                           kVma>(args.dst, args.src, SignedType{args.imm});
+        return OpVectorvxm<intrinsics::Vadcvx<SignedType>>(args.dst,
+                                                           args.src,
+                                                           SignedType{args.imm},
+                                                           kType<SignedType>,
+                                                           NumberOfRegistersInvolved(vlmul),
+                                                           kMeta<kVta>,
+                                                           kMeta<kVma>);
       case Decoder::VOpIViOpcode::kVmseqvi:
         return OpVectorToMaskvx<intrinsics::Vseqvx<SignedType>>(
             args.dst, args.src, SignedType{args.imm}, ToSigned(kElementType), vlmul, kMeta<kVma>);
@@ -2831,17 +2833,21 @@ class Interpreter {
             kMeta<kVma>,
             [&arg2](size_t /*index*/) { return MaybeTruncateTo<ElementType>(arg2); });
       case Decoder::VOpIVxOpcode::kVadcvx:
-        return OpVectorvxm<intrinsics::Vadcvx<ElementType>,
-                           ElementType,
-                           NumberOfRegistersInvolved(vlmul),
-                           kVta,
-                           kVma>(args.dst, args.src1, arg2);
+        return OpVectorvxm<intrinsics::Vadcvx<ElementType>>(args.dst,
+                                                            args.src1,
+                                                            arg2,
+                                                            kElementType,
+                                                            NumberOfRegistersInvolved(vlmul),
+                                                            kMeta<kVta>,
+                                                            kMeta<kVma>);
       case Decoder::VOpIVxOpcode::kVsbcvx:
-        return OpVectorvxm<intrinsics::Vsbcvx<ElementType>,
-                           ElementType,
-                           NumberOfRegistersInvolved(vlmul),
-                           kVta,
-                           kVma>(args.dst, args.src1, arg2);
+        return OpVectorvxm<intrinsics::Vsbcvx<ElementType>>(args.dst,
+                                                            args.src1,
+                                                            arg2,
+                                                            kElementType,
+                                                            NumberOfRegistersInvolved(vlmul),
+                                                            kMeta<kVta>,
+                                                            kMeta<kVma>);
       case Decoder::VOpIVxOpcode::kVmseqvx:
         return OpVectorToMaskvx<intrinsics::Vseqvx<ElementType>>(
             args.dst, args.src1, arg2, kElementType, vlmul, kMeta<kVma>);
@@ -4239,16 +4245,17 @@ class Interpreter {
     }
   }
 
-  template <auto Intrinsic,
-            typename ElementType,
-            size_t kRegistersInvolved,
-            const TailProcessing kVta,
-            const auto kVma,
-            CsrName... kExtraCsrs>
-  void OpVectorvxm(uint8_t dst, uint8_t src1, auto arg2) {
+  template <auto Intrinsic, CsrName... kExtraCsrs>
+  void OpVectorvxm(uint8_t dst,
+                   uint8_t src1,
+                   auto arg2,
+                   const auto kElementType,
+                   const size_t kRegistersInvolved,
+                   const auto kVta,
+                   const auto kVma) {
     // All args must be aligned at kRegistersInvolved amount. We'll merge them
     // together and then do a combined check for all of them at once.
-    if (!IsAligned<kRegistersInvolved>(dst | src1)) {
+    if (!IsAligned(dst | src1, kRegistersInvolved)) {
       return Undefined();
     }
 
@@ -4264,14 +4271,17 @@ class Interpreter {
     for (size_t index = 0; index < kRegistersInvolved; ++index) {
       SIMD128Register arg1{state_->cpu.v[src1 + index]};
       SIMD128Register arg3{};
-      if constexpr (!std::is_same_v<decltype(kVma), intrinsics::NoInactiveProcessing>) {
-        if constexpr (kVma == InactiveProcessing::kUndisturbed) {
+      if constexpr (!std::is_same_v<decltype(kVma),
+                                    const MetaValue<intrinsics::NoInactiveProcessing{}>>) {
+        if constexpr (kVma == kMeta<InactiveProcessing::kUndisturbed>) {
+          using ElementType = WrappedTypeFromId<kElementType>;
           arg3 = std::get<0>(
               intrinsics::GetMaskVectorArgument<ElementType, kVta, kVma>(state_->cpu.v[0], index));
         }
       }
 
       SIMD128Register result(state_->cpu.v[dst + index]);
+      using ElementType = WrappedTypeFromId<kElementType>;
       result = VectorMasking(
           result,
           std::get<0>(
@@ -4280,8 +4290,8 @@ class Interpreter {
           vl,
           index,
           intrinsics::NoInactiveProcessing{},
-          kType<ElementType>,
-          kMeta<kVta>,
+          kElementType,
+          kVta,
           kMeta<intrinsics::NoInactiveProcessing{}>);
       state_->cpu.v[dst + index] = result.Get<__uint128_t>();
     }
