@@ -3038,7 +3038,7 @@ class Interpreter {
             if (args.src1) {
               return Undefined();
             }
-            return OpVectorVidv<ElementType, vlmul, kVta, kVma>(args.dst);
+            return OpVectorVidv(args.dst, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
           default:
             return Undefined();
         }
@@ -3486,20 +3486,20 @@ class Interpreter {
     }
   }
 
-  template <typename ElementType,
-            VectorRegisterGroupMultiplier vlmul,
-            const TailProcessing kVta,
-            const auto kVma>
-  void OpVectorVidv(uint8_t dst) {
-    return OpVectorVidv<ElementType, NumberOfRegistersInvolved(vlmul), kVta, kVma>(dst);
+  void OpVectorVidv(uint8_t dst,
+                    const auto kElementType,
+                    const VectorRegisterGroupMultiplier kVlmul,
+                    const auto kVta,
+                    const auto kVma) {
+    return OpVectorVidv(dst, kElementType, NumberOfRegistersInvolved(kVlmul), kVta, kVma);
   }
 
-  template <typename ElementType,
-            size_t kRegistersInvolved,
-            const TailProcessing kVta,
-            const auto kVma>
-  void OpVectorVidv(uint8_t dst) {
-    if (!IsAligned<kRegistersInvolved>(dst)) {
+  void OpVectorVidv(uint8_t dst,
+                    const auto kElementType,
+                    const size_t kRegistersInvolved,
+                    const auto kVta,
+                    const auto kVma) {
+    if (!IsAligned(dst, kRegistersInvolved)) {
       return Undefined();
     }
     size_t vstart = GetCsr<CsrName::kVstart>();
@@ -3510,18 +3510,19 @@ class Interpreter {
     if (vstart >= vl) [[unlikely]] {
       return;
     }
-    auto mask = GetMaskForVectorOperations(kMeta<kVma>);
+    auto mask = GetMaskForVectorOperations(kVma);
     for (size_t index = 0; index < kRegistersInvolved; ++index) {
       SIMD128Register result{state_->cpu.v[dst + index]};
+      using ElementType = WrappedTypeFromId<kElementType>;
       result = VectorMasking(result,
                              std::get<0>(intrinsics::Vidv<ElementType>(index)),
                              vstart,
                              vl,
                              index,
                              mask,
-                             kType<ElementType>,
-                             kMeta<kVta>,
-                             kMeta<kVma>);
+                             kElementType,
+                             kVta,
+                             kVma);
       state_->cpu.v[dst + index] = result.Get<__uint128_t>();
     }
   }
