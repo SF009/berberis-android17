@@ -2091,56 +2091,38 @@ class Interpreter {
               return OpVectorv<[](int8_t frm, SIMD128Register src) {
                 return intrinsics::Vfcvtv<UnsignedType, ElementType>(FPFlags::DYN, frm, src);
               },
-                               ElementType,
-                               vlmul,
-                               kVta,
-                               kVma,
-                               kFrm>(args.dst, args.src1);
+                               kFrm>(
+                  args.dst, args.src1, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
             case Decoder::VFUnary0Opcode::kVfcvtxfv:
               return OpVectorv<[](int8_t frm, SIMD128Register src) {
                 return intrinsics::Vfcvtv<SignedType, ElementType>(FPFlags::DYN, frm, src);
               },
-                               ElementType,
-                               vlmul,
-                               kVta,
-                               kVma,
-                               kFrm>(args.dst, args.src1);
+                               kFrm>(
+                  args.dst, args.src1, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
             case Decoder::VFUnary0Opcode::kVfcvtfxuv:
               return OpVectorv<[](int8_t frm, SIMD128Register src) {
                 return intrinsics::Vfcvtv<ElementType, UnsignedType>(FPFlags::DYN, frm, src);
               },
-                               UnsignedType,
-                               vlmul,
-                               kVta,
-                               kVma,
-                               kFrm>(args.dst, args.src1);
+                               kFrm>(
+                  args.dst, args.src1, kType<UnsignedType>, vlmul, kMeta<kVta>, kMeta<kVma>);
             case Decoder::VFUnary0Opcode::kVfcvtfxv:
               return OpVectorv<[](int8_t frm, SIMD128Register src) {
                 return intrinsics::Vfcvtv<ElementType, SignedType>(FPFlags::DYN, frm, src);
               },
-                               SignedType,
-                               vlmul,
-                               kVta,
-                               kVma,
-                               kFrm>(args.dst, args.src1);
+                               kFrm>(
+                  args.dst, args.src1, kType<SignedType>, vlmul, kMeta<kVta>, kMeta<kVma>);
             case Decoder::VFUnary0Opcode::kVfcvtrtzxufv:
               return OpVectorv<[](int8_t frm, SIMD128Register src) {
                 return intrinsics::Vfcvtv<UnsignedType, ElementType>(FPFlags::RTZ, frm, src);
               },
-                               ElementType,
-                               vlmul,
-                               kVta,
-                               kVma,
-                               kFrm>(args.dst, args.src1);
+                               kFrm>(
+                  args.dst, args.src1, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
             case Decoder::VFUnary0Opcode::kVfcvtrtzxfv:
               return OpVectorv<[](int8_t frm, SIMD128Register src) {
                 return intrinsics::Vfcvtv<SignedType, ElementType>(FPFlags::RTZ, frm, src);
               },
-                               ElementType,
-                               vlmul,
-                               kVta,
-                               kVma,
-                               kFrm>(args.dst, args.src1);
+                               kFrm>(
+                  args.dst, args.src1, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
             default:
               break;  // Make compiler happy.
           }
@@ -2148,20 +2130,16 @@ class Interpreter {
         case Decoder::VOpFVvOpcode::kVFUnary1:
           switch (args.vfunary1_opcode) {
             case Decoder::VFUnary1Opcode::kVfsqrtv:
-              return OpVectorv<intrinsics::Vfsqrtv<ElementType>,
-                               ElementType,
-                               vlmul,
-                               kVta,
-                               kVma,
-                               kFrm>(args.dst, args.src1);
+              return OpVectorv<intrinsics::Vfsqrtv<ElementType>, kFrm>(
+                  args.dst, args.src1, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
               break;
             case Decoder::VFUnary1Opcode::kVfrsqrt7v:
-              return OpVectorv<intrinsics::Vfrsqrt7v<ElementType>, ElementType, vlmul, kVta, kVma>(
-                  args.dst, args.src1);
+              return OpVectorv<intrinsics::Vfrsqrt7v<ElementType>>(
+                  args.dst, args.src1, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
               break;
             case Decoder::VFUnary1Opcode::kVfclassv:
-              return OpVectorv<intrinsics::Vfclassv<ElementType>, ElementType, vlmul, kVta, kVma>(
-                  args.dst, args.src1);
+              return OpVectorv<intrinsics::Vfclassv<ElementType>>(
+                  args.dst, args.src1, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
               break;
             default:
               break;  // Make compiler happy.
@@ -2629,16 +2607,24 @@ class Interpreter {
           if (args.src1 != 0) {
             return Undefined();
           }
-          return OpVectorv<intrinsics::Vcopyv<ElementType>, ElementType, vlmul, kVta, kVma>(
-              args.dst, args.src2);
+          return OpVectorv<intrinsics::Vcopyv<ElementType>>(
+              args.dst, args.src2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
         } else {
+#if 0
           return OpVectorv<intrinsics::Vcopyv<ElementType>,
                            ElementType,
                            vlmul,
                            kVta,
                            // Always use "undisturbed" value from source register.
                            InactiveProcessing::kUndisturbed>(
-              args.dst, args.src2, /*dst_mask=*/args.src1);
+#endif
+          return OpVectorv<intrinsics::Vcopyv<ElementType>>(args.dst,
+                                                            args.src2,
+                                                            kElementType,
+                                                            vlmul,
+                                                            kMeta<kVta>,
+                                                            kMeta<InactiveProcessing::kUndisturbed>,
+                                                            /*dst_mask=*/args.src1);
         }
       case Decoder::VOpIVvOpcode::kVnsrawv:
         return OpVectorNarrowwv<intrinsics::Vnsrwv<SignedType>>(
@@ -3030,8 +3016,8 @@ class Interpreter {
             }
             break;
           case Decoder::VXUnary0Opcode::kVbrev8v:
-            return OpVectorv<intrinsics::Vbrev8v<ElementType>, ElementType, vlmul, kVta, kVma>(
-                args.dst, args.src1);
+            return OpVectorv<intrinsics::Vbrev8v<ElementType>>(
+                args.dst, args.src1, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
             break;
           default:
             return Undefined();
@@ -3772,32 +3758,28 @@ class Interpreter {
     state_->cpu.v[dst] = (result_before_vl_masking | tail_mask).Get<__uint128_t>();
   }
 
-  template <auto Intrinsic,
-            typename ElementType,
-            VectorRegisterGroupMultiplier vlmul,
-            const TailProcessing kVta,
-            const auto kVma,
-            CsrName... kExtraCsrs,
-            typename... DstMaskType>
-  void OpVectorv(uint8_t dst, uint8_t src, DstMaskType... dst_mask) {
-    return OpVectorv<Intrinsic,
-                     ElementType,
-                     NumberOfRegistersInvolved(vlmul),
-                     kVta,
-                     kVma,
-                     kExtraCsrs...>(dst, src, dst_mask...);
+  template <auto Intrinsic, CsrName... kExtraCsrs, typename... DstMaskType>
+  void OpVectorv(uint8_t dst,
+                 uint8_t src,
+                 const auto kElementType,
+                 const VectorRegisterGroupMultiplier kVlmul,
+                 const auto kVta,
+                 const auto kVma,
+                 DstMaskType... dst_mask) {
+    return OpVectorv<Intrinsic, kExtraCsrs...>(
+        dst, src, kElementType, NumberOfRegistersInvolved(kVlmul), kVta, kVma, dst_mask...);
   }
 
-  template <auto Intrinsic,
-            typename ElementType,
-            size_t kRegistersInvolved,
-            const TailProcessing kVta,
-            const auto kVma,
-            CsrName... kExtraCsrs,
-            typename... DstMaskType>
-  void OpVectorv(uint8_t dst, uint8_t src, DstMaskType... dst_mask) {
+  template <auto Intrinsic, CsrName... kExtraCsrs, typename... DstMaskType>
+  void OpVectorv(uint8_t dst,
+                 uint8_t src,
+                 const auto kElementType,
+                 const size_t kRegistersInvolved,
+                 const auto kVta,
+                 const auto kVma,
+                 DstMaskType... dst_mask) {
     static_assert(sizeof...(dst_mask) <= 1);
-    if (!IsAligned<kRegistersInvolved>(dst | src | (dst_mask | ... | 0))) {
+    if (!IsAligned(dst | src | (dst_mask | ... | 0), kRegistersInvolved)) {
       return Undefined();
     }
     size_t vstart = GetCsr<CsrName::kVstart>();
@@ -3808,7 +3790,7 @@ class Interpreter {
     if (vstart >= vl) [[unlikely]] {
       return;
     }
-    auto mask = GetMaskForVectorOperations(kMeta<kVma>);
+    auto mask = GetMaskForVectorOperations(kVma);
     for (size_t index = 0; index < kRegistersInvolved; ++index) {
       SIMD128Register result{state_->cpu.v[dst + index]};
       SIMD128Register result_mask;
@@ -3826,9 +3808,9 @@ class Interpreter {
                              vl,
                              index,
                              mask,
-                             kType<ElementType>,
-                             kMeta<kVta>,
-                             kMeta<kVma>);
+                             kElementType,
+                             kVta,
+                             kVma);
       state_->cpu.v[dst + index] = result.Get<__uint128_t>();
     }
   }
