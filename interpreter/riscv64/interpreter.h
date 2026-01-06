@@ -2202,61 +2202,29 @@ class Interpreter {
               Vec<SignedType{}>{args.src1},
               Vec<SignedType{}>{args.src2});
         case Decoder::VOpFVvOpcode::kVfmaccvv:
-          return OpVectorvvv<intrinsics::Vfmaccvv<ElementType>,
-                             ElementType,
-                             vlmul,
-                             kVta,
-                             kVma,
-                             kFrm>(args.dst, args.src1, args.src2);
+          return OpVectorvvv<intrinsics::Vfmaccvv<ElementType>, kFrm>(
+              args.dst, args.src1, args.src2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
         case Decoder::VOpFVvOpcode::kVfmsacvv:
-          return OpVectorvvv<intrinsics::Vfmsacvv<ElementType>,
-                             ElementType,
-                             vlmul,
-                             kVta,
-                             kVma,
-                             kFrm>(args.dst, args.src1, args.src2);
+          return OpVectorvvv<intrinsics::Vfmsacvv<ElementType>, kFrm>(
+              args.dst, args.src1, args.src2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
         case Decoder::VOpFVvOpcode::kVfmaddvv:
-          return OpVectorvvv<intrinsics::Vfmaddvv<ElementType>,
-                             ElementType,
-                             vlmul,
-                             kVta,
-                             kVma,
-                             kFrm>(args.dst, args.src1, args.src2);
+          return OpVectorvvv<intrinsics::Vfmaddvv<ElementType>, kFrm>(
+              args.dst, args.src1, args.src2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
         case Decoder::VOpFVvOpcode::kVfmsubvv:
-          return OpVectorvvv<intrinsics::Vfmsubvv<ElementType>,
-                             ElementType,
-                             vlmul,
-                             kVta,
-                             kVma,
-                             kFrm>(args.dst, args.src1, args.src2);
+          return OpVectorvvv<intrinsics::Vfmsubvv<ElementType>, kFrm>(
+              args.dst, args.src1, args.src2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
         case Decoder::VOpFVvOpcode::kVfnmaccvv:
-          return OpVectorvvv<intrinsics::Vfnmaccvv<ElementType>,
-                             ElementType,
-                             vlmul,
-                             kVta,
-                             kVma,
-                             kFrm>(args.dst, args.src1, args.src2);
+          return OpVectorvvv<intrinsics::Vfnmaccvv<ElementType>, kFrm>(
+              args.dst, args.src1, args.src2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
         case Decoder::VOpFVvOpcode::kVfnmsacvv:
-          return OpVectorvvv<intrinsics::Vfnmsacvv<ElementType>,
-                             ElementType,
-                             vlmul,
-                             kVta,
-                             kVma,
-                             kFrm>(args.dst, args.src1, args.src2);
+          return OpVectorvvv<intrinsics::Vfnmsacvv<ElementType>, kFrm>(
+              args.dst, args.src1, args.src2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
         case Decoder::VOpFVvOpcode::kVfnmaddvv:
-          return OpVectorvvv<intrinsics::Vfnmaddvv<ElementType>,
-                             ElementType,
-                             vlmul,
-                             kVta,
-                             kVma,
-                             kFrm>(args.dst, args.src1, args.src2);
+          return OpVectorvvv<intrinsics::Vfnmaddvv<ElementType>, kFrm>(
+              args.dst, args.src1, args.src2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
         case Decoder::VOpFVvOpcode::kVfnmsubvv:
-          return OpVectorvvv<intrinsics::Vfnmsubvv<ElementType>,
-                             ElementType,
-                             vlmul,
-                             kVta,
-                             kVma,
-                             kFrm>(args.dst, args.src1, args.src2);
+          return OpVectorvvv<intrinsics::Vfnmsubvv<ElementType>, kFrm>(
+              args.dst, args.src1, args.src2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
         default:
           break;  // Make compiler happy.
       }
@@ -3057,17 +3025,17 @@ class Interpreter {
         return OpVectorvv<intrinsics::Vmulhvv<SignedType>, SignedType, vlmul, kVta, kVma>(
             args.dst, args.src1, args.src2);
       case Decoder::VOpMVvOpcode::kVmaddvv:
-        return OpVectorvvv<intrinsics::Vmaddvv<ElementType>, ElementType, vlmul, kVta, kVma>(
-            args.dst, args.src1, args.src2);
+        return OpVectorvvv<intrinsics::Vmaddvv<ElementType>>(
+            args.dst, args.src1, args.src2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
       case Decoder::VOpMVvOpcode::kVnmsubvv:
-        return OpVectorvvv<intrinsics::Vnmsubvv<ElementType>, ElementType, vlmul, kVta, kVma>(
-            args.dst, args.src1, args.src2);
+        return OpVectorvvv<intrinsics::Vnmsubvv<ElementType>>(
+            args.dst, args.src1, args.src2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
       case Decoder::VOpMVvOpcode::kVmaccvv:
-        return OpVectorvvv<intrinsics::Vmaccvv<ElementType>, ElementType, vlmul, kVta, kVma>(
-            args.dst, args.src1, args.src2);
+        return OpVectorvvv<intrinsics::Vmaccvv<ElementType>>(
+            args.dst, args.src1, args.src2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
       case Decoder::VOpMVvOpcode::kVnmsacvv:
-        return OpVectorvvv<intrinsics::Vnmsacvv<ElementType>, ElementType, vlmul, kVta, kVma>(
-            args.dst, args.src1, args.src2);
+        return OpVectorvvv<intrinsics::Vnmsacvv<ElementType>>(
+            args.dst, args.src1, args.src2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
       case Decoder::VOpMVvOpcode::kVwadduvv:
         return OpVectorWidenvv<intrinsics::Vwaddvv<UnsignedType>>(
             args.dst, args.src1, args.src2, kType<UnsignedType>, vlmul, kMeta<kVta>, kMeta<kVma>);
@@ -3893,18 +3861,19 @@ class Interpreter {
                                                        Vec{src2});
   }
 
-  template <auto Intrinsic,
-            typename ElementType,
-            VectorRegisterGroupMultiplier vlmul,
-            const TailProcessing kVta,
-            const auto kVma,
-            CsrName... kExtraCsrs>
-  void OpVectorvvv(uint8_t dst, uint8_t src1, uint8_t src2) {
+  template <auto Intrinsic, CsrName... kExtraCsrs>
+  void OpVectorvvv(uint8_t dst,
+                   uint8_t src1,
+                   uint8_t src2,
+                   const auto kElementType,
+                   const VectorRegisterGroupMultiplier kVlmul,
+                   const auto kVta,
+                   const auto kVma) {
     return OpVectorSameWidth<Intrinsic, kExtraCsrs...>(dst,
-                                                       kType<ElementType>,
-                                                       NumberOfRegistersInvolved(vlmul),
-                                                       kMeta<kVta>,
-                                                       kMeta<kVma>,
+                                                       kElementType,
+                                                       NumberOfRegistersInvolved(kVlmul),
+                                                       kVta,
+                                                       kVma,
                                                        Vec{src1},
                                                        Vec{src2},
                                                        Vec{dst});
