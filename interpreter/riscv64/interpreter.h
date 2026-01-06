@@ -3032,7 +3032,8 @@ class Interpreter {
           case Decoder::VMUnary0Opcode::kVmsifm:
             return OpVectorVMUnary0<intrinsics::Vmsifm<>, kVma>(args.dst, args.src1);
           case Decoder::VMUnary0Opcode::kViotam:
-            return OpVectorViotam<ElementType, vlmul, kVta, kVma>(args.dst, args.src1);
+            return OpVectorViotam(
+                args.dst, args.src1, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
           case Decoder::VMUnary0Opcode::kVidv:
             if (args.src1) {
               return Undefined();
@@ -3438,20 +3439,22 @@ class Interpreter {
     }
   }
 
-  template <typename ElementType,
-            VectorRegisterGroupMultiplier vlmul,
-            const TailProcessing kVta,
-            const auto kVma>
-  void OpVectorViotam(uint8_t dst, uint8_t src1) {
-    return OpVectorViotam<ElementType, NumberOfRegistersInvolved(vlmul), kVta, kVma>(dst, src1);
+  void OpVectorViotam(uint8_t dst,
+                      uint8_t src1,
+                      const auto kElementType,
+                      const VectorRegisterGroupMultiplier kVlmul,
+                      const auto kVta,
+                      const auto kVma) {
+    return OpVectorViotam(dst, src1, kElementType, NumberOfRegistersInvolved(kVlmul), kVta, kVma);
   }
 
-  template <typename ElementType,
-            size_t kRegistersInvolved,
-            const TailProcessing kVta,
-            const auto kVma>
-  void OpVectorViotam(uint8_t dst, uint8_t src1) {
-    constexpr size_t kElementsCount = sizeof(SIMD128Register) / sizeof(ElementType);
+  void OpVectorViotam(uint8_t dst,
+                      uint8_t src1,
+                      const auto kElementType,
+                      const size_t kRegistersInvolved,
+                      const auto kVta,
+                      const auto kVma) {
+    constexpr size_t kElementsCount = sizeof(SIMD128Register) / SizeOf(kElementType);
     size_t vstart = GetCsr<CsrName::kVstart>();
     size_t vl = GetCsr<CsrName::kVl>();
     if (vstart != 0) {
@@ -3463,7 +3466,7 @@ class Interpreter {
       return;
     }
     SIMD128Register arg1(state_->cpu.v[src1]);
-    auto mask = GetMaskForVectorOperations(kMeta<kVma>);
+    auto mask = GetMaskForVectorOperations(kVma);
     if constexpr (std::is_same_v<decltype(mask), SIMD128Register>) {
       arg1 &= mask;
     }
@@ -3471,20 +3474,14 @@ class Interpreter {
     size_t counter = 0;
     for (size_t index = 0; index < kRegistersInvolved; ++index) {
       SIMD128Register result{state_->cpu.v[dst + index]};
+      using ElementType = WrappedTypeFromId<kElementType>;
       auto [original_dst_value, new_counter] = intrinsics::Viotam<ElementType>(arg1, counter);
       arg1.Set(arg1.Get<__uint128_t>() >> kElementsCount);
       counter = new_counter;
 
       // Apply mask and put result values into dst register.
-      result = VectorMasking(result,
-                             original_dst_value,
-                             vstart,
-                             vl,
-                             index,
-                             mask,
-                             kType<ElementType>,
-                             kMeta<kVta>,
-                             kMeta<kVma>);
+      result = VectorMasking(
+          result, original_dst_value, vstart, vl, index, mask, kElementType, kVta, kVma);
       state_->cpu.v[dst + index] = result.Get<__uint128_t>();
     }
   }
