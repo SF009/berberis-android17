@@ -2657,17 +2657,21 @@ class Interpreter {
                               [&indexes](size_t index) { return indexes[index]; });
       }
       case Decoder::VOpIVvOpcode::kVadcvv:
-        return OpVectorvvm<intrinsics::Vadcvv<SignedType>,
-                           SignedType,
-                           NumberOfRegistersInvolved(vlmul),
-                           kVta,
-                           kVma>(args.dst, args.src1, args.src2);
+        return OpVectorvvm<intrinsics::Vadcvv<SignedType>>(args.dst,
+                                                           args.src1,
+                                                           args.src2,
+                                                           kType<SignedType>,
+                                                           NumberOfRegistersInvolved(vlmul),
+                                                           kMeta<kVta>,
+                                                           kMeta<kVma>);
       case Decoder::VOpIVvOpcode::kVsbcvv:
-        return OpVectorvvm<intrinsics::Vsbcvv<SignedType>,
-                           SignedType,
-                           NumberOfRegistersInvolved(vlmul),
-                           kVta,
-                           kVma>(args.dst, args.src1, args.src2);
+        return OpVectorvvm<intrinsics::Vsbcvv<SignedType>>(args.dst,
+                                                           args.src1,
+                                                           args.src2,
+                                                           kType<SignedType>,
+                                                           NumberOfRegistersInvolved(vlmul),
+                                                           kMeta<kVta>,
+                                                           kMeta<kVma>);
       case Decoder::VOpIVvOpcode::kVmseqvv:
         return OpVectorToMaskvv<intrinsics::Vseqvv<ElementType>>(
             args.dst, args.src1, args.src2, kElementType, vlmul, kMeta<kVma>);
@@ -4283,16 +4287,17 @@ class Interpreter {
     }
   }
 
-  template <auto Intrinsic,
-            typename ElementType,
-            size_t kRegistersInvolved,
-            const TailProcessing kVta,
-            const auto kVma,
-            CsrName... kExtraCsrs>
-  void OpVectorvvm(uint8_t dst, uint8_t src1, uint8_t src2) {
+  template <auto Intrinsic, CsrName... kExtraCsrs>
+  void OpVectorvvm(uint8_t dst,
+                   uint8_t src1,
+                   uint8_t src2,
+                   const auto kElementType,
+                   const size_t kRegistersInvolved,
+                   const auto kVta,
+                   const auto kVma) {
     // All args must be aligned at kRegistersInvolved amount. We'll merge them
     // together and then do a combined check for all of them at once.
-    if (!IsAligned<kRegistersInvolved>(dst | src1 | src2)) {
+    if (!IsAligned(dst | src1 | src2, kRegistersInvolved)) {
       return Undefined();
     }
 
@@ -4309,8 +4314,10 @@ class Interpreter {
       SIMD128Register arg1{state_->cpu.v[src1 + index]};
       SIMD128Register arg2{state_->cpu.v[src2 + index]};
       SIMD128Register arg3{};
-      if constexpr (!std::is_same_v<decltype(kVma), intrinsics::NoInactiveProcessing>) {
-        if constexpr (kVma == InactiveProcessing::kUndisturbed) {
+      if constexpr (!std::is_same_v<decltype(kVma),
+                                    const MetaValue<intrinsics::NoInactiveProcessing{}>>) {
+        if constexpr (kVma == kMeta<InactiveProcessing::kUndisturbed>) {
+          using ElementType = WrappedTypeFromId<kElementType>;
           arg3 = std::get<0>(
               intrinsics::GetMaskVectorArgument<ElementType, kVta, kVma>(state_->cpu.v[0], index));
         }
@@ -4323,8 +4330,8 @@ class Interpreter {
                              vl,
                              index,
                              intrinsics::NoInactiveProcessing{},
-                             kType<ElementType>,
-                             kMeta<kVta>,
+                             kElementType,
+                             kVta,
                              kMeta<intrinsics::NoInactiveProcessing{}>);
       state_->cpu.v[dst + index] = result.Get<__uint128_t>();
     }
