@@ -2690,11 +2690,11 @@ class Interpreter {
               args.dst, args.src2, /*dst_mask=*/args.src1);
         }
       case Decoder::VOpIVvOpcode::kVnsrawv:
-        return OpVectorNarrowwv<intrinsics::Vnsrwv<SignedType>, SignedType, vlmul, kVta, kVma>(
-            args.dst, args.src1, args.src2);
+        return OpVectorNarrowwv<intrinsics::Vnsrwv<SignedType>>(
+            args.dst, args.src1, args.src2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
       case Decoder::VOpIVvOpcode::kVnsrlwv:
-        return OpVectorNarrowwv<intrinsics::Vnsrwv<UnsignedType>, UnsignedType, vlmul, kVta, kVma>(
-            args.dst, args.src1, args.src2);
+        return OpVectorNarrowwv<intrinsics::Vnsrwv<UnsignedType>>(
+            args.dst, args.src1, args.src2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
       case Decoder::VOpIVvOpcode::kVsmulvv:
         return OpVectorvv<intrinsics::Vsmulvv<SaturatingSignedType>,
                           ElementType,
@@ -2709,19 +2709,11 @@ class Interpreter {
         return OpVectorvv<intrinsics::Vssrvv<SignedType>, SignedType, vlmul, kVta, kVma, kVxrm>(
             args.dst, args.src1, args.src2);
       case Decoder::VOpIVvOpcode::kVnclipuwv:
-        return OpVectorNarrowwv<intrinsics::Vnclipwv<SaturatingUnsignedType>,
-                                ElementType,
-                                vlmul,
-                                kVta,
-                                kVma,
-                                kVxrm>(args.dst, args.src1, args.src2);
+        return OpVectorNarrowwv<intrinsics::Vnclipwv<SaturatingUnsignedType>, kVxrm>(
+            args.dst, args.src1, args.src2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
       case Decoder::VOpIVvOpcode::kVnclipwv:
-        return OpVectorNarrowwv<intrinsics::Vnclipwv<SaturatingSignedType>,
-                                ElementType,
-                                vlmul,
-                                kVta,
-                                kVma,
-                                kVxrm>(args.dst, args.src1, args.src2);
+        return OpVectorNarrowwv<intrinsics::Vnclipwv<SaturatingSignedType>, kVxrm>(
+            args.dst, args.src1, args.src2, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
       case Decoder::VOpIVvOpcode::kVwredsumuvs:
         return OpVectorvs<intrinsics::Vredsumvs<UnsignedType, WideType<UnsignedType>>,
                           UnsignedType,
@@ -4414,23 +4406,23 @@ class Interpreter {
   }
 
   // SEW = 2*SEW op SEW
-  template <auto Intrinsic,
-            typename ElementType,
-            VectorRegisterGroupMultiplier vlmul,
-            const TailProcessing kVta,
-            const auto kVma,
-            CsrName... kExtraCsrs>
-  void OpVectorNarrowwv(uint8_t dst, uint8_t src1, uint8_t src2) {
-    if constexpr (sizeof(ElementType) < sizeof(Int64) &&
-                  vlmul != VectorRegisterGroupMultiplier::k8registers) {
+  template <auto Intrinsic, CsrName... kExtraCsrs>
+  void OpVectorNarrowwv(uint8_t dst,
+                        uint8_t src1,
+                        uint8_t src2,
+                        const auto kElementType,
+                        const auto kVlmul,
+                        const auto kVta,
+                        const auto kVma) {
+    if constexpr (SizeOf(kElementType) < sizeof(Int64) &&
+                  kVlmul != kMeta<VectorRegisterGroupMultiplier::k8registers>) {
       return OpVectorNarrow<Intrinsic, kExtraCsrs...>(
           dst,
-          kType<ElementType>,
-          NumberOfRegistersInvolved(vlmul),
-          NumberOfRegistersInvolved(kMeta<vlmul>) ==
-              NumRegistersInvolvedForWideOperand(kMeta<vlmul>),
-          kMeta<kVta>,
-          kMeta<kVma>,
+          kElementType,
+          NumberOfRegistersInvolved(kVlmul),
+          NumberOfRegistersInvolved(kVlmul) == NumRegistersInvolvedForWideOperand(kVlmul),
+          kVta,
+          kVma,
           WideVec{src1},
           Vec{src2});
     }
