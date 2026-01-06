@@ -1813,20 +1813,14 @@ class Interpreter {
               return OpVectorWidenv<[](int8_t frm, SIMD128Register src) {
                 return intrinsics::Vfcvtv<WideElementType, UnsignedType>(FPFlags::DYN, frm, src);
               },
-                                    UnsignedType,
-                                    vlmul,
-                                    kVta,
-                                    kVma,
-                                    kFrm>(args.dst, args.src1);
+                                    kFrm>(
+                  args.dst, args.src1, kType<UnsignedType>, vlmul, kMeta<kVta>, kMeta<kVma>);
             case Decoder::VFUnary0Opcode::kVfwcvtfxv:
               return OpVectorWidenv<[](int8_t frm, SIMD128Register src) {
                 return intrinsics::Vfcvtv<WideElementType, SignedType>(FPFlags::DYN, frm, src);
               },
-                                    SignedType,
-                                    vlmul,
-                                    kVta,
-                                    kVma,
-                                    kFrm>(args.dst, args.src1);
+                                    kFrm>(
+                  args.dst, args.src1, kType<SignedType>, vlmul, kMeta<kVta>, kMeta<kVma>);
             case Decoder::VFUnary0Opcode::kVfncvtxufw:
               return OpVectorNarroww<[](int8_t frm, SIMD128Register src) {
                 return intrinsics::Vfcvtv<UnsignedType, WideElementType>(FPFlags::DYN, frm, src);
@@ -1943,47 +1937,32 @@ class Interpreter {
               return OpVectorWidenv<[](int8_t frm, SIMD128Register src) {
                 return intrinsics::Vfcvtv<WideUnsignedType, ElementType>(FPFlags::DYN, frm, src);
               },
-                                    ElementType,
-                                    vlmul,
-                                    kVta,
-                                    kVma,
-                                    kFrm>(args.dst, args.src1);
+                                    kFrm>(
+                  args.dst, args.src1, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
             case Decoder::VFUnary0Opcode::kVfwcvtxfv:
               return OpVectorWidenv<[](int8_t frm, SIMD128Register src) {
                 return intrinsics::Vfcvtv<WideSignedType, ElementType>(FPFlags::DYN, frm, src);
               },
-                                    ElementType,
-                                    vlmul,
-                                    kVta,
-                                    kVma,
-                                    kFrm>(args.dst, args.src1);
+                                    kFrm>(
+                  args.dst, args.src1, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
             case Decoder::VFUnary0Opcode::kVfwcvtffv:
               return OpVectorWidenv<[](int8_t frm, SIMD128Register src) {
                 return intrinsics::Vfcvtv<WideElementType, ElementType>(FPFlags::DYN, frm, src);
               },
-                                    ElementType,
-                                    vlmul,
-                                    kVta,
-                                    kVma,
-                                    kFrm>(args.dst, args.src1);
+                                    kFrm>(
+                  args.dst, args.src1, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
             case Decoder::VFUnary0Opcode::kVfwcvtrtzxufv:
               return OpVectorWidenv<[](int8_t frm, SIMD128Register src) {
                 return intrinsics::Vfcvtv<WideUnsignedType, ElementType>(FPFlags::RTZ, frm, src);
               },
-                                    ElementType,
-                                    vlmul,
-                                    kVta,
-                                    kVma,
-                                    kFrm>(args.dst, args.src1);
+                                    kFrm>(
+                  args.dst, args.src1, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
             case Decoder::VFUnary0Opcode::kVfwcvtrtzxfv:
               return OpVectorWidenv<[](int8_t frm, SIMD128Register src) {
                 return intrinsics::Vfcvtv<WideSignedType, ElementType>(FPFlags::RTZ, frm, src);
               },
-                                    ElementType,
-                                    vlmul,
-                                    kVta,
-                                    kVma,
-                                    kFrm>(args.dst, args.src1);
+                                    kFrm>(
+                  args.dst, args.src1, kElementType, vlmul, kMeta<kVta>, kMeta<kVma>);
             case Decoder::VFUnary0Opcode::kVfncvtfxuw:
               return OpVectorNarroww<[](int8_t frm, SIMD128Register src) {
                 return intrinsics::Vfcvtv<ElementType, WideUnsignedType>(FPFlags::DYN, frm, src);
@@ -3931,23 +3910,22 @@ class Interpreter {
                                                        Vec{dst});
   }
 
-  template <auto Intrinsic,
-            typename ElementType,
-            VectorRegisterGroupMultiplier vlmul,
-            const TailProcessing kVta,
-            const auto kVma,
-            CsrName... kExtraCsrs>
-  void OpVectorWidenv(uint8_t dst, uint8_t src) {
-    if constexpr (sizeof(ElementType) < sizeof(Int64) &&
-                  vlmul != VectorRegisterGroupMultiplier::k8registers) {
+  template <auto Intrinsic, CsrName... kExtraCsrs>
+  void OpVectorWidenv(uint8_t dst,
+                      uint8_t src,
+                      const auto kElementType,
+                      const auto kVlmul,
+                      const auto kVta,
+                      const auto kVma) {
+    if constexpr (SizeOf(kElementType) < sizeof(Int64) &&
+                  kVlmul != kMeta<VectorRegisterGroupMultiplier::k8registers>) {
       return OpVectorWiden<Intrinsic, kExtraCsrs...>(
           dst,
-          kType<ElementType>,
-          NumberOfRegistersInvolved(vlmul),
-          NumberOfRegistersInvolved(kMeta<vlmul>) ==
-              NumRegistersInvolvedForWideOperand(kMeta<vlmul>),
-          kMeta<kVta>,
-          kMeta<kVma>,
+          kElementType,
+          NumberOfRegistersInvolved(kVlmul),
+          NumberOfRegistersInvolved(kVlmul) == NumRegistersInvolvedForWideOperand(kVlmul),
+          kVta,
+          kVma,
           Vec{src});
     }
     return Undefined();
