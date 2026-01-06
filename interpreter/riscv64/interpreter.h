@@ -4027,13 +4027,15 @@ class Interpreter {
   void OpVectorWidenv(uint8_t dst, uint8_t src) {
     if constexpr (sizeof(ElementType) < sizeof(Int64) &&
                   vlmul != VectorRegisterGroupMultiplier::k8registers) {
-      return OpVectorWiden<Intrinsic,
-                           ElementType,
-                           NumRegistersInvolvedForWideOperand(vlmul),
-                           NumberOfRegistersInvolved(vlmul),
-                           kVta,
-                           kVma,
-                           kExtraCsrs...>(dst, Vec{src});
+      return OpVectorWiden<Intrinsic, kExtraCsrs...>(
+          dst,
+          kType<ElementType>,
+          NumberOfRegistersInvolved(vlmul),
+          NumberOfRegistersInvolved(kMeta<vlmul>) ==
+              NumRegistersInvolvedForWideOperand(kMeta<vlmul>),
+          kMeta<kVta>,
+          kMeta<kVma>,
+          Vec{src});
     }
     return Undefined();
   }
@@ -4049,13 +4051,16 @@ class Interpreter {
   void OpVectorWidenvv(uint8_t dst, uint8_t src1, uint8_t src2) {
     if constexpr (sizeof(ElementType) < sizeof(Int64) &&
                   vlmul != VectorRegisterGroupMultiplier::k8registers) {
-      return OpVectorWiden<Intrinsic,
-                           ElementType,
-                           NumRegistersInvolvedForWideOperand(vlmul),
-                           NumberOfRegistersInvolved(vlmul),
-                           kVta,
-                           kVma,
-                           kExtraCsrs...>(dst, Vec{src1}, Vec{src2});
+      return OpVectorWiden<Intrinsic, kExtraCsrs...>(
+          dst,
+          kType<ElementType>,
+          NumberOfRegistersInvolved(vlmul),
+          NumberOfRegistersInvolved(kMeta<vlmul>) ==
+              NumRegistersInvolvedForWideOperand(kMeta<vlmul>),
+          kMeta<kVta>,
+          kMeta<kVma>,
+          Vec{src1},
+          Vec{src2});
     }
     return Undefined();
   }
@@ -4070,13 +4075,17 @@ class Interpreter {
   void OpVectorWidenvvw(uint8_t dst, uint8_t src1, uint8_t src2) {
     if constexpr (sizeof(ElementType) < sizeof(Int64) &&
                   vlmul != VectorRegisterGroupMultiplier::k8registers) {
-      return OpVectorWiden<Intrinsic,
-                           ElementType,
-                           NumRegistersInvolvedForWideOperand(vlmul),
-                           NumberOfRegistersInvolved(vlmul),
-                           kVta,
-                           kVma,
-                           kExtraCsrs...>(dst, Vec{src1}, Vec{src2}, WideVec{dst});
+      return OpVectorWiden<Intrinsic, kExtraCsrs...>(
+          dst,
+          kType<ElementType>,
+          NumberOfRegistersInvolved(vlmul),
+          NumberOfRegistersInvolved(kMeta<vlmul>) ==
+              NumRegistersInvolvedForWideOperand(kMeta<vlmul>),
+          kMeta<kVta>,
+          kMeta<kVma>,
+          Vec{src1},
+          Vec{src2},
+          WideVec{dst});
     }
     return Undefined();
   }
@@ -4091,13 +4100,16 @@ class Interpreter {
   void OpVectorWidenwv(uint8_t dst, uint8_t src1, uint8_t src2) {
     if constexpr (sizeof(ElementType) < sizeof(Int64) &&
                   vlmul != VectorRegisterGroupMultiplier::k8registers) {
-      return OpVectorWiden<Intrinsic,
-                           ElementType,
-                           NumRegistersInvolvedForWideOperand(vlmul),
-                           NumberOfRegistersInvolved(vlmul),
-                           kVta,
-                           kVma,
-                           kExtraCsrs...>(dst, WideVec{src1}, Vec{src2});
+      return OpVectorWiden<Intrinsic, kExtraCsrs...>(
+          dst,
+          kType<ElementType>,
+          NumberOfRegistersInvolved(vlmul),
+          NumberOfRegistersInvolved(kMeta<vlmul>) ==
+              NumRegistersInvolvedForWideOperand(kMeta<vlmul>),
+          kMeta<kVta>,
+          kMeta<kVma>,
+          WideVec{src1},
+          Vec{src2});
     }
     return Undefined();
   }
@@ -4111,13 +4123,16 @@ class Interpreter {
   void OpVectorWidenwx(uint8_t dst, uint8_t src1, auto arg2) {
     if constexpr (sizeof(ElementType) < sizeof(Int64) &&
                   vlmul != VectorRegisterGroupMultiplier::k8registers) {
-      return OpVectorWiden<Intrinsic,
-                           ElementType,
-                           NumRegistersInvolvedForWideOperand(vlmul),
-                           NumberOfRegistersInvolved(vlmul),
-                           kVta,
-                           kVma,
-                           kExtraCsrs...>(dst, WideVec{src1}, MaybeTruncateTo<ElementType>(arg2));
+      return OpVectorWiden<Intrinsic, kExtraCsrs...>(
+          dst,
+          kType<ElementType>,
+          NumberOfRegistersInvolved(vlmul),
+          NumberOfRegistersInvolved(kMeta<vlmul>) ==
+              NumRegistersInvolvedForWideOperand(kMeta<vlmul>),
+          kMeta<kVta>,
+          kMeta<kVma>,
+          WideVec{src1},
+          MaybeTruncateTo<ElementType>(arg2));
     }
     return Undefined();
   }
@@ -4131,13 +4146,16 @@ class Interpreter {
   void OpVectorWidenvx(uint8_t dst, uint8_t src1, auto arg2) {
     if constexpr (sizeof(ElementType) < sizeof(Int64) &&
                   vlmul != VectorRegisterGroupMultiplier::k8registers) {
-      return OpVectorWiden<Intrinsic,
-                           ElementType,
-                           NumRegistersInvolvedForWideOperand(vlmul),
-                           NumberOfRegistersInvolved(vlmul),
-                           kVta,
-                           kVma,
-                           kExtraCsrs...>(dst, Vec{src1}, MaybeTruncateTo<ElementType>(arg2));
+      return OpVectorWiden<Intrinsic, kExtraCsrs...>(
+          dst,
+          kType<ElementType>,
+          NumberOfRegistersInvolved(vlmul),
+          NumberOfRegistersInvolved(kMeta<vlmul>) ==
+              NumRegistersInvolvedForWideOperand(kMeta<vlmul>),
+          kMeta<kVta>,
+          kMeta<kVma>,
+          Vec{src1},
+          MaybeTruncateTo<ElementType>(arg2));
     }
     return Undefined();
   }
@@ -4151,39 +4169,38 @@ class Interpreter {
   void OpVectorWidenvxw(uint8_t dst, uint8_t src1, auto arg2) {
     if constexpr (sizeof(ElementType) < sizeof(Int64) &&
                   vlmul != VectorRegisterGroupMultiplier::k8registers) {
-      return OpVectorWiden<Intrinsic,
-                           ElementType,
-                           NumRegistersInvolvedForWideOperand(vlmul),
-                           NumberOfRegistersInvolved(vlmul),
-                           kVta,
-                           kVma,
-                           kExtraCsrs...>(
-          dst, Vec{src1}, MaybeTruncateTo<ElementType>(arg2), WideVec{dst});
+      return OpVectorWiden<Intrinsic, kExtraCsrs...>(
+          dst,
+          kType<ElementType>,
+          NumberOfRegistersInvolved(vlmul),
+          NumberOfRegistersInvolved(kMeta<vlmul>) ==
+              NumRegistersInvolvedForWideOperand(kMeta<vlmul>),
+          kMeta<kVta>,
+          kMeta<kVma>,
+          Vec{src1},
+          MaybeTruncateTo<ElementType>(arg2),
+          WideVec{dst});
     }
     return Undefined();
   }
 
-  template <auto Intrinsic,
-            typename ElementType,
-            size_t kDestRegistersInvolved,
-            size_t kRegistersInvolved,
-            const TailProcessing kVta,
-            const auto kVma,
-            CsrName... kExtraCsrs,
-            typename... Args>
-  void OpVectorWiden(uint8_t dst, Args... args) {
-    if constexpr (kDestRegistersInvolved == kRegistersInvolved) {
-      static_assert(kDestRegistersInvolved == 1);
-    } else {
-      static_assert(kDestRegistersInvolved == 2 * kRegistersInvolved);
+  template <auto Intrinsic, CsrName... kExtraCsrs>
+  void OpVectorWiden(uint8_t dst,
+                     const auto kElementType,
+                     const size_t kRegistersInvolved,
+                     const auto kSingleWideRegister,
+                     const auto kVta,
+                     const auto kVma,
+                     auto... args) {
+    if constexpr (!kSingleWideRegister) {
       // All normal (narrow) args must be aligned at kRegistersInvolved amount. We'll merge them
       // together and then do a combined check for all of them at once.
       uint8_t ored_args = OrValuesOnlyForType<Vec>(args...);
       // All wide args must be aligned at kRegistersInvolved amount. We'll merge them together and
       // then do a combined check for all of them at once.
       uint8_t ored_wide_args = OrValuesOnlyForType<WideVec>(args...) | dst;
-      if (!IsAligned<kDestRegistersInvolved>(ored_wide_args) ||
-          !IsAligned<kRegistersInvolved>(ored_args)) {
+      if (!IsAligned(ored_wide_args, kRegistersInvolved * 2) ||
+          !IsAligned(ored_args, kRegistersInvolved)) {
         return Undefined();
       }
     }
@@ -4204,42 +4221,36 @@ class Interpreter {
     if (vstart >= vl) [[unlikely]] {
       return;
     }
-    auto mask = GetMaskForVectorOperations(kMeta<kVma>);
+    auto mask = GetMaskForVectorOperations(kVma);
     for (size_t index = 0; index < kRegistersInvolved; ++index) {
       SIMD128Register result(state_->cpu.v[dst + 2 * index]);
       result = VectorMasking(
           result,
           std::get<0>(Intrinsic(
               GetCsr<kExtraCsrs>()...,
-              GetLowVectorArgument(
-                  args, vstart, vl, index, mask, kType<ElementType>, kMeta<kVta>, kMeta<kVma>)...)),
+              GetLowVectorArgument(args, vstart, vl, index, mask, kElementType, kVta, kVma)...)),
           vstart,
           vl,
           2 * index,
           mask,
-          kType<WideType<ElementType>>,
-          kMeta<kVta>,
-          kMeta<kVma>);
+          ToWide(kElementType),
+          kVta,
+          kVma);
       state_->cpu.v[dst + 2 * index] = result.Get<__uint128_t>();
-      if constexpr (kDestRegistersInvolved > 1) {  // if lmul is one full register or more
+      if constexpr (!kSingleWideRegister) {  // if lmul is one full register or more
         result.Set(state_->cpu.v[dst + 2 * index + 1]);
-        result = VectorMasking(result,
-                               std::get<0>(Intrinsic(GetCsr<kExtraCsrs>()...,
-                                                     GetHighVectorArgument(args,
-                                                                           vstart,
-                                                                           vl,
-                                                                           index,
-                                                                           mask,
-                                                                           kType<ElementType>,
-                                                                           kMeta<kVta>,
-                                                                           kMeta<kVma>)...)),
-                               vstart,
-                               vl,
-                               2 * index + 1,
-                               mask,
-                               kType<WideType<ElementType>>,
-                               kMeta<kVta>,
-                               kMeta<kVma>);
+        result = VectorMasking(
+            result,
+            std::get<0>(Intrinsic(
+                GetCsr<kExtraCsrs>()...,
+                GetHighVectorArgument(args, vstart, vl, index, mask, kElementType, kVta, kVma)...)),
+            vstart,
+            vl,
+            2 * index + 1,
+            mask,
+            ToWide(kElementType),
+            kVta,
+            kVma);
         state_->cpu.v[dst + 2 * index + 1] = result.Get<__uint128_t>();
       }
     }
