@@ -882,8 +882,7 @@ TEST(Arm64InsnTest, AsmConvertLiterals) {
 }
 
 template <typename IntType, typename FuncType>
-void TestConvertF32ToInt(FuncType AsmFunc, std::initializer_list<int> expected) {
-  // Note that bit_cast isn't a constexpr.
+void TestConvertF32ToInt(FuncType AsmFunc, std::initializer_list<int64_t> expected) {
   static const uint32_t kConvertF32ToIntInputs[] = {bit_cast<uint32_t>(-7.50f),
                                                     bit_cast<uint32_t>(-6.75f),
                                                     bit_cast<uint32_t>(-6.50f),
@@ -892,7 +891,8 @@ void TestConvertF32ToInt(FuncType AsmFunc, std::initializer_list<int> expected) 
                                                     bit_cast<uint32_t>(6.50f),
                                                     bit_cast<uint32_t>(6.75f),
                                                     bit_cast<uint32_t>(7.50f),
-                                                    kQuietNaN32AsInteger};
+                                                    kQuietNaN32AsInteger,
+                                                    kTwoToPow64F32AsInteger};
 
   const size_t kConvertF32ToIntInputsSize = sizeof(kConvertF32ToIntInputs) / sizeof(uint32_t);
   ASSERT_EQ(kConvertF32ToIntInputsSize, expected.size());
@@ -905,107 +905,111 @@ void TestConvertF32ToInt(FuncType AsmFunc, std::initializer_list<int> expected) 
 
 TEST(Arm64InsnTest, AsmConvertF32I32TieAway) {
   constexpr auto AsmFcvtas = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtas %w0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtas, {-8, -7, -7, -6, 6U, 7U, 7U, 8U, 0});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtas, {-8, -7, -7, -6, 6U, 7U, 7U, 8U, 0, INT32_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U32TieAway) {
   constexpr auto AsmFcvtau = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtau %w0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtau, {0U, 0U, 0U, 0U, 6U, 7U, 7U, 8U, 0});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtau, {0U, 0U, 0U, 0U, 6U, 7U, 7U, 8U, 0, UINT32_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I32NegInf) {
   constexpr auto AsmFcvtms = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtms %w0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtms, {-8, -7, -7, -7, 6U, 6U, 6U, 7U, 0});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtms, {-8, -7, -7, -7, 6U, 6U, 6U, 7U, 0, INT32_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U32NegInf) {
   constexpr auto AsmFcvtmu = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtmu %w0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtmu, {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U, 0});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtmu, {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U, 0, UINT32_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I32TieEven) {
   constexpr auto AsmFcvtns = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtns %w0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtns, {-8, -7, -6, -6, 6U, 6U, 7U, 8U, 0});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtns, {-8, -7, -6, -6, 6U, 6U, 7U, 8U, 0, INT32_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U32TieEven) {
   constexpr auto AsmFcvtnu = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtnu %w0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtnu, {0U, 0U, 0U, 0U, 6U, 6U, 7U, 8U, 0});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtnu, {0U, 0U, 0U, 0U, 6U, 6U, 7U, 8U, 0, UINT32_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I32PosInf) {
   constexpr auto AsmFcvtps = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtps %w0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtps, {-7, -6, -6, -6, 7U, 7U, 7U, 8U, 0});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtps, {-7, -6, -6, -6, 7U, 7U, 7U, 8U, 0, INT32_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U32PosInf) {
   constexpr auto AsmFcvtpu = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtpu %w0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtpu, {0U, 0U, 0U, 0U, 7U, 7U, 7U, 8U, 0});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtpu, {0U, 0U, 0U, 0U, 7U, 7U, 7U, 8U, 0, UINT32_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I32Truncate) {
   constexpr auto AsmFcvtzs = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtzs %w0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtzs, {-7, -6, -6, -6, 6U, 6U, 6U, 7U, 0});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtzs, {-7, -6, -6, -6, 6U, 6U, 6U, 7U, 0, INT32_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U32Truncate) {
   constexpr auto AsmFcvtzu = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtzu %w0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtzu, {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U, 0});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtzu, {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U, 0, UINT32_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I64TieAway) {
   constexpr auto AsmFcvtas = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtas %x0, %s1");
-  TestConvertF32ToInt<uint64_t>(AsmFcvtas, {-8, -7, -7, -6, 6U, 7U, 7U, 8U, 0});
+  TestConvertF32ToInt<uint64_t>(AsmFcvtas, {-8, -7, -7, -6, 6U, 7U, 7U, 8U, 0, INT64_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U64TieAway) {
   constexpr auto AsmFcvtau = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtau %x0, %s1");
-  TestConvertF32ToInt<uint64_t>(AsmFcvtau, {0U, 0U, 0U, 0U, 6U, 7U, 7U, 8U, 0});
+  TestConvertF32ToInt<uint64_t>(AsmFcvtau,
+                                {0U, 0U, 0U, 0U, 6U, 7U, 7U, 8U, 0, bit_cast<int64_t>(UINT64_MAX)});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I64NegInf) {
   constexpr auto AsmFcvtms = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtms %x0, %s1");
-  TestConvertF32ToInt<uint64_t>(AsmFcvtms, {-8, -7, -7, -7, 6U, 6U, 6U, 7U, 0});
+  TestConvertF32ToInt<uint64_t>(AsmFcvtms, {-8, -7, -7, -7, 6U, 6U, 6U, 7U, 0, INT64_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U64NegInf) {
   constexpr auto AsmFcvtmu = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtmu %x0, %s1");
-  TestConvertF32ToInt<uint64_t>(AsmFcvtmu, {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U, 0});
+  TestConvertF32ToInt<uint64_t>(AsmFcvtmu,
+                                {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U, 0, bit_cast<int64_t>(UINT64_MAX)});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I64TieEven) {
   constexpr auto AsmFcvtns = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtns %x0, %s1");
-  TestConvertF32ToInt<uint64_t>(AsmFcvtns, {-8, -7, -6, -6, 6U, 6U, 7U, 8U, 0});
+  TestConvertF32ToInt<uint64_t>(AsmFcvtns, {-8, -7, -6, -6, 6U, 6U, 7U, 8U, 0, INT64_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U64TieEven) {
   constexpr auto AsmFcvtnu = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtnu %x0, %s1");
-  TestConvertF32ToInt<uint64_t>(AsmFcvtnu, {0U, 0U, 0U, 0U, 6U, 6U, 7U, 8U, 0});
+  TestConvertF32ToInt<uint64_t>(AsmFcvtnu,
+                                {0U, 0U, 0U, 0U, 6U, 6U, 7U, 8U, 0, bit_cast<int64_t>(UINT64_MAX)});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I64PosInf) {
   constexpr auto AsmFcvtps = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtps %x0, %s1");
-  TestConvertF32ToInt<uint64_t>(AsmFcvtps, {-7, -6, -6, -6, 7U, 7U, 7U, 8U, 0});
+  TestConvertF32ToInt<uint64_t>(AsmFcvtps, {-7, -6, -6, -6, 7U, 7U, 7U, 8U, 0, INT64_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U64PosInf) {
   constexpr auto AsmFcvtpu = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtpu %x0, %s1");
-  TestConvertF32ToInt<uint64_t>(AsmFcvtpu, {0U, 0U, 0U, 0U, 7U, 7U, 7U, 8U, 0});
+  TestConvertF32ToInt<uint64_t>(AsmFcvtpu,
+                                {0U, 0U, 0U, 0U, 7U, 7U, 7U, 8U, 0, bit_cast<int64_t>(UINT64_MAX)});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I64Truncate) {
   constexpr auto AsmFcvtzs = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtzs %x0, %s1");
-  TestConvertF32ToInt<uint64_t>(AsmFcvtzs, {-7, -6, -6, -6, 6U, 6U, 6U, 7U, 0});
+  TestConvertF32ToInt<uint64_t>(AsmFcvtzs, {-7, -6, -6, -6, 6U, 6U, 6U, 7U, 0, INT64_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U64Truncate) {
   constexpr auto AsmFcvtzu = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtzu %x0, %s1");
-  TestConvertF32ToInt<uint64_t>(AsmFcvtzu, {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U, 0});
+  TestConvertF32ToInt<uint64_t>(AsmFcvtzu,
+                                {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U, 0, bit_cast<int64_t>(UINT64_MAX)});
 }
 
 template <typename IntType, typename FuncType>
 void TestConvertF64ToInt(FuncType AsmFunc, std::initializer_list<int> expected) {
-  // Note that bit_cast isn't a constexpr.
   static const uint64_t kConvertF64ToIntInputs[] = {
       bit_cast<uint64_t>(-7.50),
       bit_cast<uint64_t>(-6.75),
@@ -1128,52 +1132,52 @@ TEST(Arm64InsnTest, AsmConvertF64U64Truncate) {
 
 TEST(Arm64InsnTest, AsmConvertF32I32ScalarTieAway) {
   constexpr auto AsmFcvtas = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvtas %s0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtas, {-8, -7, -7, -6, 6U, 7U, 7U, 8U, 0});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtas, {-8, -7, -7, -6, 6U, 7U, 7U, 8U, 0, INT32_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U32ScalarTieAway) {
   constexpr auto AsmFcvtau = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvtau %s0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtau, {0U, 0U, 0U, 0U, 6U, 7U, 7U, 8U, 0});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtau, {0U, 0U, 0U, 0U, 6U, 7U, 7U, 8U, 0, UINT32_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I32ScalarNegInf) {
   constexpr auto AsmFcvtms = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvtms %s0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtms, {-8, -7, -7, -7, 6U, 6U, 6U, 7U, 0});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtms, {-8, -7, -7, -7, 6U, 6U, 6U, 7U, 0, INT32_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U32ScalarNegInf) {
   constexpr auto AsmFcvtmu = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvtmu %s0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtmu, {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U, 0});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtmu, {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U, 0, UINT32_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I32ScalarTieEven) {
   constexpr auto AsmFcvtns = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvtns %s0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtns, {-8, -7, -6, -6, 6U, 6U, 7U, 8U, 0});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtns, {-8, -7, -6, -6, 6U, 6U, 7U, 8U, 0, INT32_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U32ScalarTieEven) {
   constexpr auto AsmFcvtnu = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvtnu %s0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtnu, {0U, 0U, 0U, 0U, 6U, 6U, 7U, 8U, 0});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtnu, {0U, 0U, 0U, 0U, 6U, 6U, 7U, 8U, 0, UINT32_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I32ScalarPosInf) {
   constexpr auto AsmFcvtps = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvtps %s0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtps, {-7, -6, -6, -6, 7U, 7U, 7U, 8U, 0});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtps, {-7, -6, -6, -6, 7U, 7U, 7U, 8U, 0, INT32_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U32ScalarPosInf) {
   constexpr auto AsmFcvtpu = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvtpu %s0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtpu, {0U, 0U, 0U, 0U, 7U, 7U, 7U, 8U, 0});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtpu, {0U, 0U, 0U, 0U, 7U, 7U, 7U, 8U, 0, UINT32_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I32ScalarTruncate) {
   constexpr auto AsmFcvtzs = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvtzs %s0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtzs, {-7, -6, -6, -6, 6U, 6U, 6U, 7U, 0});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtzs, {-7, -6, -6, -6, 6U, 6U, 6U, 7U, 0, INT32_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U32ScalarTruncate) {
   constexpr auto AsmFcvtzu = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvtzu %s0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtzu, {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U, 0});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtzu, {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U, 0, UINT32_MAX});
 }
 
 TEST(Arm64InsnTest, AsmConvertF64I64ScalarTieAway) {
