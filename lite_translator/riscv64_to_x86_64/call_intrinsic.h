@@ -334,26 +334,20 @@ StoredRegsInfo ForwardResults(MacroAssembler<x86_64::Assembler>& as, AssemblerRe
     using ResType0 = std::tuple_element_t<0, IntrinsicResType>;
     using ResType1 = std::tuple_element_t<1, IntrinsicResType>;
     auto [result0, result1] = result;
-    if constexpr (Assembler::kFormatIs<ResType0, int32_t, uint32_t> &&
-                  std::is_same_v<std::tuple_element_t<0, AssemblerResType>, Register>) {
-      regs_info.regs_on_stack[result0.GetPhysicalIndex()] = kRegIsNotOnStack;
-      as.Expand<int64_t, int32_t>(result0, Assembler::rax);
-    } else if constexpr (Assembler::kFormatIs<ResType0, int64_t, uint64_t> &&
-                         std::is_same_v<std::tuple_element_t<0, AssemblerResType>, Register>) {
-      regs_info.regs_on_stack[result0.GetPhysicalIndex()] = kRegIsNotOnStack;
-      as.Mov<int64_t>(result0, Assembler::rax);
+    // Process rdx first because it can be equal to result0.
+    if constexpr (Assembler::kFormatIs<ResType1, int64_t, uint64_t> &&
+                  std::is_same_v<std::tuple_element_t<1, AssemblerResType>, Register>) {
+      regs_info.regs_on_stack[result1.GetPhysicalIndex()] = kRegIsNotOnStack;
+      as.Mov<int64_t>(result1, Assembler::rdx);
     } else {
       static_assert(kDependentTypeFalse<std::tuple<IntrinsicResType, AssemblerResType>>,
                     "Unknown result type, please add support to CallIntrinsic");
     }
-    if constexpr (Assembler::kFormatIs<ResType1, int32_t, uint32_t> &&
-                  std::is_same_v<std::tuple_element_t<1, AssemblerResType>, Register>) {
-      regs_info.regs_on_stack[result1.GetPhysicalIndex()] = kRegIsNotOnStack;
-      as.Expand<int64_t, int32_t>(result1, Assembler::rdx);
-    } else if constexpr (Assembler::kFormatIs<ResType1, int64_t, uint64_t> &&
-                         std::is_same_v<std::tuple_element_t<1, AssemblerResType>, Register>) {
-      regs_info.regs_on_stack[result1.GetPhysicalIndex()] = kRegIsNotOnStack;
-      as.Mov<int64_t>(result1, Assembler::rdx);
+    // Process rax now, it's not clobbered yet, because rax cannot be allocated.
+    if constexpr (Assembler::kFormatIs<ResType0, int64_t, uint64_t> &&
+                  std::is_same_v<std::tuple_element_t<0, AssemblerResType>, Register>) {
+      regs_info.regs_on_stack[result0.GetPhysicalIndex()] = kRegIsNotOnStack;
+      as.Mov<int64_t>(result0, Assembler::rax);
     } else {
       static_assert(kDependentTypeFalse<std::tuple<IntrinsicResType, AssemblerResType>>,
                     "Unknown result type, please add support to CallIntrinsic");
