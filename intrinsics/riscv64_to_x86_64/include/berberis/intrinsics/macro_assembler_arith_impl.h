@@ -25,8 +25,8 @@
 
 namespace berberis {
 
-// Divisor comes in "src", dividend comes in gpr_a, result is returned in gpr_a.
-// gpr_d and FLAGS are clobbered by that macroinstruction.
+// Divisor comes in "src", dividend comes in accumulator, result is returned in accumulator. Data
+// register and FLAGS are clobbered by that macroinstruction.
 template <typename Assembler, typename AssemblerBase>
 template <typename IntType>
 constexpr void MacroAssembler<Assembler, AssemblerBase>::DivRiscV(Register src) {
@@ -43,10 +43,10 @@ constexpr void MacroAssembler<Assembler, AssemblerBase>::DivRiscV(Register src) 
     Jcc(Condition::kNotEqual, *do_idiv);
 
     if constexpr (std::is_same_v<IntType, int64_t>) {
-      Cmp<IntType>(gpr_a,
+      Cmp<IntType>(kAccumulatorRegister,
                    {.disp = constants_offsets::kVectorConst<std::numeric_limits<IntType>::min()>});
     } else {
-      Cmp<IntType>(gpr_a, std::numeric_limits<IntType>::min());
+      Cmp<IntType>(kAccumulatorRegister, std::numeric_limits<IntType>::min());
     }
     Jcc(Condition::kEqual, *done);
 
@@ -54,7 +54,8 @@ constexpr void MacroAssembler<Assembler, AssemblerBase>::DivRiscV(Register src) 
     // If we are dealing with 8-bit signed case then we need to sign-extend %al into %ax.
     if constexpr (std::is_same_v<IntType, int8_t>) {
       Cbw();
-    // We need to sign-extend gpr_a into gpr_d to ensure 32bit/64-bit/128-bit dividend is correct.
+      // We need to sign-extend kAccumulatorRegister into data register to ensure
+      // 32bit/64-bit/128-bit dividend is correct.
     } else if constexpr (std::is_same_v<IntType, int16_t>) {
       Cwd();
     } else if constexpr (std::is_same_v<IntType, int32_t>) {
@@ -71,25 +72,25 @@ constexpr void MacroAssembler<Assembler, AssemblerBase>::DivRiscV(Register src) 
   } else {
     // We need to zero-extend eax into dx/edx/rdx to ensure 32-bit/64-bit/128-bit dividend is
     // correct.
-    Xor<uint32_t>(gpr_d, gpr_d);
+    Xor<uint32_t>(kDataRegister, kDataRegister);
   }
 
   Div<IntType>(src);
   Jmp(*done);
 
   Bind(zero);
-  Mov<IntType>(gpr_a, int64_t{-1});
+  Mov<IntType>(kAccumulatorRegister, int64_t{-1});
 
   Bind(done);
   if constexpr (sizeof(IntType) == sizeof(uint32_t)) {
     // Ensure EAX is zero extended
-    Movl(gpr_a, gpr_a);
+    Movl(kAccumulatorRegister, kAccumulatorRegister);
   }
 }
 
-// Divisor comes in "src", dividend comes in gpr_a.
-// For 16/32/64-bit: remainder is returned in gpr_d. gpr_a and FLAGS are clobbered.
-// For 8-bit: remainder is returned in gpr_a. FLAGS are clobbered.
+// Divisor comes in "src", dividend comes in accumulator.
+// For 16/32/64-bit: remainder is returned in data register. Accumulagtor and FLAGS are clobbered.
+// For 8-bit: remainder is returned in accumulator. FLAGS are clobbered.
 template <typename Assembler, typename AssemblerBase>
 template <typename IntType>
 constexpr void MacroAssembler<Assembler, AssemblerBase>::RemRiscV(Register src) {
@@ -107,10 +108,10 @@ constexpr void MacroAssembler<Assembler, AssemblerBase>::RemRiscV(Register src) 
     Jcc(Condition::kNotEqual, *do_idiv);
 
     if constexpr (std::is_same_v<IntType, int64_t>) {
-      Cmp<IntType>(gpr_a,
+      Cmp<IntType>(kAccumulatorRegister,
                    {.disp = constants_offsets::kVectorConst<std::numeric_limits<IntType>::min()>});
     } else {
-      Cmp<IntType>(gpr_a, std::numeric_limits<IntType>::min());
+      Cmp<IntType>(kAccumulatorRegister, std::numeric_limits<IntType>::min());
     }
     Jcc(Condition::kEqual, *overflow);
 
@@ -118,7 +119,8 @@ constexpr void MacroAssembler<Assembler, AssemblerBase>::RemRiscV(Register src) 
     // If we are dealing with 8-bit signed case then we need to sign-extend %al into %ax.
     if constexpr (std::is_same_v<IntType, int8_t>) {
       Cbw();
-      // We need to sign-extend gpr_a into gpr_d to ensure 32bit/64-bit/128-bit dividend is correct.
+      // We need to sign-extend kAccumulatorRegister into data register to ensure
+      // 32bit/64-bit/128-bit dividend is correct.
     } else if constexpr (std::is_same_v<IntType, int16_t>) {
       Cwd();
     } else if constexpr (std::is_same_v<IntType, int32_t>) {
@@ -135,7 +137,7 @@ constexpr void MacroAssembler<Assembler, AssemblerBase>::RemRiscV(Register src) 
   } else {
     // We need to zero-extend eax into dx/edx/rdx to ensure 32-bit/64-bit/128-bit dividend is
     // correct.
-    Xor<uint32_t>(gpr_d, gpr_d);
+    Xor<uint32_t>(kDataRegister, kDataRegister);
   }
 
   Div<IntType>(src);
@@ -148,15 +150,15 @@ constexpr void MacroAssembler<Assembler, AssemblerBase>::RemRiscV(Register src) 
 
   Bind(zero);
   if constexpr (!std::is_same_v<IntType, uint8_t> && !std::is_same_v<IntType, int8_t>) {
-    Mov<IntType>(gpr_d, gpr_a);
+    Mov<IntType>(kDataRegister, kAccumulatorRegister);
   }
   Jmp(*done);
 
   Bind(overflow);
   if constexpr (std::is_same_v<IntType, uint8_t> || std::is_same_v<IntType, int8_t>) {
-    Xor<int8_t>(gpr_a, gpr_a);
+    Xor<int8_t>(kAccumulatorRegister, kAccumulatorRegister);
   } else {
-    Xor<IntType>(gpr_d, gpr_d);
+    Xor<IntType>(kDataRegister, kDataRegister);
   }
   Bind(done);
 }

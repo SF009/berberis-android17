@@ -71,9 +71,9 @@ class VerifierAssembler {
     constexpr bool operator!=(const Register& other) const { return arg_no() != other.arg_no(); }
 
     static constexpr int kNoRegister = -1;
-    static constexpr int kStackPointer = -2;
+    static constexpr int kStackPointerRegister = -2;
     // Used in Operand to deal with references to scratch area.
-    static constexpr int kScratchPointer = -3;
+    static constexpr int kScratchPointerRegister = -3;
 
     constexpr device_arch_info::RegBindingKind get_binding_kind() const { return binding_kind_; }
 
@@ -164,15 +164,15 @@ class VerifierAssembler {
   // These start as Register::kNoRegister but can be changed if they are used as arguments to
   // something else.
   // If they are not coming as arguments then using them is compile-time error!
-  std::optional<Register> gpr_a{};
-  std::optional<Register> gpr_b{};
-  std::optional<Register> gpr_c{};
-  std::optional<Register> gpr_d{};
+  std::optional<Register> kAccumulatorRegister{};
+  std::optional<Register> kBaseRegister{};
+  std::optional<Register> kCounterRegister{};
+  std::optional<Register> kDataRegister{};
   // Note: stack pointer is not reflected in list of arguments, intrinsics use it implicitly.
   // It's also always defined on the entrance to intrinsics and, if modified, has to be restored.
   // But kUse/kDef is not precise enough to describe “this register could be touched but has to be
   // restored” requirement, thus we define it as kUseDef.
-  Register gpr_s{Register::kStackPointer, device_arch_info::kUseDef};
+  Register kStackPointerRegister{Register::kStackPointerRegister, device_arch_info::kUseDef};
   // Used in Operand as pseudo-register to temporary operand.
   std::optional<Register> gpr_scratch{};
 
@@ -393,7 +393,8 @@ class VerifierAssembler {
     std::array<bool, kMaxRegisters> valid_def_early_clobber_register{};
 
     std::array<bool, kMaxRegisters> zero_extended_general_register{};
-    std::array<bool, 4> zero_extended_fixed_register{};  // {gpr_a, gpr_b, gpr_c, gpr_d}
+    // kAccumulatorRegister, kBaseRegister, kCounterRegister, kDataRegister
+    std::array<bool, 4> zero_extended_fixed_register{};
   };
 
   RegisterUsageFlags register_usage_flags;
@@ -936,36 +937,36 @@ class VerifierAssembler {
   constexpr void SetDefinesFLAGS() { defines_flags = true; }
 
   constexpr bool RegisterIsFixed(Register reg) {
-    if (gpr_a.has_value()) {
-      if (reg == gpr_a) return true;
+    if (kAccumulatorRegister.has_value()) {
+      if (reg == kAccumulatorRegister) return true;
     }
-    if (gpr_b.has_value()) {
-      if (reg == gpr_b) return true;
+    if (kBaseRegister.has_value()) {
+      if (reg == kBaseRegister) return true;
     }
-    if (gpr_c.has_value()) {
-      if (reg == gpr_c) return true;
+    if (kCounterRegister.has_value()) {
+      if (reg == kCounterRegister) return true;
     }
-    if (gpr_d.has_value()) {
-      if (reg == gpr_d) return true;
+    if (kDataRegister.has_value()) {
+      if (reg == kDataRegister) return true;
     }
-    if (reg == gpr_s) return true;
+    if (reg == kStackPointerRegister) return true;
     return false;
   }
 
   constexpr int GetFixedRegisterIndex(Register reg) {
-    if (gpr_a.has_value()) {
-      if (reg == gpr_a) return 0;
+    if (kAccumulatorRegister.has_value()) {
+      if (reg == kAccumulatorRegister) return 0;
     }
-    if (gpr_b.has_value()) {
-      if (reg == gpr_b) return 1;
+    if (kBaseRegister.has_value()) {
+      if (reg == kBaseRegister) return 1;
     }
-    if (gpr_c.has_value()) {
-      if (reg == gpr_c) return 2;
+    if (kCounterRegister.has_value()) {
+      if (reg == kCounterRegister) return 2;
     }
-    if (gpr_d.has_value()) {
-      if (reg == gpr_d) return 3;
+    if (kDataRegister.has_value()) {
+      if (reg == kDataRegister) return 3;
     }
-    if (reg == gpr_s) return 4;
+    if (reg == kStackPointerRegister) return 4;
     FATAL("Register is not fixed or is not permitted for use in this intrinsic");
   }
 
@@ -990,8 +991,8 @@ class VerifierAssembler {
           .UpdateInstructionGeneralRegisterZeroExtension(reg.arg_no(), is_zero_extended);
     } else {
       int fixed_reg_index = GetFixedRegisterIndex(reg);
-      // The stack pointer (gpr_s) is also a fixed register, but it is not part of the
-      // zero_extended_fixed_register array, and we don't handle it here.
+      // The stack pointer (kStackPointerRegister) is also a fixed register, but it is not part of
+      // the zero_extended_fixed_register array, and we don't handle it here.
       if (fixed_reg_index < 4) {
         register_usage_flags.Update32BitFixedRegisterExtension(fixed_reg_index, is_zero_extended);
         instructions.at(num_instructions_)

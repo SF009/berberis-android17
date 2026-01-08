@@ -90,11 +90,11 @@ class Assembler : public x86_32_or_x86_64::Assembler<Assembler> {
   static constexpr YMMRegister ymm15{15};
 
   // Macroassembler uses these names to support both x86-32 and x86-64 modes.
-  static constexpr Register gpr_a{0};
-  static constexpr Register gpr_c{1};
-  static constexpr Register gpr_d{2};
-  static constexpr Register gpr_b{3};
-  static constexpr Register gpr_s{4};
+  static constexpr Register kAccumulatorRegister{0};
+  static constexpr Register kCounterRegister{1};
+  static constexpr Register kDataRegister{2};
+  static constexpr Register kBaseRegister{3};
+  static constexpr Register kStackPointerRegister{4};
 
 // Instructions.
 #include "berberis/assembler/gen_assembler_x86_64-inl.h"  // NOLINT generated file!

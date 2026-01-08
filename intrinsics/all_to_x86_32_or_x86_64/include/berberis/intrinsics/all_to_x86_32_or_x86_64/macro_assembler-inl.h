@@ -72,83 +72,83 @@ static constexpr bool kFloatType = kFormatIs<FloatType, Float32, Float64>;
 template <typename FloatType>
 static constexpr bool kFloatType16_32_64 = kFormatIs<FloatType, Float16, Float32, Float64>;
 
-#define DEFINE_EXPAND_INSTRUCTION(Declare_dest, Declare_src)                \
-  template <typename format_out, typename format_in>                        \
-  constexpr std::enable_if_t<kIntType<format_out> && kIntType<format_in> && \
-                             sizeof(format_in) <= sizeof(format_out)>       \
-  Expand(Declare_dest, Declare_src) {                                       \
-    if constexpr (std::is_same_v<decltype(dest), decltype(src)> &&          \
-                  sizeof(format_out) == sizeof(format_in)) {                \
-      if (dest == src) {                                                    \
-        return;                                                             \
-      }                                                                     \
-    }                                                                       \
-    if constexpr (kFormatIs<format_out, int8_t, uint8_t> &&                 \
-                  kFormatIs<format_in, int8_t, uint8_t>) {                  \
-      Assembler::Movb(dest, src);                                           \
-    } else if constexpr (kFormatIs<format_out, int16_t, uint16_t> &&        \
-                         kFormatIs<format_in, int8_t>) {                    \
-      if constexpr (std::is_same_v<decltype(dest), decltype(src)>) {        \
-        if (dest == Assembler::gpr_a && src == Assembler::gpr_a) {          \
-          Assembler::Cbw();                                                 \
-          return;                                                           \
-        }                                                                   \
-      }                                                                     \
-      Assembler::Movsxbw(dest, src);                                        \
-    } else if constexpr (kFormatIs<format_out, int16_t, uint16_t> &&        \
-                         kFormatIs<format_in, uint8_t>) {                   \
-      Assembler::Movzxbw(dest, src);                                        \
-    } else if constexpr (kFormatIs<format_out, int16_t, uint16_t> &&        \
-                         kFormatIs<format_in, int16_t, uint16_t>) {         \
-      Assembler::Movw(dest, src);                                           \
-    } else if constexpr (kFormatIs<format_out, int32_t, uint32_t> &&        \
-                         kFormatIs<format_in, int8_t>) {                    \
-      Assembler::Movsxbl(dest, src);                                        \
-    } else if constexpr (kFormatIs<format_out, int32_t, uint32_t> &&        \
-                         kFormatIs<format_in, uint8_t>) {                   \
-      Assembler::Movzxbl(dest, src);                                        \
-    } else if constexpr (kFormatIs<format_out, int32_t, uint32_t> &&        \
-                         kFormatIs<format_in, int16_t>) {                   \
-      if constexpr (std::is_same_v<decltype(dest), decltype(src)>) {        \
-        if (dest == Assembler::gpr_a && src == Assembler::gpr_a) {          \
-          Assembler::Cwde();                                                \
-          return;                                                           \
-        }                                                                   \
-      }                                                                     \
-      Assembler::Movsxwl(dest, src);                                        \
-    } else if constexpr (kFormatIs<format_out, int32_t, uint32_t> &&        \
-                         kFormatIs<format_in, uint16_t>) {                  \
-      Assembler::Movzxwl(dest, src);                                        \
-    } else if constexpr (kFormatIs<format_out, int32_t, uint32_t> &&        \
-                         kFormatIs<format_in, int32_t, uint32_t>) {         \
-      Assembler::Movl(dest, src);                                           \
-    } else if constexpr (kFormatIs<format_out, int64_t, uint64_t> &&        \
-                         kFormatIs<format_in, int8_t>) {                    \
-      Assembler::Movsxbq(dest, src);                                        \
-    } else if constexpr (kFormatIs<format_out, int64_t, uint64_t> &&        \
-                         kFormatIs<format_in, uint8_t>) {                   \
-      Assembler::Movzxbl(dest, src);                                        \
-    } else if constexpr (kFormatIs<format_out, int64_t, uint64_t> &&        \
-                         kFormatIs<format_in, int16_t>) {                   \
-      Assembler::Movsxwq(dest, src);                                        \
-    } else if constexpr (kFormatIs<format_out, int64_t, uint64_t> &&        \
-                         kFormatIs<format_in, uint16_t>) {                  \
-      Assembler::Movzxwl(dest, src);                                        \
-    } else if constexpr (kFormatIs<format_out, int64_t, uint64_t> &&        \
-                         kFormatIs<format_in, int32_t>) {                   \
-      if constexpr (std::is_same_v<decltype(dest), decltype(src)>) {        \
-        if (dest == Assembler::gpr_a && src == Assembler::gpr_a) {          \
-          Assembler::Cdqe();                                                \
-          return;                                                           \
-        }                                                                   \
-      }                                                                     \
-      Assembler::Movsxlq(dest, src);                                        \
-    } else if constexpr (kFormatIs<format_out, int64_t, uint64_t> &&        \
-                         kFormatIs<format_in, uint32_t>) {                  \
-      Assembler::Movl(dest, src);                                           \
-    } else {                                                                \
-      Assembler::Movq(dest, src);                                           \
-    }                                                                       \
+#define DEFINE_EXPAND_INSTRUCTION(Declare_dest, Declare_src)                                     \
+  template <typename format_out, typename format_in>                                             \
+  constexpr std::enable_if_t<kIntType<format_out> && kIntType<format_in> &&                      \
+                             sizeof(format_in) <= sizeof(format_out)>                            \
+  Expand(Declare_dest, Declare_src) {                                                            \
+    if constexpr (std::is_same_v<decltype(dest), decltype(src)> &&                               \
+                  sizeof(format_out) == sizeof(format_in)) {                                     \
+      if (dest == src) {                                                                         \
+        return;                                                                                  \
+      }                                                                                          \
+    }                                                                                            \
+    if constexpr (kFormatIs<format_out, int8_t, uint8_t> &&                                      \
+                  kFormatIs<format_in, int8_t, uint8_t>) {                                       \
+      Assembler::Movb(dest, src);                                                                \
+    } else if constexpr (kFormatIs<format_out, int16_t, uint16_t> &&                             \
+                         kFormatIs<format_in, int8_t>) {                                         \
+      if constexpr (std::is_same_v<decltype(dest), decltype(src)>) {                             \
+        if (dest == Assembler::kAccumulatorRegister && src == Assembler::kAccumulatorRegister) { \
+          Assembler::Cbw();                                                                      \
+          return;                                                                                \
+        }                                                                                        \
+      }                                                                                          \
+      Assembler::Movsxbw(dest, src);                                                             \
+    } else if constexpr (kFormatIs<format_out, int16_t, uint16_t> &&                             \
+                         kFormatIs<format_in, uint8_t>) {                                        \
+      Assembler::Movzxbw(dest, src);                                                             \
+    } else if constexpr (kFormatIs<format_out, int16_t, uint16_t> &&                             \
+                         kFormatIs<format_in, int16_t, uint16_t>) {                              \
+      Assembler::Movw(dest, src);                                                                \
+    } else if constexpr (kFormatIs<format_out, int32_t, uint32_t> &&                             \
+                         kFormatIs<format_in, int8_t>) {                                         \
+      Assembler::Movsxbl(dest, src);                                                             \
+    } else if constexpr (kFormatIs<format_out, int32_t, uint32_t> &&                             \
+                         kFormatIs<format_in, uint8_t>) {                                        \
+      Assembler::Movzxbl(dest, src);                                                             \
+    } else if constexpr (kFormatIs<format_out, int32_t, uint32_t> &&                             \
+                         kFormatIs<format_in, int16_t>) {                                        \
+      if constexpr (std::is_same_v<decltype(dest), decltype(src)>) {                             \
+        if (dest == Assembler::kAccumulatorRegister && src == Assembler::kAccumulatorRegister) { \
+          Assembler::Cwde();                                                                     \
+          return;                                                                                \
+        }                                                                                        \
+      }                                                                                          \
+      Assembler::Movsxwl(dest, src);                                                             \
+    } else if constexpr (kFormatIs<format_out, int32_t, uint32_t> &&                             \
+                         kFormatIs<format_in, uint16_t>) {                                       \
+      Assembler::Movzxwl(dest, src);                                                             \
+    } else if constexpr (kFormatIs<format_out, int32_t, uint32_t> &&                             \
+                         kFormatIs<format_in, int32_t, uint32_t>) {                              \
+      Assembler::Movl(dest, src);                                                                \
+    } else if constexpr (kFormatIs<format_out, int64_t, uint64_t> &&                             \
+                         kFormatIs<format_in, int8_t>) {                                         \
+      Assembler::Movsxbq(dest, src);                                                             \
+    } else if constexpr (kFormatIs<format_out, int64_t, uint64_t> &&                             \
+                         kFormatIs<format_in, uint8_t>) {                                        \
+      Assembler::Movzxbl(dest, src);                                                             \
+    } else if constexpr (kFormatIs<format_out, int64_t, uint64_t> &&                             \
+                         kFormatIs<format_in, int16_t>) {                                        \
+      Assembler::Movsxwq(dest, src);                                                             \
+    } else if constexpr (kFormatIs<format_out, int64_t, uint64_t> &&                             \
+                         kFormatIs<format_in, uint16_t>) {                                       \
+      Assembler::Movzxwl(dest, src);                                                             \
+    } else if constexpr (kFormatIs<format_out, int64_t, uint64_t> &&                             \
+                         kFormatIs<format_in, int32_t>) {                                        \
+      if constexpr (std::is_same_v<decltype(dest), decltype(src)>) {                             \
+        if (dest == Assembler::kAccumulatorRegister && src == Assembler::kAccumulatorRegister) { \
+          Assembler::Cdqe();                                                                     \
+          return;                                                                                \
+        }                                                                                        \
+      }                                                                                          \
+      Assembler::Movsxlq(dest, src);                                                             \
+    } else if constexpr (kFormatIs<format_out, int64_t, uint64_t> &&                             \
+                         kFormatIs<format_in, uint32_t>) {                                       \
+      Assembler::Movl(dest, src);                                                                \
+    } else {                                                                                     \
+      Assembler::Movq(dest, src);                                                                \
+    }                                                                                            \
   }
 DEFINE_EXPAND_INSTRUCTION(Register dest, Operand src)
 DEFINE_EXPAND_INSTRUCTION(Register dest, Register src)
@@ -815,9 +815,9 @@ using Assembler::FourByte;
 using Assembler::P2Align;
 using Assembler::TwoByte;
 
-using Assembler::gpr_a;
-using Assembler::gpr_b;
-using Assembler::gpr_c;
-using Assembler::gpr_d;
+using Assembler::kAccumulatorRegister;
+using Assembler::kBaseRegister;
+using Assembler::kCounterRegister;
+using Assembler::kDataRegister;
 
-using Assembler::gpr_s;
+using Assembler::kStackPointerRegister;
