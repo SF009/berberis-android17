@@ -110,9 +110,9 @@ class Riscv64InterpreterTest : public ::testing::Test {
         SIMD128Register{__v2du{0x7ff4'0000'0000'0000, 0x3ff0'0000'0000'0000}}.Get<__uint128_t>();
     state_.cpu.v[25] = state_.cpu.v[17] = state_.cpu.v[9] =
         SIMD128Register{__v2du{0x3ff0'0000'0000'0000, 0x7ff4'0000'0000'0000}}.Get<__uint128_t>();
-    state_.cpu.v[26] = state_.cpu.v[18] = state_.cpu.v[10] = SIMD128Register{
-        __v4su{
-            0x7fa0'0000, 0x3f80'0000, 0x3f80'0000, 0x7fa0'0000}}.Get<__uint128_t>();
+    state_.cpu.v[26] = state_.cpu.v[18] = state_.cpu.v[10] =
+        SIMD128Register{__v4su{0x7fa0'0000, 0x3f80'0000, 0x3f80'0000, 0x7fa0'0000}}
+            .Get<__uint128_t>();
     state_.cpu.f[1] = 0xffff'ffff'3f80'0000;
     state_.cpu.f[2] = 0x3ff0'0000'0000'0000;
     ;
@@ -1602,11 +1602,10 @@ class Riscv64InterpreterTest : public ::testing::Test {
   }
 
   void TestVXmXXsInstruction(uint32_t insn_bytes,
-                            const uint64_t (&expected_result_no_mask)[129],
-                            const uint64_t (&expected_result_with_mask)[129],
-                            const __v2du source) {
-    auto Verify = [this, &source](uint32_t insn_bytes,
-                                  const uint64_t (&expected_result)[129]) {
+                             const uint64_t (&expected_result_no_mask)[129],
+                             const uint64_t (&expected_result_with_mask)[129],
+                             const __v2du source) {
+    auto Verify = [this, &source](uint32_t insn_bytes, const uint64_t (&expected_result)[129]) {
       state_.cpu.v[0] = SIMD128Register{kMask}.Get<__uint128_t>();
 
       auto [vlmax, vtype] = intrinsics::Vsetvl(~0ULL, 3);
@@ -2033,9 +2032,9 @@ class Riscv64InterpreterTest : public ::testing::Test {
   };
   // Half of sub-register lmul.
   static constexpr __v16qu kFractionMaskInt8[5] = {
-      {255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},        // Half of ⅛ reg = ¹⁄₁₆
-      {255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},      // Half of ¼ reg = ⅛
-      {255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},  // Half of ½ reg = ¼
+      {255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},                // Half of ⅛ reg = ¹⁄₁₆
+      {255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},              // Half of ¼ reg = ⅛
+      {255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},          // Half of ½ reg = ¼
       {255, 255, 255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0},  // Half of full reg = ½
       {255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255},  // Full reg
   };
