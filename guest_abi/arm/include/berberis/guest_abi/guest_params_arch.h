@@ -19,6 +19,7 @@
 
 #include <array>
 #include <cstdint>
+#include <tuple>
 #include <type_traits>
 
 #include "berberis/base/bit_util.h"
