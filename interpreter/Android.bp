@@ -81,7 +81,7 @@ cc_test_library {
     defaults: ["berberis_test_library_defaults_64"],
     srcs: [
         "riscv64/faulty_memory_accesses_test.cc",
-        "riscv64/interpreter_test.cc",
+        "riscv64/interpreter_exec_test.cc",
     ],
     header_libs: [
         "berberis_test_utils_headers",
@@ -107,7 +107,7 @@ cc_test {
     ],
     srcs: [
         "riscv64/faulty_memory_accesses_test.cc",
-        "riscv64/interpreter_arm64_test.cc",
+        "riscv64/interpreter_arm64_exec_test.cc",
     ],
     header_libs: [
         "libberberis_base_headers",
