@@ -39,12 +39,12 @@ using GpResultRegisters = std::tuple<RAX, RDX>;
 
 using SSEResultRegisters = std::tuple<XMM0, XMM1>;
 
-using GpArgumentetersRegisters = std::tuple<RDI, RSI, RDX, RCX, R8, R9>;
+using GpArgumentRegisters = std::tuple<RDI, RSI, RDX, RCX, R8, R9>;
 
-using SSEArgumentetersRegisters = std::tuple<XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7>;
+using SSEArgumentRegisters = std::tuple<XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7>;
 
 using ArgumentetersRegisters =
-    TypesToTypes::Concat<GpArgumentetersRegisters, SSEArgumentetersRegisters>;
+    TypesToTypes::Concat<GpArgumentRegisters, SSEArgumentRegisters>;
 
 using ClobberRegisters = std::tuple<RAX,
                                     RDI,

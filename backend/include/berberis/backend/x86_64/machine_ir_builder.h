@@ -280,12 +280,12 @@ template <auto kIntrinsic, typename... FuncInfo>
           if constexpr (result_element.element_offset != 0 ||
                         ((result_element.clobber_class_index <=
                           std::tuple_size_v<
-                              device_arch_info::call_imm_impl::SSEArgumentetersRegisters>) &&
+                              device_arch_info::call_imm_impl::SSEArgumentRegisters>) &&
                          (ElementType::template IsSame<Float16>() ||
                           ElementType::template IsSame<Float32>()))) {
             if constexpr (result_element.clobber_class_index <=
                           std::tuple_size_v<
-                              device_arch_info::call_imm_impl::SSEArgumentetersRegisters>) {
+                              device_arch_info::call_imm_impl::SSEArgumentRegisters>) {
               if constexpr (result_element.element_offset != 0) {
                 InsertInsn(ir()->NewInsn<ShrqRegImm, kSSA>(
                     results[kIdx],
