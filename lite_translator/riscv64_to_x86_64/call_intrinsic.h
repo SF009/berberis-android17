@@ -23,11 +23,15 @@
 
 #include "berberis/assembler/x86_64.h"
 #include "berberis/base/bit_util.h"
+#include "berberis/base/checks.h"
 #include "berberis/base/dependent_false.h"
+#include "berberis/base/tuple_processing.h"
 #include "berberis/intrinsics/macro_assembler.h"
 #include "berberis/runtime_primitives/platform.h"
 
 namespace berberis::call_intrinsic {
+
+constexpr int8_t kRegIsNotOnStack = -1;
 
 constexpr x86_64::Assembler::Register kCallerSavedRegs[] = {
     x86_64::Assembler::rax,
@@ -40,21 +44,6 @@ constexpr x86_64::Assembler::Register kCallerSavedRegs[] = {
     x86_64::Assembler::r10,
     x86_64::Assembler::r11,
 };
-
-constexpr int8_t kRegIsNotOnStack = -1;
-
-// Map from register number to offset in CallIntrinsic save area. Counted in 8-byte slots.
-inline constexpr auto kRegOffsetsOnStack = []() {
-  std::array<int8_t, 16> regs_on_stack = {};
-  regs_on_stack.fill(kRegIsNotOnStack);
-
-  int8_t stack_allocation_size = 0;
-  for (auto reg : kCallerSavedRegs) {
-    regs_on_stack[reg.GetPhysicalIndex()] = stack_allocation_size;
-    ++stack_allocation_size;
-  }
-  return regs_on_stack;
-}();
 
 constexpr x86_64::Assembler::XMMRegister kCallerSavedXMMRegs[] = {
     x86_64::Assembler::xmm0,
@@ -75,37 +64,43 @@ constexpr x86_64::Assembler::XMMRegister kCallerSavedXMMRegs[] = {
     x86_64::Assembler::xmm15,
 };
 
-// Map from register number to offset in CallIntrinsic save area. Counted in 8-byte slots.
-inline constexpr auto kSimdRegOffsetsOnStack = []() {
-  std::array<int8_t, 16> simd_regs_on_stack = {};
-  simd_regs_on_stack.fill(kRegIsNotOnStack);
+inline constexpr struct StoredRegsInfo {
+  // Map from register number to offset in CallIntrinsic save area. Counted in 8-byte slots.
+  std::array<int8_t, 16> regs_on_stack;
+  std::array<int8_t, 16> simd_regs_on_stack;
+  // Save area size for CallIntrinsic save area. Counted in 8-byte slots.
+  int8_t save_area_size;
+} kRegOffsetsOnStack = []() {
+  StoredRegsInfo result;
+  result.regs_on_stack.fill(kRegIsNotOnStack);
+  result.simd_regs_on_stack.fill(kRegIsNotOnStack);
 
-  int8_t stack_allocation_size = AlignUp(std::size(kCallerSavedRegs), 2);
-  for (auto reg : kCallerSavedXMMRegs) {
-    simd_regs_on_stack[reg.GetPhysicalIndex()] = stack_allocation_size;
-    stack_allocation_size += 2;
+  result.save_area_size = 0;
+  for (auto reg : kCallerSavedRegs) {
+    result.regs_on_stack[reg.GetPhysicalIndex()] = result.save_area_size;
+    ++result.save_area_size;
   }
-  return simd_regs_on_stack;
+
+  result.save_area_size = AlignUp(result.save_area_size, 2);
+  for (auto reg : kCallerSavedXMMRegs) {
+    result.simd_regs_on_stack[reg.GetPhysicalIndex()] = result.save_area_size;
+    result.save_area_size += 2;
+  }
+  return result;
 }();
 
 // Save area size for CallIntrinsic save area. Counted in 8-byte slots.
-inline constexpr int8_t kSaveAreaSize =
-    AlignUp(std::size(kCallerSavedRegs), 2) + std::size(kCallerSavedXMMRegs) * 2;
 
-struct StoredRegsInfo {
-  std::decay_t<decltype(kRegOffsetsOnStack)> regs_on_stack;
-  std::decay_t<decltype(kSimdRegOffsetsOnStack)> simd_regs_on_stack;
-};
-
-inline void PushCallerSaved(MacroAssembler<x86_64::Assembler>& as) {
-  as.Subq(as.rsp, kSaveAreaSize * 8);
+inline void PushCallerSaved(MacroAssembler<x86_64::Assembler>& as, const StoredRegsInfo regs_info) {
+  as.Subq(as.rsp, regs_info.save_area_size * 8);
 
   for (auto reg : kCallerSavedRegs) {
-    as.Movq({.base = as.rsp, .disp = kRegOffsetsOnStack[reg.GetPhysicalIndex()] * 8}, reg);
+    as.Movq({.base = as.rsp, .disp = regs_info.regs_on_stack[reg.GetPhysicalIndex()] * 8}, reg);
   }
 
   for (auto reg : kCallerSavedXMMRegs) {
-    as.Movdqa({.base = as.rsp, .disp = kSimdRegOffsetsOnStack[reg.GetPhysicalIndex()] * 8}, reg);
+    as.Movdqa({.base = as.rsp, .disp = regs_info.simd_regs_on_stack[reg.GetPhysicalIndex()] * 8},
+              reg);
   }
 }
 
@@ -125,60 +120,8 @@ inline void PopCallerSaved(MacroAssembler<x86_64::Assembler>& as, const StoredRe
     }
   }
 
-  as.Addq(as.rsp, kSaveAreaSize * 8);
+  as.Addq(as.rsp, regs_info.save_area_size * 8);
 }
-
-// Nonfunctional assembler used by static_assert expression. It doesn't do anything but allows us
-// to call InitArgs during compilation time with the same argument types as would happen during
-// execution.
-//
-// This turns runtime check into compile time check and thus allows us to catch weird corner cases
-// faster.
-class ConstExprCheckAssembler {
- public:
-  using Operand = MacroAssembler<x86_64::Assembler>::Operand;
-  using Register = MacroAssembler<x86_64::Assembler>::Register;
-  using XMMRegister = MacroAssembler<x86_64::Assembler>::XMMRegister;
-  static constexpr auto rsp = MacroAssembler<x86_64::Assembler>::rsp;
-
-  constexpr ConstExprCheckAssembler() = default;
-
-  template <typename U, typename V>
-  constexpr void Expand(Register, Operand) const {}
-  template <typename U, typename V>
-  constexpr void Expand(Register, Register) const {}
-
-  template <typename U>
-  constexpr void Mov(Operand, Register) const {}
-  template <typename U>
-  constexpr void Mov(Register, Operand) const {}
-  template <typename U>
-  constexpr void Mov(Register, Register) const {}
-
-  constexpr void Movl(Register, int32_t) const {}
-
-  template <typename U>
-  constexpr void Movs(Operand, XMMRegister) const {}
-  template <typename U>
-  constexpr void Movs(XMMRegister, Operand) const {}
-  template <typename U>
-  constexpr void Movs(XMMRegister, XMMRegister) const {}
-
-  template <typename U>
-  constexpr void Vmovs(Operand, XMMRegister) const {}
-  template <typename U>
-  constexpr void Vmovs(XMMRegister, Operand) const {}
-  template <typename U>
-  constexpr void Vmovs(XMMRegister, XMMRegister, XMMRegister) const {}
-};
-
-// Helper wrapper to pass the intrinsic type down the generic lambda.
-template <typename T, typename U>
-struct ArgWrap {
-  using AssemblerType = T;
-  using IntrinsicType = U;
-  AssemblerType value;
-};
 
 static constexpr x86_64::Assembler::Register kAbiArgs[] = {
     x86_64::Assembler::rdi,
@@ -201,11 +144,8 @@ static constexpr x86_64::Assembler::XMMRegister kAbiSimdArgs[] = {
 };
 
 // Assumes RSP points to preallocated stack args area.
-template <typename IntrinsicResType,
-          typename... IntrinsicArgType,
-          typename MacroAssembler,
-          typename... AssemblerArgType>
-constexpr bool InitArgs(MacroAssembler&& as, bool has_avx, AssemblerArgType... args) {
+template <typename... IntrinsicArgTypes, typename MacroAssembler, typename... AssemblerArgTypes>
+void InitArgs(MacroAssembler&& as, bool has_avx, AssemblerArgTypes... args) {
   using Assembler = std::decay_t<MacroAssembler>;
   using Register = typename Assembler::Register;
   using XMMRegister = typename Assembler::XMMRegister;
@@ -215,88 +155,97 @@ constexpr bool InitArgs(MacroAssembler&& as, bool has_avx, AssemblerArgType... a
   // there is no early-clobbering problem. Callee-saved regs are never ABI arguments, so we can move
   // them to ABI reg directly.
 
-  constexpr std::size_t kIntArgs =
-      TypesToTypes::CountIf<std::tuple<IntrinsicArgType...>, []<typename IntrinsicType>() {
-        return std::is_integral_v<IntrinsicType>;
-      }>{};
-  static_assert(kIntArgs < std::size(kAbiArgs));
-  constexpr std::size_t kSimdArgs =
-      TypesToTypes::CountIf<std::tuple<IntrinsicArgType...>, []<typename IntrinsicType>() {
-        return std::is_same_v<IntrinsicType, Float32> || std::is_same_v<IntrinsicType, Float64>;
-      }>{};
-  static_assert(kSimdArgs < std::size(kAbiSimdArgs));
-  size_t gp_index = 0;
-  size_t simd_index = 0;
-  ((
-      [&as, &gp_index, &simd_index, has_avx](auto arg) {
-        using AssemblerType = typename decltype(arg)::AssemblerType;
-        using IntrinsicType = typename decltype(arg)::IntrinsicType;
+  constexpr auto kIndexes = ValuesToValues::ToArray<size_t>(
+      TypesToValues::MapWithTemporary<std::tuple<IntrinsicArgTypes...>,
+                                      /* gp_index, simd_index = */ std::pair<size_t, size_t>>(
+          []<typename IntrinsicArgType>(std::pair<size_t, size_t>& indexes) {
+            auto& [gp_index, simd_index] = indexes;
+            if constexpr (MetaType<IntrinsicArgType>::IsIntegral()) {
+              CHECK_LT(gp_index, std::size(kAbiArgs));
+              return gp_index++;
+            } else if constexpr (MetaType<IntrinsicArgType>::IsWrappedFloat()) {
+              CHECK_LT(gp_index, std::size(kAbiSimdArgs));
+              return simd_index++;
+            } else {
+              static_assert(kDependentTypeFalse<IntrinsicArgType>,
+                            "Unknown parameter type, please add support to CallIntrinsic");
+            }
+          }));
+  ValuesToValues::ForEach(
+      ValuesToValues::Zip(std::tuple{kMetaType<IntrinsicArgTypes>...},
+                          ValuesToTypes::MetaValues<kIndexes>{},
+                          std::tuple{args...}),
+      [&as, has_avx]<typename AssemblerType, typename IntrinsicType, size_t kIndex>(
+          std::tuple<MetaType<IntrinsicType>, MetaValue<kIndex>, AssemblerType>&& arg_info) {
+        auto [_1, _2, arg] = arg_info;
 
-        // Note, ABI mandates extension up to 32-bit and zero-filling the upper half.
-        if constexpr (std::is_integral_v<IntrinsicType> &&
-                      sizeof(IntrinsicType) <= sizeof(int32_t) &&
-                      std::is_integral_v<AssemblerType> &&
-                      sizeof(AssemblerType) <= sizeof(int32_t)) {
-          as.Movl(kAbiArgs[gp_index++], static_cast<int32_t>(arg.value));
-        } else if constexpr (std::is_integral_v<IntrinsicType> &&
-                             sizeof(IntrinsicType) == sizeof(int64_t) &&
-                             std::is_integral_v<AssemblerType> &&
-                             sizeof(AssemblerType) == sizeof(int64_t)) {
-          as.template Expand<int64_t, IntrinsicType>(kAbiArgs[gp_index++],
-                                                     static_cast<int64_t>(arg.value));
-        } else if constexpr (std::is_integral_v<IntrinsicType> &&
-                             sizeof(IntrinsicType) <= sizeof(int32_t) &&
-                             std::is_same_v<AssemblerType, Register>) {
-          if (kRegOffsetsOnStack[arg.value.GetPhysicalIndex()] == kRegIsNotOnStack) {
-            as.template Expand<int32_t, IntrinsicType>(kAbiArgs[gp_index++], arg.value);
-          } else {
-            as.template Expand<int32_t, IntrinsicType>(
-                kAbiArgs[gp_index++],
-                {.base = Assembler::rsp,
-                 .disp = kRegOffsetsOnStack[arg.value.GetPhysicalIndex()] * 8});
-          }
-        } else if constexpr (std::is_integral_v<IntrinsicType> &&
-                             sizeof(IntrinsicType) == sizeof(int64_t) &&
-                             std::is_same_v<AssemblerType, Register>) {
-          if (kRegOffsetsOnStack[arg.value.GetPhysicalIndex()] == kRegIsNotOnStack) {
-            as.template Expand<int64_t, IntrinsicType>(kAbiArgs[gp_index++], arg.value);
-          } else {
-            as.template Expand<int64_t, IntrinsicType>(
-                kAbiArgs[gp_index++],
-                {.base = Assembler::rsp,
-                 .disp = kRegOffsetsOnStack[arg.value.GetPhysicalIndex()] * 8});
-          }
-        } else if constexpr ((std::is_same_v<IntrinsicType, Float32> ||
-                              std::is_same_v<IntrinsicType, Float64>) &&
-                             std::is_same_v<AssemblerType, XMMRegister>) {
-          if (kSimdRegOffsetsOnStack[arg.value.GetPhysicalIndex()] == kRegIsNotOnStack) {
-            if (has_avx) {
-              as.template Vmovs<IntrinsicType>(
-                  kAbiSimdArgs[simd_index], kAbiSimdArgs[simd_index], arg.value);
-              simd_index++;
+        if constexpr (MetaType<IntrinsicType>::IsIntegral()) {
+          // Note, clang errorneously mandates extension up to 32-bit.
+          // See: https://github.com/llvm/llvm-project/issues/43573
+          if constexpr (MetaType<IntrinsicType>::SizeOf() <= sizeof(int32_t) &&
+                        std::is_integral_v<AssemblerType> &&
+                        sizeof(AssemblerType) <= sizeof(int32_t)) {
+            as.Movl(kAbiArgs[kIndex], static_cast<int32_t>(arg));
+          } else if constexpr (MetaType<IntrinsicType>::SizeOf() == sizeof(int64_t) &&
+                               std::is_integral_v<AssemblerType> &&
+                               sizeof(AssemblerType) == sizeof(int64_t)) {
+            as.template Expand<int64_t, IntrinsicType>(kAbiArgs[kIndex], static_cast<int64_t>(arg));
+            // Note, clang errorneously mandates extension up to 32-bit.
+            // See: https://github.com/llvm/llvm-project/issues/43573
+          } else if constexpr (MetaType<IntrinsicType>::SizeOf() <= sizeof(int32_t) &&
+                               std::is_same_v<AssemblerType, Register>) {
+            if (kRegOffsetsOnStack.regs_on_stack[arg.GetPhysicalIndex()] == kRegIsNotOnStack) {
+              as.template Expand<int32_t, IntrinsicType>(kAbiArgs[kIndex], arg);
             } else {
-              as.template Movs<IntrinsicType>(kAbiSimdArgs[simd_index++], arg.value);
+              as.template Expand<int32_t, IntrinsicType>(
+                  kAbiArgs[kIndex],
+                  {.base = Assembler::rsp,
+                   .disp = kRegOffsetsOnStack.regs_on_stack[arg.GetPhysicalIndex()] * 8});
+            }
+          } else if constexpr (MetaType<IntrinsicType>::SizeOf() == sizeof(int64_t) &&
+                               std::is_same_v<AssemblerType, Register>) {
+            if (kRegOffsetsOnStack.regs_on_stack[arg.GetPhysicalIndex()] == kRegIsNotOnStack) {
+              as.template Expand<int64_t, IntrinsicType>(kAbiArgs[kIndex], arg);
+            } else {
+              as.template Expand<int64_t, IntrinsicType>(
+                  kAbiArgs[kIndex],
+                  {.base = Assembler::rsp,
+                   .disp = kRegOffsetsOnStack.regs_on_stack[arg.GetPhysicalIndex()] * 8});
             }
           } else {
-            if (has_avx) {
-              as.template Vmovs<IntrinsicType>(
-                  kAbiSimdArgs[simd_index++],
-                  {.base = as.rsp,
-                   .disp = kSimdRegOffsetsOnStack[arg.value.GetPhysicalIndex()] * 8});
+            static_assert(kDependentTypeFalse<std::tuple<IntrinsicType, AssemblerType>>,
+                          "Unknown parameter type, please add support to CallIntrinsic");
+          }
+        } else if constexpr (MetaType<IntrinsicType>::IsWrappedFloat()) {
+          if constexpr (std::is_same_v<AssemblerType, XMMRegister>) {
+            if (kRegOffsetsOnStack.simd_regs_on_stack[arg.GetPhysicalIndex()] == kRegIsNotOnStack) {
+              if (has_avx) {
+                as.template Vmovs<IntrinsicType>(kAbiSimdArgs[kIndex], kAbiSimdArgs[kIndex], arg);
+              } else {
+                as.template Movs<IntrinsicType>(kAbiSimdArgs[kIndex], arg);
+              }
             } else {
-              as.template Movs<IntrinsicType>(
-                  kAbiSimdArgs[simd_index++],
-                  {.base = as.rsp,
-                   .disp = kSimdRegOffsetsOnStack[arg.value.GetPhysicalIndex()] * 8});
+              if (has_avx) {
+                as.template Vmovs<IntrinsicType>(
+                    kAbiSimdArgs[kIndex],
+                    {.base = as.rsp,
+                     .disp = kRegOffsetsOnStack.simd_regs_on_stack[arg.GetPhysicalIndex()] * 8});
+              } else {
+                as.template Movs<IntrinsicType>(
+                    kAbiSimdArgs[kIndex],
+                    {.base = as.rsp,
+                     .disp = kRegOffsetsOnStack.simd_regs_on_stack[arg.GetPhysicalIndex()] * 8});
+              }
             }
+          } else {
+            static_assert(kDependentTypeFalse<std::tuple<IntrinsicType, AssemblerType>>,
+                          "Unknown parameter type, please add support to CallIntrinsic");
           }
         } else {
           static_assert(kDependentTypeFalse<std::tuple<IntrinsicType, AssemblerType>>,
                         "Unknown parameter type, please add support to CallIntrinsic");
         }
-      }(ArgWrap<AssemblerArgType, IntrinsicArgType>{.value = args}),
-      ...));
-  return true;
+      });
 }
 
 // Forward results from ABI registers to result-specified registers and mark registers in the
@@ -307,8 +256,7 @@ StoredRegsInfo ForwardResults(MacroAssembler<x86_64::Assembler>& as, AssemblerRe
   using Register = Assembler::Register;
   using XMMRegister = Assembler::XMMRegister;
 
-  StoredRegsInfo regs_info = {.regs_on_stack = kRegOffsetsOnStack,
-                              .simd_regs_on_stack = kSimdRegOffsetsOnStack};
+  StoredRegsInfo regs_info = kRegOffsetsOnStack;
 
   if constexpr (Assembler::kFormatIs<IntrinsicResType, std::tuple<int32_t>, std::tuple<uint32_t>> &&
                 std::is_same_v<AssemblerResType, std::tuple<Register>>) {
@@ -334,26 +282,20 @@ StoredRegsInfo ForwardResults(MacroAssembler<x86_64::Assembler>& as, AssemblerRe
     using ResType0 = std::tuple_element_t<0, IntrinsicResType>;
     using ResType1 = std::tuple_element_t<1, IntrinsicResType>;
     auto [result0, result1] = result;
-    if constexpr (Assembler::kFormatIs<ResType0, int32_t, uint32_t> &&
-                  std::is_same_v<std::tuple_element_t<0, AssemblerResType>, Register>) {
-      regs_info.regs_on_stack[result0.GetPhysicalIndex()] = kRegIsNotOnStack;
-      as.Expand<int64_t, int32_t>(result0, Assembler::rax);
-    } else if constexpr (Assembler::kFormatIs<ResType0, int64_t, uint64_t> &&
-                         std::is_same_v<std::tuple_element_t<0, AssemblerResType>, Register>) {
-      regs_info.regs_on_stack[result0.GetPhysicalIndex()] = kRegIsNotOnStack;
-      as.Mov<int64_t>(result0, Assembler::rax);
+    // Process rdx first because it can be equal to result0.
+    if constexpr (Assembler::kFormatIs<ResType1, int64_t, uint64_t> &&
+                  std::is_same_v<std::tuple_element_t<1, AssemblerResType>, Register>) {
+      regs_info.regs_on_stack[result1.GetPhysicalIndex()] = kRegIsNotOnStack;
+      as.Mov<int64_t>(result1, Assembler::rdx);
     } else {
       static_assert(kDependentTypeFalse<std::tuple<IntrinsicResType, AssemblerResType>>,
                     "Unknown result type, please add support to CallIntrinsic");
     }
-    if constexpr (Assembler::kFormatIs<ResType1, int32_t, uint32_t> &&
-                  std::is_same_v<std::tuple_element_t<1, AssemblerResType>, Register>) {
-      regs_info.regs_on_stack[result1.GetPhysicalIndex()] = kRegIsNotOnStack;
-      as.Expand<int64_t, int32_t>(result1, Assembler::rdx);
-    } else if constexpr (Assembler::kFormatIs<ResType1, int64_t, uint64_t> &&
-                         std::is_same_v<std::tuple_element_t<1, AssemblerResType>, Register>) {
-      regs_info.regs_on_stack[result1.GetPhysicalIndex()] = kRegIsNotOnStack;
-      as.Mov<int64_t>(result1, Assembler::rdx);
+    // Process rax now, it's not clobbered yet, because rax cannot be allocated.
+    if constexpr (Assembler::kFormatIs<ResType0, int64_t, uint64_t> &&
+                  std::is_same_v<std::tuple_element_t<0, AssemblerResType>, Register>) {
+      regs_info.regs_on_stack[result0.GetPhysicalIndex()] = kRegIsNotOnStack;
+      as.Mov<int64_t>(result0, Assembler::rax);
     } else {
       static_assert(kDependentTypeFalse<std::tuple<IntrinsicResType, AssemblerResType>>,
                     "Unknown result type, please add support to CallIntrinsic");
@@ -365,52 +307,22 @@ StoredRegsInfo ForwardResults(MacroAssembler<x86_64::Assembler>& as, AssemblerRe
   return regs_info;
 }
 
-// Note: we can ignore status in the actual InitArgs call because we know that InitArgs would
-// succeed if the call in static_assert succeeded.
-//
-// AVX flag shouldn't change the outcome, but better safe than sorry.
-
-template <typename IntrinsicResType, typename... IntrinsicArgType, typename... AssemblerArgType>
-void InitArgsVerify(AssemblerArgType...) {
-  constexpr auto MakeDummyAssemblerType = []<typename AssemblerType>() {
-    if constexpr (std::is_same_v<AssemblerType, x86_64::Assembler::Register>) {
-      // Note: we couldn't use no_register here, but any “real” register should work.
-      return x86_64::Assembler::rax;
-    } else if constexpr (std::is_same_v<AssemblerType, x86_64::Assembler::XMMRegister>) {
-      // Note: we couldn't use no_xmm_register here, but any “real” register should work.
-      return x86_64::Assembler::xmm0;
-    } else {
-      return AssemblerType{0};
-    }
-  };
-  static_assert(InitArgs<IntrinsicResType, IntrinsicArgType...>(
-      ConstExprCheckAssembler(),
-      true,
-      MakeDummyAssemblerType.template operator()<AssemblerArgType>()...));
-  static_assert(InitArgs<IntrinsicResType, IntrinsicArgType...>(
-      ConstExprCheckAssembler(),
-      false,
-      MakeDummyAssemblerType.template operator()<AssemblerArgType>()...));
-}
-
 template <typename AssemblerResType,
           typename IntrinsicResType,
-          typename... IntrinsicArgType,
-          typename... AssemblerArgType>
+          typename... IntrinsicArgTypes,
+          typename... AssemblerArgTypes>
 void CallIntrinsic(MacroAssembler<x86_64::Assembler>& as,
-                   IntrinsicResType (*function)(IntrinsicArgType...),
+                   IntrinsicResType (*function)(IntrinsicArgTypes...),
                    AssemblerResType result,
-                   AssemblerArgType... args) {
-  PushCallerSaved(as);
+                   AssemblerArgTypes... args) {
+  PushCallerSaved(as, kRegOffsetsOnStack);
 
-  InitArgsVerify<IntrinsicResType, IntrinsicArgType...>(args...);
-  InitArgs<IntrinsicResType, IntrinsicArgType...>(as, host_platform::kHasAVX, args...);
+  InitArgs<IntrinsicArgTypes...>(as, host_platform::kHasAVX, args...);
 
   as.Call(reinterpret_cast<void*>(function));
 
   if constexpr (std::is_same_v<IntrinsicResType, void>) {
-    PopCallerSaved(
-        as, {.regs_on_stack = kRegOffsetsOnStack, .simd_regs_on_stack = kSimdRegOffsetsOnStack});
+    PopCallerSaved(as, kRegOffsetsOnStack);
   } else {
     auto regs_info = ForwardResults<IntrinsicResType>(as, result);
 

@@ -22,6 +22,7 @@
  */
 SECTIONS {
   . = SIZEOF_HEADERS;
+  . = ALIGN(16384);
   .text : {
     *(.text.*)
     . = ALIGN(16384);

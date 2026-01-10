@@ -185,29 +185,29 @@ class MacroAssembler : public Assembler {
   // dst: DEF_EARLY_CLOBBER, src1: USE, EAX: DEF
   constexpr void IntrinsicWithEAXNotZeroExtended(Register dst, Register src1) {
     Movl(dst, src1);
-    Movl(gpr_a, src1);
-    Addb(gpr_a, dst);
+    Movl(kAccumulatorRegister, src1);
+    Addb(kAccumulatorRegister, dst);
   }
 
   // dst: DEF_EARLY_CLOBBER, src1: USE, EBX: DEF
   constexpr void IntrinsicWithEBXNotZeroExtended(Register dst, Register src1) {
     Movl(dst, src1);
-    Movl(gpr_b, src1);
-    Addb(gpr_b, dst);
+    Movl(kBaseRegister, src1);
+    Addb(kBaseRegister, dst);
   }
 
   // dst: DEF_EARLY_CLOBBER, src1: USE, ECX: DEF
   constexpr void IntrinsicWithECXNotZeroExtended(Register dst, Register src1) {
     Movl(dst, src1);
-    Movl(gpr_c, src1);
-    Addb(gpr_c, dst);
+    Movl(kCounterRegister, src1);
+    Addb(kCounterRegister, dst);
   }
 
   // dst: DEF_EARLY_CLOBBER, src1: USE, EDX: DEF
   constexpr void IntrinsicWithEDXNotZeroExtended(Register dst, Register src1) {
     Movl(dst, src1);
-    Movl(gpr_d, src1);
-    Addb(gpr_d, dst);
+    Movl(kDataRegister, src1);
+    Addb(kDataRegister, dst);
   }
 
   // dst1: DEF, dst2: DEF src1: USE
@@ -226,9 +226,9 @@ class MacroAssembler : public Assembler {
   constexpr void NonLinearIntrinsicWithECXOutputNotZeroExtended(Register dst, Register src1) {
     Label* out = MakeLabel();
     Movl(dst, src1);
-    Movb(gpr_c, src1);
+    Movb(kCounterRegister, src1);
     Jcc(Assembler::Condition::kZero, *out);
-    Addl(gpr_c, dst);
+    Addl(kCounterRegister, dst);
     Bind(out);
   }
 

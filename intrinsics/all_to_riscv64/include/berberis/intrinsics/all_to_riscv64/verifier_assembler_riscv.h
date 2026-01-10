@@ -63,9 +63,9 @@ class VerifierAssembler {
     friend bool operator==(const Register&, const Register&) = default;
 
     static constexpr int kNoRegister = -1;
-    static constexpr int kStackPointer = -2;
+    static constexpr int kStackPointerRegister = -2;
     // Used in Operand to deal with references to scratch area.
-    static constexpr int kScratchPointer = -3;
+    static constexpr int kScratchPointerRegister = -3;
     static constexpr int kZeroRegister = -4;
 
    private:
@@ -141,25 +141,11 @@ class VerifierAssembler {
   static constexpr const char* kCPUIDRestrictionString =
       DerivedAssemblerType::template CPUIDRestrictionToString<CPUIDRestriction>();
 
-  // RISC-V doesn't have “a”, “b”, “c”, or “d” registers, but we need these to be able to compile
-  // the code generator.
-  template <char kConstraint>
-  class UnsupportedRegister {
-   public:
-    UnsupportedRegister operator=(Register) {
-      LOG_ALWAYS_FATAL("Registers of the class “%c” don't exist on RISC-V", kConstraint);
-    }
-  };
-
-  UnsupportedRegister<'a'> gpr_a;
-  UnsupportedRegister<'b'> gpr_b;
-  UnsupportedRegister<'c'> gpr_c;
-  UnsupportedRegister<'d'> gpr_d;
   // Note: stack pointer is not reflected in list of arguments, intrinsics use
   // it implicitly.
-  Register gpr_s{Register::kStackPointer};
+  Register kStackPointerRegister{Register::kStackPointerRegister};
   // Used in Operand as pseudo-register to temporary operand.
-  Register gpr_scratch{Register::kScratchPointer};
+  Register gpr_scratch{Register::kScratchPointerRegister};
   // Intrinsics which use these constants receive it via additional parameter - and
   // we need to know if it's needed or not.
   Register gpr_macroassembler_constants{};

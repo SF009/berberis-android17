@@ -180,13 +180,13 @@ def _handle_def_register_reset(name, insn, arch, f):
 
 def _get_implicit_fixed_register(arg_class):
   if arg_class in ["AL", "AX", "EAX", "RAX"]:
-    return "gpr_a"
+    return "kAccumulatorRegister"
   if arg_class in ["EBX", "RBX"]:
-    return "gpr_b"
+    return "kBaseRegister"
   if arg_class in ["CL", "CX", "ECX", "RCX"]:
-    return "gpr_c"
+    return "kCounterRegister"
   if arg_class in ["DL", "DX", "EDX", "RDX"]:
-    return "gpr_d"
+    return "kDataRegister"
   return False
 
 def _is_32_bit_implicit_fixed_register(arg_class):
