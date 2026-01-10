@@ -77,8 +77,7 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
               if (scratch_arg_idx >= 2) {
                 FATAL("Only two scratch registers are supported for now");
               }
-              using ThreadState =
-                  std::enable_if_t<!kDependentTypeFalse<Binding>, berberis::ThreadState>;
+              using ThreadState = DependentType<berberis::ThreadState, Binding>;
               return std::tuple{x86_64::MemoryOperand{
                   .base = x86_64::kMachineRegRBP,
                   .disp = static_cast<int32_t>(offsetof(ThreadState, intrinsics_scratch_area) +
@@ -106,7 +105,7 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
             }
             if constexpr (HaveOutput(Binding::kArgInfo)) {
               static_assert(Operand::kUsage == device_arch_info::kUseDef);
-              std::enable_if_t<!kDependentTypeFalse<Binding>, MachineReg> out_reg;
+              DependentType<MachineReg, Binding> out_reg;
               if constexpr (device_arch_info::kIsFLAGS<Operand>) {
                 out_reg = flags_register;
               } else {
@@ -129,7 +128,7 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
             static_assert(device_arch_info::kIsRegister<Operand>);
             static_assert(Operand::kUsage == device_arch_info::kDef ||
                           Operand::kUsage == device_arch_info::kDefEarlyClobber);
-            std::enable_if_t<!kDependentTypeFalse<Binding>, MachineReg> out_reg;
+            DependentType<MachineReg, Binding> out_reg;
             if constexpr (device_arch_info::kIsFLAGS<Operand>) {
               out_reg = flags_register;
             } else {

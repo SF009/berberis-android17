@@ -21,6 +21,15 @@
 
 namespace berberis {
 
+template <typename BaseType, typename... T>
+class DependentTypeHelper {
+ public:
+  using Type = BaseType;
+};
+
+template <typename BaseType, typename... T>
+using DependentType = typename DependentTypeHelper<BaseType, T...>::Type;
+
 template <typename T>
 inline constexpr bool kDependentTypeFalse = false;
 
