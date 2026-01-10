@@ -562,15 +562,10 @@ class Interpreter {
   };
 
   static constexpr size_t NumberOfRegistersInvolved(VectorRegisterGroupMultiplier kVlmul) {
-    switch (kVlmul) {
-      case VectorRegisterGroupMultiplier::k2registers:
-        return 2;
-      case VectorRegisterGroupMultiplier::k4registers:
-        return 4;
-      case VectorRegisterGroupMultiplier::k8registers:
-        return 8;
-      default:
-        return 1;
+    if (kVlmul > VectorRegisterGroupMultiplier::k8registers) {
+      return 1;
+    } else {
+      return 1 << static_cast<int>(kVlmul);
     }
   }
 
@@ -581,49 +576,26 @@ class Interpreter {
   }
 
   static constexpr size_t NumRegistersInvolvedForWideOperand(VectorRegisterGroupMultiplier kVlmul) {
-    switch (kVlmul) {
-      case VectorRegisterGroupMultiplier::k1register:
-        return 2;
-      case VectorRegisterGroupMultiplier::k2registers:
-        return 4;
-      case VectorRegisterGroupMultiplier::k4registers:
-        return 8;
-      default:
-        return 1;
+    if (kVlmul > VectorRegisterGroupMultiplier::k8registers) {
+      return 1;
+    } else {
+      return 2 << static_cast<int>(kVlmul);
     }
   }
 
   template <VectorRegisterGroupMultiplier kVlmul>
-  static constexpr auto NumRegistersInvolvedForWideOperand(MetaValue<kVlmul>) {
-    return kMeta<NumRegistersInvolvedForWideOperand(kVlmul)>;
+  static constexpr MetaValue<NumRegistersInvolvedForWideOperand(kVlmul)>
+  NumRegistersInvolvedForWideOperand(MetaValue<kVlmul>) {
+    return {};
   }
 
   static constexpr size_t GetVlmax(TemplateTypeId kElementType,
                                    const VectorRegisterGroupMultiplier kVlmul) {
     const size_t kElementsCount = sizeof(SIMD128Register) / SizeOf(kElementType);
-    switch (kVlmul) {
-      case VectorRegisterGroupMultiplier::k1register:
-        return kElementsCount;
-      case VectorRegisterGroupMultiplier::k2registers:
-        return 2 * kElementsCount;
-      case VectorRegisterGroupMultiplier::k4registers:
-        return 4 * kElementsCount;
-      case VectorRegisterGroupMultiplier::k8registers:
-        return 8 * kElementsCount;
-      case VectorRegisterGroupMultiplier::kEigthOfRegister:
-        return kElementsCount / 8;
-      case VectorRegisterGroupMultiplier::kQuarterOfRegister:
-        return kElementsCount / 4;
-      case VectorRegisterGroupMultiplier::kHalfOfRegister:
-        return kElementsCount / 2;
-      default:
-        return 0;
+    if (kVlmul > VectorRegisterGroupMultiplier::k8registers) {
+      return kElementsCount >> (8 - static_cast<int>(kVlmul));
     }
-  }
-
-  template <typename ElementType, const VectorRegisterGroupMultiplier kVlmul>
-  static constexpr size_t GetVlmax() {
-    return GetVlmax(kType<ElementType>, kVlmul);
+    return kElementsCount << static_cast<int>(kVlmul);
   }
 
   template <TemplateTypeId kElementType, const VectorRegisterGroupMultiplier kVlmul>
@@ -2434,7 +2406,7 @@ class Interpreter {
         if (!IsAligned<kRegistersInvolved>(args.src2)) {
           return Undefined();
         }
-        constexpr size_t vlmax = GetVlmax<ElementType, kVlmul>();
+        constexpr size_t vlmax = GetVlmax(kElementType, kVlmul);
         alignas(alignof(SIMD128Register)) ElementType indexes[vlmax];
         memcpy(indexes, state_->cpu.v + args.src2, sizeof(indexes));
         return OpVectorGather(
