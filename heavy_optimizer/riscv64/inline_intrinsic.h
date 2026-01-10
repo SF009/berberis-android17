@@ -277,8 +277,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
 
   template <typename IntrinsicBindingInfo>
   void GenMachineInsn() {
-    TypesToValues::ForEach<TypesToTypes::Zip<typename IntrinsicBindingInfo::Operands,
-                                             typename IntrinsicBindingInfo::Bindings>>(
+    TypesToValues::ForEach<typename IntrinsicBindingInfo::OperandsAndBindings>(
         [&args_tuple = input_args_, builder = builder_]<typename BindingInfo>() {
           using Operand = std::tuple_element_t<0, BindingInfo>;
           using Binding = std::tuple_element_t<1, BindingInfo>;
@@ -313,8 +312,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
                                  typename IntrinsicBindingInfo::DeviceInsnInfo,
                                  x86_64::kForceSSA<typename IntrinsicBindingInfo::DeviceInsnInfo>>,
                              typename IntrinsicBindingInfo::Bindings>(input_args_, flag_register_));
-    TypesToValues::ForEach<TypesToTypes::Zip<typename IntrinsicBindingInfo::Operands,
-                                             typename IntrinsicBindingInfo::Bindings>>(
+    TypesToValues::ForEach<typename IntrinsicBindingInfo::OperandsAndBindings>(
         [&args_tuple = result_, builder = builder_]<typename BindingInfo>() {
           using Operand = std::tuple_element_t<0, BindingInfo>;
           using Binding = std::tuple_element_t<1, BindingInfo>;
