@@ -964,9 +964,14 @@ class MachineIR : public berberis::MachineIR {
 
   using berberis::MachineIR::NewInsn;
 
+  template <typename T>
+  [[nodiscard]] T* NewInsn(std::tuple<>) {
+    return berberis::MachineIR::template NewInsn<T, std::tuple<>>({});
+  }
+
   template <typename T, typename... Args>
-  [[nodiscard]] T* NewInsn(Args... args) {
-    return berberis::MachineIR::template NewInsn<T, Args...>(args...);
+  [[nodiscard]] T* NewInsn(Args&&... args) {
+    return berberis::MachineIR::template NewInsn<T, Args...>(std::forward<Args>(args)...);
   }
 
   BERBERIS_DECLARE_MACHINE_INSN_ADAPTER(

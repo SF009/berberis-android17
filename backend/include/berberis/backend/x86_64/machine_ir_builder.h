@@ -38,8 +38,8 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
   explicit MachineIRBuilder(MachineIR* ir) : MachineIRBuilderBase(ir) {}
 
   template <typename InsnType, typename... Args>
-  /*may_discard*/ InsnType* Gen(Args... args) {
-    return MachineIRBuilderBase::Gen<InsnType, Args...>(args...);
+  /*may_discard*/ InsnType* Gen(Args&&... args) {
+    return MachineIRBuilderBase::Gen<InsnType, Args...>(std::forward<Args>(args)...);
   }
 
   BERBERIS_DECLARE_MACHINE_INSN_ADAPTER(
