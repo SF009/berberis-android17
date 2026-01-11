@@ -135,8 +135,8 @@ class Assembler : public AssemblerBase {
 
   class Register {
    public:
-    constexpr bool operator==(const Register&) const = default;
-    constexpr uint8_t GetPhysicalIndex() { return num_; }
+    [[nodiscard]] constexpr bool operator==(const Register&) const = default;
+    [[nodiscard]] constexpr uint8_t GetPhysicalIndex() const { return num_; }
     friend constexpr uint8_t ValueForFmtSpec(Register value) { return value.num_; }
     friend class Assembler<DerivedAssemblerType>;
     friend class x86_32::Assembler;
@@ -149,8 +149,8 @@ class Assembler : public AssemblerBase {
 
   class X87Register {
    public:
-    constexpr bool operator==(const X87Register&) const = default;
-    constexpr uint8_t GetPhysicalIndex() { return num_; }
+    [[nodiscard]] constexpr bool operator==(const X87Register&) const = default;
+    [[nodiscard]] constexpr uint8_t GetPhysicalIndex() const { return num_; }
     friend constexpr uint8_t ValueForFmtSpec(X87Register value) { return value.num_; }
     friend class Assembler<DerivedAssemblerType>;
     friend class x86_32::Assembler;
@@ -174,8 +174,8 @@ class Assembler : public AssemblerBase {
   template <int kBits>
   class SIMDRegister {
    public:
-    constexpr bool operator==(const SIMDRegister&) const = default;
-    constexpr uint8_t GetPhysicalIndex() { return num_; }
+    [[nodiscard]] constexpr bool operator==(const SIMDRegister&) const = default;
+    [[nodiscard]] constexpr uint8_t GetPhysicalIndex() const { return num_; }
     friend constexpr uint8_t ValueForFmtSpec(SIMDRegister value) { return value.num_; }
     friend class Assembler<DerivedAssemblerType>;
     friend class x86_32::Assembler;

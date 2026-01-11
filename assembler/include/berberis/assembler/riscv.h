@@ -629,9 +629,8 @@ class Assembler : public AssemblerBase {
 
   class Register {
    public:
-    constexpr bool operator==(const Register& reg) const { return num_ == reg.num_; }
-    constexpr bool operator!=(const Register& reg) const { return num_ != reg.num_; }
-    constexpr uint8_t GetPhysicalIndex() { return num_; }
+    [[nodiscard]] constexpr bool operator==(const Register& reg) const = default;
+    [[nodiscard]] constexpr uint8_t GetPhysicalIndex() const { return num_; }
     friend constexpr uint8_t ValueForFmtSpec(Register value) { return value.num_; }
     friend class Assembler<DerivedAssemblerType>;
     friend class rv32e::Assembler;
@@ -684,9 +683,8 @@ class Assembler : public AssemblerBase {
 
   class FpRegister {
    public:
-    constexpr bool operator==(const FpRegister& reg) const { return num_ == reg.num_; }
-    constexpr bool operator!=(const FpRegister& reg) const { return num_ != reg.num_; }
-    constexpr uint8_t GetPhysicalIndex() { return num_; }
+    [[nodiscard]] constexpr bool operator==(const FpRegister& reg) const = default;
+    [[nodiscard]] constexpr uint8_t GetPhysicalIndex() const { return num_; }
     friend constexpr uint8_t ValueForFmtSpec(FpRegister value) { return value.num_; }
     friend class Assembler<DerivedAssemblerType>;
 
@@ -764,9 +762,8 @@ class Assembler : public AssemblerBase {
 
   class VRegister {
    public:
-    constexpr bool operator==(const VRegister& reg) const { return num_ == reg.num_; }
-    constexpr bool operator!=(const VRegister& reg) const { return num_ != reg.num_; }
-    constexpr uint8_t GetPhysicalIndex() { return num_; }
+    [[nodiscard]] constexpr bool operator==(const VRegister& reg) const = default;
+    [[nodiscard]] constexpr uint8_t GetPhysicalIndex() const { return num_; }
     friend constexpr uint8_t ValueForFmtSpec(VRegister value) { return value.num_; }
     friend class Assembler<DerivedAssemblerType>;
 

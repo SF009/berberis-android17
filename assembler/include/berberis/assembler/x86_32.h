@@ -45,6 +45,7 @@ class Assembler : public x86_32_or_x86_64::Assembler<Assembler> {
   static constexpr Register esi{6};
   static constexpr Register edi{7};
 
+  static constexpr XMMRegister no_xmm_register{0x80};
   static constexpr XMMRegister xmm0{0};
   static constexpr XMMRegister xmm1{1};
   static constexpr XMMRegister xmm2{2};
@@ -70,6 +71,46 @@ class Assembler : public x86_32_or_x86_64::Assembler<Assembler> {
   static constexpr Register kDataRegister{2};
   static constexpr Register kBaseRegister{3};
   static constexpr Register kStackPointerRegister{4};
+
+  class Registers {
+   public:
+    static constexpr Register kNoRegister{no_register};
+    static constexpr Register kEAX{eax};
+    static constexpr Register kECX{ecx};
+    static constexpr Register kEDX{edx};
+    static constexpr Register kEBX{ebx};
+    static constexpr Register kESP{esp};
+    static constexpr Register kEBP{ebp};
+    static constexpr Register kESI{esi};
+    static constexpr Register kEDI{edi};
+
+    static constexpr XMMRegister kNoXMMRegister{no_xmm_register};
+    static constexpr XMMRegister kXMM0{xmm0};
+    static constexpr XMMRegister kXMM1{xmm1};
+    static constexpr XMMRegister kXMM2{xmm2};
+    static constexpr XMMRegister kXMM3{xmm3};
+    static constexpr XMMRegister kXMM4{xmm4};
+    static constexpr XMMRegister kXMM5{xmm5};
+    static constexpr XMMRegister kXMM6{xmm6};
+    static constexpr XMMRegister kXMM7{xmm7};
+
+    static constexpr YMMRegister kNoYMMRegister{no_ymm_register};
+    static constexpr YMMRegister kYMM0{ymm0};
+    static constexpr YMMRegister kYMM1{ymm1};
+    static constexpr YMMRegister kYMM2{ymm2};
+    static constexpr YMMRegister kYMM3{ymm3};
+    static constexpr YMMRegister kYMM4{ymm4};
+    static constexpr YMMRegister kYMM5{ymm5};
+    static constexpr YMMRegister kYMM6{ymm6};
+    static constexpr YMMRegister kYMM7{ymm7};
+
+    // Macroassembler uses these names to support both x86-32 and x86-64 modes.
+    static constexpr Register kAccumulator{kAccumulatorRegister};
+    static constexpr Register kCounter{kCounterRegister};
+    static constexpr Register kData{kDataRegister};
+    static constexpr Register kBase{kBaseRegister};
+    static constexpr Register kStackPointer{kStackPointerRegister};
+  };
 
 // Instructions.
 #include "berberis/assembler/gen_assembler_x86_32-inl.h"  // NOLINT generated file!
