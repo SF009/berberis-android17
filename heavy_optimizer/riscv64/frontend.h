@@ -34,7 +34,6 @@
 #include "berberis/runtime_primitives/platform.h"
 
 #include "inline_intrinsic.h"
-#include "simd_register.h"
 
 namespace berberis {
 
@@ -44,8 +43,8 @@ class HeavyOptimizerFrontend {
   using Decoder = Decoder<SemanticsPlayer<HeavyOptimizerFrontend>>;
   using Register = MachineReg;
   static constexpr Register no_register = MachineReg{};
-  using FpRegister = SimdReg;
-  static constexpr SimdReg no_fp_register = SimdReg{};
+  using FpRegister = MachineReg;
+  static constexpr MachineReg no_fp_register = MachineReg{};
   using Float32 = Float32;
   using Float64 = Float64;
 
@@ -267,9 +266,9 @@ class HeavyOptimizerFrontend {
   template <typename FloatType>
   [[nodiscard]] FpRegister GetFRegAndUnboxNan(uint8_t reg) {
     CHECK_LE(reg, kNumGuestFpRegs);
-    FpRegister result = AllocTempSimdReg();
-    builder_.GenGetSimd<8>(result.machine_reg(), GetThreadStateFRegOffset(reg));
-    FpRegister unboxed_result = AllocTempSimdReg();
+    FpRegister result = AllocTempReg();
+    builder_.GenGetSimd<8>(result, GetThreadStateFRegOffset(reg));
+    FpRegister unboxed_result = AllocTempReg();
     if (host_platform::kHasAVX) {
       // This code is defined as intrinsic but if we would call it as intrinsic it would be called
       // recursively.
@@ -284,8 +283,7 @@ class HeavyOptimizerFrontend {
                                                        device_arch_info::kDef>,
                          device_arch_info::OperandInfo<x86_64::device_arch_info::FpReg64,
                                                        device_arch_info::kUseDef>>>,
-          x86_64::kSSA>>(std::tuple{
-          unboxed_result.machine_reg(), AllocTempSimdReg().machine_reg(), result.machine_reg()});
+          x86_64::kSSA>>(std::tuple{unboxed_result, AllocTempReg(), result});
     } else {
       // This code is defined as intrinsic but if we would call it as intrinsic it would be called
       // recursively.
@@ -300,15 +298,14 @@ class HeavyOptimizerFrontend {
                                                        device_arch_info::kDef>,
                          device_arch_info::OperandInfo<x86_64::device_arch_info::FpReg64,
                                                        device_arch_info::kUseDef>>>,
-          x86_64::kSSA>>(std::tuple{
-          unboxed_result.machine_reg(), AllocTempSimdReg().machine_reg(), result.machine_reg()});
+          x86_64::kSSA>>(std::tuple{unboxed_result, AllocTempReg(), result});
     }
     return unboxed_result;
   }
 
   template <typename FloatType>
   FpRegister NanBoxFpReg(FpRegister value) {
-    FpRegister result = AllocTempSimdReg();
+    FpRegister result = AllocTempReg();
     if (host_platform::kHasAVX) {
       // This code is defined as intrinsic but if we would call it as intrinsic it would be called
       // recursively.
@@ -323,8 +320,7 @@ class HeavyOptimizerFrontend {
                                                        device_arch_info::kDef>,
                          device_arch_info::OperandInfo<x86_64::device_arch_info::FpReg32,
                                                        device_arch_info::kUseDef>>>,
-          x86_64::kSSA>>(
-          std::tuple{result.machine_reg(), AllocTempSimdReg().machine_reg(), value.machine_reg()});
+          x86_64::kSSA>>(std::tuple{result, AllocTempReg(), value});
     } else {
       // This code is defined as intrinsic but if we would call it as intrinsic it would be called
       // recursively.
@@ -337,7 +333,7 @@ class HeavyOptimizerFrontend {
               device_arch_info::NoCPUIDRestriction,
               std::tuple<device_arch_info::OperandInfo<x86_64::device_arch_info::FpReg64,
                                                        device_arch_info::kUseDef>>>,
-          x86_64::kSSA>>(std::tuple{result.machine_reg(), value.machine_reg()});
+          x86_64::kSSA>>(std::tuple{result, value});
     }
     return result;
   }
@@ -347,7 +343,7 @@ class HeavyOptimizerFrontend {
     CHECK_LE(reg, kNumGuestFpRegs);
     if (success()) {
       FpRegister boxed_reg = NanBoxFpReg<FloatType>(value);
-      builder_.GenSetSimd<8>(GetThreadStateFRegOffset(reg), boxed_reg.machine_reg());
+      builder_.GenSetSimd<8>(GetThreadStateFRegOffset(reg), boxed_reg);
     }
   }
 
@@ -367,17 +363,17 @@ class HeavyOptimizerFrontend {
   template <typename DataType>
   void StoreFp(Register arg, int16_t offset, FpRegister data) {
     if constexpr (std::is_same_v<DataType, Float32>) {
-      Gen<x86_64::MovssOpXReg>({.base = arg, .disp = offset}, data.machine_reg());
+      Gen<x86_64::MovssOpXReg>({.base = arg, .disp = offset}, data);
     } else if constexpr (std::is_same_v<DataType, Float64>) {
-      Gen<x86_64::MovsdOpXReg>({.base = arg, .disp = offset}, data.machine_reg());
+      Gen<x86_64::MovsdOpXReg>({.base = arg, .disp = offset}, data);
     } else {
       static_assert(kDependentTypeFalse<DataType>);
     }
   }
 
   FpRegister Fmv(FpRegister arg) {
-    auto res = AllocTempSimdReg();
-    builder_.Gen<berberis::Copy>(res.machine_reg(), arg.machine_reg(), 16);
+    auto res = AllocTempReg();
+    builder_.Gen<berberis::Copy>(res, arg, 16);
     return res;
   }
 
@@ -480,38 +476,22 @@ class HeavyOptimizerFrontend {
     using CallImm = x86_64::CallImm<static_cast<decltype(kFunction)>(nullptr)>;
     typename CallImm::template ResultRegiesterTypes<MachineReg, FpRegister> result;
 
-    if (TryInlineIntrinsicForHeavyOptimizer<kFunction>(
+    if (!TryInlineIntrinsicForHeavyOptimizer<kFunction>(
             &builder_, result, GetFlagsRegister(), args...)) {
-      if constexpr (!std::size(CallImm::kResultsElements)) {
-        return;
-      } else if constexpr (std::tuple_size_v<typename CallImm::CleanRetType> == 1) {
-        return std::get<0>(result);
-      } else {
-        return result;
+      const char* func_name = nullptr;
+      if constexpr (config::kPrintCallIntrinsicNamesMode == config::kPrintCallIntrinsicStemNames &&
+                    !std::is_same_v<decltype(kFunctionName), StringLiteral<0>>) {
+        func_name = kMemoizedValue<StringLiteral{kGetTemplateName<MetaValue<kFunction>>}>;
+      } else if constexpr (config::kPrintCallIntrinsicNamesMode ==
+                               config::kPrintCallIntrinsicFullNames &&
+                           !std::is_same_v<decltype(kFunctionName), StringLiteral<0>>) {
+        func_name = kMemoizedValue<kFunctionName>;
       }
+      result = CallIntrinsic<decltype(kFunction), AssemblerArgType...>(
+          kFunction, func_name, std::forward<AssemblerArgType>(args)...);
     }
 
-    const char* func_name = nullptr;
-    if constexpr (config::kPrintCallIntrinsicNamesMode == config::kPrintCallIntrinsicStemNames &&
-                  !std::is_same_v<decltype(kFunctionName), StringLiteral<0>>) {
-      func_name = kMemoizedValue<StringLiteral{kGetTemplateName<MetaValue<kFunction>>}>;
-    } else if constexpr (config::kPrintCallIntrinsicNamesMode ==
-                             config::kPrintCallIntrinsicFullNames &&
-                         !std::is_same_v<decltype(kFunctionName), StringLiteral<0>>) {
-      func_name = kMemoizedValue<kFunctionName>;
-    }
-    auto call_result = CallIntrinsic<decltype(kFunction), AssemblerArgType...>(
-        kFunction, func_name, std::forward<AssemblerArgType>(args)...);
     if constexpr (std::size(CallImm::kResultsElements)) {
-      result = TypesToValues::MapWithTemporary<typename CallImm::CleanRetType,
-                                               /* index = */ std::size_t>(
-          [&call_result]<typename ResType>(std::size_t& index) {
-            if constexpr (std::is_integral_v<ResType> || std::is_pointer_v<ResType>) {
-              return call_result[index++];
-            } else {
-              return FpRegister{call_result[index++]};
-            }
-          });
       if constexpr (std::tuple_size_v<typename CallImm::CleanRetType> == 1) {
         return std::get<0>(result);
       } else {
@@ -624,7 +604,6 @@ class HeavyOptimizerFrontend {
   static x86_64::Assembler::Condition ToAssemblerCond(Decoder::BranchOpcode opcode);
 
   [[nodiscard]] Register AllocTempReg();
-  [[nodiscard]] SimdReg AllocTempSimdReg();
   [[nodiscard]] Register GetFlagsRegister() const { return flag_register_; };
 
   void GenJump(GuestAddr target);
@@ -687,14 +666,7 @@ auto HeavyOptimizerFrontend::CallIntrinsic(FunctionType func_ptr,
                       return std::tuple{};
                     }
                   }),
-              ValuesToValues::Map(std::tuple{args...},
-                                  []<typename ArgType>(ArgType arg) {
-                                    if constexpr (std::is_same_v<ArgType, SimdReg>) {
-                                      return arg.machine_reg();
-                                    } else {
-                                      return arg;
-                                    }
-                                  })),
+              std::tuple{args...}),
           func_name));
 
   auto result = ValuesToValues::ToArray<MachineReg>(

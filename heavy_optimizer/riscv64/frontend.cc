@@ -99,10 +99,6 @@ Register HeavyOptimizerFrontend::AllocTempReg() {
   return builder_.ir()->AllocVReg();
 }
 
-SimdReg HeavyOptimizerFrontend::AllocTempSimdReg() {
-  return SimdReg{builder_.ir()->AllocVReg()};
-}
-
 void HeavyOptimizerFrontend::GenJump(GuestAddr target) {
   auto map_it = branch_targets_.find(target);
   if (map_it == branch_targets_.end()) {
@@ -276,8 +272,8 @@ void HeavyOptimizerFrontend::SetReg(uint8_t reg, Register value) {
 }
 
 FpRegister HeavyOptimizerFrontend::GetFpReg(uint8_t reg) {
-  FpRegister result = AllocTempSimdReg();
-  builder_.GenGetSimd<8>(result.machine_reg(), GetThreadStateFRegOffset(reg));
+  FpRegister result = AllocTempReg();
+  builder_.GenGetSimd<8>(result, GetThreadStateFRegOffset(reg));
   return result;
 }
 

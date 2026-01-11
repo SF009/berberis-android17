@@ -37,8 +37,6 @@
 #include "berberis/intrinsics/macro_assembler.h"
 #include "berberis/runtime_primitives/platform.h"
 
-#include "simd_register.h"
-
 namespace berberis {
 
 template <auto kFunction, typename ResType, typename FlagRegister, typename... ArgType>
@@ -330,21 +328,14 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
       static_assert(berberis::kDependentValueFalse<IntrinsicBindingInfo::kCPUIDRestriction>);
     }
 
-    ValuesToValues::ForEach(result_,
-                            [builder = builder_]<typename RegisterType>(RegisterType&& reg) {
-                              if constexpr (std::is_same_v<RegisterType, SimdReg&>) {
-                                reg = SimdReg{builder->ir()->AllocVReg()};
-                              } else {
-                                reg = builder->ir()->AllocVReg();
-                              }
-                            });
+    ValuesToValues::ForEach(
+        result_, [builder = builder_](MachineReg& reg) { reg = builder->ir()->AllocVReg(); });
 
     builder_->Gen<
         x86_64::MachineInsn<typename IntrinsicBindingInfo::DeviceInsnInfo,
                             x86_64::kForceSSA<typename IntrinsicBindingInfo::DeviceInsnInfo>>>(
-        std::tuple_cat(UnwrapSimdReg(
-            IntrinsicBindingInfo::template MakeTuplefromBindings<
-                TryBindingBasedInlineIntrinsicForHeavyOptimizer&>(*this, asm_call_info))));
+        std::tuple_cat(IntrinsicBindingInfo::template MakeTuplefromBindings<
+                       TryBindingBasedInlineIntrinsicForHeavyOptimizer&>(*this, asm_call_info)));
     ProcessBindingsResults<IntrinsicBindingInfo>(
         type_wrapper<typename IntrinsicBindingInfo::Bindings>(),
         type_wrapper<typename IntrinsicBindingInfo::Operands>());
@@ -512,7 +503,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
               builder_, std::get<0>(result_), xmm_result_reg_);
         } else {
           Mov<x86_64::device_arch_info::XmmReg, RegisterClass>(
-              builder_, std::get<0>(result_).machine_reg(), xmm_result_reg_);
+              builder_, std::get<0>(result_), xmm_result_reg_);
         }
       } else if constexpr ((ArgBinding::kArgInfo.arg_type == ArgInfo::OUT_ARG ||
                             ArgBinding::kArgInfo.arg_type == ArgInfo::IN_OUT_TMP_ARG ||
@@ -526,26 +517,6 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
   }
 
   MachineReg AllocVReg() { return builder_->ir()->AllocVReg(); }
-
-  template <typename T>
-  static constexpr auto UnwrapSimdReg(T r) {
-    if constexpr (std::is_same_v<T, SimdReg>) {
-      return r.machine_reg();
-    } else {
-      return r;
-    }
-  }
-
-  template <typename... T>
-  static constexpr auto UnwrapSimdReg(std::tuple<T...> regs) {
-    constexpr const auto num_args = std::tuple_size<std::tuple<T...>>::value;
-    return UnwrapSimdReg(std::make_index_sequence<num_args>(), regs);
-  }
-
-  template <typename... T, auto... I>
-  static constexpr auto UnwrapSimdReg(std::index_sequence<I...>, std::tuple<T...> regs) {
-    return std::make_tuple(UnwrapSimdReg(std::get<I>(regs))...);
-  }
 
  private:
   x86_64::MachineIRBuilder* builder_;
