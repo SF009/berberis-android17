@@ -96,6 +96,70 @@ class Assembler : public x86_32_or_x86_64::Assembler<Assembler> {
   static constexpr Register kBaseRegister{3};
   static constexpr Register kStackPointerRegister{4};
 
+  class Registers {
+   public:
+    static constexpr Register kNoRegister{no_register};
+    static constexpr Register kRAX{rax};
+    static constexpr Register kRCX{rcx};
+    static constexpr Register kRDX{rdx};
+    static constexpr Register kRBX{rbx};
+    static constexpr Register kRSP{rsp};
+    static constexpr Register kRBP{rbp};
+    static constexpr Register kRSI{rsi};
+    static constexpr Register kRDI{rdi};
+    static constexpr Register kR8{r8};
+    static constexpr Register kR9{r9};
+    static constexpr Register kR10{r10};
+    static constexpr Register kR11{r11};
+    static constexpr Register kr12{r12};
+    static constexpr Register kR13{r13};
+    static constexpr Register kR14{r14};
+    static constexpr Register kR15{r15};
+
+    static constexpr XMMRegister kNoXMMRegister{no_xmm_register};
+    static constexpr XMMRegister kXMM0{xmm0};
+    static constexpr XMMRegister kXMM1{xmm1};
+    static constexpr XMMRegister kXMM2{xmm2};
+    static constexpr XMMRegister kXMM3{xmm3};
+    static constexpr XMMRegister kXMM4{xmm4};
+    static constexpr XMMRegister kXMM5{xmm5};
+    static constexpr XMMRegister kXMM6{xmm6};
+    static constexpr XMMRegister kXMM7{xmm7};
+    static constexpr XMMRegister kXMM8{xmm8};
+    static constexpr XMMRegister kXMM9{xmm9};
+    static constexpr XMMRegister kXMM10{xmm10};
+    static constexpr XMMRegister kXMM11{xmm11};
+    static constexpr XMMRegister kXMM12{xmm12};
+    static constexpr XMMRegister kXMM13{xmm13};
+    static constexpr XMMRegister kXMM14{xmm14};
+    static constexpr XMMRegister kXMM15{xmm15};
+
+    static constexpr YMMRegister kNoYMMRegister{no_ymm_register};
+    static constexpr YMMRegister kYMM0{ymm0};
+    static constexpr YMMRegister kYMM1{ymm1};
+    static constexpr YMMRegister kYMM2{ymm2};
+    static constexpr YMMRegister kYMM3{ymm3};
+    static constexpr YMMRegister kYMM4{ymm4};
+    static constexpr YMMRegister kYMM5{ymm5};
+    static constexpr YMMRegister kYMM6{ymm6};
+    static constexpr YMMRegister kYMM7{ymm7};
+    static constexpr YMMRegister kYMM8{ymm8};
+    static constexpr YMMRegister kYMM9{ymm9};
+    static constexpr YMMRegister kYMM10{ymm10};
+    static constexpr YMMRegister kYMM11{ymm11};
+    static constexpr YMMRegister kYMM12{ymm12};
+    static constexpr YMMRegister kYMM13{ymm13};
+    static constexpr YMMRegister kYMM14{ymm14};
+    static constexpr YMMRegister kYMM15{ymm15};
+
+    // Macroassembler uses these names to support both x86-32 and x86-64 modes.
+    static constexpr Register kAccumulator{kAccumulatorRegister};
+    static constexpr Register kCounter{kCounterRegister};
+    static constexpr Register kData{kDataRegister};
+    static constexpr Register kBase{kBaseRegister};
+    static constexpr Register kStackPointer{kStackPointerRegister};
+  };
+
 // Instructions.
 #include "berberis/assembler/gen_assembler_x86_64-inl.h"  // NOLINT generated file!
 
