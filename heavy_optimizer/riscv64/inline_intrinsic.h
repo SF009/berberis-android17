@@ -219,23 +219,6 @@ void Mov(x86_64::MachineIRBuilder* builder, MachineReg dest, MachineReg src) {
   }
 }
 
-template <typename DestRegClass, typename SrcReg>
-void MovFromInput(x86_64::MachineIRBuilder* builder, MachineReg dest, SrcReg src) {
-  if constexpr (std::is_same_v<SrcReg, SimdReg>) {
-    Mov<DestRegClass, x86_64::device_arch_info::XmmReg>(builder, dest, src.machine_reg());
-  } else {
-    Mov<DestRegClass, x86_64::device_arch_info::GeneralReg64>(builder, dest, src);
-  }
-}
-template <typename SrcRegClass, typename DestReg>
-void MovToResult(x86_64::MachineIRBuilder* builder, DestReg dest, MachineReg src) {
-  if constexpr (std::is_same_v<DestReg, SimdReg>) {
-    Mov<x86_64::device_arch_info::XmmReg, SrcRegClass>(builder, dest.machine_reg(), src);
-  } else {
-    Mov<x86_64::device_arch_info::GeneralReg64, SrcRegClass>(builder, dest, src);
-  }
-}
-
 template <auto kFunction, typename ResType, typename FlagRegister, typename... ArgType>
 class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
   template <auto kFunctionForFriend,
@@ -387,11 +370,11 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
       static_assert(kUsage == device_arch_info::kUse);
       static_assert(!device_arch_info::kIsImplicitReg<OperandInfo>);
       if constexpr (RegisterClass::kAsRegister == 'x' &&
-                    std::is_same_v<
-                        std::tuple_element_t<ArgBinding::kArgInfo.from, std::tuple<ArgType...>>,
-                        MachineReg>) {
+                    std::is_integral_v<
+                        std::tuple_element_t<ArgBinding::kArgInfo.from,
+                                             typename IntrinsicBindingInfo::InputArguments>>) {
         auto xmm_reg = AllocVReg();
-        MovFromInput<RegisterClass>(
+        Mov<RegisterClass, x86_64::device_arch_info::GeneralReg64>(
             builder_, xmm_reg, std::get<ArgBinding::kArgInfo.from>(input_args_));
         return std::tuple{xmm_reg};
       } else {
@@ -422,7 +405,7 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
       } else if constexpr (device_arch_info::kIsImplicitReg<OperandInfo>) {
         static_assert(kUsage == device_arch_info::kUse);
         auto implicit_reg = AllocVReg();
-        MovFromInput<RegisterClass>(
+        Mov<RegisterClass, x86_64::device_arch_info::GeneralReg64>(
             builder_, implicit_reg, std::get<ArgBinding::kArgInfo.from>(input_args_));
         return std::tuple{implicit_reg};
       } else {
@@ -522,13 +505,22 @@ class TryBindingBasedInlineIntrinsicForHeavyOptimizer {
                      ArgBinding::kArgInfo.arg_type == ArgInfo::OUT_ARG) &&
                     RegisterClass::kAsRegister == 'x') {
         CHECK(!xmm_result_reg_.IsInvalidReg());
-        MovToResult<RegisterClass>(builder_, std::get<0>(result_), xmm_result_reg_);
+        using ReturnType = std::tuple_element_t<0, typename IntrinsicBindingInfo::OutputArguments>;
+        static_assert(std::tuple_size_v<typename IntrinsicBindingInfo::OutputArguments> == 1);
+        if constexpr (std::is_integral_v<ReturnType>) {
+          Mov<x86_64::device_arch_info::GeneralReg64, RegisterClass>(
+              builder_, std::get<0>(result_), xmm_result_reg_);
+        } else {
+          Mov<x86_64::device_arch_info::XmmReg, RegisterClass>(
+              builder_, std::get<0>(result_).machine_reg(), xmm_result_reg_);
+        }
       } else if constexpr ((ArgBinding::kArgInfo.arg_type == ArgInfo::OUT_ARG ||
                             ArgBinding::kArgInfo.arg_type == ArgInfo::IN_OUT_TMP_ARG ||
                             ArgBinding::kArgInfo.arg_type == ArgInfo::OUT_TMP_ARG) &&
                            device_arch_info::kIsImplicitReg<OperandInfo>) {
         CHECK(!implicit_result_reg_.IsInvalidReg());
-        MovToResult<RegisterClass>(builder_, std::get<0>(result_), implicit_result_reg_);
+        Mov<x86_64::device_arch_info::GeneralReg64, RegisterClass>(
+            builder_, std::get<0>(result_), implicit_result_reg_);
       }
     }
   }
