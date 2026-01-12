@@ -385,14 +385,14 @@ template <auto kIntrinsic, typename... FuncInfo>
           // We need to special handle even the first register if we receive results in RAX/RDX but
           // then have to move it into SSE register as per caller expectations.
           if constexpr (result_element.element_offset != 0 ||
-                        ((result_element.clobber_class_index <=
-                          std::tuple_size_v<
-                              device_arch_info::call_imm_impl::SSEArgumentRegisters>) &&
+                        ((result_element.clobber_class_index <
+                          device_arch_info::call_imm_impl::
+                              kSSEResultFirstRegisterIndexInClobberRegisters) &&
                          (ElementType::template IsSame<Float16>() ||
                           ElementType::template IsSame<Float32>()))) {
-            if constexpr (result_element.clobber_class_index <=
-                          std::tuple_size_v<
-                              device_arch_info::call_imm_impl::SSEArgumentRegisters>) {
+            if constexpr (result_element.clobber_class_index <
+                          device_arch_info::call_imm_impl::
+                              kSSEResultFirstRegisterIndexInClobberRegisters) {
               if constexpr (result_element.element_offset != 0) {
                 InsertInsn(ir()->NewInsn<ShrqRegImm, kSSA>(
                     results[kIdx],

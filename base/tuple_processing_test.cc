@@ -1002,6 +1002,41 @@ constexpr bool TestFunc() {
                                   []<typename T>() { return std::is_same_v<T, const int&&>; }>,
           std::tuple<char&&, const int&&>>);
 
+  static_assert(std::is_same_v<TypesToTypes::Span<const TupleType<char, const int>, 1, 2>,
+                               std::tuple<const int>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Span<const TupleType<char, const int>&, 1, 2>,
+                               std::tuple<const int&>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Span<const TupleType<char, const int&&>, 1, 2>,
+                               std::tuple<const int&&>>);
+
+  static_assert(
+      std::is_same_v<TypesToTypes::Span<TupleType<char, const int>, 1, 2>, std::tuple<const int>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Span<TupleType<char, const int&>, 1, 2>,
+                               std::tuple<const int&>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Span<TupleType<char, const int&&>, 1, 2>,
+                               std::tuple<const int&&>>);
+
+  static_assert(
+      std::is_same_v<TypesToTypes::Span<const TupleType<char, const int>, 1, 1>, std::tuple<>>);
+
+  static_assert(
+      std::is_same_v<TypesToTypes::Span<const TupleType<char, const int>&, 1, 1>, std::tuple<>>);
+
+  static_assert(
+      std::is_same_v<TypesToTypes::Span<const TupleType<char, const int&&>, 1, 1>, std::tuple<>>);
+
+  static_assert(std::is_same_v<TypesToTypes::Span<TupleType<char, const int>, 1, 1>, std::tuple<>>);
+
+  static_assert(
+      std::is_same_v<TypesToTypes::Span<TupleType<char, const int&>, 1, 1>, std::tuple<>>);
+
+  static_assert(
+      std::is_same_v<TypesToTypes::Span<TupleType<char, const int&&>, 1, 1>, std::tuple<>>);
+
   static_assert(std::is_same_v<TypesToTypes::Take<const TupleType<char, const int>, 1>,
                                std::tuple<const char>>);
 
@@ -2374,6 +2409,23 @@ constexpr bool TestFunc() {
       kMeta<&kForEachInt2>);
   static_assert(kSkipResult20 == std::tuple{kForEachInt1, 'A'});
   static_assert(std::is_same_v<decltype(kSkipResult20), const std::tuple<const int&, char>>);
+
+  // Span with 1 element.
+  constexpr auto kSpanResult1 = ValuesToValues::Span<1, 2>(MoveToNonConst(kForEachTupleTypeIn));
+  static_assert(kSpanResult1 == std::tuple{'A'});
+  static_assert(std::is_same_v<decltype(kSpanResult1), const std::tuple<char>>);
+  constexpr auto kSpanResult2 =
+      ValuesToValues::Span(MoveToNonConst(kForEachTupleTypeIn), kMeta<1>, kMeta<2>);
+  static_assert(kSpanResult2 == std::tuple{'A'});
+  static_assert(std::is_same_v<decltype(kSpanResult2), const std::tuple<char>>);
+  // Span with 0 elements.
+  constexpr auto kSpanResult3 = ValuesToValues::Span<1, 1>(MoveToNonConst(kForEachTupleTypeIn));
+  static_assert(kSpanResult3 == std::tuple{});
+  static_assert(std::is_same_v<decltype(kSpanResult3), const std::tuple<>>);
+  constexpr auto kSpanResult4 =
+      ValuesToValues::Span(MoveToNonConst(kForEachTupleTypeIn), kMeta<1>, kMeta<1>);
+  static_assert(kSpanResult4 == std::tuple{});
+  static_assert(std::is_same_v<decltype(kSpanResult4), const std::tuple<>>);
 
   // Take 1 element.
   constexpr auto kTakeResult1 = ValuesToValues::Take<1>(MoveToNonConst(kForEachTupleTypeIn));
