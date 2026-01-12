@@ -77,6 +77,7 @@ class IntrinsicBindingInfo<kIntrinsic_,
   using OutputArguments = std::tuple<OutputArgumentsTypes...>;
   using Bindings = std::tuple<BindingsTypes...>;
   using Operands = std::tuple<OperandsTypes...>;
+  using OperandsAndBindings = std::tuple<std::pair<OperandsTypes, BindingsTypes>...>;
   using IntrinsicType = std::conditional_t<std::tuple_size_v<OutputArguments> == 0,
                                            void (*)(InputArgumentsTypes...),
                                            OutputArguments (*)(InputArgumentsTypes...)>;
@@ -88,8 +89,7 @@ class IntrinsicBindingInfo<kIntrinsic_,
 
 template <typename IntrinsicBindingInfo, typename AssemblerType>
 constexpr void Check32BitRegistersAreZeroExtended(AssemblerType* as) {
-  TypesToValues::ForEachWithTemporary<TypesToTypes::Zip<typename IntrinsicBindingInfo::Operands,
-                                                        typename IntrinsicBindingInfo::Bindings>,
+  TypesToValues::ForEachWithTemporary<typename IntrinsicBindingInfo::OperandsAndBindings,
                                       /* id = */ int>([&as]<typename BindingInfo>(int& id) {
     using Operand = std::tuple_element_t<0, BindingInfo>;
     using Binding = std::tuple_element_t<1, BindingInfo>;
