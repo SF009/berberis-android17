@@ -97,29 +97,29 @@ void GenerateFunctionHeader(FILE* out, int indent) {
 
 template <typename IntrinsicBindingInfo>
 constexpr void CallAssembler(MacroAssembler<TextAssembler>* as, int* register_numbers) {
-  int arg_counter = 0;
-  IntrinsicBindingInfo::ProcessBindings([&arg_counter,
-                                         &as,
-                                         register_numbers]<typename Binding, typename Operand> {
-    if constexpr (device_arch_info::kIsRegister<Operand> && !device_arch_info::kIsFLAGS<Operand>) {
-      if constexpr (device_arch_info::kIsImplicitReg<Operand>) {
-        as->*(Operand::Class::template kAssemblerRegisterPointer<MacroAssembler<TextAssembler>>) =
-            typename MacroAssembler<TextAssembler>::Register(register_numbers[arg_counter]);
-      }
-      ++arg_counter;
-    }
-  });
-  as->gpr_macroassembler_constants = typename MacroAssembler<TextAssembler>::Register(arg_counter);
-  arg_counter = 0;
-  int scratch_counter = 0;
+  int gpr_macroassembler_constants_index =
+      TypesToValues::Produce<typename IntrinsicBindingInfo::Operands>(
+          /* arg_counter = */ 0, [&as, register_numbers]<typename Operand>(int& arg_counter) {
+            if constexpr (device_arch_info::kIsRegister<Operand> &&
+                          !device_arch_info::kIsFLAGS<Operand>) {
+              if constexpr (device_arch_info::kIsImplicitReg<Operand>) {
+                as->*(Operand::Class::template kAssemblerRegisterPointer<
+                         MacroAssembler<TextAssembler>>) =
+                    typename MacroAssembler<TextAssembler>::Register(register_numbers[arg_counter]);
+              }
+              ++arg_counter;
+            }
+          });
+  as->gpr_macroassembler_constants =
+      typename MacroAssembler<TextAssembler>::Register(gpr_macroassembler_constants_index);
   std::apply(
       IntrinsicBindingInfo::kEmitInsnFunc,
       std::tuple_cat(std::tuple<MacroAssembler<TextAssembler>&>{*as},
-                     IntrinsicBindingInfo::MakeTuplefromBindings(
-                         [&as,
-                          &arg_counter,
-                          &scratch_counter,
-                          register_numbers]<typename Binding, typename Operand> {
+                     TypesToValues::FlatMapWithTemporary<
+                         typename IntrinsicBindingInfo::Operands,
+                         /* arg_counter, scratch_counter = */ std::pair<int, int>>(
+                         [&as, register_numbers]<typename Operand>(std::pair<int, int>& counters) {
+                           auto& [arg_counter, scratch_counter] = counters;
                            if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
                              if (scratch_counter == 0) {
                                as->gpr_macroassembler_scratch =
@@ -210,8 +210,12 @@ void GenerateOutputVariables(FILE* out, int indent) {
 
 template <typename IntrinsicBindingInfo>
 void GenerateTemporaries(FILE* out, int indent) {
-  std::size_t id = 0;
-  IntrinsicBindingInfo::ProcessBindings([out, &id, indent]<typename Binding, typename Operand> {
+  TypesToValues::ForEachWithTemporary<TypesToTypes::Zip<typename IntrinsicBindingInfo::Operands,
+                                                        typename IntrinsicBindingInfo::Bindings>,
+                                      /* id = */ std::size_t>([out, indent]<typename BindingInfo>(
+                                                                  std::size_t& id) {
+    using Operand = std::tuple_element_t<0, BindingInfo>;
+    using Binding = std::tuple_element_t<1, BindingInfo>;
     using RegisterClass = Operand::Class;
     if constexpr (!device_arch_info::kIsFLAGS<Operand> && !HaveInput(Binding::kArgInfo) &&
                   !HaveOutput(Binding::kArgInfo)) {
@@ -229,7 +233,12 @@ void GenerateTemporaries(FILE* out, int indent) {
 
 template <typename IntrinsicBindingInfo>
 void GenerateInShadows(FILE* out, int indent) {
-  IntrinsicBindingInfo::ProcessBindings([out, indent]<typename Binding, typename Operand> {
+  TypesToValues::ForEach<
+      TypesToTypes::Zip<typename IntrinsicBindingInfo::Operands,
+                        typename IntrinsicBindingInfo::Bindings>>([out,
+                                                                   indent]<typename BindingInfo>() {
+    using Operand = std::tuple_element_t<0, BindingInfo>;
+    using Binding = std::tuple_element_t<1, BindingInfo>;
     using RegisterClass = Operand::Class;
     if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
       // Only temporary memory scratch area is supported.
@@ -327,8 +336,12 @@ void GenerateInShadows(FILE* out, int indent) {
 template <typename IntrinsicBindingInfo>
 void GenerateAssemblerOuts(FILE* out, int indent) {
   std::vector<std::string> outs;
-  int tmp_id = 0;
-  IntrinsicBindingInfo::ProcessBindings([&outs, &tmp_id]<typename Binding, typename Operand> {
+  TypesToValues::ForEachWithTemporary<TypesToTypes::Zip<typename IntrinsicBindingInfo::Operands,
+                                                        typename IntrinsicBindingInfo::Bindings>,
+                                      /* tmp_id = */ int>([&outs]<typename BindingInfo>(
+                                                              int& tmp_id) {
+    using Operand = std::tuple_element_t<0, BindingInfo>;
+    using Binding = std::tuple_element_t<1, BindingInfo>;
     using RegisterClass = Operand::Class;
     if constexpr (!device_arch_info::kIsFLAGS<Operand> &&
                   Operand::kUsage != device_arch_info::kUse) {
@@ -359,15 +372,20 @@ void GenerateAssemblerIns(FILE* out,
                           bool need_gpr_macroassembler_scratch,
                           bool need_gpr_macroassembler_constants) {
   std::vector<std::string> ins;
-  IntrinsicBindingInfo::ProcessBindings([&ins]<typename Binding, typename Operand> {
-    using RegisterClass = Operand::Class;
-    if constexpr (!device_arch_info::kIsFLAGS<Operand> &&
-                  Operand::kUsage == device_arch_info::kUse) {
-      ins.push_back("\"" + std::string(1, RegisterClass::kAsRegister) + "\"(in" +
-                    std::to_string(Binding::kArgInfo.from) +
-                    (NeedInputShadow<IntrinsicBindingInfo, Binding, Operand>() ? "_shadow)" : ")"));
-    }
-  });
+  TypesToValues::ForEach<TypesToTypes::Zip<typename IntrinsicBindingInfo::Operands,
+                                           typename IntrinsicBindingInfo::Bindings>>(
+      [&ins]<typename BindingInfo>() {
+        using Operand = std::tuple_element_t<0, BindingInfo>;
+        using Binding = std::tuple_element_t<1, BindingInfo>;
+        using RegisterClass = Operand::Class;
+        if constexpr (!device_arch_info::kIsFLAGS<Operand> &&
+                      Operand::kUsage == device_arch_info::kUse) {
+          ins.push_back(
+              "\"" + std::string(1, RegisterClass::kAsRegister) + "\"(in" +
+              std::to_string(Binding::kArgInfo.from) +
+              (NeedInputShadow<IntrinsicBindingInfo, Binding, Operand>() ? "_shadow)" : ")"));
+        }
+      });
   if (need_gpr_macroassembler_scratch) {
     ins.push_back("\"m\"(scratch), \"m\"(scratch2)");
   }
@@ -375,24 +393,32 @@ void GenerateAssemblerIns(FILE* out,
     ins.push_back(
         "\"m\"(*reinterpret_cast<const char*>(&constants_pool::kBerberisMacroAssemblerConstants))");
   }
-  int arg_counter = 0;
-  IntrinsicBindingInfo::ProcessBindings([&ins,
-                                         &arg_counter,
-                                         register_numbers]<typename Binding, typename Operand> {
-    if constexpr (!device_arch_info::kIsFLAGS<Operand> && HaveInput(Binding::kArgInfo) &&
-                  Operand::kUsage != device_arch_info::kUse) {
-      ins.push_back("\"" + std::to_string(register_numbers[arg_counter]) + "\"(in" +
-                    std::to_string(Binding::kArgInfo.from) +
-                    (NeedInputShadow<IntrinsicBindingInfo, Binding, Operand>() ? "_shadow)" : ")"));
-    }
-    ++arg_counter;
-  });
+  TypesToValues::ForEachWithTemporary<TypesToTypes::Zip<typename IntrinsicBindingInfo::Operands,
+                                                        typename IntrinsicBindingInfo::Bindings>,
+                                      /* arg_counter = */ int>(
+      [&ins, register_numbers]<typename BindingInfo>(int& arg_counter) {
+        using Operand = std::tuple_element_t<0, BindingInfo>;
+        using Binding = std::tuple_element_t<1, BindingInfo>;
+        if constexpr (!device_arch_info::kIsFLAGS<Operand> && HaveInput(Binding::kArgInfo) &&
+                      Operand::kUsage != device_arch_info::kUse) {
+          ins.push_back(
+              "\"" + std::to_string(register_numbers[arg_counter]) + "\"(in" +
+              std::to_string(Binding::kArgInfo.from) +
+              (NeedInputShadow<IntrinsicBindingInfo, Binding, Operand>() ? "_shadow)" : ")"));
+        }
+        ++arg_counter;
+      });
   GenerateElementsList<IntrinsicBindingInfo>(out, indent, "  : ", "", ins);
 }
 
 template <typename IntrinsicBindingInfo>
 void GenerateOutShadows(FILE* out, int indent) {
-  IntrinsicBindingInfo::ProcessBindings([out, indent]<typename Binding, typename Operand> {
+  TypesToValues::ForEach<
+      TypesToTypes::Zip<typename IntrinsicBindingInfo::Operands,
+                        typename IntrinsicBindingInfo::Bindings>>([out,
+                                                                   indent]<typename BindingInfo>() {
+    using Operand = std::tuple_element_t<0, BindingInfo>;
+    using Binding = std::tuple_element_t<1, BindingInfo>;
     using RegisterClass = Operand::Class;
     if constexpr (device_arch_info::kIsFLAGS<Operand>) {
       // Flags don't require shadows.
