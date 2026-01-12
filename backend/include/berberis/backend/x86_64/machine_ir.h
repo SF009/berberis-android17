@@ -450,29 +450,27 @@ class MachineInsn final : public MachineInsnX86_64 {
       }>;
   // Note: IR instructions may only produce registers right now, thus tuple is an array, currently.
   using OutputArgsTuple =
-      std::array<MachineReg,
-                 std::tuple_size_v<
-                     TypesToTypes::FlatMap<typename DeviceInsnInfo::Operands, []<typename Operand> {
-                       if constexpr (device_arch_info::kIsComment<Operand> ||
-                                     device_arch_info::kIsCondition<Operand> ||
-                                     device_arch_info::kIsImmediate<Operand>) {
-                         return kMetaTypes<>;
-                       } else if constexpr (device_arch_info::kIsRegister<Operand>) {
-                         if constexpr (Operand::kUsage == device_arch_info::kDef ||
-                                       Operand::kUsage == device_arch_info::kDefEarlyClobber ||
-                                       Operand::kUsage == device_arch_info::kUseDef) {
-                           return kMetaTypes<MachineReg>;
-                         } else if constexpr (Operand::kUsage == device_arch_info::kUse) {
-                           return kMetaTypes<>;
-                         } else {
-                           static_assert(kDependentValueFalse<Operand::kUsage>);
-                         }
-                       } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
-                         return kMetaTypes<>;
-                       } else {
-                         static_assert(kDependentTypeFalse<Operand>);
-                       }
-                     }>>>;
+      TypesToTypes::FlatMap<typename DeviceInsnInfo::Operands, []<typename Operand> {
+        if constexpr (device_arch_info::kIsComment<Operand> ||
+                      device_arch_info::kIsCondition<Operand> ||
+                      device_arch_info::kIsImmediate<Operand>) {
+          return kMetaTypes<>;
+        } else if constexpr (device_arch_info::kIsRegister<Operand>) {
+          if constexpr (Operand::kUsage == device_arch_info::kDef ||
+                        Operand::kUsage == device_arch_info::kDefEarlyClobber ||
+                        Operand::kUsage == device_arch_info::kUseDef) {
+            return kMetaTypes<MachineReg>;
+          } else if constexpr (Operand::kUsage == device_arch_info::kUse) {
+            return kMetaTypes<>;
+          } else {
+            static_assert(kDependentValueFalse<Operand::kUsage>);
+          }
+        } else if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
+          return kMetaTypes<>;
+        } else {
+          static_assert(kDependentTypeFalse<Operand>);
+        }
+      }>;
 
   MachineInsn& operator=(const MachineInsn&) = delete;
 
