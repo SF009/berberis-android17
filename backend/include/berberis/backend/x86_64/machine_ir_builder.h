@@ -110,7 +110,7 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
             // as input for shift.
             auto dst = ir()->AllocVReg();
             auto src = std::get<kOperand.arg_index>(args_tuple);
-            Gen<berberis::Copy>(dst, src, kOperand.pseudo_copy_size);
+            Gen<Copy>(dst, src, kOperand.pseudo_copy_size);
             return dst;
           } else {
             static_assert(kOperand.process_way == kPassthroughOperand);
