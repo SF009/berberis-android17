@@ -272,209 +272,250 @@ class TryBindingBasedInlineIntrinsic {
     } else {
       static_assert(kDependentValueFalse<IntrinsicBindingInfo::kCPUIDRestriction>);
     }
+
+    // 8086 has pretty convoluted ISA where each of its eight “general purpose” registers have
+    // special role. Thankfully 80386 made ISA more uniform but even today there are instructions
+    // that can only use Accumulator Register ('a' register), Base Register ('b' register), Counter
+    // Register ('c' register) or Data Register ('d' register).
+    // The most “popular” are Accumulator Register ('a' register; there are many instructions that
+    // can only use accumulator and nothing else) and Counter Register ('c' register; all shifts can
+    // only use Counter Register or immediate) – we never allocate these in lite translator thus
+    // they are always available for the use in intrinsics.
+    // Two other registers, Base Register ('b' register) and Data Register ('d' register) can be
+    // allocated but they are never used in the same intrinsic as Counter Register ('c' register).
+    // This allows us to do the trick: use Counter Register ('c' register) to temporarily hold the
+    // information from Base Register ('b' register) or Data Register ('d' register) if intrinsic
+    // clobbers them.
+    // Plus we should not do that if either of these two register are used to return the results.
+
+    // Verify that we don't need more than one register out of these three.
+    static_assert(!kUntouched<IntrinsicBindingInfo, 'b'> + !kUntouched<IntrinsicBindingInfo, 'c'> +
+                      !kUntouched<IntrinsicBindingInfo, 'd'> <=
+                  1);
+    const bool kRenameRbxInputToRcx = !kUntouched<IntrinsicBindingInfo, 'b'> &&
+                                      ValuesToValues::Contains(input_args_, x86_64::Assembler::rbx);
+    const bool kSaveRestoreRbxUsingRcx =
+        !(kUntouched<IntrinsicBindingInfo, 'b'> ||
+          ValuesToValues::Contains(result_, x86_64::Assembler::rbx));
+    const bool kRenameRdxInputToRcx = !kUntouched<IntrinsicBindingInfo, 'd'> &&
+                                      ValuesToValues::Contains(input_args_, x86_64::Assembler::rdx);
+    const bool kSaveRestoreRdxUsingRcx =
+        !(kUntouched<IntrinsicBindingInfo, 'd'> ||
+          ValuesToValues::Contains(result_, x86_64::Assembler::rdx));
+
+    if (kRenameRbxInputToRcx || kSaveRestoreRbxUsingRcx) {
+      as_.Movq(x86_64::Assembler::rcx, x86_64::Assembler::rbx);
+    }
+    if (kRenameRdxInputToRcx || kSaveRestoreRdxUsingRcx) {
+      as_.Movq(x86_64::Assembler::rcx, x86_64::Assembler::rdx);
+    }
+
+    x86_64::Assembler::XMMRegister xmm_for_gp_result = x86_64::Assembler::no_xmm_register;
+    uint32_t scratch_arg = 0;
+
     std::apply(
         IntrinsicBindingInfo::kEmitInsnFunc,
         std::tuple_cat(
             std::tuple<MacroAssembler<x86_64::Assembler>&>{as_},
-            IntrinsicBindingInfo::template MakeTuplefromBindings<TryBindingBasedInlineIntrinsic&>(
-                *this, asm_call_info)));
-    if constexpr (std::tuple_size_v<typename IntrinsicBindingInfo::OutputArguments> == 0) {
-      // No return value. Do nothing.
-    } else if constexpr (std::tuple_size_v<typename IntrinsicBindingInfo::OutputArguments> == 1) {
-      using ReturnType = std::tuple_element_t<0, typename IntrinsicBindingInfo::OutputArguments>;
-      if constexpr (std::is_integral_v<ReturnType>) {
-        if (implicit_reg_for_result_ != x86_64::Assembler::no_register) {
-          Mov<ReturnType>(as_, std::get<0>(result_), implicit_reg_for_result_);
-          CHECK_EQ(xmm_for_gp_result_, x86_64::Assembler::no_xmm_register);
-        } else if (xmm_for_gp_result_ != x86_64::Assembler::no_xmm_register) {
-          Mov<typename TypeTraits<ReturnType>::Float>(
-              as_, std::get<0>(result_), xmm_for_gp_result_);
-          CHECK_EQ(implicit_reg_for_result_, x86_64::Assembler::no_register);
-        }
-      } else {
-        CHECK_EQ(implicit_reg_for_result_, x86_64::Assembler::no_register);
-        CHECK_EQ(xmm_for_gp_result_, x86_64::Assembler::no_xmm_register);
-      }
-      if constexpr (std::is_integral_v<ReturnType> && sizeof(ReturnType) < sizeof(std::int32_t)) {
-        // Don't handle these types just yet. We are not sure how to expand them and there
-        // are no examples.
-        static_assert(kDependentTypeFalse<ReturnType>);
-      }
-      if constexpr (std::is_same_v<ReturnType, int32_t> || std::is_same_v<ReturnType, uint32_t>) {
-        // Expans 32 bit values as signed. Even if actual results are processed as unsigned!
-        as_.Expand<int64_t, std::make_signed_t<ReturnType>>(std::get<0>(result_),
-                                                            std::get<0>(result_));
-      } else if constexpr (std::is_integral_v<ReturnType> &&
-                           sizeof(ReturnType) == sizeof(std::int64_t)) {
-        // Do nothing, we have already produced expanded value.
-      } else if constexpr (std::is_same_v<ReturnType, Float32> ||
-                           std::is_same_v<ReturnType, Float64>) {
-        // Do nothing, NaN boxing is handled by semantics player.
-      } else {
-        static_assert(kDependentTypeFalse<ReturnType>);
-      }
-    } else {
-      static_assert(kDependentTypeFalse<typename IntrinsicBindingInfo::OutputArguments>);
+            TypesToValues::FlatMap<TypesToTypes::Zip<typename IntrinsicBindingInfo::Operands,
+                                                     typename IntrinsicBindingInfo::Bindings>>(
+                *this,
+                xmm_for_gp_result,
+                scratch_arg,
+                asm_call_info,
+                kRenameRbxInputToRcx,
+                kRenameRdxInputToRcx)));
+
+    TypesToValues::ForEach<TypesToTypes::Zip<typename IntrinsicBindingInfo::Operands,
+                                             typename IntrinsicBindingInfo::Bindings>>(
+        [&xmm_for_gp_result, this]<typename BindingInfo>() -> decltype(auto) {
+          using Operand = std::tuple_element_t<0, BindingInfo>;
+          using Binding = std::tuple_element_t<1, BindingInfo>;
+          if constexpr (HaveOutput(Binding::kArgInfo)) {
+            using ReturnType = std::tuple_element_t<Binding::kArgInfo.to,
+                                                    typename IntrinsicBindingInfo::OutputArguments>;
+            auto reg = std::get<Binding::kArgInfo.to>(result_);
+            if constexpr (device_arch_info::kIsImplicitReg<Operand>) {
+              static_assert(std::is_integral_v<ReturnType>);
+              constexpr auto kRegister =
+                  std::tuple_element_t<0, typename Operand::Class::RegistersList>::
+                      template kMachineRegId<x86_64::Assembler::Registers>;
+              CHECK_EQ(xmm_for_gp_result, x86_64::Assembler::no_xmm_register);
+              // Intrinsic should do signed extension on 32-bit return types.
+              if constexpr (sizeof(ReturnType) == sizeof(int32_t)) {
+                as_.template Expand<int64_t, int32_t>(reg, kRegister);
+              } else {
+                static_assert(sizeof(ReturnType) == sizeof(int64_t));
+                as_.Movq(reg, kRegister);
+              }
+            } else if constexpr (Operand::Class::kAsRegister == 'x' &&
+                                 std::is_integral_v<ReturnType>) {
+              CHECK_NE(xmm_for_gp_result, x86_64::Assembler::no_xmm_register);
+              Mov<typename TypeTraits<ReturnType>::Float>(as_, reg, xmm_for_gp_result);
+              // Intrinsic should do signed extension on 32-bit return types.
+            } else if constexpr (std::is_integral_v<ReturnType> &&
+                                 sizeof(ReturnType) == sizeof(uint32_t)) {
+              CHECK_EQ(xmm_for_gp_result, x86_64::Assembler::no_xmm_register);
+              as_.template Expand<int64_t, int32_t>(reg, reg);
+            } else if constexpr (std::is_integral_v<ReturnType>) {
+              static_assert(sizeof(ReturnType) == sizeof(int64_t));
+              CHECK_EQ(xmm_for_gp_result, x86_64::Assembler::no_xmm_register);
+            }
+          }
+        });
+
+    if (kSaveRestoreRdxUsingRcx) {
+      as_.Movq(x86_64::Assembler::rdx, x86_64::Assembler::rcx);
     }
+    if (kSaveRestoreRbxUsingRcx) {
+      as_.Movq(x86_64::Assembler::rbx, x86_64::Assembler::rcx);
+    }
+
     return {true};
   }
 
-  template <typename ArgBinding, typename OperandInfo, typename IntrinsicBindingInfo>
-  auto /*MakeTuplefromBindingsClient*/ operator()(IntrinsicBindingInfo) {
-    if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::IMM_ARG) {
-      return ProcessArgInput<ArgBinding, OperandInfo, IntrinsicBindingInfo>(reg_alloc_);
+  template <typename BindingInfo, typename IntrinsicBindingInfo>
+  auto /*FlatMapClient*/ operator()(x86_64::Assembler::XMMRegister& xmm_for_gp_result,
+                                    uint32_t& scratch_arg,
+                                    IntrinsicBindingInfo,
+                                    bool kRenameRbxInputToRcx,
+                                    bool kRenameRdxInputToRcx) {
+    using Operand = std::tuple_element_t<0, BindingInfo>;
+    using Binding = std::tuple_element_t<1, BindingInfo>;
+    if constexpr (Binding::kArgInfo.arg_type == ArgInfo::IMM_ARG) {
+      return std::tuple{std::get<Binding::kArgInfo.from>(input_args_)};
     } else {
-      using RegisterClass = typename OperandInfo::Class;
-      if constexpr (device_arch_info::kIsFLAGS<OperandInfo>) {
-        return ProcessArgInput<ArgBinding, OperandInfo, IntrinsicBindingInfo>(nullptr);
-      } else if constexpr (RegisterClass::kAsRegister == 'x') {
-        return ProcessArgInput<ArgBinding, OperandInfo, IntrinsicBindingInfo>(simd_reg_alloc_);
-      } else {
-        return ProcessArgInput<ArgBinding, OperandInfo, IntrinsicBindingInfo>(reg_alloc_);
-      }
-    }
-  }
-
-  template <typename ArgBinding,
-            typename OperandInfo,
-            typename IntrinsicBindingInfo,
-            typename RegAllocForArg>
-  auto ProcessArgInput(RegAllocForArg&& reg_alloc) {
-    if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::IMM_ARG) {
-      return std::tuple{std::get<ArgBinding::kArgInfo.from>(input_args_)};
-    } else {
-      using RegisterClass = typename OperandInfo::Class;
-      static constexpr auto kUsage = OperandInfo::kUsage;
-      if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::IN_ARG) {
-        using Type = std::tuple_element_t<ArgBinding::kArgInfo.from,
+      using RegisterClass = typename Operand::Class;
+      static constexpr auto kUsage = Operand::kUsage;
+      if constexpr (Binding::kArgInfo.arg_type == ArgInfo::IN_ARG ||
+                    Binding::kArgInfo.arg_type == ArgInfo::IN_TMP_ARG) {
+        static_assert(kUsage == device_arch_info::kUse || kUsage == device_arch_info::kUseDef);
+        auto arg = std::get<Binding::kArgInfo.from>(input_args_);
+        using Type = std::tuple_element_t<Binding::kArgInfo.from,
                                           typename IntrinsicBindingInfo::InputArguments>;
         if constexpr (RegisterClass::kAsRegister == 'x' && std::is_integral_v<Type>) {
-          auto reg = reg_alloc();
-          Mov<typename TypeTraits<int64_t>::Float>(
-              as_, reg, std::get<ArgBinding::kArgInfo.from>(input_args_));
+          static_assert(!device_arch_info::kIsImplicitReg<Operand>);
+          auto reg = simd_reg_alloc_();
+          Mov<typename TypeTraits<int64_t>::Float>(as_, reg, arg);
           return std::tuple{reg};
-        } else {
-          static_assert(kUsage == device_arch_info::kUse);
-          static_assert(!device_arch_info::kIsImplicitReg<OperandInfo>);
-          return std::tuple{std::get<ArgBinding::kArgInfo.from>(input_args_)};
-        }
-      } else if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::IN_OUT_ARG) {
-        using Type = std::tuple_element_t<ArgBinding::kArgInfo.from,
-                                          typename IntrinsicBindingInfo::InputArguments>;
-        static_assert(kUsage == device_arch_info::kUseDef);
-        static_assert(!device_arch_info::kIsImplicitReg<OperandInfo>);
-        if constexpr (RegisterClass::kAsRegister == 'x' && std::is_integral_v<Type>) {
-          static_assert(std::is_integral_v<
-                        std::tuple_element_t<ArgBinding::kArgInfo.to,
-                                             typename IntrinsicBindingInfo::OutputArguments>>);
-          CHECK_EQ(xmm_for_gp_result_, x86_64::Assembler::no_xmm_register);
-          xmm_for_gp_result_ = reg_alloc();
-          Mov<typename TypeTraits<int64_t>::Float>(
-              as_, xmm_for_gp_result_, std::get<ArgBinding::kArgInfo.from>(input_args_));
-          return std::tuple{xmm_for_gp_result_};
-        } else {
-          Mov<std::tuple_element_t<ArgBinding::kArgInfo.from,
-                                   typename IntrinsicBindingInfo::InputArguments>>(
-              as_, std::get<0>(result_), std::get<ArgBinding::kArgInfo.from>(input_args_));
-          return std::tuple{result_};
-        }
-      } else if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::IN_TMP_ARG) {
-        if constexpr (RegisterClass::kAsRegister == 'c') {
-          Mov<std::tuple_element_t<ArgBinding::kArgInfo.from,
-                                   typename IntrinsicBindingInfo::InputArguments>>(
-              as_, as_.rcx, std::get<ArgBinding::kArgInfo.from>(input_args_));
-          return std::tuple{};
-        } else if constexpr (RegisterClass::kAsRegister == 'a') {
-          Mov<std::tuple_element_t<ArgBinding::kArgInfo.from,
-                                   typename IntrinsicBindingInfo::InputArguments>>(
-              as_, as_.rax, std::get<ArgBinding::kArgInfo.from>(input_args_));
-          return std::tuple{};
-        } else {
-          static_assert(kUsage == device_arch_info::kUseDef);
-          static_assert(!device_arch_info::kIsImplicitReg<OperandInfo>);
-          auto reg = reg_alloc();
-          Mov<std::tuple_element_t<ArgBinding::kArgInfo.from,
-                                   typename IntrinsicBindingInfo::InputArguments>>(
-              as_, reg, std::get<ArgBinding::kArgInfo.from>(input_args_));
-          return std::tuple{reg};
-        }
-      } else if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::IN_OUT_TMP_ARG) {
-        using Type = std::tuple_element_t<ArgBinding::kArgInfo.from,
-                                          typename IntrinsicBindingInfo::InputArguments>;
-        static_assert(kUsage == device_arch_info::kUseDef);
-        static_assert(device_arch_info::kIsImplicitReg<OperandInfo>);
-        if constexpr (RegisterClass::kAsRegister == 'a') {
-          CHECK_EQ(implicit_reg_for_result_, x86_64::Assembler::no_register);
-          Mov<Type>(as_, as_.rax, std::get<ArgBinding::kArgInfo.from>(input_args_));
-          implicit_reg_for_result_ = as_.rax;
-          return std::tuple{};
-        } else {
-          static_assert(kDependentValueFalse<ArgBinding::kArgInfo>);
-        }
-      } else if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::OUT_ARG) {
-        using Type = std::tuple_element_t<ArgBinding::kArgInfo.to,
-                                          typename IntrinsicBindingInfo::OutputArguments>;
-        static_assert(kUsage == device_arch_info::kDef ||
-                      kUsage == device_arch_info::kDefEarlyClobber);
-        if constexpr (RegisterClass::kAsRegister == 'a') {
-          CHECK_EQ(implicit_reg_for_result_, x86_64::Assembler::no_register);
-          implicit_reg_for_result_ = as_.rax;
-          return std::tuple{};
-        } else if constexpr (RegisterClass::kAsRegister == 'c') {
-          CHECK_EQ(implicit_reg_for_result_, x86_64::Assembler::no_register);
-          implicit_reg_for_result_ = as_.rcx;
-          return std::tuple{};
-        } else {
-          static_assert(!device_arch_info::kIsImplicitReg<OperandInfo>);
-          if constexpr (RegisterClass::kAsRegister == 'x' && std::is_integral_v<Type>) {
-            CHECK_EQ(xmm_for_gp_result_, x86_64::Assembler::no_xmm_register);
-            xmm_for_gp_result_ = reg_alloc();
-            return std::tuple{xmm_for_gp_result_};
+        } else if constexpr (RegisterClass::kAsRegister == 'x') {
+          static_assert(!device_arch_info::kIsImplicitReg<Operand>);
+          if constexpr (kUsage == device_arch_info::kUse) {
+            return std::tuple{arg};
           } else {
-            return std::tuple{result_};
+            static_assert(!device_arch_info::kIsImplicitReg<Operand>);
+            auto reg = simd_reg_alloc_();
+            Mov<std::tuple_element_t<Binding::kArgInfo.from,
+                                     typename IntrinsicBindingInfo::InputArguments>>(as_, reg, arg);
+            return std::tuple{reg};
+          }
+        } else if constexpr (device_arch_info::kIsImplicitReg<Operand>) {
+          constexpr auto kRegister =
+              std::tuple_element_t<0, typename Operand::Class::RegistersList>::
+                  template kMachineRegId<x86_64::Assembler::Registers>;
+          if (arg != kRegister) {
+            as_.template Mov<std::tuple_element_t<Binding::kArgInfo.from,
+                                                  typename IntrinsicBindingInfo::InputArguments>>(
+                kRegister, arg);
+          }
+          return std::tuple{};
+        } else if (kUsage == device_arch_info::kUseDef) {
+          auto reg = reg_alloc_();
+          Mov<std::tuple_element_t<Binding::kArgInfo.from,
+                                   typename IntrinsicBindingInfo::InputArguments>>(as_, reg, arg);
+          return std::tuple{reg};
+        } else if ((kRenameRbxInputToRcx && arg == x86_64::Assembler::rbx) ||
+                   (kRenameRdxInputToRcx && arg == x86_64::Assembler::rdx)) {
+          return std::tuple{x86_64::Assembler::rcx};
+        } else {
+          return std::tuple{arg};
+        }
+      } else if constexpr (Binding::kArgInfo.arg_type == ArgInfo::IN_OUT_ARG ||
+                           Binding::kArgInfo.arg_type == ArgInfo::IN_OUT_TMP_ARG) {
+        using Type = std::tuple_element_t<Binding::kArgInfo.from,
+                                          typename IntrinsicBindingInfo::InputArguments>;
+        static_assert(kUsage == device_arch_info::kUseDef);
+        if constexpr (device_arch_info::kIsImplicitReg<Operand>) {
+          static_assert(RegisterClass::kAsRegister == 'a');
+          Mov<Type>(as_, as_.rax, std::get<Binding::kArgInfo.from>(input_args_));
+          return std::tuple{};
+        } else {
+          auto arg = std::get<Binding::kArgInfo.from>(input_args_);
+          if constexpr (RegisterClass::kAsRegister == 'x' && std::is_integral_v<Type>) {
+            static_assert(std::is_integral_v<
+                          std::tuple_element_t<Binding::kArgInfo.to,
+                                               typename IntrinsicBindingInfo::OutputArguments>>);
+            CHECK_EQ(xmm_for_gp_result, x86_64::Assembler::no_xmm_register);
+            xmm_for_gp_result = simd_reg_alloc_();
+            Mov<typename TypeTraits<int64_t>::Float>(as_, xmm_for_gp_result, arg);
+            return std::tuple{xmm_for_gp_result};
+          } else {
+            auto reg = std::get<Binding::kArgInfo.to>(result_);
+            Mov<std::tuple_element_t<Binding::kArgInfo.from,
+                                     typename IntrinsicBindingInfo::InputArguments>>(as_, reg, arg);
+            return std::tuple{reg};
           }
         }
-      } else if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::OUT_TMP_ARG) {
-        if constexpr (RegisterClass::kAsRegister == 'd') {
-          implicit_reg_for_result_ = as_.rdx;
-          return std::tuple{};
-        } else if constexpr (RegisterClass::kAsRegister == 'a') {
-          implicit_reg_for_result_ = as_.rax;
-          return std::tuple{};
-        } else {
-          static_assert(kDependentValueFalse<ArgBinding::kArgInfo>);
-        }
-      } else if constexpr (ArgBinding::kArgInfo.arg_type == ArgInfo::TMP_ARG) {
+      } else if constexpr (Binding::kArgInfo.arg_type == ArgInfo::OUT_ARG) {
         static_assert(kUsage == device_arch_info::kDef ||
                       kUsage == device_arch_info::kDefEarlyClobber);
-        if constexpr (device_arch_info::kIsMemoryOperand<OperandInfo>) {
-          if (scratch_arg_ >= config::kScratchAreaSize / config::kScratchAreaSlotSize) {
+        using Type = std::tuple_element_t<Binding::kArgInfo.to,
+                                          typename IntrinsicBindingInfo::OutputArguments>;
+        if constexpr (device_arch_info::kIsImplicitReg<Operand>) {
+          return std::tuple{};
+        } else if constexpr (RegisterClass::kAsRegister == 'x' && std::is_integral_v<Type>) {
+          CHECK_EQ(xmm_for_gp_result, x86_64::Assembler::no_xmm_register);
+          xmm_for_gp_result = simd_reg_alloc_();
+          return std::tuple{xmm_for_gp_result};
+        } else {
+          return std::tuple{std::get<Binding::kArgInfo.to>(result_)};
+        }
+      } else if constexpr (Binding::kArgInfo.arg_type == ArgInfo::OUT_TMP_ARG) {
+        static_assert(device_arch_info::kIsImplicitReg<Operand>);
+        return std::tuple{};
+      } else if constexpr (Binding::kArgInfo.arg_type == ArgInfo::TMP_ARG) {
+        static_assert(kUsage == device_arch_info::kDef ||
+                      kUsage == device_arch_info::kDefEarlyClobber);
+        if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
+          if (scratch_arg >= config::kScratchAreaSize / config::kScratchAreaSlotSize) {
             FATAL("Only two scratch registers are supported for now");
           }
           return std::tuple{x86_64::Assembler::Operand{
               .base = as_.rbp,
               .disp = static_cast<int>(offsetof(ThreadState, intrinsics_scratch_area) +
-                                       config::kScratchAreaSlotSize * scratch_arg_++)}};
-        } else if constexpr (device_arch_info::kIsImplicitReg<OperandInfo>) {
+                                       config::kScratchAreaSlotSize * scratch_arg++)}};
+        } else if constexpr (device_arch_info::kIsImplicitReg<Operand>) {
           return std::tuple{};
+        } else if constexpr (RegisterClass::kAsRegister == 'x') {
+          return std::tuple{simd_reg_alloc_()};
         } else {
-          return std::tuple{reg_alloc()};
+          return std::tuple{reg_alloc_()};
         }
-      } else {
-        static_assert(kDependentValueFalse<ArgBinding::kArgInfo>);
       }
     }
   }
 
+  template <typename IntrinsicBindingInfo, char kAsRegister>
+  static constexpr bool kUntouched =
+      TypesToValues::All<typename IntrinsicBindingInfo::Operands>([]<typename Operand>() {
+        // Immediate argument doesn't change anything and FLAGS is distinct from other registers,
+        // but we must check them first, otherwise access to Operand::Class::kAsRegister would fail
+        // to compile.
+        if constexpr (device_arch_info::kIsImmediate<Operand> ||
+                      device_arch_info::kIsFLAGS<Operand>) {
+          return true;
+        } else {
+          return Operand::Class::kAsRegister != kAsRegister;
+        }
+      });
+
  private:
+  friend class berberis::TypesToValues;
   MacroAssembler<x86_64::Assembler>& as_;
   RegAlloc& reg_alloc_;
   SIMDRegAlloc& simd_reg_alloc_;
   AssemblerResType result_;
-  x86_64::Assembler::Register implicit_reg_for_result_ = x86_64::Assembler::no_register;
-  x86_64::Assembler::XMMRegister xmm_for_gp_result_ = x86_64::Assembler::no_xmm_register;
   std::tuple<AssemblerArgType...> input_args_;
-  uint32_t scratch_arg_ = 0;
   bool success_;
 };
 

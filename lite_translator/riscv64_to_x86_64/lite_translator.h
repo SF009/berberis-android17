@@ -19,7 +19,6 @@
 
 #include <cstdint>
 #include <tuple>
-#include <variant>
 
 #include "berberis/assembler/common.h"
 #include "berberis/assembler/x86_64.h"
@@ -483,7 +482,7 @@ class LiteTranslator {
               as_,
               [this]() { return AllocTempReg(); },
               [this]() { return AllocTempSimdReg(); },
-              std::monostate{},
+              std::tuple<>{},
               args...)) {
         return;
       }

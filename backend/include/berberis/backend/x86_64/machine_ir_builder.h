@@ -17,6 +17,7 @@
 #ifndef BERBERIS_BACKEND_X86_64_MACHINE_IR_BUILDER_H_
 #define BERBERIS_BACKEND_X86_64_MACHINE_IR_BUILDER_H_
 
+#include <algorithm>
 #include <array>
 #include <iterator>
 #include <tuple>
@@ -38,8 +39,8 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
   explicit MachineIRBuilder(MachineIR* ir) : MachineIRBuilderBase(ir) {}
 
   template <typename InsnType, typename... Args>
-  /*may_discard*/ InsnType* Gen(Args... args) {
-    return MachineIRBuilderBase::Gen<InsnType, Args...>(args...);
+  /*may_discard*/ InsnType* Gen(Args&&... args) {
+    return MachineIRBuilderBase::Gen<InsnType, Args...>(std::forward<Args>(args)...);
   }
 
   BERBERIS_DECLARE_MACHINE_INSN_ADAPTER(
@@ -49,6 +50,112 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
       MachineIRBuilderBase::Gen,
       kSSAMode,
       auto kSSAMode = false)
+
+  template <typename InsnType,
+            typename Bindings = typename InsnType::BindingsTuple,
+            typename InputArgsTuple,
+            typename FlagsRegister>
+  auto GenMachineInsn(InputArgsTuple&& args_tuple, FlagsRegister flags_register) {
+    constexpr std::size_t kOutputSize = TypesToValues::Produce<Bindings>(
+        /* output = */ std::size_t{0}, []<typename Binding>(std::size_t& output_size) {
+          // Note: order of outputs in Intrinsic and [Macro]Instructions may not match.
+          // Ensure that outputs can fit all elements.
+          if constexpr (HaveOutput(Binding::kArgInfo)) {
+            output_size = std::max<std::size_t>(output_size, Binding::kArgInfo.to + 1);
+          }
+        });
+    TypesToTypes::Concat<std::array<MachineReg, kOutputSize>> output;
+    std::int32_t scratch_arg_idx = 0;
+    Gen<InsnType>(TypesToValues::FlatMap<
+                  TypesToTypes::Zip<typename InsnType::DeviceInsnInfo::Operands, Bindings>>(
+        [&args_tuple, &output, flags_register, &scratch_arg_idx, this]<typename BindingInfo>()
+            -> decltype(auto) {
+          using Operand = std::tuple_element_t<0, BindingInfo>;
+          using Binding = std::tuple_element_t<1, BindingInfo>;
+          if constexpr (device_arch_info::kIsMemoryOperand<Operand>) {
+            if constexpr (IsTemporary(Binding::kArgInfo)) {
+              if (scratch_arg_idx >= 2) {
+                FATAL("Only two scratch registers are supported for now");
+              }
+              using ThreadState =
+                  std::enable_if_t<!kDependentTypeFalse<Binding>, berberis::ThreadState>;
+              return std::tuple{x86_64::MemoryOperand{
+                  .base = x86_64::kMachineRegRBP,
+                  .disp = static_cast<int32_t>(offsetof(ThreadState, intrinsics_scratch_area) +
+                                               config::kScratchAreaSlotSize * scratch_arg_idx++)}};
+            } else {
+              static_assert(HaveInput(Binding::kArgInfo));
+              static_assert(!HaveOutput(Binding::kArgInfo));
+              return std::array{std::get<Binding::kArgInfo.from>(args_tuple)};
+            }
+          } else if constexpr (IsImmediate(Binding::kArgInfo)) {
+            return std::array{std::get<Binding::kArgInfo.from>(args_tuple)};
+          } else if constexpr (HaveInput(Binding::kArgInfo)) {
+            static_assert(device_arch_info::kIsRegister<Operand>);
+            // If register is implicit we need to add extra PseudoCopy here even if it's pure
+            // input. Otherwise we may attempt to make the same register to belong to two
+            // different, incompatible register classes if it's ALSO output of another
+            // instruction with a different implicit class. E.g. if output of division is used
+            // as input for shift.
+            auto src = std::get<Binding::kArgInfo.from>(args_tuple);
+            if constexpr (std::tuple_size_v<typename Operand::Class::RegistersList> == 1 &&
+                          !device_arch_info::kIsFLAGS<Operand>) {
+              auto dst = ir()->AllocVReg();
+              Gen<Copy>(dst, src, Operand::Class::kSizeInBits / 8);
+              src = dst;
+            }
+            if constexpr (HaveOutput(Binding::kArgInfo)) {
+              static_assert(Operand::kUsage == device_arch_info::kUseDef);
+              std::enable_if_t<!kDependentTypeFalse<Binding>, MachineReg> out_reg;
+              if constexpr (device_arch_info::kIsFLAGS<Operand>) {
+                out_reg = flags_register;
+              } else {
+                out_reg = ir()->AllocVReg();
+              }
+              std::get<Binding::kArgInfo.to>(output) = out_reg;
+              return std::pair{out_reg, src};
+            } else if constexpr (Operand::kUsage == device_arch_info::kUseDef) {
+              // Register is used as input and then is clobbered in calculations.
+              if constexpr (device_arch_info::kIsFLAGS<Operand>) {
+                return std::pair{flags_register, src};
+              } else {
+                return std::pair{ir()->AllocVReg(), src};
+              }
+            } else {
+              static_assert(Operand::kUsage == device_arch_info::kUse);
+              return std::array{src};
+            }
+          } else if constexpr (HaveOutput(Binding::kArgInfo)) {
+            static_assert(device_arch_info::kIsRegister<Operand>);
+            static_assert(Operand::kUsage == device_arch_info::kDef ||
+                          Operand::kUsage == device_arch_info::kDefEarlyClobber);
+            std::enable_if_t<!kDependentTypeFalse<Binding>, MachineReg> out_reg;
+            if constexpr (device_arch_info::kIsFLAGS<Operand>) {
+              out_reg = flags_register;
+            } else {
+              out_reg = ir()->AllocVReg();
+            }
+            std::get<Binding::kArgInfo.to>(output) = out_reg;
+            return std::tuple{out_reg};
+          } else if constexpr (IsTemporary(Binding::kArgInfo)) {
+            // Temporary operands are often kDefEarlyClobber. However, if a temporary is used only
+            // after all inputs are consumed, it is not an early clobber. Sometimes, the verifier
+            // allows both kDef and kDefEarlyClobber; in such cases, we use kDef to avoid
+            // ambiguity.
+            static_assert(Operand::kUsage == device_arch_info::kDef ||
+                          Operand::kUsage == device_arch_info::kDefEarlyClobber);
+            if constexpr (device_arch_info::kIsFLAGS<Operand>) {
+              return std::tuple{flags_register};
+            } else {
+              static_assert(device_arch_info::kIsRegister<Operand>);
+              return std::tuple{ir()->AllocVReg()};
+            }
+          } else {
+            static_assert(kDependentTypeFalse<Binding>, "Unsupported binding");
+          }
+        }));
+    return output;
+  }
 
   void GenGet(MachineReg dst_reg, int32_t offset) {
     Gen<x86_64::MovqRegOp>(dst_reg, {.base = x86_64::kMachineRegRBP, .disp = offset});

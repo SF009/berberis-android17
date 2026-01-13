@@ -24,6 +24,11 @@
 
 namespace berberis::device_arch_info {
 
+class Comment {
+ public:
+  using Type = const char*;
+};
+
 class Mem8 {
  public:
   using Type = uint8_t;
@@ -47,6 +52,20 @@ class Mem64 {
   using Type = uint64_t;
   static constexpr char kAsRegister = 'm';
 };
+
+template <typename OperandClass, typename = void>
+inline constexpr bool kIsComment = false;
+
+template <typename OperandClass>
+inline constexpr bool
+    kIsComment<OperandClass, std::enable_if_t<sizeof(typename OperandClass::Class) >= 1>> =
+        kIsComment<typename OperandClass::Class>;
+
+template <typename OperandClassesTuple>
+inline constexpr size_t kCountComments =
+    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
+      return kIsComment<OperandClass>;
+    }>>;
 
 template <typename OperandClass, typename = void>
 inline constexpr bool kIsCondition = false;
@@ -139,8 +158,8 @@ inline constexpr size_t kCountMemoryOperands =
     }>>;
 
 template <typename OperandClass, typename = void>
-inline constexpr bool kIsRegister =
-    !kIsCondition<OperandClass> && !kIsImmediate<OperandClass> && !kIsMemoryOperand<OperandClass>;
+inline constexpr bool kIsRegister = !kIsComment<OperandClass> && !kIsCondition<OperandClass> &&
+                                    !kIsImmediate<OperandClass> && !kIsMemoryOperand<OperandClass>;
 
 template <typename OperandClassesTuple>
 inline constexpr size_t kCountRegisters =
@@ -203,6 +222,9 @@ template <typename OperandClass>
 inline constexpr bool
     kIsMemoryOperand<OperandClass, std::enable_if_t<sizeof(typename OperandClass::Class) >= 1>> =
         kIsMemoryOperand<typename OperandClass::Class>;
+
+template <>
+inline constexpr bool kIsComment<Comment> = true;
 
 template <>
 inline constexpr bool kIsMemoryOperand<Mem8> = true;
