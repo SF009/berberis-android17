@@ -28,6 +28,7 @@
 #include "berberis/base/checks.h"
 #include "berberis/base/config.h"
 #include "berberis/base/type_traits.h"
+#include "berberis/guest_state/guest_state_opaque.h"
 #include "berberis/intrinsics/common/intrinsics_bindings.h"
 #include "berberis/intrinsics/intrinsics_args.h"
 #include "berberis/intrinsics/macro_assembler.h"
@@ -135,8 +136,9 @@ constexpr void CallAssembler(MacroAssembler<TextAssembler>* as, int* register_nu
                              // scratch2 address in scratch buffer.
                              return std::tuple{typename MacroAssembler<TextAssembler>::Operand{
                                  .base = as->gpr_scratch,
-                                 .disp = static_cast<int32_t>(config::kScratchAreaSlotSize *
-                                                              scratch_counter++)}};
+                                 .disp = static_cast<int32_t>(
+                                     GetScratchAreaSlotOffset(scratch_counter++) -
+                                     GetScratchAreaSlotOffset(0))}};
                            } else if constexpr (device_arch_info::kIsRegister<Operand> &&
                                                 !device_arch_info::kIsFLAGS<Operand>) {
                              if constexpr (device_arch_info::kIsImplicitReg<Operand>) {

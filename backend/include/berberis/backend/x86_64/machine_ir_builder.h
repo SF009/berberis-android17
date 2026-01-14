@@ -77,11 +77,9 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
               if (scratch_arg_idx >= 2) {
                 FATAL("Only two scratch registers are supported for now");
               }
-              using ThreadState = DependentType<berberis::ThreadState, Binding>;
               return std::tuple{x86_64::MemoryOperand{
                   .base = x86_64::kMachineRegRBP,
-                  .disp = static_cast<int32_t>(offsetof(ThreadState, intrinsics_scratch_area) +
-                                               config::kScratchAreaSlotSize * scratch_arg_idx++)}};
+                  .disp = static_cast<int32_t>(GetScratchAreaSlotOffset(scratch_arg_idx++))}};
             } else {
               static_assert(HaveInput(Binding::kArgInfo));
               static_assert(!HaveOutput(Binding::kArgInfo));

@@ -108,6 +108,8 @@ std::size_t GetThreadStateReservationValueOffset();
 bool DoesCpuStateHaveFlags();
 std::size_t GetThreadStateFlagOffset();
 
+std::size_t GetScratchAreaSlotOffset(std::size_t offset_index);
+
 }  // namespace berberis
 
 #endif  // BERBERIS_GUEST_STATE_GUEST_STATE_OPAQUE_H_
