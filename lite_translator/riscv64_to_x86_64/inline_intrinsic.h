@@ -315,19 +315,16 @@ class TryBindingBasedInlineIntrinsic {
 
     std::apply(
         IntrinsicBindingInfo::kEmitInsnFunc,
-        std::tuple_cat(
-            std::tuple<MacroAssembler<x86_64::Assembler>&>{as_},
-            TypesToValues::FlatMap<TypesToTypes::Zip<typename IntrinsicBindingInfo::Operands,
-                                                     typename IntrinsicBindingInfo::Bindings>>(
-                *this,
-                xmm_for_gp_result,
-                scratch_arg,
-                asm_call_info,
-                kRenameRbxInputToRcx,
-                kRenameRdxInputToRcx)));
+        std::tuple_cat(std::tuple<MacroAssembler<x86_64::Assembler>&>{as_},
+                       TypesToValues::FlatMap<typename IntrinsicBindingInfo::OperandsAndBindings>(
+                           *this,
+                           xmm_for_gp_result,
+                           scratch_arg,
+                           asm_call_info,
+                           kRenameRbxInputToRcx,
+                           kRenameRdxInputToRcx)));
 
-    TypesToValues::ForEach<TypesToTypes::Zip<typename IntrinsicBindingInfo::Operands,
-                                             typename IntrinsicBindingInfo::Bindings>>(
+    TypesToValues::ForEach<typename IntrinsicBindingInfo::OperandsAndBindings>(
         [&xmm_for_gp_result, this]<typename BindingInfo>() -> decltype(auto) {
           using Operand = std::tuple_element_t<0, BindingInfo>;
           using Binding = std::tuple_element_t<1, BindingInfo>;

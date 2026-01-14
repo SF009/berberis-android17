@@ -43,35 +43,53 @@ using GpArgumentRegisters = std::tuple<RDI, RSI, RDX, RCX, R8, R9>;
 
 using SSEArgumentRegisters = std::tuple<XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6, XMM7>;
 
-using ArgumentetersRegisters =
-    TypesToTypes::Concat<GpArgumentRegisters, SSEArgumentRegisters>;
+using ClobberRegisters =
+    TypesToTypes::Concat<std::tuple<RAX>,       // Return value; RDX is in GpArgumentRegisters
+                         GpArgumentRegisters,
+                         std::tuple<R10, R11>,  // Extra GP clobered registers.
+                         SSEArgumentRegisters,  // ↓ Extra SSE clobered registers.
+                         std::tuple<XMM8, XMM9, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15, FLAGS>>;
 
-using ClobberRegisters = std::tuple<RAX,
-                                    RDI,
-                                    RSI,
-                                    RDX,
-                                    RCX,
-                                    R8,
-                                    R9,
-                                    R10,
-                                    R11,
-                                    XMM0,
-                                    XMM1,
-                                    XMM2,
-                                    XMM3,
-                                    XMM4,
-                                    XMM5,
-                                    XMM6,
-                                    XMM7,
-                                    XMM8,
-                                    XMM9,
-                                    XMM10,
-                                    XMM11,
-                                    XMM12,
-                                    XMM13,
-                                    XMM14,
-                                    XMM15,
-                                    FLAGS>;
+inline constexpr std::size_t kGpArgumentRegistersBeginIndexInClobberRegisters = 1;
+inline constexpr std::size_t kGpArgumentRegistersEndIndexInClobberRegisters =
+    kGpArgumentRegistersBeginIndexInClobberRegisters + std::tuple_size_v<GpArgumentRegisters>;
+inline constexpr std::size_t kSSEArgumentRegistersBeginIndexInClobberRegisters =
+    kGpArgumentRegistersEndIndexInClobberRegisters + 2;
+inline constexpr std::size_t kSSEArgumentRegistersEndIndexInClobberRegisters =
+    kSSEArgumentRegistersBeginIndexInClobberRegisters + std::tuple_size_v<SSEArgumentRegisters>;
+
+// Result registers are not in sequence in the ClobberRegisters, because RDX has to be in the
+// middle of GpArgumentRegisters group.
+inline constexpr std::size_t kGpResultFirstRegisterIndexInClobberRegisters = 0;
+inline constexpr std::size_t kGpResultSecondRegisterIndexInClobberRegisters = 3;
+
+inline constexpr std::size_t kSSEResultFirstRegisterIndexInClobberRegisters =
+    kSSEArgumentRegistersBeginIndexInClobberRegisters;
+inline constexpr std::size_t kSSEResultSecondRegisterIndexInClobberRegisters =
+    kSSEResultFirstRegisterIndexInClobberRegisters + 1;
+
+static_assert(std::is_same_v<GpArgumentRegisters,
+                             TypesToTypes::Span<ClobberRegisters,
+                                                kGpArgumentRegistersBeginIndexInClobberRegisters,
+                                                kGpArgumentRegistersEndIndexInClobberRegisters>>);
+static_assert(std::is_same_v<SSEArgumentRegisters,
+                             TypesToTypes::Span<ClobberRegisters,
+                                                kSSEArgumentRegistersBeginIndexInClobberRegisters,
+                                                kSSEArgumentRegistersEndIndexInClobberRegisters>>);
+
+static_assert(
+    std::is_same_v<GpResultRegisters,
+                   std::tuple<std::tuple_element_t<kGpResultFirstRegisterIndexInClobberRegisters,
+                                                   ClobberRegisters>,
+                              std::tuple_element_t<kGpResultSecondRegisterIndexInClobberRegisters,
+                                                   ClobberRegisters>>>);
+
+static_assert(
+    std::is_same_v<SSEResultRegisters,
+                   std::tuple<std::tuple_element_t<kSSEResultFirstRegisterIndexInClobberRegisters,
+                                                   ClobberRegisters>,
+                              std::tuple_element_t<kSSEResultSecondRegisterIndexInClobberRegisters,
+                                                   ClobberRegisters>>>);
 
 // Information about intrinsic call results.
 struct ResultsElementInfo {
@@ -343,13 +361,18 @@ constexpr auto CallImm<kFunction>::GenResultsElements()
   if constexpr (std::is_same_v<CleanRetType, std::tuple<__int128>> ||
                 std::is_same_v<CleanRetType, std::tuple<__uint128_t>>) {
     return std::array{
-        call_imm_impl::ResultsElementInfo{.clobber_class_index = 0, .element_offset = 0},
-        call_imm_impl::ResultsElementInfo{.clobber_class_index = 3, .element_offset = 0}};
+        call_imm_impl::ResultsElementInfo{
+            .clobber_class_index = call_imm_impl::kGpResultFirstRegisterIndexInClobberRegisters,
+            .element_offset = 0},
+        call_imm_impl::ResultsElementInfo{
+            .clobber_class_index = call_imm_impl::kGpResultSecondRegisterIndexInClobberRegisters,
+            .element_offset = 0}};
   } else if constexpr (std::is_same_v<
                            CleanRetType,
                            std::tuple<float __attribute__((__vector_size__(16), may_alias))>>) {
-    return std::array{
-        call_imm_impl::ResultsElementInfo{.clobber_class_index = 9, .element_offset = 0}};
+    return std::array{call_imm_impl::ResultsElementInfo{
+        .clobber_class_index = call_imm_impl::kSSEResultFirstRegisterIndexInClobberRegisters,
+        .element_offset = 0}};
   } else {
     std::array<call_imm_impl::ResultsElementInfo, std::tuple_size_v<CleanRetType>> result =
         ValuesToValues::ToArray<call_imm_impl::ResultsElementInfo>(
@@ -386,9 +409,13 @@ constexpr auto CallImm<kFunction>::GenResultsElements()
       }
       std::size_t clobber_class_index;
       if (use_integer_register) {
-        clobber_class_index = std::array<std::size_t, 2>{0, 3}[int_register++];
+        clobber_class_index = std::array<std::size_t, 2>{
+            call_imm_impl::kGpResultFirstRegisterIndexInClobberRegisters,
+            call_imm_impl::kGpResultSecondRegisterIndexInClobberRegisters}[int_register++];
       } else {
-        clobber_class_index = std::array<std::size_t, 2>{9, 10}[sse_register++];
+        clobber_class_index = std::array<std::size_t, 2>{
+            call_imm_impl::kSSEResultFirstRegisterIndexInClobberRegisters,
+            call_imm_impl::kSSEResultSecondRegisterIndexInClobberRegisters}[sse_register++];
       }
       for (auto& element : result) {
         if (element.element_offset >= offset && element.element_offset < offset + 8) {
@@ -407,16 +434,18 @@ template <typename IntrinsicRetType,
 constexpr auto CallImm<kFunction>::GenArgumentElements()
     -> std::array<std::size_t, std::tuple_size_v<CleanParamTypes>> {
   return ValuesToValues::ToArray<std::size_t>(TypesToValues::MapWithTemporary<CleanParamTypes>(
-      /* integer_index, sse_index = */ std::tuple{std::size_t{kIsImplicitPointerResult ? 1 : 0},
-                                                  std::size_t{0}},
+      /* integer_index, sse_index = */ std::
+          tuple{call_imm_impl::kGpArgumentRegistersBeginIndexInClobberRegisters +
+                    std::size_t{kIsImplicitPointerResult ? 1 : 0},
+                call_imm_impl::kSSEArgumentRegistersBeginIndexInClobberRegisters},
       []<typename CleanArgumentType>(std::tuple<std::size_t, std::size_t>& indexes) {
         auto& [integer_index, sse_index] = indexes;
         if constexpr (std::is_integral_v<CleanArgumentType>) {
-          CHECK_LE(++integer_index, 6);  // There are maximum 6 integer parameters.
-          return integer_index;
+          CHECK_LT(integer_index, call_imm_impl::kGpArgumentRegistersEndIndexInClobberRegisters);
+          return integer_index++;
         } else {
-          CHECK_LE(++sse_index, 8);  // There are maximum 8 SSE parameters.
-          return 8 + sse_index;
+          CHECK_LT(sse_index, call_imm_impl::kSSEArgumentRegistersEndIndexInClobberRegisters);
+          return sse_index++;
         }
       }));
 }

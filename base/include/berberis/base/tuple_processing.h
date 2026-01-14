@@ -793,6 +793,9 @@ class TypesToTypes {
   using Take =
       typename FlatMapHelper<Enumerate<TupleType>, TakeHelper<TupleType, kCount>{}>::Result;
 
+  template <typename TupleType, std::size_t kBegin, std::size_t kEnd>
+  using Span = Take<Skip<TupleType, kBegin>, kEnd - kBegin>;
+
   template <typename TupleType, auto kLambda>
   using TakeWhile = Take<TupleType, TakeSkipHelper<TupleType, kLambda>::Produce()>;
 
@@ -2020,6 +2023,18 @@ class ValuesToValues {
                        kLambda,
                        extra_lambda_values...>();
     return Skip<kCount, TupleType>(std::forward<TupleType>(tuple));
+  }
+
+  template <auto kBegin, auto kEnd, typename TupleType>
+  static constexpr decltype(auto) Span(TupleType&& tuple) {
+    static_assert(kEnd >= kBegin);
+    return Take<kEnd - kBegin>(Skip<kBegin>(std::forward<TupleType>(tuple)));
+  }
+
+  template <auto kBegin, auto kEnd, typename TupleType>
+  static constexpr decltype(auto) Span(TupleType&& tuple, MetaValue<kBegin>, MetaValue<kEnd>) {
+    static_assert(kEnd >= kBegin);
+    return Take<kEnd - kBegin>(Skip<kBegin>(std::forward<TupleType>(tuple)));
   }
 
   template <auto kCount, typename TupleType>
