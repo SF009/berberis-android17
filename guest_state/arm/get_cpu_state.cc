@@ -27,7 +27,7 @@ namespace berberis {
 
 int GetCpuState(NativeBridgeGuestRegs* guest_regs, const CPUState* state) {
   if (guest_regs->guest_arch != NATIVE_BRIDGE_ARCH_ARM) {
-    TRACE_AND_ALOGE("The guest architecture is unmatched: %llu", guest_regs->guest_arch);
+    TRACE_AND_ALOGE("The guest architecture is unmatched: %" PRIu64, guest_regs->guest_arch);
     return NATIVE_BRIDGE_GUEST_STATE_ACCESSOR_ERROR_UNSUPPORTED_ARCH;
   }
   memcpy(&guest_regs->regs_arm.r, &state->r, sizeof(state->r));
