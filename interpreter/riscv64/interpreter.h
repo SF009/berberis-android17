@@ -3231,7 +3231,7 @@ class Interpreter {
     // groups. E.g. for the example above we'd store data from v0, v2, v4 during the first iteration
     // (id within group = 0), and v1, v3, v5 during the second iteration (id within group = 1). This
     // ensures that memory is always accessed in ordered fashion.
-    auto mask = GetMaskForVectorOperationsIfNeeded<kUseMasking>();
+    auto mask = GetMaskForVectorOperationsIfNeeded(kUseMasking);
     for (size_t within_group_id = vstart / kElementsCount; within_group_id < kNumRegistersInGroup;
          ++within_group_id) {
       // No need to continue if we no longer have elements to store.
@@ -3578,7 +3578,7 @@ class Interpreter {
                                                      intrinsics::NoInactiveProcessing{},
                                                      kElementType,
                                                      kMeta<TailProcessing::kAgnostic>,
-                                                     kMeta<decltype(kVma){}>)...);
+                                                     decltype(kVma){})...);
           });
       if constexpr (!std::is_same_v<decltype(kVma),
                                     const MetaValue<intrinsics::NoInactiveProcessing{}>>) {
@@ -4899,23 +4899,18 @@ class Interpreter {
     return arg;
   }
 
-  template <bool kUseMasking>
-  std::conditional_t<kUseMasking, SIMD128Register, intrinsics::NoInactiveProcessing>
-  GetMaskForVectorOperationsIfNeeded() {
+  auto GetMaskForVectorOperationsIfNeeded(const auto kUseMasking) {
     if constexpr (kUseMasking) {
-      return {state_->cpu.v[0]};
+      return SIMD128Register{state_->cpu.v[0]};
     } else {
       return intrinsics::NoInactiveProcessing{};
     }
   }
 
-  template <const auto kVma>
-  std::conditional_t<std::is_same_v<decltype(kVma), intrinsics::NoInactiveProcessing>,
-                     intrinsics::NoInactiveProcessing,
-                     SIMD128Register>
-  GetMaskForVectorOperations(MetaValue<kVma>) {
-    return GetMaskForVectorOperationsIfNeeded<
-        !std::is_same_v<decltype(kVma), intrinsics::NoInactiveProcessing>>();
+  auto GetMaskForVectorOperations(const auto kVma) {
+    return GetMaskForVectorOperationsIfNeeded(
+        kMeta<
+            !std::is_same_v<decltype(kVma), const MetaValue<intrinsics::NoInactiveProcessing{}>>>);
   }
 
   template <auto kDefaultElement, const TailProcessing kVta, const auto kVma>
