@@ -115,6 +115,11 @@ std::size_t GetThreadStateFlagOffset() {
   CHECK(false);
 }
 
+std::size_t GetScratchAreaSlotOffset(std::size_t slot_index) {
+  CHECK_LT(slot_index, config::kScratchAreaSize / config::kScratchAreaSlotSize);
+  return offsetof(ThreadState, intrinsics_scratch_area) + config::kScratchAreaSlotSize * slot_index;
+}
+
 GuestAddr GetGuestAddrRangeEnd() {
   // We only support up to 47-bit addresses on Linux.
   // Note that addresses with 48th bit set are only used on the kernel side.
