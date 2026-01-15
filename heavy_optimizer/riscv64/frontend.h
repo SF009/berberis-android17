@@ -474,7 +474,7 @@ class HeavyOptimizerFrontend {
             typename... AssemblerArgType>
   auto CallIntrinsic(AssemblerArgType... args) {
     using CallImm = x86_64::CallImm<static_cast<decltype(kFunction)>(nullptr)>;
-    typename CallImm::template ResultRegiesterTypes<MachineReg, FpRegister> result;
+    typename CallImm::template ResultRegisterTypes<MachineReg, FpRegister> result;
 
     if (!TryInlineIntrinsicForHeavyOptimizer<kFunction>(
             &builder_, result, GetFlagsRegister(), args...)) {
