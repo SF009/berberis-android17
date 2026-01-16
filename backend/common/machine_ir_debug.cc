@@ -139,11 +139,11 @@ std::string MachineIR::GetDebugStringAsDot() const {
 }
 
 std::string Branch::GetDebugString() const {
-  return StringPrintf("PSEUDO_BRANCH %d", then_bb()->id());
+  return StringPrintf("BRANCH %d", then_bb()->id());
 }
 
 std::string CondBranch::GetDebugString() const {
-  std::string out("PSEUDO_COND_BRANCH ");
+  std::string out("COND_BRANCH ");
   out += GetCondName(cond());
   out += ", ";
   out += StringPrintf("%d, ", then_bb()->id());
@@ -168,7 +168,7 @@ std::string Jump::GetDebugString() const {
       suffix = "_EXIT_GEN_CODE";
       break;
   }
-  std::string out = StringPrintf("PSEUDO_JUMP%s ", suffix);
+  std::string out = StringPrintf("JUMP%s ", suffix);
   out += IsConfigFlagSet(kDeterministicTracing) ? std::string("<ADDR STRIPPED>")
                                                 : StringPrintf("0x%" PRIxPTR, target_);
   if (IsConfigFlagSet(kOptimizedInterRegionABI)) {
@@ -181,7 +181,7 @@ std::string Jump::GetDebugString() const {
 }
 
 std::string IndirectJump::GetDebugString() const {
-  std::string out("PSEUDO_INDIRECT_JUMP ");
+  std::string out("INDIRECT_JUMP ");
   for (int i = 0; i < NumRegOperands(); ++i) {
     if (i != 0) {
       out += ", ";
@@ -192,7 +192,7 @@ std::string IndirectJump::GetDebugString() const {
 }
 
 std::string Copy::GetDebugString() const {
-  std::string out("PSEUDO_COPY ");
+  std::string out("COPY ");
   out += GetRegOperandDebugString(this, 0);
   out += ", ";
   out += GetRegOperandDebugString(this, 1);

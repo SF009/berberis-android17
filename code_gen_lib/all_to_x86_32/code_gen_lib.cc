@@ -181,7 +181,7 @@ void EmitJump(Assembler* as, GuestAddr target) {
   as->Jmpl({.disp = bit_cast<int32_t>(TranslationCache::GetInstance()->GetHostCodePtr(target))});
 }
 
-// ATTENTION: 'target' should be a general register - see constraints for PseudoIndirectJump!
+// ATTENTION: 'target' should be a general register - see constraints for IndirectJump!
 void EmitIndirectJump(Assembler* as, Assembler::Register target) {
   EmitDispatch(as, target);
 }

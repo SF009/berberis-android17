@@ -27,7 +27,7 @@
 namespace berberis::x86_64 {
 
 // Reads range of instructions to see if any of the registers in regs is used.
-// Will also insert new registers into regs if we encounter PSEUDO_COPY.
+// Will also insert new registers into regs if we encounter COPY.
 // Returns true iff we reach the end without encountering any uses of regs.
 bool CheckRegsUnusedWithinInsnRange(MachineInsnList::iterator insn_it,
                                     MachineInsnList::iterator end,
@@ -258,7 +258,7 @@ void InsertFlagGenInstructions(MachineIR* machine_ir,
       // probably not in scope.
       insn->SetRegAt(i, machine_ir->AllocVReg());
       if (insn->RegKindAt(i).RegClass()->IsSubsetOf(&kFLAGS)) {
-        // Save the flag register to set PSEUDO_READFLAGS.
+        // Save the flag register to set READFLAGS.
         flag_reg = insn->RegAt(i);
       }
     }
@@ -312,7 +312,7 @@ std::optional<FlagSettingInsn> IsEligibleReadFlag(MachineIR* machine_ir,
   CHECK(AsMachineInsnX86_64(*insn_it)->opcode() == kMachineOpReadFlagsWithOverflow ||
         AsMachineInsnX86_64(*insn_it)->opcode() == kMachineOpReadFlagsWithoutOverflow);
   auto flag_register = (*insn_it)->RegAt(1);
-  // We use a set here because the original register will be pseudocopy'd when
+  // We use a set here because the original register will be copy'd when
   // used as live_out. So long as these new registers adhere to the same
   // constraints this is fine.
   MachineRegVector regs({(*insn_it)->RegAt(0)}, machine_ir->arena());
@@ -434,7 +434,7 @@ void RemoveReadFlags(MachineIR* machine_ir, ReadFlagsOptContext context) {
 // * insn_it - iterator for MachineInsn in block for where we should begin
 // reading instructions. Should be begin() except when called from
 // RemoveReadFlags
-// * flags_regs - set of flags register and its PSEUDOCOPY's
+// * flags_regs - set of flags register and its COPY's
 // * reg_map - the mapping from the original input registers to their copies
 // * insn - Original instruction which created the EFLAGS register.
 void ReplaceFlagRegisters(MachineIR* machine_ir,

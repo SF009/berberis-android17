@@ -169,7 +169,7 @@ void HeavyOptimizerFrontend::ResolveJumps() {
 
     GuestAddr target = jump->target();
     auto map_it = branch_targets_.find(target);
-    // All PseudoJump insns must add their targets to branch_targets.
+    // All Jump insns must add their targets to branch_targets.
     CHECK(map_it != branch_targets_.end());
 
     MachineInsnPosition pos = map_it->second;
