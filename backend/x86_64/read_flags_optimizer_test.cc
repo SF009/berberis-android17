@@ -124,7 +124,7 @@ TEST_P(ReadFlagsVariantsTest, CheckRegsUnusedWithinInsnRangeAddsReg) {
   ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
 
   auto insn_it = bb0->insn_list().begin();
-  // Skip the pseudoreadflags instruction.
+  // Skip the readflags instruction.
   ASSERT_EQ((*insn_it)->opcode(), GetReadOpcode());
   insn_it++;
   ASSERT_FALSE(CheckRegsUnusedWithinInsnRange(insn_it, bb0->insn_list().end(), regs));
@@ -459,7 +459,7 @@ TEST(MachineIRReadFlagsOptimizer, GetInsnGen) {
                         machine_ir.NewInsn<SubqRegReg, kNoSSA>(
                             machine_ir.AllocVReg(), machine_ir.AllocVReg(), kMachineRegFLAGS));
 
-  // Note PseudoReadFlags is a special case as it has its own member variables and
+  // Note ReadFlags is a special case as it has its own member variables and
   // doesn't inherit from MachineInsnX86_64
   TestCopiedInstruction(
       &machine_ir,
@@ -704,7 +704,7 @@ TEST_P(ReadFlagsVariantsTest, FindFlagSettingInsn) {
 
   ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
 
-  // Move to PseudoReadFlags.
+  // Move to ReadFlags.
   auto insn_it = std::prev(bb->insn_list().end(), 2);
   ASSERT_EQ((*insn_it)->opcode(), GetReadOpcode());
 
@@ -838,7 +838,7 @@ TEST_P(ReadFlagsVariantsTest, RemoveEligibleReadFlagsInLoopTree) {
   auto insn_it = std::next(bb1->insn_list().begin());
   ASSERT_NE((*insn_it)->opcode(), kMachineOpReadFlagsWithOverflow);
 
-  // pseudoreadflags flags1 should be removed.
+  // readflags flags1 should be removed.
   insn_it = std::next(bb3->insn_list().begin());
   ASSERT_NE((*insn_it)->opcode(), kMachineOpReadFlagsWithOverflow);
 
@@ -955,7 +955,7 @@ TEST_P(ReadFlagsVariantsTest, OptimizeReadFlags) {
 
   ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
 
-  // Check that original PSEUDOREADFLAGS instruction is gone.
+  // Check that original READFLAGS instruction is gone.
   ASSERT_TRUE(
       std::none_of(testloop.loop_exit->insn_list().begin(),
                    testloop.loop_exit->insn_list().end(),
@@ -969,7 +969,7 @@ TEST_P(ReadFlagsVariantsTest, OptimizeReadFlags) {
   insn_it++;
   ASSERT_EQ((*insn_it)->opcode(), GetReadOpcode());
 
-  // Check that successor removes pseudocopy.
+  // Check that successor removes copy.
   insn_it = testloop.successor->insn_list().begin();
   ASSERT_NE((*insn_it)->opcode(), kMachineOpReadFlagsWithOverflow);
 

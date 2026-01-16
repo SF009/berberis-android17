@@ -299,7 +299,7 @@ TEST(MachineIRCheckTest, NoThenEdgeBranch) {
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckDanglingBasicBlock);
 }
 
-TEST(MachineIRCheckTest, NoThenEdgePseudoCondBranch) {
+TEST(MachineIRCheckTest, NoThenEdgeCondBranch) {
   Arena arena;
   x86_64::MachineIR machine_ir(&arena);
 
@@ -327,7 +327,7 @@ TEST(MachineIRCheckTest, NoThenEdgePseudoCondBranch) {
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRControlFlowInsnSuccessorMismatch);
 }
 
-TEST(MachineIRCheckTest, NoElseEdgePseudoCondBranch) {
+TEST(MachineIRCheckTest, NoElseEdgeCondBranch) {
   Arena arena;
   x86_64::MachineIR machine_ir(&arena);
 

@@ -262,7 +262,7 @@ void OptimizeLoop(MachineIR* machine_ir, Loop* loop, const OptimizeLoopParams& p
   }
 
   MemRegMap mem_reg_map(sizeof(CPUState), std::nullopt, machine_ir->arena());
-  // Replace gets and puts with Pseudocopy and update mem_reg_map.
+  // Replace gets and puts with copy and update mem_reg_map.
   for (auto* bb : *loop) {
     for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end(); insn_it++) {
       // Skip insn if it accesses regs with low priority

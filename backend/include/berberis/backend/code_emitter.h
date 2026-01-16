@@ -80,7 +80,7 @@ class CodeEmitter : public CodeEmitterBase {
  private:
   const uint32_t frame_size_;
 
-  // Used by PseudoBranch and PseudoCondBranch to avoid emitting jumps
+  // Used by Branch and CondBranch to avoid emitting jumps
   // to the next instruction.
   const Label* next_label_;
 
