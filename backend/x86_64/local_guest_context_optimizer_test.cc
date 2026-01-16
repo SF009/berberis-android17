@@ -368,7 +368,7 @@ TEST(MachineIRLocalGuestContextOptimizer, LimitRegistersAfterOptimizing) {
   builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(0));
   builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(1));
   builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(2));
-  builder.Gen<Copy>(machine_ir.AllocVReg(), reg2, 8);
+  builder.Gen<Copy>(machine_ir.AllocVReg(), reg2, kMeta<&x86_64::kGeneralReg64>);
   builder.Gen<Jump>(kNullGuestAddr);
 
   x86_64::RemoveLocalGuestContextAccesses(&machine_ir,

@@ -247,7 +247,9 @@ void InsertFlagGenInstructions(MachineIR* machine_ir,
         // If it gets overwritten by the instruction, we need to make a new copy.
         input_reg = machine_ir->AllocVReg();
         context.bb->insn_list().insert(
-            insn_it, machine_ir->NewInsn<Copy>(input_reg, reg_map.at(insn->RegAt(i)), 8));
+            insn_it,
+            machine_ir->NewInsn<Copy>(
+                input_reg, reg_map.at(insn->RegAt(i)), kMeta<&kGeneralReg64>));
       } else {
         // if it's not def we can just reuse the copy from before.
         input_reg = reg_map.at(insn->RegAt(i));
@@ -413,8 +415,8 @@ void RemoveReadFlags(MachineIR* machine_ir, ReadFlagsOptContext context) {
     if (insn->RegKindAt(i).IsInput()) {
       MachineReg copy = machine_ir->AllocVReg();
       reg_map[insn->RegAt(i)] = copy;
-      context.bb->insn_list().insert(insn_it,
-                                     machine_ir->NewInsn<Copy>(copy, insn->RegAt(i), 8));
+      context.bb->insn_list().insert(
+          insn_it, machine_ir->NewInsn<Copy>(copy, insn->RegAt(i), kMeta<&kGeneralReg64>));
     }
   }
 

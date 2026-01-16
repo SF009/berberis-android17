@@ -58,8 +58,12 @@ void ReplaceGetAndUpdateMap(MachineIR* ir,
   }
 
   auto dst = insn->RegAt(0);
-  auto copy_size = insn->opcode() == kMachineOpMovdqaXRegMemBaseDisp ? 16 : 8;
-  auto* new_insn = ir->NewInsn<Copy>(dst, mem_reg_map[disp].value().reg, copy_size);
+  auto* new_insn =
+      regtype == MovType::kMovdqa
+          ? ir->NewInsn<Copy>(dst, mem_reg_map[disp].value().reg, kMeta<&kXmmReg>)
+      : regtype == MovType::kMovsd
+          ? ir->NewInsn<Copy>(dst, mem_reg_map[disp].value().reg, kMeta<&kFpReg64>)
+          : ir->NewInsn<Copy>(dst, mem_reg_map[disp].value().reg, kMeta<&kGeneralReg64>);
   *insn_it = new_insn;
 }
 
@@ -102,9 +106,12 @@ void ReplacePutAndUpdateMap(MachineIR* ir,
     *insn_it = new_insn;
   } else {
     MachineReg src = insn->RegAt(1);
-    auto copy_size = insn->opcode() == kMachineOpMovdqaMemBaseDispXReg ? 16 : 8;
-    auto* new_insn = static_cast<berberis::MachineInsn*>(
-        ir->NewInsn<Copy>(mem_reg_map[disp].value().reg, src, copy_size));
+    auto* new_insn =
+        regtype == MovType::kMovdqa
+            ? ir->NewInsn<Copy>(mem_reg_map[disp].value().reg, src, kMeta<&kXmmReg>)
+        : regtype == MovType::kMovsd
+            ? ir->NewInsn<Copy>(mem_reg_map[disp].value().reg, src, kMeta<&kFpReg64>)
+            : ir->NewInsn<Copy>(mem_reg_map[disp].value().reg, src, kMeta<&kGeneralReg64>);
     *insn_it = new_insn;
   }
 }

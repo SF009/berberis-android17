@@ -200,6 +200,25 @@ Copy::Copy(MachineReg dst, MachineReg src, int size)
                   kMachineInsnCopy),
       regs_{dst, src} {}
 
+Copy::Copy(MachineReg dst, MachineReg src, const MachineRegKind reg_info[2])
+    : MachineInsn(kMachineOpCopy, 2, reg_info, regs_, kMachineInsnCopy), regs_{dst, src} {}
+
+Copy::Copy(MachineReg dst, MachineReg src, const MachineRegClass* reg_class)
+    : MachineInsn(kMachineOpCopy,
+                  2,
+                  reg_class->RegSize() > 8 ? kCopyRegInfo<&x86_64::kXmmReg>
+                  : x86_64::IsXReg(dst) || x86_64::IsXReg(src)
+                      ? reg_class->RegSize() > 4 ? kCopyRegInfo<&x86_64::kFpReg64>
+                                                 : kCopyRegInfo<&x86_64::kFpReg32>
+                  : reg_class->RegSize() > 4 ? kCopyRegInfo<&x86_64::kGeneralReg64>
+                                             : kCopyRegInfo<&x86_64::kGeneralReg32>,
+                  regs_,
+                  kMachineInsnCopy),
+      regs_{dst, src} {
+  CHECK(dst.IsHardReg() || dst.IsSpilledReg());
+  CHECK(src.IsHardReg() || src.IsSpilledReg());
+}
+
 Copy::Copy(const Copy& insn)
     : MachineInsn(insn, regs_), regs_{insn.regs_[0], insn.regs_[1]} {}
 

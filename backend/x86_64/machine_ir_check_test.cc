@@ -201,7 +201,7 @@ TEST(MachineIRCheckTest, NoControlFlow) {
 
   MachineReg reg1 = machine_ir.AllocVReg();
   MachineReg reg2 = machine_ir.AllocVReg();
-  Copy* insn = machine_ir.NewInsn<Copy>(reg1, reg2, 8);
+  Copy* insn = machine_ir.NewInsn<Copy>(reg1, reg2, kMeta<&x86_64::kGeneralReg64>);
 
   bb->insn_list().push_back(insn);
 

@@ -107,7 +107,7 @@ class HeavyOptimizerFrontend {
   [[nodiscard]] Register GetImm(int64_t imm);
   [[nodiscard]] Register Copy(Register value) {
     Register result = AllocTempReg();
-    builder_.Gen<berberis::Copy>(result, value, 8);
+    builder_.Gen<berberis::Copy>(result, value, kMeta<&x86_64::kGeneralReg64>);
     return result;
   }
 
@@ -373,7 +373,7 @@ class HeavyOptimizerFrontend {
 
   FpRegister Fmv(FpRegister arg) {
     auto res = AllocTempReg();
-    builder_.Gen<berberis::Copy>(res, arg, 16);
+    builder_.Gen<berberis::Copy>(res, arg, kMeta<&x86_64::kXmmReg>);
     return res;
   }
 

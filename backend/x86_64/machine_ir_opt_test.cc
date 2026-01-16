@@ -961,8 +961,8 @@ TEST(MachineIR, RemoveConsecutiveForwarderBlocks) {
 
   // Create a forwarder block.
   builder.StartBasicBlock(bb2);
-  builder.Gen<Copy>(kMachineRegRAX, kMachineRegRAX, 4);
-  builder.Gen<Copy>(kMachineRegRBX, kMachineRegRBX, 4);
+  builder.Gen<Copy>(kMachineRegRAX, kMachineRegRAX, kMeta<&x86_64::kGeneralReg32>);
+  builder.Gen<Copy>(kMachineRegRBX, kMachineRegRBX, kMeta<&x86_64::kGeneralReg32>);
   builder.Gen<Branch>(bb3);
 
   // Create another forwarder block.
@@ -1026,8 +1026,8 @@ TEST(MachineIR, RemoveNopCopy) {
   x86_64::MachineIRBuilder builder(&machine_ir);
 
   builder.StartBasicBlock(bb0);
-  builder.Gen<Copy>(kMachineRegRAX, kMachineRegRAX, 4);
-  builder.Gen<Copy>(kMachineRegRBX, kMachineRegRCX, 4);
+  builder.Gen<Copy>(kMachineRegRAX, kMachineRegRAX, kMeta<&x86_64::kGeneralReg32>);
+  builder.Gen<Copy>(kMachineRegRBX, kMachineRegRCX, kMeta<&x86_64::kGeneralReg32>);
   builder.Gen<Jump>(kNullGuestAddr);
 
   EXPECT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
