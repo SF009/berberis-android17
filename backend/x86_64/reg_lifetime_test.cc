@@ -113,37 +113,41 @@ TEST(MachineIRReadFlagsOptimizer, CountRegLifetimeMap) {
   bb->live_out().push_back(reg4);
   builder.StartBasicBlock(bb);
   builder.Gen<AddqRegReg, kNoSSA>(reg0, reg1, machine_ir.AllocVReg());
-  auto* reg0_end = builder.Gen<AddqRegReg, kNoSSA>(reg1, reg1, machine_ir.AllocVReg());
-  auto* reg3_start = builder.Gen<MovqRegReg>(reg3, reg1);
-  auto* reg1_end = builder.Gen<PxorXRegXReg, kNoSSA>(reg2, reg2);
+  builder.Gen<AddqRegReg, kNoSSA>(reg1, reg1, machine_ir.AllocVReg());
+  builder.Gen<MovqRegReg>(reg3, reg1);
+  builder.Gen<PxorXRegXReg, kNoSSA>(reg2, reg2);
   builder.Gen<Jump>(kNullGuestAddr);
 
   RegLifetimeCounter counter(&machine_ir);
   counter.Count(bb);
   const auto& lifetime0 = counter.LifetimeAt(reg0).value();
   ASSERT_TRUE(std::holds_alternative<LiveIn>(lifetime0.start));
-  ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime0.end), reg0_end);
+  ASSERT_EQ(std::get<MachineInsnList::iterator>(lifetime0.end), std::next(bb->insn_list().begin()));
   ASSERT_EQ(lifetime0.start_pos, 0UL);
   ASSERT_EQ(lifetime0.end_pos, 1UL);
   ASSERT_EQ(lifetime0.reg_type, RegType::kGeneral);
 
   const auto& lifetime1 = counter.LifetimeAt(reg1).value();
   ASSERT_TRUE(std::holds_alternative<LiveIn>(lifetime1.start));
-  ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime1.end), reg1_end);
+  ASSERT_EQ(std::get<MachineInsnList::iterator>(lifetime1.end),
+            std::next(bb->insn_list().begin(), 3));
   ASSERT_EQ(lifetime1.start_pos, 0UL);
   ASSERT_EQ(lifetime1.end_pos, 3UL);
   ASSERT_EQ(lifetime1.reg_type, RegType::kGeneral);
 
   const auto& lifetime2 = counter.LifetimeAt(reg2).value();
-  ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime2.start), reg1_end);
+  ASSERT_EQ(std::get<MachineInsnList::iterator>(lifetime2.start),
+            std::next(bb->insn_list().begin(), 3));
   ASSERT_TRUE(std::holds_alternative<LiveOut>(lifetime2.end));
   ASSERT_EQ(lifetime2.start_pos, 3UL);
   ASSERT_EQ(lifetime2.end_pos, 5UL);
   ASSERT_EQ(lifetime2.reg_type, RegType::kXmm);
 
   const auto& lifetime3 = counter.LifetimeAt(reg3).value();
-  ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime3.start), reg3_start);
-  ASSERT_EQ(std::get<berberis::MachineInsn*>(lifetime3.end), reg1_end);
+  ASSERT_EQ(std::get<MachineInsnList::iterator>(lifetime3.start),
+            std::next(bb->insn_list().begin(), 2));
+  ASSERT_EQ(std::get<MachineInsnList::iterator>(lifetime3.end),
+            std::next(bb->insn_list().begin(), 3));
   ASSERT_EQ(lifetime3.start_pos, 2UL);
   ASSERT_EQ(lifetime3.end_pos, 3UL);
   ASSERT_EQ(lifetime3.reg_type, RegType::kGeneral);
@@ -172,7 +176,7 @@ TEST(MachineIRReadFlagsOptimizer, UpdateLastUse) {
   builder.Gen<AddqRegReg, kNoSSA>(reg0, reg1, kMachineRegFLAGS);
   builder.Gen<MovqRegImm>(reg2, 2);
   builder.Gen<AddqRegReg, kNoSSA>(reg0, reg2, kMachineRegFLAGS);
-  auto* new_end = builder.Gen<Jump>(kNullGuestAddr);
+  builder.Gen<Jump>(kNullGuestAddr);
 
   RegLifetimeCounter counter(&machine_ir);
   counter.Count(bb);
@@ -184,7 +188,7 @@ TEST(MachineIRReadFlagsOptimizer, UpdateLastUse) {
   EXPECT_EQ(counts[4].general, 2UL);
   EXPECT_EQ(counts[5].general, 0UL);
 
-  auto pos_over_limit = counter.UpdateLastUse(reg1, new_end, 5, 3);
+  auto pos_over_limit = counter.UpdateLastUse(reg1, std::prev(bb->insn_list().end()), 5, 3);
   EXPECT_TRUE(pos_over_limit.has_value());
   EXPECT_EQ(pos_over_limit.value(), 4UL);
 

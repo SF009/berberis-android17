@@ -41,8 +41,8 @@ struct LiveOut {};
 // If a register's lifetime ends on an instruction where it's only read, we can
 // actually reuse that register for the write portion so we are overcounting.
 struct RegLifetime {
-  std::variant<LiveIn, berberis::MachineInsn*> start;
-  std::variant<LiveOut, berberis::MachineInsn*> end;
+  std::variant<LiveIn, MachineInsnList::iterator> start;
+  std::variant<LiveOut, MachineInsnList::iterator> end;
   // start_pos is first instruction where lifetime begins.
   size_t start_pos;
   // end_pos is one past last instruction where lifetime ends.
@@ -79,7 +79,7 @@ class RegLifetimeCounter {
   size_t RegCountAt(size_t pos, RegType reg_type) const;
   // Sets last use of reg to end and end_pos, updating both the map and counts.
   std::optional<size_t> UpdateLastUse(MachineReg reg,
-                                      berberis::MachineInsn* end,
+                                      MachineInsnList::iterator end,
                                       size_t end_pos,
                                       const size_t kLimit);
 
