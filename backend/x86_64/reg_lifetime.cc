@@ -158,7 +158,7 @@ size_t IncrementBy(RegLifetimeCount* count, RegType reg_type, const int n) {
       // This happens if a register isn't ever used with an instruction which
       // requires either an XMM or General register in the current basic block
       // so we're unable to infer what type it is. For example if it's just
-      // live_in and live_out or only used for PSEUDOCOPY.
+      // live_in and live_out or only used for COPY.
       // TODO(453652939) Improve this.
       break;
   };

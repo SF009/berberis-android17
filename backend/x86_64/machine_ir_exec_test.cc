@@ -1333,7 +1333,7 @@ TEST(ExecMachineIR, WriteFlags) {
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, bit_cast<uintptr_t>(&arg_flags));
   builder.Gen<x86_64::MovqRegOp>(kMachineRegRAX, {.base = kMachineRegRBP});
   builder.Gen<x86_64::WriteFlags, x86_64::kNoSSA>(kMachineRegRAX, x86_64::kMachineRegFLAGS);
-  // Assume PseudoReadFlags is verified by another test.
+  // Assume ReadFlags is verified by another test.
   builder.Gen<x86_64::ReadFlagsWithOverflow>(kMachineRegRAX, x86_64::kMachineRegFLAGS);
   builder.Gen<x86_64::MovqRegImm>(kMachineRegRBP, bit_cast<uintptr_t>(&res_flags));
   builder.Gen<x86_64::MovqOpReg>({.base = kMachineRegRBP}, kMachineRegRAX);

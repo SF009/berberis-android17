@@ -466,10 +466,10 @@ class LiteTranslator {
             typename... AssemblerArgType>
   auto CallIntrinsic(AssemblerArgType... args) {
     using CallImm = x86_64::CallImm<static_cast<decltype(kFunction)>(nullptr)>;
-    using ResultRegiesterTypes =
-        typename CallImm::template ResultRegiesterTypes<Register, SimdRegister>;
-    ResultRegiesterTypes result =
-        TypesToValues::Map<ResultRegiesterTypes>([this]<typename RegisterType>() {
+    using ResultRegisterTypes =
+        typename CallImm::template ResultRegisterTypes<Register, SimdRegister>;
+    ResultRegisterTypes result =
+        TypesToValues::Map<ResultRegisterTypes>([this]<typename RegisterType>() {
           if constexpr (std::is_same_v<RegisterType, Register>) {
             return AllocTempReg();
           } else {
@@ -477,17 +477,9 @@ class LiteTranslator {
           }
         });
 
-    if constexpr (!std::size(CallImm::kResultsElements)) {
-      if (inline_intrinsic::TryInlineIntrinsic<kFunction>(
-              as_,
-              [this]() { return AllocTempReg(); },
-              [this]() { return AllocTempSimdReg(); },
-              std::tuple<>{},
-              args...)) {
-        return;
-      }
-      call_intrinsic::CallIntrinsic(as_, kFunction, result, args...);
-    } else {
+    // If we failed to allocate registers then we shouldn't try to generate intrinsic call,
+    // neither TryInlineIntrinsic nor call_intrinsic::CallIntrinsic machinery is ready for that.
+    if (success_) {
       if (!inline_intrinsic::TryInlineIntrinsic<kFunction>(
               as_,
               [this]() { return AllocTempReg(); },
@@ -496,8 +488,10 @@ class LiteTranslator {
               args...)) {
         call_intrinsic::CallIntrinsic(as_, kFunction, result, args...);
       }
+    }
 
-      if constexpr (std::tuple_size_v<ResultRegiesterTypes> == 1) {
+    if constexpr (std::size(CallImm::kResultsElements)) {
+      if constexpr (std::tuple_size_v<ResultRegisterTypes> == 1) {
         return std::get<0>(result);
       } else {
         return result;

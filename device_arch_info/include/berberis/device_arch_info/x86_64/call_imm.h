@@ -244,7 +244,7 @@ class CallImm<kFunction> {
         }
       }>;
   template <typename GpRegister, typename SSERegister>
-  using ResultRegiesterTypes =
+  using ResultRegisterTypes =
       TypesToTypes::FlatMap<call_imm_impl::SplitTypes<CleanRetType>,
                             call_imm_impl::ResultRegisterTypesHelper<GpRegister, SSERegister>{}>;
   // Note: we need kArgumentElements mostly to calculate ArgumentRegisters but frontend can use it

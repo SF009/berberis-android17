@@ -89,7 +89,7 @@ class MachineIRBuilder : public MachineIRBuilderBase<MachineIR> {
             return std::array{std::get<Binding::kArgInfo.from>(args_tuple)};
           } else if constexpr (HaveInput(Binding::kArgInfo)) {
             static_assert(device_arch_info::kIsRegister<Operand>);
-            // If register is implicit we need to add extra PseudoCopy here even if it's pure
+            // If register is implicit we need to add extra Copy here even if it's pure
             // input. Otherwise we may attempt to make the same register to belong to two
             // different, incompatible register classes if it's ALSO output of another
             // instruction with a different implicit class. E.g. if output of division is used

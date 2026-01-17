@@ -28,7 +28,7 @@ namespace berberis::x86_64 {
 
 namespace {
 
-TEST(LowerSSAInstructionsTest, PseudoWriteFlags) {
+TEST(LowerSSAInstructionsTest, LowerAddqRegReg) {
   Arena arena;
   MachineIR machine_ir(&arena);
   auto* bb = machine_ir.NewBasicBlock();

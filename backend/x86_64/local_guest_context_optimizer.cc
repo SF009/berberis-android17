@@ -113,7 +113,7 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(
   }
 }
 
-// Optimizes a GET instruction if possible by replacing with PSEUDOCOPY, while
+// Optimizes a GET instruction if possible by replacing with COPY, while
 // also setting up the mapping for future optimizations. On successful
 // optimization, returns the source register we made a copy from.
 std::optional<MachineReg> LocalGuestContextOptimizer::ReplaceGetAndUpdateMap(

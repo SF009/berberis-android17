@@ -115,15 +115,15 @@ TEST(MachineRenameVRegsTest, DataFlowAcrossBasicBlocks) {
   MachineReg vreg2_in_bb1 = (*it)->RegAt(0);
 
   // BB2:
-  // PSEUDO_COPY bb2_v1, bb1_v1
-  // PSEUDO_COPY bb2_v2, bb1_v2
+  // COPY bb2_v1, bb1_v1
+  // COPY bb2_v2, bb1_v2
   // MOVQ RAX, bb2_v2
   // BRANCH BB3
   ASSERT_EQ(bb2->insn_list().size(), 4U);
   MachineReg vreg1_in_bb2, vreg2_in_bb2;
   it = bb2->insn_list().begin();
   EXPECT_EQ((*it)->opcode(), kMachineOpCopy);
-  // Pseudo-moves order is not guaranteed. So consider both cases.
+  // Copies order is not guaranteed. So consider both cases.
   if ((*it)->RegAt(1) == vreg1_in_bb1) {
     vreg1_in_bb2 = (*it)->RegAt(0);
     it++;
@@ -144,7 +144,7 @@ TEST(MachineRenameVRegsTest, DataFlowAcrossBasicBlocks) {
   EXPECT_EQ((*it)->RegAt(1), vreg2_in_bb2);
 
   // BB3:
-  // PSEUDO_COPY bb3_v1, bb2_v1
+  // COPY bb3_v1, bb2_v1
   // MOVQ RAX, bb3_v1
   // JUMP
   ASSERT_EQ(bb3->insn_list().size(), 3U);
@@ -167,7 +167,7 @@ TEST(MachineRenameVRegsTest, DataFlowFromTwoPreds) {
 
   // BB1:
   // MOVQ v1, 0
-  // PSEUDO_COPY v3, v1
+  // COPY v3, v1
   // BRANCH BB3
   ASSERT_EQ(bb1->insn_list().size(), 3U);
   auto it = bb1->insn_list().begin();
@@ -180,7 +180,7 @@ TEST(MachineRenameVRegsTest, DataFlowFromTwoPreds) {
 
   // BB2:
   // MOVQ v2, 1
-  // PSEUDO_COPY v3, v2
+  // COPY v3, v2
   // BRANCH BB3
   ASSERT_EQ(bb2->insn_list().size(), 3U);
   it = bb2->insn_list().begin();
@@ -217,7 +217,7 @@ TEST(MachineRenameVRegsTest, DataFlowToTwoSuccs) {
   auto vreg_in_bb1 = (*it)->RegAt(0);
 
   // BB2:
-  // PSEUDO_COPY v2, v1
+  // COPY v2, v1
   // MOVQ RAX, v2
   // JUMP
   ASSERT_EQ(bb2->insn_list().size(), 3U);
@@ -230,7 +230,7 @@ TEST(MachineRenameVRegsTest, DataFlowToTwoSuccs) {
   EXPECT_EQ(vreg_in_bb2, (*it)->RegAt(1));
 
   // BB3:
-  // PSEUDO_COPY v3, v1
+  // COPY v3, v1
   // MOVQ RAX, v3
   // JUMP
   ASSERT_EQ(bb3->insn_list().size(), 3U);
@@ -253,7 +253,7 @@ TEST(MachineRenameVRegsTest, DataFlowAcrossEmptyLoop) {
 
   // BB1:
   // MOVQ v1, 0
-  // PSEUDO_COPY v2, v1
+  // COPY v2, v1
   // BRANCH BB2
   ASSERT_EQ(bb1->insn_list().size(), 3U);
   auto it = bb1->insn_list().begin();
@@ -269,8 +269,8 @@ TEST(MachineRenameVRegsTest, DataFlowAcrossEmptyLoop) {
   ASSERT_EQ(bb2->insn_list().size(), 1U);
 
   // BB3:
-  // PSEUDO_COPY v3, v2
-  // PSEUDO_COPY v2, v3
+  // COPY v3, v2
+  // COPY v2, v3
   // BRAND BB2
   ASSERT_EQ(bb4->insn_list().size(), 3U);
   it = bb3->insn_list().begin();
@@ -283,7 +283,7 @@ TEST(MachineRenameVRegsTest, DataFlowAcrossEmptyLoop) {
   EXPECT_EQ(vreg_in_bb2, (*it)->RegAt(0));
 
   // BB4:
-  // PSEUDO_COPY v4, v2
+  // COPY v4, v2
   // MOVQ RAX, v4
   // JUMP
   ASSERT_EQ(bb4->insn_list().size(), 3U);
