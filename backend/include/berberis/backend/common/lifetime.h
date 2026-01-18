@@ -54,7 +54,7 @@ class VRegAccess {
       CHECK_EQ(0, index_);
       pos_.insn()->SetRegAt(0, spill);
     } else {
-      pos_.InsertAfter(machine_ir->NewInsn<Copy>(spill, hard_reg, GetRegClass()->RegSize()));
+      pos_.InsertAfter(machine_ir->NewInsn<Copy>(spill, hard_reg, GetRegClass()));
     }
   }
 
@@ -68,7 +68,7 @@ class VRegAccess {
       CHECK_EQ(1, index_);
       pos_.insn()->SetRegAt(1, spill);
     } else {
-      pos_.InsertBefore(machine_ir->NewInsn<Copy>(hard_reg, spill, GetRegClass()->RegSize()));
+      pos_.InsertBefore(machine_ir->NewInsn<Copy>(hard_reg, spill, GetRegClass()));
     }
   }
 

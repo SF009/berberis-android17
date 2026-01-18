@@ -80,7 +80,7 @@ TestLoop BuildBasicLoop(MachineIR* machine_ir,
   builder.Gen<AddqRegReg, kNoSSA>(
       machine_ir->AllocVReg(), machine_ir->AllocVReg(), kMachineRegFLAGS);
   GenReadFlags(builder, flags0, kMachineRegFLAGS);
-  builder.Gen<Copy>(flags1, flags0, 8);
+  builder.Gen<Copy>(flags1, flags0, kMeta<&kGeneralReg64>);
   builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, kMachineRegFLAGS);
   bb2->live_out().push_back(flags1);
 
@@ -114,7 +114,7 @@ TEST_P(ReadFlagsVariantsTest, CheckRegsUnusedWithinInsnRangeAddsReg) {
 
   builder.StartBasicBlock(bb0);
   GenReadFlags(builder, flags0, kMachineRegFLAGS);
-  builder.Gen<Copy>(flags1, flags0, 8);
+  builder.Gen<Copy>(flags1, flags0, kMeta<&kGeneralReg64>);
   builder.Gen<WriteFlags, kNoSSA>(flags1, kMachineRegFLAGS);
   builder.Gen<Branch>(bb1);
 
@@ -198,7 +198,7 @@ TEST_P(ReadFlagsVariantsTest, CheckPostLoopNodeLifetime) {
 
   builder.StartBasicBlock(bb0);
   GenReadFlags(builder, flags, kMachineRegFLAGS);
-  builder.Gen<Copy>(flags_copy, flags, 8);
+  builder.Gen<Copy>(flags_copy, flags, kMeta<&kGeneralReg64>);
   builder.Gen<Branch>(bb1);
 
   builder.StartBasicBlock(bb1);
@@ -266,7 +266,7 @@ TEST(MachineIRReadFlagsOptimizer, CheckPostLoopNodeLiveOut) {
 
   bb2->live_in().push_back(flags);
   builder.StartBasicBlock(bb2);
-  builder.Gen<Copy>(flags_copy, flags, 8);
+  builder.Gen<Copy>(flags_copy, flags, kMeta<&kGeneralReg64>);
   builder.Gen<Branch>(bb3);
   bb2->live_out().push_back(flags_copy);
 
@@ -384,8 +384,9 @@ TEST_P(ReadFlagsVariantsTest, CheckSuccessorNodeLiveIn) {
   auto testloop = BuildBasicLoop(&machine_ir, GenReadFlags, GetReadOpcode());
 
   testloop.loop_exit->live_in().push_back(flags0);
-  testloop.loop_exit->insn_list().insert(testloop.loop_exit->insn_list().begin(),
-                                         machine_ir.NewInsn<Copy>(flags1, flags0, 8));
+  testloop.loop_exit->insn_list().insert(
+      testloop.loop_exit->insn_list().begin(),
+      machine_ir.NewInsn<Copy>(flags1, flags0, kMeta<&kGeneralReg64>));
 
   testloop.postloop->live_in().push_back(flags1);
   ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
@@ -590,7 +591,7 @@ TEST_P(ReadFlagsVariantsTest, IsEligibleReadFlagChecksPostloopNode) {
 
   testloop.postloop->live_in().push_back(testloop.flags_reg);
   testloop.postloop->insn_list().push_front(
-      machine_ir.NewInsn<Copy>(flags_copy, testloop.flags_reg, 8));
+      machine_ir.NewInsn<Copy>(flags_copy, testloop.flags_reg, kMeta<&kGeneralReg64>));
 
   ASSERT_EQ(CheckMachineIR(machine_ir), kMachineIRCheckSuccess);
   auto loop_tree = BuildLoopTree(&machine_ir);
@@ -643,7 +644,7 @@ TEST_P(ReadFlagsVariantsTest, IsEligibleReadFlagChecksSuccPostLoopNode) {
 
   testloop.successor->live_in().push_back(testloop.flags_reg);
   testloop.successor->insn_list().push_front(
-      machine_ir.NewInsn<Copy>(flags_copy, testloop.flags_reg, 8));
+      machine_ir.NewInsn<Copy>(flags_copy, testloop.flags_reg, kMeta<&kGeneralReg64>));
   testloop.successor->live_out().push_back(flags_copy);
   testloop.succ_postloop->live_in().push_back(flags_copy);
 
@@ -806,7 +807,7 @@ TEST_P(ReadFlagsVariantsTest, RemoveEligibleReadFlagsInLoopTree) {
   builder.StartBasicBlock(bb1);
   builder.Gen<AddqRegReg, kNoSSA>(scratch, scratch, kMachineRegFLAGS);
   GenReadFlags(builder, flags0, kMachineRegFLAGS);
-  builder.Gen<Copy>(flags00, flags0, 8);
+  builder.Gen<Copy>(flags00, flags0, kMeta<&kGeneralReg64>);
   builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb5, kMachineRegFLAGS);
   bb1->live_out().push_back(flags00);
 
@@ -816,7 +817,7 @@ TEST_P(ReadFlagsVariantsTest, RemoveEligibleReadFlagsInLoopTree) {
   builder.StartBasicBlock(bb3);
   builder.Gen<AddqRegReg, kNoSSA>(scratch, scratch, kMachineRegFLAGS);
   GenReadFlags(builder, flags1, kMachineRegFLAGS);
-  builder.Gen<Copy>(flags11, flags1, 8);
+  builder.Gen<Copy>(flags11, flags1, kMeta<&kGeneralReg64>);
   builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb4, kMachineRegFLAGS);
   bb3->live_out().push_back(flags11);
 
@@ -896,7 +897,7 @@ TEST_P(ReadFlagsVariantsTest, RemoveEligibleReadFlagsExitsToOuterLoop) {
   builder.StartBasicBlock(bb2);
   builder.Gen<SubqRegReg, kNoSSA>(scratch, scratch, kMachineRegFLAGS);
   GenReadFlags(builder, flags0, kMachineRegFLAGS);
-  builder.Gen<Copy>(flags00, flags0, 8);
+  builder.Gen<Copy>(flags00, flags0, kMeta<&kGeneralReg64>);
   builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, kMachineRegFLAGS);
   bb2->live_out().push_back(flags00);
 
@@ -944,7 +945,7 @@ TEST_P(ReadFlagsVariantsTest, OptimizeReadFlags) {
 
   testloop.successor->live_in().push_back(testloop.flags_reg);
   testloop.successor->insn_list().push_front(
-      machine_ir.NewInsn<Copy>(flags_copy, testloop.flags_reg, 8));
+      machine_ir.NewInsn<Copy>(flags_copy, testloop.flags_reg, kMeta<&kGeneralReg64>));
   testloop.successor->live_out().push_back(flags_copy);
 
   testloop.succ_postloop->live_in().push_back(flags_copy);
@@ -1040,7 +1041,7 @@ TEST_P(ReadFlagsVariantsTest, RemoveReadFlags) {
   builder.StartBasicBlock(bb2);
   builder.Gen<AddqRegReg, kNoSSA>(input_flag0, input_flag1, kMachineRegFLAGS);
   auto* readflag_insn = GenReadFlags(builder, flags0, kMachineRegFLAGS);
-  builder.Gen<Copy>(flags00, flags0, 8);
+  builder.Gen<Copy>(flags00, flags0, kMeta<&kGeneralReg64>);
   builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, kMachineRegFLAGS);
   bb2->live_out().push_back(flags00);
 
@@ -1050,7 +1051,7 @@ TEST_P(ReadFlagsVariantsTest, RemoveReadFlags) {
   bb3->live_in().push_back(flags00);
 
   builder.StartBasicBlock(bb4);
-  builder.Gen<Copy>(flags000, flags00, 8);
+  builder.Gen<Copy>(flags000, flags00, kMeta<&kGeneralReg64>);
   builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb1, bb5, kMachineRegFLAGS);
   bb4->live_in().push_back(flags00);
   bb4->live_out().push_back(flags000);
@@ -1139,7 +1140,7 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersRecursesOnNeighbors) {
 
   builder.StartBasicBlock(bb0);
   auto* flag_set_insn = builder.Gen<SubqRegImm, kNoSSA>(input0, 12, kMachineRegFLAGS);
-  builder.Gen<Copy>(input00, input0, 8);
+  builder.Gen<Copy>(input00, input0, kMeta<&kGeneralReg64>);
   builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb1, bb2, kMachineRegFLAGS);
 
   bb1->live_in().push_back(flags0);
@@ -1186,12 +1187,12 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersReplacesInstructions) {
 
   builder.StartBasicBlock(bb0);
   auto* flag_set_insn = builder.Gen<SubqRegImm, kNoSSA>(input0, 12, kMachineRegFLAGS);
-  builder.Gen<Copy>(input00, input0, 8);
+  builder.Gen<Copy>(input00, input0, kMeta<&kGeneralReg64>);
   builder.Gen<Branch>(bb1);
 
   bb1->live_in().push_back(flags0);
   builder.StartBasicBlock(bb1);
-  builder.Gen<Copy>(flags00, flags0, 8);
+  builder.Gen<Copy>(flags00, flags0, kMeta<&kGeneralReg64>);
   builder.Gen<WriteFlags, kNoSSA>(flags00, kMachineRegFLAGS);
   builder.Gen<Jump>(kNullGuestAddr);
 
@@ -1247,7 +1248,7 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersUpdatesLiveInOut) {
   loop_exit->live_out().push_back(flags0);
 
   builder.StartBasicBlock(postloop);
-  builder.Gen<Copy>(flags00, flags0, 8);
+  builder.Gen<Copy>(flags00, flags0, kMeta<&kGeneralReg64>);
   builder.Gen<Branch>(postloop_successor);
   postloop->live_in().push_back(flags0);
   postloop->live_out().push_back(flags00);
@@ -1294,8 +1295,8 @@ TEST_P(ReadFlagsVariantsTest, ReplaceFlagRegistersDeletesCopies) {
   auto bb0 = machine_ir.NewBasicBlock();
 
   builder.StartBasicBlock(bb0);
-  builder.Gen<Copy>(flags00, flags0, 8);
-  builder.Gen<Copy>(flags000, flags00, 8);
+  builder.Gen<Copy>(flags00, flags0, kMeta<&kGeneralReg64>);
+  builder.Gen<Copy>(flags000, flags00, kMeta<&kGeneralReg64>);
   GenReadFlags(builder, flags1, kMachineRegFLAGS);
   builder.Gen<Jump>(kNullGuestAddr);
 
@@ -1407,7 +1408,7 @@ TEST(MachineIRReadFlagsOptimizer, ReplaceFlagRegistersKeepsLiveIns) {
   // Have an extra copy here just so we can pass next(begin()) to
   // ReplaceFlagRegisters but it could be any instruction.
   builder.Gen<AddqRegReg, kNoSSA>(input0, input1, kMachineRegFLAGS);
-  builder.Gen<Copy>(flags00, flags0, 8);
+  builder.Gen<Copy>(flags00, flags0, kMeta<&kGeneralReg64>);
   builder.Gen<Branch>(succ_bb);
   bb->live_in().push_back(flags0);
   bb->live_out().push_back(flags00);

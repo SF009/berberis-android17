@@ -415,7 +415,7 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldRedundantMov
         return {FoldingType::kImpossible, nullptr};
       default:
         return {FoldingType::kReplaceInsn,
-                machine_ir_->NewInsn<Copy>(insn->RegAt(0), src, 8)};
+                machine_ir_->NewInsn<Copy>(insn->RegAt(0), src, kMeta<&kGeneralReg64>)};
     }
   }
   return {FoldingType::kImpossible, nullptr};
@@ -1080,8 +1080,10 @@ MachineInsnList::iterator InsnFolding::ExecuteInsnFold(MachineInsnList& insn_lis
     MachineReg op_reg_0 = curr_op_insn->RegAt(0);
     MachineReg op_reg_1 = curr_op_insn->RegAt(1);
     MachineReg new_reg = new_insn->RegAt(0);
-    berberis::MachineInsn* new_copy_1 = machine_ir_->NewInsn<Copy>(new_reg, op_reg_1, 8);
-    berberis::MachineInsn* new_copy_2 = machine_ir_->NewInsn<Copy>(op_reg_0, new_reg, 8);
+    berberis::MachineInsn* new_copy_1 =
+        machine_ir_->NewInsn<Copy>(new_reg, op_reg_1, kMeta<&kGeneralReg64>);
+    berberis::MachineInsn* new_copy_2 =
+        machine_ir_->NewInsn<Copy>(op_reg_0, new_reg, kMeta<&kGeneralReg64>);
     insn_list.insert(folded_insn_it, new_copy_1);
     *folded_insn_it = new_insn;
     insn_list.insert(std::next(folded_insn_it), new_copy_2);

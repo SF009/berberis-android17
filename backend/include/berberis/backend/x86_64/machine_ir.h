@@ -182,6 +182,8 @@ inline constexpr MachineRegClass kRegisterClass =
     MachineRegClassFromMachineInsnInfoClass<MachineInsnInfoClass>();
 
 inline constexpr auto& kRAX = kRegisterClass<device_arch_info::RAX>;
+inline constexpr auto& kFpReg32 = kRegisterClass<device_arch_info::FpReg32>;
+inline constexpr auto& kFpReg64 = kRegisterClass<device_arch_info::FpReg64>;
 inline constexpr auto& kGeneralReg32 = kRegisterClass<device_arch_info::GeneralReg32>;
 inline constexpr auto& kGeneralReg64 = kRegisterClass<device_arch_info::GeneralReg64>;
 inline constexpr auto& kReg32 = kRegisterClass<device_arch_info::Reg32>;
@@ -706,8 +708,26 @@ class MachineInsn final : public MachineInsnX86_64 {
                         kind_idx++;
                         auto src = MachineInsnX86_64::RegAt(reg_idx++);
                         if (dst != src) {
-                          result.push_back(NewInArena<Copy>(
-                              arena, dst, src, kInfo.reg_kinds[kind_idx++].RegClass()->reg_size));
+                          if constexpr (device_arch_info::kIsFLAGS<Operand>) {
+                            result.push_back(NewInArena<Copy>(arena, dst, src, kMeta<&kFLAGS>));
+                          } else if constexpr (Operand::Class::kAsRegister == 'x') {
+                            if constexpr (Operand::Class::kSizeInBits > 64) {
+                              static_assert(Operand::Class::kSizeInBits == 128);
+                              result.push_back(NewInArena<Copy>(arena, dst, src, kMeta<&kXmmReg>));
+                            } else if constexpr (Operand::Class::kSizeInBits > 32) {
+                              result.push_back(NewInArena<Copy>(arena, dst, src, kMeta<&kFpReg64>));
+                            } else {
+                              result.push_back(NewInArena<Copy>(arena, dst, src, kMeta<&kFpReg32>));
+                            }
+                          } else {
+                            if constexpr (Operand::Class::kSizeInBits > 32) {
+                              result.push_back(
+                                  NewInArena<Copy>(arena, dst, src, kMeta<&kGeneralReg64>));
+                            } else {
+                              result.push_back(
+                                  NewInArena<Copy>(arena, dst, src, kMeta<&kGeneralReg32>));
+                            }
+                          }
                         }
                         return dst;
                       } else {
