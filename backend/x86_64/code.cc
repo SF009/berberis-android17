@@ -74,8 +74,6 @@ constexpr MachineRegKind kCopyReg64Info[] = {{&kReg64, MachineRegKind::kDef},
 constexpr MachineRegKind kCopyXmmInfo[] = {{&kXmmReg, MachineRegKind::kDef},
                                                  {&kXmmReg, MachineRegKind::kUse}};
 
-constexpr MachineRegKind kPseudoDefReg64Info[] = {{&kReg64, MachineRegKind::kDef}};
-
 }  // namespace
 
 Enter::Enter() : MachineInsnX86_64(&kEnterInfo, x86_64_insn_info_.regs_) {}
@@ -232,13 +230,8 @@ MachineInsnList Copy::Lower(Arena* arena) const {
 
 const MachineOpcode PseudoDefReg::kOpcode = kMachineOpPseudoDefReg;
 
-PseudoDefReg::PseudoDefReg(MachineReg reg)
-    : MachineInsn(kMachineOpPseudoDefReg,
-                  1,
-                  x86_64::kPseudoDefReg64Info,
-                  &reg_,
-                  kMachineInsnDefault),
-      reg_{reg} {}
+PseudoDefReg::PseudoDefReg(MachineReg reg, const MachineRegKind reg_info[1])
+    : MachineInsn(kMachineOpPseudoDefReg, 1, reg_info, &reg_, kMachineInsnDefault), reg_{reg} {}
 
 PseudoDefReg::PseudoDefReg(const PseudoDefReg& insn) : MachineInsn(insn, &reg_), reg_{insn.reg_} {}
 

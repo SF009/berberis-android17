@@ -237,7 +237,7 @@ class VRegAccessTest : public ::testing::Test {
     auto& insn_list = bb_->insn_list();
     ASSERT_TRUE(insn_list.empty());
 
-    insn_list.push_back(machine_ir_.NewInsn<PseudoDefReg>(active_reg));
+    insn_list.push_back(machine_ir_.NewInsn<PseudoDefReg>(active_reg, kMeta<&kRegClass>));
 
     insn_list.push_back(insn);
 

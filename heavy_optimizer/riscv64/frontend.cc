@@ -747,7 +747,7 @@ Register HeavyOptimizerFrontend::MemoryRegionReservationExchange(Register aligne
 
   ir->AddEdge(builder_.bb(), continue_bb);
   // Pseudo-def for use-def operand of XOR to make sure data-flow is integrate.
-  builder_.Gen<PseudoDefReg>(result);
+  builder_.Gen<PseudoDefReg>(result, kMeta<&x86_64::kGeneralReg32>);
   Register xor_flags;
   std::tie(result, xor_flags) = Gen<x86_64::XorlRegReg>(result, result);
   builder_.Gen<berberis::Branch>(continue_bb);
