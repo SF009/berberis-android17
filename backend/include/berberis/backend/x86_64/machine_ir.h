@@ -115,12 +115,20 @@ inline constexpr auto kMachineRegFLAGS = MachineRegs::kFLAGS;
 inline constexpr auto kMachineRegRBP = MachineRegs::kRBP;
 inline constexpr auto kMachineRegRSP = MachineRegs::kRSP;
 
-inline bool IsGReg(MachineReg r) {
+constexpr bool IsGReg(MachineReg r) {
   return r.reg() >= MachineRegs::kR8.reg() && r.reg() <= MachineRegs::kR15.reg();
 }
 
-inline bool IsXReg(MachineReg r) {
+constexpr bool IsGReg(const MachineRegClass* c) {
+  return IsGReg(c->regs[0]);
+}
+
+constexpr bool IsXReg(MachineReg r) {
   return r.reg() >= MachineRegs::kXMM0.reg() && r.reg() <= MachineRegs::kXMM15.reg();
+}
+
+constexpr bool IsXReg(const MachineRegClass* c) {
+  return IsXReg(c->regs[0]);
 }
 
 // Context loads and stores use rbp as base.
@@ -182,12 +190,10 @@ inline constexpr MachineRegClass kRegisterClass =
     MachineRegClassFromMachineInsnInfoClass<MachineInsnInfoClass>();
 
 inline constexpr auto& kRAX = kRegisterClass<device_arch_info::RAX>;
-inline constexpr auto& kFpReg32 = kRegisterClass<device_arch_info::FpReg32>;
-inline constexpr auto& kFpReg64 = kRegisterClass<device_arch_info::FpReg64>;
 inline constexpr auto& kGeneralReg32 = kRegisterClass<device_arch_info::GeneralReg32>;
 inline constexpr auto& kGeneralReg64 = kRegisterClass<device_arch_info::GeneralReg64>;
-inline constexpr auto& kReg32 = kRegisterClass<device_arch_info::Reg32>;
-inline constexpr auto& kReg64 = kRegisterClass<device_arch_info::Reg64>;
+inline constexpr auto& kFpReg32 = kRegisterClass<device_arch_info::FpReg32>;
+inline constexpr auto& kFpReg64 = kRegisterClass<device_arch_info::FpReg64>;
 inline constexpr auto& kXmmReg = kRegisterClass<device_arch_info::XmmReg>;
 inline constexpr auto& kFLAGS = kRegisterClass<device_arch_info::FLAGS>;
 

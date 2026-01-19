@@ -65,15 +65,6 @@ constexpr MachineRegKind kIndirectJumpInfoOptimizedABI[] = {
     {&kRegisterClass<device_arch_info::R13>, MachineRegKind::kUse},
 };
 
-constexpr MachineRegKind kCopyReg32Info[] = {{&kReg32, MachineRegKind::kDef},
-                                                   {&kReg32, MachineRegKind::kUse}};
-
-constexpr MachineRegKind kCopyReg64Info[] = {{&kReg64, MachineRegKind::kDef},
-                                                   {&kReg64, MachineRegKind::kUse}};
-
-constexpr MachineRegKind kCopyXmmInfo[] = {{&kXmmReg, MachineRegKind::kDef},
-                                                 {&kXmmReg, MachineRegKind::kUse}};
-
 }  // namespace
 
 Enter::Enter() : MachineInsnX86_64(&kEnterInfo, x86_64_insn_info_.regs_) {}
@@ -188,16 +179,6 @@ MachineInsnList IndirectJump::Lower(Arena* arena) const {
 const MachineOpcode Copy::kOpcode = kMachineOpCopy;
 
 // Reg class of correct size is essential for current spill/reload code!!!
-Copy::Copy(MachineReg dst, MachineReg src, int size)
-    : MachineInsn(kMachineOpCopy,
-                  2,
-                  size > 8   ? x86_64::kCopyXmmInfo
-                  : size > 4 ? x86_64::kCopyReg64Info
-                             : x86_64::kCopyReg32Info,
-                  regs_,
-                  kMachineInsnCopy),
-      regs_{dst, src} {}
-
 Copy::Copy(MachineReg dst, MachineReg src, const MachineRegKind reg_info[2])
     : MachineInsn(kMachineOpCopy, 2, reg_info, regs_, kMachineInsnCopy), regs_{dst, src} {}
 

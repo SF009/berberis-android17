@@ -611,7 +611,6 @@ class Copy final : public MachineInsn {
       : Copy(dst, src, kCopyRegInfo<kRegClass>) {}
   // For Spill/Reload. Either dst or src have to hard reg, the other one have to be a spill slot.
   Copy(MachineReg dst, MachineReg src, const MachineRegClass* reg_class);
-  Copy(MachineReg dst, MachineReg src, int size);
 
   std::string GetDebugString() const override;
   void Emit(CodeEmitter* as) const override;
