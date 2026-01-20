@@ -131,27 +131,7 @@ std::optional<MachineReg> LocalGuestContextOptimizer::ReplaceGetAndUpdateMap(
 
   if (std::holds_alternative<MachineReg>(mem_reg_map_[disp].value().value)) {
     MachineReg ret = std::get<MachineReg>(mem_reg_map_[disp].value().value);
-    const auto* reg_class = insn->RegKindAt(0).RegClass();
-    if (IsGReg(reg_class)) {
-      if (reg_class->reg_size <= int{sizeof(int32_t)}) {
-        *insn_it = machine_ir_->NewInsn<Copy>(dst, ret, kMeta<&kGeneralReg32>);
-      } else {
-        CHECK_EQ(reg_class->reg_size, int{sizeof(int64_t)});
-        *insn_it = machine_ir_->NewInsn<Copy>(dst, ret, kMeta<&kGeneralReg64>);
-      }
-    } else {
-      CHECK(IsXReg(reg_class));
-      if (reg_class->reg_size > int{sizeof(int64_t)}) {
-        CHECK_EQ(reg_class->reg_size, int{sizeof(Int128)});
-        *insn_it = machine_ir_->NewInsn<Copy>(dst, ret, kMeta<&kXmmReg>);
-      } else if (reg_class->reg_size == int{sizeof(int64_t)}) {
-        CHECK_EQ(reg_class->reg_size, int{sizeof(Float64)});
-        *insn_it = machine_ir_->NewInsn<Copy>(dst, ret, kMeta<&kFpReg64>);
-      } else {
-        CHECK_EQ(reg_class->reg_size, int{sizeof(Float32)});
-        *insn_it = machine_ir_->NewInsn<Copy>(dst, ret, kMeta<&kFpReg32>);
-      }
-    }
+    *insn_it = machine_ir_->NewInsn<Copy>(dst, ret, insn->RegKindAt(0).RegClass());
     return ret;
   } else {
     CHECK(insn->opcode() != kMachineOpMovdqaXRegMemBaseDisp &&

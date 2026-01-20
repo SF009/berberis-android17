@@ -63,28 +63,7 @@ void GenInterBasicBlockMove(MachineIR* machine_ir,
                             MachineReg vreg) {
   MachineReg pred_vreg = vreg_map->Get(vreg, pred_bb);
   MachineReg succ_vreg = vreg_map->Get(vreg, succ_bb);
-  const MachineRegClass* max_width_reg_class = vreg_map->GetMaxRegClass(vreg);
-  Copy* insn;
-  if (IsGReg(max_width_reg_class)) {
-    if (max_width_reg_class->reg_size <= int{sizeof(int32_t)}) {
-      insn = machine_ir->NewInsn<Copy>(succ_vreg, pred_vreg, kMeta<&kGeneralReg32>);
-    } else {
-      CHECK_EQ(max_width_reg_class->reg_size, int{sizeof(int64_t)});
-      insn = machine_ir->NewInsn<Copy>(succ_vreg, pred_vreg, kMeta<&kGeneralReg64>);
-    }
-  } else {
-    CHECK(IsXReg(max_width_reg_class));
-    if (max_width_reg_class->reg_size > int{sizeof(int64_t)}) {
-      CHECK_EQ(max_width_reg_class->reg_size, int{sizeof(Int128)});
-      insn = machine_ir->NewInsn<Copy>(succ_vreg, pred_vreg, kMeta<&kXmmReg>);
-    } else if (max_width_reg_class->reg_size > int{sizeof(int64_t)}) {
-      CHECK_EQ(max_width_reg_class->reg_size, int{sizeof(Float64)});
-      insn = machine_ir->NewInsn<Copy>(succ_vreg, pred_vreg, kMeta<&kFpReg64>);
-    } else {
-      CHECK_EQ(max_width_reg_class->reg_size, int{sizeof(Float32)});
-      insn = machine_ir->NewInsn<Copy>(succ_vreg, pred_vreg, kMeta<&kFpReg32>);
-    }
-  }
+  Copy* insn = machine_ir->NewInsn<Copy>(succ_vreg, pred_vreg, vreg_map->GetMaxRegClass(vreg));
 
   if (succ_bb->in_edges().size() == 1) {
     // Successor has single pred.

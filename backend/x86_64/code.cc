@@ -182,21 +182,36 @@ const MachineOpcode Copy::kOpcode = kMachineOpCopy;
 Copy::Copy(MachineReg dst, MachineReg src, const MachineRegKind reg_info[2])
     : MachineInsn(kMachineOpCopy, 2, reg_info, regs_, kMachineInsnCopy), regs_{dst, src} {}
 
-Copy::Copy(MachineReg dst, MachineReg src, const MachineRegClass* reg_class)
-    : MachineInsn(kMachineOpCopy,
-                  2,
-                  reg_class->RegSize() > 8 ? kCopyRegInfo<&x86_64::kXmmReg>
-                  : x86_64::IsXReg(dst) || x86_64::IsXReg(src)
-                      ? reg_class->RegSize() > 4 ? kCopyRegInfo<&x86_64::kFpReg64>
-                                                 : kCopyRegInfo<&x86_64::kFpReg32>
-                  : reg_class->RegSize() > 4 ? kCopyRegInfo<&x86_64::kGeneralReg64>
-                                             : kCopyRegInfo<&x86_64::kGeneralReg32>,
-                  regs_,
-                  kMachineInsnCopy),
-      regs_{dst, src} {
-  CHECK(dst.IsHardReg() || dst.IsSpilledReg());
-  CHECK(src.IsHardReg() || src.IsSpilledReg());
+// Note: this logic have to match the logic of GetRegClassForCopy in
+// berberis/backend/x86_64/machine_ir.h
+const MachineRegKind* Copy::CopyRegClass(const MachineRegClass* reg_class) {
+  if (x86_64::IsGReg(reg_class)) {
+    if (reg_class->reg_size <= int{sizeof(int32_t)}) {
+      return kCopyRegInfo<&x86_64::kGeneralReg32>;
+    } else {
+      CHECK_EQ(reg_class->reg_size, int{sizeof(int64_t)});
+      return kCopyRegInfo<&x86_64::kGeneralReg64>;
+    }
+  } else if (x86_64::IsXReg(reg_class)) {
+    if (reg_class->reg_size > int{sizeof(int64_t)}) {
+      CHECK_EQ(reg_class->reg_size, int{sizeof(__int128)});
+      return kCopyRegInfo<&x86_64::kXmmReg>;
+    } else if (reg_class->reg_size == int{sizeof(int64_t)}) {
+      CHECK_EQ(reg_class->reg_size, int{sizeof(Float64)});
+      return kCopyRegInfo<&x86_64::kFpReg64>;
+    } else {
+      CHECK_EQ(reg_class->reg_size, int{sizeof(Float32)});
+      return kCopyRegInfo<&x86_64::kFpReg32>;
+    }
+  } else {
+    CHECK_EQ(reg_class, &x86_64::kFLAGS);
+    return kCopyRegInfo<&x86_64::kFLAGS>;
+  }
 }
+
+Copy::Copy(MachineReg dst, MachineReg src, const MachineRegClass* reg_class)
+    : MachineInsn(kMachineOpCopy, 2, CopyRegClass(reg_class), regs_, kMachineInsnCopy),
+      regs_{dst, src} {}
 
 Copy::Copy(const Copy& insn)
     : MachineInsn(insn, regs_), regs_{insn.regs_[0], insn.regs_[1]} {}

@@ -609,7 +609,7 @@ class Copy final : public MachineInsn {
   template <const MachineRegClass* kRegClass>
   Copy(MachineReg dst, MachineReg src, MetaValue<kRegClass>)
       : Copy(dst, src, kCopyRegInfo<kRegClass>) {}
-  // For Spill/Reload. Either dst or src have to hard reg, the other one have to be a spill slot.
+  // For Spill/Reload. Does checks at runtime. Prefer previous constructor, if possible.
   Copy(MachineReg dst, MachineReg src, const MachineRegClass* reg_class);
 
   std::string GetDebugString() const override;
@@ -620,6 +620,7 @@ class Copy final : public MachineInsn {
   static constexpr MachineRegKind kCopyRegInfo[2] = {{kRegClass, MachineRegKind::kDef},
                                                      {kRegClass, MachineRegKind::kUse}};
   Copy(MachineReg dst, MachineReg src, const MachineRegKind reg_info[2]);
+  static const MachineRegKind* CopyRegClass(const MachineRegClass* reg_class);
   friend Copy* NewInArena<Copy, const Copy&>(Arena*, const Copy&);
   Copy(const Copy&);
   MachineInsn* Clone(Arena* arena) const override;
