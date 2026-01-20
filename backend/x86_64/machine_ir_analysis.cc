@@ -178,6 +178,24 @@ Loop* CollectLoop(MachineIR* ir,
 
 }  // namespace
 
+MachineBasicBlockList FindNonloopNodes(MachineIR* ir) {
+  MachineBasicBlockList ret(ir->arena());
+  LoopVector loops = FindLoops(ir);
+  ArenaVector<bool> is_in_loop(ir->NumBasicBlocks(), false, ir->arena());
+  for (auto* loop : loops) {
+    for (MachineBasicBlock* bb : *loop) {
+      is_in_loop.at(bb->id()) = true;
+    }
+  }
+
+  for (MachineBasicBlock* bb : ir->bb_list()) {
+    if (!is_in_loop.at(bb->id())) {
+      ret.push_back(bb);
+    }
+  }
+  return ret;
+}
+
 MachineBasicBlockList GetReversePostOrderBBList(MachineIR* ir) {
   if (ir->bb_order() == MachineIR::BasicBlockOrder::kReversePostOrder) {
     return ir->bb_list();

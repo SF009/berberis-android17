@@ -105,6 +105,7 @@ class LoopTree {
 LoopVector FindLoops(MachineIR* ir);
 LoopTree BuildLoopTree(MachineIR* ir);
 
+MachineBasicBlockList FindNonloopNodes(MachineIR* ir);
 MachineBasicBlockList GetReversePostOrderBBList(MachineIR* ir);
 
 }  // namespace berberis::x86_64

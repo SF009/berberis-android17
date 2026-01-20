@@ -424,6 +424,110 @@ TEST(MachineIRAnalysis, FindLoopTreeWithMultipleInnerloops) {
   CheckLoopContent(innerloop_node2->loop(), {bb4, bb5});
 }
 
+TEST(MachineIRAnalysis, FindNonloopNodes) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  // bb1, bb2, bb6, bb7, and bb8 are loop nodes.
+  // bb0 -> bb1 <-> bb2 -> bb3 -> bb4 -> bb5 -> bb6 -> bb7 -> bb8 -> bb9
+  //                                             ^-------------|
+  auto bb0 = machine_ir.NewBasicBlock();
+  auto bb1 = machine_ir.NewBasicBlock();
+  auto bb2 = machine_ir.NewBasicBlock();
+  auto bb3 = machine_ir.NewBasicBlock();
+  auto bb4 = machine_ir.NewBasicBlock();
+  auto bb5 = machine_ir.NewBasicBlock();
+  auto bb6 = machine_ir.NewBasicBlock();
+  auto bb7 = machine_ir.NewBasicBlock();
+  auto bb8 = machine_ir.NewBasicBlock();
+  auto bb9 = machine_ir.NewBasicBlock();
+  machine_ir.AddEdge(bb0, bb1);
+  machine_ir.AddEdge(bb1, bb2);
+  machine_ir.AddEdge(bb2, bb1);
+  machine_ir.AddEdge(bb2, bb3);
+  machine_ir.AddEdge(bb3, bb4);
+  machine_ir.AddEdge(bb4, bb5);
+  machine_ir.AddEdge(bb5, bb6);
+  machine_ir.AddEdge(bb6, bb7);
+  machine_ir.AddEdge(bb7, bb8);
+  machine_ir.AddEdge(bb8, bb6);
+  machine_ir.AddEdge(bb8, bb9);
+
+  builder.StartBasicBlock(bb0);
+  builder.Gen<Branch>(bb1);
+  builder.StartBasicBlock(bb1);
+  builder.Gen<Branch>(bb2);
+  builder.StartBasicBlock(bb2);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb1, bb3, x86_64::kMachineRegFLAGS);
+  builder.StartBasicBlock(bb3);
+  builder.Gen<Branch>(bb4);
+  builder.StartBasicBlock(bb4);
+  builder.Gen<Branch>(bb5);
+  builder.StartBasicBlock(bb5);
+  builder.Gen<Branch>(bb6);
+  builder.StartBasicBlock(bb6);
+  builder.Gen<Branch>(bb7);
+  builder.StartBasicBlock(bb7);
+  builder.Gen<Branch>(bb8);
+  builder.StartBasicBlock(bb8);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb6, bb9, x86_64::kMachineRegFLAGS);
+  builder.StartBasicBlock(bb9);
+  builder.Gen<Jump>(kNullGuestAddr);
+
+  ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+
+  auto nonloop_nodes = FindNonloopNodes(&machine_ir);
+  EXPECT_THAT(nonloop_nodes, testing::UnorderedElementsAre(bb0, bb3, bb4, bb5, bb9));
+}
+
+TEST(MachineIRAnalysis, FindNonloopNodesIrreducible) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  //      bb0
+  //       |
+  //       v
+  //      bb1 ----+
+  //       |      |
+  //       v      v
+  //      bb2<-->bb3
+  //       |
+  //       v
+  //      bb4
+  //
+  // Loop is bb2-bb3, but there is an edge from bb1 to bb3,
+  // which makes the loop irreducible because bb2 doesn't dominate bb3.
+  auto bb0 = machine_ir.NewBasicBlock();
+  auto bb1 = machine_ir.NewBasicBlock();
+  auto bb2 = machine_ir.NewBasicBlock();
+  auto bb3 = machine_ir.NewBasicBlock();
+  auto bb4 = machine_ir.NewBasicBlock();
+  machine_ir.AddEdge(bb0, bb1);
+  machine_ir.AddEdge(bb1, bb2);
+  machine_ir.AddEdge(bb1, bb3);
+  machine_ir.AddEdge(bb2, bb3);
+  machine_ir.AddEdge(bb2, bb4);
+  machine_ir.AddEdge(bb3, bb2);
+
+  builder.StartBasicBlock(bb0);
+  builder.Gen<Branch>(bb1);
+  builder.StartBasicBlock(bb1);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  builder.StartBasicBlock(bb2);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, x86_64::kMachineRegFLAGS);
+  builder.StartBasicBlock(bb3);
+  builder.Gen<Branch>(bb2);
+  builder.StartBasicBlock(bb4);
+  builder.Gen<Jump>(kNullGuestAddr);
+
+  auto nonloop_nodes = FindNonloopNodes(&machine_ir);
+  EXPECT_THAT(nonloop_nodes, testing::UnorderedElementsAre(bb0, bb1, bb4));
+}
+
 TEST(MachineIRAnalysis, FindLoopTreeWithIrreducibleLoop) {
   Arena arena;
   x86_64::MachineIR machine_ir(&arena);
