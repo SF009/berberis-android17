@@ -55,6 +55,7 @@ constexpr uint32_t kOneF32AsInteger = 0x3f80'0000U;
 constexpr uint64_t kOneF64AsInteger = 0x3ff0'0000'0000'0000ULL;
 constexpr uint32_t kDefaultNaN32AsInteger = 0x7fc0'0000U;
 constexpr uint64_t kDefaultNaN64AsInteger = 0x7ff8'0000'0000'0000ULL;
+constexpr uint32_t kTwoToPow64F32AsInteger = 0x5f80'0000U;
 constexpr uint32_t kQuietNaN32AsInteger = kDefaultNaN32AsInteger;
 constexpr uint64_t kQuietNaN64AsInteger = kDefaultNaN64AsInteger;
 constexpr uint32_t kNegativeQuietNaN32AsInteger = kDefaultNaN32AsInteger ^ 0x8000'0000U;
