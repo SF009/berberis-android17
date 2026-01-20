@@ -638,7 +638,9 @@ class PseudoDefReg final : public MachineInsn {
  public:
   static const MachineOpcode kOpcode;
 
-  explicit PseudoDefReg(MachineReg reg);
+  template <const MachineRegClass* kRegClass>
+  explicit PseudoDefReg(MachineReg reg, MetaValue<kRegClass>)
+      : PseudoDefReg(reg, kPseudoDefRegInfo<kRegClass>) {}
 
   [[nodiscard]] std::string GetDebugString() const override;
   void Emit(CodeEmitter* /*as*/) const override {
@@ -646,6 +648,9 @@ class PseudoDefReg final : public MachineInsn {
   }
 
  private:
+  template <const MachineRegClass* kRegClass>
+  static constexpr MachineRegKind kPseudoDefRegInfo[1] = {{kRegClass, MachineRegKind::kDef}};
+  PseudoDefReg(MachineReg reg, const MachineRegKind reg_info[1]);
   friend PseudoDefReg* NewInArena<PseudoDefReg, const PseudoDefReg&>(Arena*, const PseudoDefReg&);
   PseudoDefReg(const PseudoDefReg&);
   MachineInsn* Clone(Arena* arena) const override;

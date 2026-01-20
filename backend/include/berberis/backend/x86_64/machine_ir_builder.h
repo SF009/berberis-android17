@@ -420,7 +420,7 @@ template <auto kIntrinsic, typename... FuncInfo>
               }
               if constexpr (ElementType::template IsSame<Float16>()) {
                 MachineReg empty_xmm_register = ir()->AllocVReg();
-                InsertInsn(ir()->NewInsn<PseudoDefReg>(empty_xmm_register));
+                InsertInsn(ir()->NewInsn<PseudoDefReg>(empty_xmm_register, kMeta<&kFpReg32>));
                 MachineReg xmm_register = ir()->AllocVReg();
 #ifdef __AVX__
                 InsertInsn(ir()->NewInsn<VpinsrwXRegXRegRegImm>(
