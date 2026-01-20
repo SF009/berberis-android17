@@ -24,7 +24,34 @@
 
 namespace berberis::x86_64 {
 
-using Loop = ArenaVector<MachineBasicBlock*>;
+class Loop {
+ public:
+  explicit Loop(Arena* arena) : body_(arena), entry_blocks_(arena) {}
+
+  Loop(const Loop&) = delete;
+  Loop& operator=(const Loop&) = delete;
+
+  auto begin() { return body_.begin(); }
+  auto end() { return body_.end(); }
+  auto begin() const { return body_.begin(); }
+  auto end() const { return body_.end(); }
+  auto size() const { return body_.size(); }
+
+  void reserve(size_t size) { body_.reserve(size); }
+
+  void AddToBody(MachineBasicBlock* bb) { body_.push_back(bb); }
+  void AddEntryBlock(MachineBasicBlock* bb) { entry_blocks_.push_back(bb); }
+
+  MachineBasicBlock* at(size_t index) const { return body_.at(index); }
+
+  const ArenaVector<MachineBasicBlock*>& body() const { return body_; }
+  const ArenaVector<MachineBasicBlock*>& entry_blocks() const { return entry_blocks_; }
+
+ private:
+  ArenaVector<MachineBasicBlock*> body_;
+  ArenaVector<MachineBasicBlock*> entry_blocks_;
+};
+
 using LoopVector = ArenaVector<Loop*>;
 
 class LoopTreeNode {

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 #include <vector>
@@ -34,13 +35,16 @@ namespace {
 
 void CheckLoopContent(x86_64::Loop* loop, std::vector<MachineBasicBlock*> body) {
   EXPECT_EQ(loop->size(), body.size());
-
   // Loop head must be the first basic block in the loop.
   EXPECT_EQ(loop->at(0), body[0]);
+  EXPECT_THAT(loop->body(), testing::UnorderedElementsAreArray(body));
+}
 
-  for (auto* bb : body) {
-    EXPECT_TRUE(Contains(*loop, bb));
-  }
+void CheckLoopHeaders(x86_64::Loop* loop, std::vector<MachineBasicBlock*> headers) {
+  EXPECT_EQ(loop->entry_blocks().size(), headers.size());
+  // Check that the first bb in loop->body_ is one of the headers.
+  EXPECT_TRUE(Contains(loop->entry_blocks(), loop->body().at(0)));
+  EXPECT_THAT(loop->entry_blocks(), testing::UnorderedElementsAreArray(headers));
 }
 
 TEST(MachineIRAnalysis, SelfLoop) {
@@ -205,7 +209,7 @@ TEST(MachineIRAnalysis, LoopTreeInsertLoop) {
 
   auto* bb1 = machine_ir.NewBasicBlock();
   x86_64::Loop loop1(&arena);
-  loop1.push_back(bb1);
+  loop1.AddToBody(bb1);
 
   x86_64::LoopTree tree(&machine_ir);
   tree.InsertLoop(&loop1);
@@ -226,10 +230,10 @@ TEST(MachineIRAnalysis, LoopTreeInsertParallelLoops) {
   auto* bb2 = machine_ir.NewBasicBlock();
   auto* bb3 = machine_ir.NewBasicBlock();
   x86_64::Loop loop1(&arena);
-  loop1.push_back(bb1);
-  loop1.push_back(bb2);
+  loop1.AddToBody(bb1);
+  loop1.AddToBody(bb2);
   x86_64::Loop loop2(&arena);
-  loop2.push_back(bb3);
+  loop2.AddToBody(bb3);
 
   x86_64::LoopTree tree(&machine_ir);
   tree.InsertLoop(&loop1);
@@ -254,10 +258,10 @@ TEST(MachineIRAnalysis, LoopTreeInsertNestedLoops) {
   auto* bb1 = machine_ir.NewBasicBlock();
   auto* bb2 = machine_ir.NewBasicBlock();
   x86_64::Loop loop1(&arena);
-  loop1.push_back(bb1);
-  loop1.push_back(bb2);
+  loop1.AddToBody(bb1);
+  loop1.AddToBody(bb2);
   x86_64::Loop loop2(&arena);
-  loop2.push_back(bb2);
+  loop2.AddToBody(bb2);
 
   x86_64::LoopTree tree(&machine_ir);
   tree.InsertLoop(&loop1);
@@ -411,6 +415,7 @@ TEST(MachineIRAnalysis, FindLoopTreeWithMultipleInnerloops) {
   EXPECT_EQ(root->NumInnerloops(), 1UL);
   auto* outerloop_node = root->GetInnerloopNode(0);
   CheckLoopContent(outerloop_node->loop(), {bb1, bb2, bb3, bb4, bb5});
+  CheckLoopHeaders(outerloop_node->loop(), {bb1});
 
   EXPECT_EQ(outerloop_node->NumInnerloops(), 2UL);
   auto* innerloop_node1 = outerloop_node->GetInnerloopNode(0);

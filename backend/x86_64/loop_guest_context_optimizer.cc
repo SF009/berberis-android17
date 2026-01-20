@@ -192,7 +192,8 @@ void GeneratePutInsns(MachineIR* ir, MachineBasicBlock* bb, const MemRegMap& mem
 }
 
 void GenerateGetsInPreloop(MachineIR* ir, const Loop* loop, const MemRegMap& mem_reg_map) {
-  auto* header = (*loop)[0];
+  CHECK_EQ(loop->entry_blocks().size(), 1);
+  auto* header = loop->entry_blocks().at(0);
   CHECK_GE(header->in_edges().size(), 2);
   for (auto in_edge : header->in_edges()) {
     if (Contains(*loop, in_edge->src())) {
