@@ -324,8 +324,8 @@ void RemoveLoopGuestContextAccesses(MachineIR* machine_ir) {
   }
 
   auto predicate = [](LoopTreeNode* node) -> bool {
-    // TODO(b/203826752): Avoid repeating invoking ContainsCall for innerloops.
-    return !ContainsCall(node->loop());
+    // TODO(b/203826752): Avoid repeating calling the predicate for innerloops.
+    return !ContainsCall(node->loop()) && node->loop()->is_reducible();
   };
 
   OptimizeLoopTree(machine_ir, loop_tree.root(), predicate);
