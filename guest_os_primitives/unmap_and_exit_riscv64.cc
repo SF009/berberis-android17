@@ -23,7 +23,7 @@ extern "C" [[gnu::naked]] [[gnu::noinline]] void berberis_UnmapAndExit(void* /*p
                                                                        int /*status*/) {
   asm("li a7, %0\n"
       "ecall\n"
-      "mv a0, a1\n"
+      "mv a0, a2\n"
       "li a7, %1\n"
       "ecall\n"
       "ret\n"

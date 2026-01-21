@@ -751,7 +751,7 @@ inline void HeavyOptimizerFrontend::SetCsr<CsrName::kFCsr>(Register arg) {
   // We don't care about the data in rounding_mode because we will shift in the
   // data we need.
   auto undef_rounding = AllocTempReg();
-  builder_.Gen<PseudoDefReg>(undef_rounding);
+  builder_.Gen<PseudoDefReg>(undef_rounding, kMeta<&x86_64::kGeneralReg32>);
   auto [rounding_mode, shld_flags] =
       Gen<x86_64::ShldlRegRegImm>(undef_rounding, arg, int8_t{32 - 5});
   auto [cleaned_rounding, and_flаgs] =
