@@ -184,7 +184,7 @@ Copy::Copy(MachineReg dst, MachineReg src, const MachineRegKind reg_info[2])
 
 // Note: this logic have to match the logic of GetRegClassForCopy in
 // berberis/backend/x86_64/machine_ir.h
-const MachineRegKind* Copy::CopyRegClass(const MachineRegClass* reg_class) {
+const MachineRegKind* Copy::GetRegInfoByRegClass(const MachineRegClass* reg_class) {
   if (x86_64::IsGReg(reg_class)) {
     if (reg_class->reg_size <= int{sizeof(int32_t)}) {
       return kCopyRegInfo<&x86_64::kGeneralReg32>;
@@ -210,7 +210,7 @@ const MachineRegKind* Copy::CopyRegClass(const MachineRegClass* reg_class) {
 }
 
 Copy::Copy(MachineReg dst, MachineReg src, const MachineRegClass* reg_class)
-    : MachineInsn(kMachineOpCopy, 2, CopyRegClass(reg_class), regs_, kMachineInsnCopy),
+    : MachineInsn(kMachineOpCopy, 2, GetRegInfoByRegClass(reg_class), regs_, kMachineInsnCopy),
       regs_{dst, src} {}
 
 Copy::Copy(const Copy& insn)
