@@ -115,12 +115,20 @@ inline constexpr auto kMachineRegFLAGS = MachineRegs::kFLAGS;
 inline constexpr auto kMachineRegRBP = MachineRegs::kRBP;
 inline constexpr auto kMachineRegRSP = MachineRegs::kRSP;
 
-inline bool IsGReg(MachineReg r) {
+constexpr bool IsGReg(MachineReg r) {
   return r.reg() >= MachineRegs::kR8.reg() && r.reg() <= MachineRegs::kR15.reg();
 }
 
-inline bool IsXReg(MachineReg r) {
+constexpr bool IsGReg(const MachineRegClass* c) {
+  return IsGReg(c->regs[0]);
+}
+
+constexpr bool IsXReg(MachineReg r) {
   return r.reg() >= MachineRegs::kXMM0.reg() && r.reg() <= MachineRegs::kXMM15.reg();
+}
+
+constexpr bool IsXReg(const MachineRegClass* c) {
+  return IsXReg(c->regs[0]);
 }
 
 // Context loads and stores use rbp as base.
@@ -182,14 +190,38 @@ inline constexpr MachineRegClass kRegisterClass =
     MachineRegClassFromMachineInsnInfoClass<MachineInsnInfoClass>();
 
 inline constexpr auto& kRAX = kRegisterClass<device_arch_info::RAX>;
-inline constexpr auto& kFpReg32 = kRegisterClass<device_arch_info::FpReg32>;
-inline constexpr auto& kFpReg64 = kRegisterClass<device_arch_info::FpReg64>;
 inline constexpr auto& kGeneralReg32 = kRegisterClass<device_arch_info::GeneralReg32>;
 inline constexpr auto& kGeneralReg64 = kRegisterClass<device_arch_info::GeneralReg64>;
-inline constexpr auto& kReg32 = kRegisterClass<device_arch_info::Reg32>;
-inline constexpr auto& kReg64 = kRegisterClass<device_arch_info::Reg64>;
+inline constexpr auto& kFpReg32 = kRegisterClass<device_arch_info::FpReg32>;
+inline constexpr auto& kFpReg64 = kRegisterClass<device_arch_info::FpReg64>;
 inline constexpr auto& kXmmReg = kRegisterClass<device_arch_info::XmmReg>;
 inline constexpr auto& kFLAGS = kRegisterClass<device_arch_info::FLAGS>;
+
+// Note: this logic have to match the logic of Copy::CopyRegClass in x86_64/code.cc
+constexpr const MachineRegClass* GetRegClassForCopy(const MachineRegClass* reg_class) {
+  if (IsGReg(reg_class)) {
+    if (reg_class->reg_size <= int{sizeof(int32_t)}) {
+      return &kGeneralReg32;
+    } else {
+      CHECK_EQ(reg_class->reg_size, int{sizeof(int64_t)});
+      return &kGeneralReg64;
+    }
+  } else if (IsXReg(reg_class)) {
+    if (reg_class->reg_size > int{sizeof(int64_t)}) {
+      CHECK_EQ(reg_class->reg_size, int{sizeof(__int128)});
+      return &kXmmReg;
+    } else if (reg_class->reg_size == int{sizeof(int64_t)}) {
+      CHECK_EQ(reg_class->reg_size, int{sizeof(Float64)});
+      return &kFpReg64;
+    } else {
+      CHECK_EQ(reg_class->reg_size, int{sizeof(Float32)});
+      return &kFpReg32;
+    }
+  } else {
+    CHECK_EQ(reg_class, &kFLAGS);
+    return &kFLAGS;
+  }
+}
 
 class MachineInsnX86_64 : public MachineInsn {
  public:
@@ -708,26 +740,11 @@ class MachineInsn final : public MachineInsnX86_64 {
                         kind_idx++;
                         auto src = MachineInsnX86_64::RegAt(reg_idx++);
                         if (dst != src) {
-                          if constexpr (device_arch_info::kIsFLAGS<Operand>) {
-                            result.push_back(NewInArena<Copy>(arena, dst, src, kMeta<&kFLAGS>));
-                          } else if constexpr (Operand::Class::kAsRegister == 'x') {
-                            if constexpr (Operand::Class::kSizeInBits > 64) {
-                              static_assert(Operand::Class::kSizeInBits == 128);
-                              result.push_back(NewInArena<Copy>(arena, dst, src, kMeta<&kXmmReg>));
-                            } else if constexpr (Operand::Class::kSizeInBits > 32) {
-                              result.push_back(NewInArena<Copy>(arena, dst, src, kMeta<&kFpReg64>));
-                            } else {
-                              result.push_back(NewInArena<Copy>(arena, dst, src, kMeta<&kFpReg32>));
-                            }
-                          } else {
-                            if constexpr (Operand::Class::kSizeInBits > 32) {
-                              result.push_back(
-                                  NewInArena<Copy>(arena, dst, src, kMeta<&kGeneralReg64>));
-                            } else {
-                              result.push_back(
-                                  NewInArena<Copy>(arena, dst, src, kMeta<&kGeneralReg32>));
-                            }
-                          }
+                          result.push_back(NewInArena<Copy>(
+                              arena,
+                              dst,
+                              src,
+                              kMeta<GetRegClassForCopy(&kRegisterClass<typename Operand::Class>)>));
                         }
                         return dst;
                       } else {

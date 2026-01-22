@@ -30,8 +30,17 @@ void VRegMap::AssignNewVRegs() {
         auto reg = insn->RegAt(i);
         if (reg.IsVReg()) {
           insn->SetRegAt(i, Get(reg, bb));
-          auto& max_size = max_size_.at(reg.GetVRegIndex());
-          max_size = std::max(max_size, insn->RegKindAt(i).RegClass()->RegSize());
+          auto& max_width_reg_class = max_width_reg_class_.at(reg.GetVRegIndex());
+          const auto* reg_class = insn->RegKindAt(i).RegClass();
+          if (!max_width_reg_class) {
+            max_width_reg_class = reg_class;
+          } else {
+            CHECK_EQ(IsGReg(max_width_reg_class), IsGReg(reg_class));
+            CHECK_EQ(IsXReg(max_width_reg_class), IsXReg(reg_class));
+            if (reg_class->RegSize() > max_width_reg_class->RegSize()) {
+              max_width_reg_class = reg_class;
+            }
+          }
         }
       }
     }
@@ -54,8 +63,7 @@ void GenInterBasicBlockMove(MachineIR* machine_ir,
                             MachineReg vreg) {
   MachineReg pred_vreg = vreg_map->Get(vreg, pred_bb);
   MachineReg succ_vreg = vreg_map->Get(vreg, succ_bb);
-  Copy* insn =
-      machine_ir->NewInsn<Copy>(succ_vreg, pred_vreg, vreg_map->GetMaxSize(vreg));
+  Copy* insn = machine_ir->NewInsn<Copy>(succ_vreg, pred_vreg, vreg_map->GetMaxRegClass(vreg));
 
   if (succ_bb->in_edges().size() == 1) {
     // Successor has single pred.

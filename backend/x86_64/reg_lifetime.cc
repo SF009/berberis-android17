@@ -39,7 +39,7 @@ size_t RegLifetimeCounter::RegCountAt(size_t pos, RegType reg_type) const {
 }
 
 std::optional<size_t> RegLifetimeCounter::UpdateLastUse(MachineReg reg,
-                                                        berberis::MachineInsn* end,
+                                                        MachineInsnList::iterator end,
                                                         size_t end_pos,
                                                         const size_t kLimit) {
   CHECK(LifetimeAt(reg).has_value());
@@ -74,7 +74,7 @@ void RegLifetimeCounter::CountRegLifetimeMap(MachineBasicBlock* bb) {
     if (reg.IsVReg()) {
       lifetime_map_[reg.GetVRegIndex()] = RegLifetime{
           .start = LiveIn{},
-          .end = bb->insn_list().front(),
+          .end = bb->insn_list().begin(),
           .start_pos = 0,
           .end_pos = 0,
           .reg_type = RegType::kUnknown,
@@ -89,14 +89,14 @@ void RegLifetimeCounter::CountRegLifetimeMap(MachineBasicBlock* bb) {
   //   ADD v1 v2
   //   ... # Here v1 can actually be discarded but our algorithm considers it alive.
   //   v1 = 5
-  std::variant<LiveOut, berberis::MachineInsn*> next_insn;
+  std::variant<LiveOut, MachineInsnList::iterator> next_insn;
   size_t pos = 0;
   for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end(); insn_it++, pos++) {
     auto insn = *insn_it;
     if (std::next(insn_it) == bb->insn_list().end()) {
       next_insn.emplace<LiveOut>(LiveOut{});
     } else {
-      next_insn.emplace<berberis::MachineInsn*>(*std::next(insn_it));
+      next_insn.emplace<MachineInsnList::iterator>(std::next(insn_it));
     }
     for (int i = 0; i < insn->NumRegOperands(); i++) {
       // Skip flags register.
@@ -111,7 +111,7 @@ void RegLifetimeCounter::CountRegLifetimeMap(MachineBasicBlock* bb) {
       }
       if (!LifetimeAt(reg).has_value()) {
         lifetime_map_[reg.GetVRegIndex()] = RegLifetime{
-            .start = insn,
+            .start = insn_it,
             .start_pos = pos,
             .reg_type = RegType::kUnknown,
         };

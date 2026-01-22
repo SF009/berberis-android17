@@ -98,7 +98,7 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(
           const size_t kLimit =
               lifetime.reg_type == RegType::kGeneral ? kGenRegLimit : kSimdRegLimit;
           std::optional<size_t> pos_over_limit =
-              reg_lifetime_counter_.UpdateLastUse(src_reg, *std::next(insn_it), pos + 1, kLimit);
+              reg_lifetime_counter_.UpdateLastUse(src_reg, std::next(insn_it), pos + 1, kLimit);
 
           // Now, with the prolonged lifetime, the pressure may be reaching the
           // limit at one of the previous instructions. If that happens, cancel
@@ -129,10 +129,9 @@ std::optional<MachineReg> LocalGuestContextOptimizer::ReplaceGetAndUpdateMap(
     return std::nullopt;
   }
 
-  auto copy_size = insn->opcode() == kMachineOpMovdqaXRegMemBaseDisp ? 16 : 8;
   if (std::holds_alternative<MachineReg>(mem_reg_map_[disp].value().value)) {
     MachineReg ret = std::get<MachineReg>(mem_reg_map_[disp].value().value);
-    *insn_it = machine_ir_->NewInsn<Copy>(dst, ret, copy_size);
+    *insn_it = machine_ir_->NewInsn<Copy>(dst, ret, insn->RegKindAt(0).RegClass());
     return ret;
   } else {
     CHECK(insn->opcode() != kMachineOpMovdqaXRegMemBaseDisp &&

@@ -32,19 +32,21 @@ class VRegMap {
             machine_ir->NumBasicBlocks(),
             ArenaVector<MachineReg>(machine_ir->NumVReg(), kInvalidMachineReg, machine_ir->arena()),
             machine_ir->arena()),
-        max_size_(machine_ir->NumVReg(), 0, machine_ir->arena()) {}
+        max_width_reg_class_(machine_ir->NumVReg(), nullptr, machine_ir->arena()) {}
 
   // Rename vregs so that they have different numbers in different basic blocks.
   // Remember the mapping, so that it can be retrieved by Get().
   void AssignNewVRegs();
 
   MachineReg Get(MachineReg reg, const MachineBasicBlock* bb);
-  [[nodiscard]] int GetMaxSize(MachineReg reg) const { return max_size_.at(reg.GetVRegIndex()); }
+  [[nodiscard]] const MachineRegClass* GetMaxRegClass(MachineReg reg) const {
+    return max_width_reg_class_.at(reg.GetVRegIndex());
+  }
 
  private:
   MachineIR* machine_ir_;
   ArenaVector<ArenaVector<MachineReg>> map_;
-  ArenaVector<int> max_size_;
+  ArenaVector<const MachineRegClass*> max_width_reg_class_;
 };
 
 void RenameVRegs(MachineIR* machine_ir);
