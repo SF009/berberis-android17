@@ -272,23 +272,32 @@ class Assembler : public x86_32_or_x86_64::Assembler<Assembler> {
   static bool IsAccumulator(Register reg) { return reg == eax; }
 
   // Check if a given type is "a register with size" (for EmitInstruction).
-  template <typename ArgumentType>
-  struct IsRegister {
-    static constexpr bool value =
-        std::is_same_v<ArgumentType, Register8Bit> || std::is_same_v<ArgumentType, Register32Bit>;
-  };
+  static constexpr class {
+   public:
+    template <typename ArgumentType>
+    constexpr bool operator()() const {
+      return std::is_same_v<ArgumentType, Register8Bit> ||
+             std::is_same_v<ArgumentType, Register32Bit>;
+    }
+  } kIsRegister;
 
   // Check if a given type is "a memory operand with size" (for EmitInstruction).
-  template <typename ArgumentType>
-  struct IsMemoryOperand {
-    static constexpr bool value = std::is_same_v<ArgumentType, Memory32Bit>;
-  };
+  static constexpr class {
+   public:
+    template <typename ArgumentType>
+    constexpr bool operator()() const {
+      return std::is_same_v<ArgumentType, Memory32Bit>;
+    }
+  } kIsMemoryOperand;
 
   // Check if a given type is "a memory operand with size" (for EmitInstruction).
-  template <typename ArgumentType>
-  struct IsLabelOperand {
-    static constexpr bool value = std::is_same_v<ArgumentType, Label32Bit>;
-  };
+  static constexpr class {
+   public:
+    template <typename ArgumentType>
+    constexpr bool operator()() const {
+      return std::is_same_v<ArgumentType, Label32Bit>;
+    }
+  } kIsLabelOperand;
 
   template <typename... ArgumentsType>
   void EmitRex(ArgumentsType...) {
@@ -307,13 +316,13 @@ class Assembler : public x86_32_or_x86_64::Assembler<Assembler> {
             bool reg_is_opcode_extension,
             typename... ArgumentsTypes>
   void EmitVex(ArgumentsTypes... arguments) {
-    constexpr auto registers_count = kCountArguments<IsRegister, ArgumentsTypes...>;
-    constexpr auto operands_count = kCountArguments<IsMemoryOperand, ArgumentsTypes...>;
-    constexpr auto labels_count = kCountArguments<IsLabelOperand, ArgumentsTypes...>;
+    constexpr auto registers_count = kCountArguments<kIsRegister, ArgumentsTypes...>;
+    constexpr auto operands_count = kCountArguments<kIsMemoryOperand, ArgumentsTypes...>;
+    constexpr auto labels_count = kCountArguments<kIsLabelOperand, ArgumentsTypes...>;
     constexpr auto vvvv_parameter = 2 - reg_is_opcode_extension - operands_count - labels_count;
     int vvvv = 0;
     if constexpr (registers_count > vvvv_parameter) {
-      vvvv = ArgumentByType<vvvv_parameter, IsRegister>(arguments...).num_;
+      vvvv = ArgumentByType<vvvv_parameter, kIsRegister>(arguments...).num_;
     }
     // Note that ¬R is always 1 in x86-32 mode but it's not set in JSON.
     // This means that 2nd byte of 3-byte vex is always the same in 32bit mode (but 3rd byte of
