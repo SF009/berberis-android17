@@ -75,7 +75,11 @@ void VRegLifetimeAnalysis::TrySetMoveHint(const MachineInsn* insn) {
   }
 
   // Lifetimes must exist.
-  vreg_lifetimes_[dst.GetVRegIndex()]->SetMoveHint(vreg_lifetimes_[src.GetVRegIndex()]);
+  auto dst_lifetime = vreg_lifetimes_.at(dst.GetVRegIndex());
+  auto src_lifetime = vreg_lifetimes_.at(src.GetVRegIndex());
+
+  dst_lifetime->SetMoveHint(src_lifetime);
+  dst_lifetime->LinkCoalescingCandidate(src_lifetime);
 }
 
 void VRegLifetimeAnalysis::AddInsn(const MachineInsnListPosition& pos) {

@@ -466,7 +466,9 @@ class VRegLifetime {
     spill_weight_ += other->spill_weight_;
 
     for (auto candidate : other->coalescing_candidates_) {
-      LinkCoalescingCandidate(candidate);
+      if (candidate != this) {
+        LinkCoalescingCandidate(candidate);
+      }
     }
 
     // If we don't have a hint, take other's hint.

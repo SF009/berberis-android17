@@ -27,21 +27,24 @@
 
 namespace berberis {
 
+void CoalesceLifetimes(VRegLifetimeList* lifetimes);
+
 namespace {
 
 // Zero is an invalid MachineReg, so we start at 1.
-const MachineRegClass kGPRRegClass = {"GPR", 8, 0b110, 2, {MachineReg{1}, MachineReg{2}}};
+const MachineRegClass kGPRRegClass = {"GPR", 8, 0b0110, 2, {MachineReg{1}, MachineReg{2}}};
+const MachineRegClass kFPRegClass = {"FP", 8, 0b11000, 2, {MachineReg{3}, MachineReg{4}}};
 
 class MockMachineInsn : public MachineInsn {
  public:
-  MockMachineInsn(MachineReg reg)
+  MockMachineInsn(MachineReg reg, const MachineRegClass* reg_class = &kGPRRegClass)
       : MachineInsn(static_cast<MachineOpcode>(0),
                     2,
                     reg_kinds_,
                     regs_,
                     kMachineInsnCopy),
         regs_{reg, reg},
-        reg_kinds_{{&kGPRRegClass, MachineRegKind::kDef}, {&kGPRRegClass, MachineRegKind::kUse}} {}
+        reg_kinds_{{reg_class, MachineRegKind::kDef}, {reg_class, MachineRegKind::kUse}} {}
 
   std::string GetDebugString() const override { return "mock_copy"; }
   void Emit(CodeEmitter*) const override {}
@@ -65,9 +68,12 @@ class RegAllocTest : public ::testing::Test {
  protected:
   RegAllocTest() : machine_ir_(&arena_, 0, 0), bb_(machine_ir_.NewBasicBlock()) {}
 
-  VRegLifetime* CreateLifetime(int vreg_index, int begin, int end) {
+  VRegLifetime* CreateLifetime(int vreg_index,
+                               int begin,
+                               int end,
+                               const MachineRegClass* reg_class = &kGPRRegClass) {
     MachineReg vreg = MachineReg::CreateVRegFromIndex(vreg_index);
-    auto* insn = machine_ir_.NewInsn<MockMachineInsn>(vreg);
+    auto* insn = machine_ir_.NewInsn<MockMachineInsn>(vreg, reg_class);
     bb_->insn_list().push_back(insn);
     MachineInsnListPosition pos(&bb_->insn_list(), std::prev(bb_->insn_list().end()));
     // Pos 0 in MockMachineInsn describes the DEF access.
@@ -125,10 +131,8 @@ TEST_F(RegAllocTest, HardRegAllocation_ConsiderSpill) {
 TEST_F(RegAllocTest, HardRegAllocation_SpillAndAssign) {
   HardRegAllocation hard_reg_allocation(&arena_);
 
-  VRegLifetimeList lifetime_list(&arena_);
-  lifetime_list.push_back(*CreateLifetime(0, 10, 20));
-  auto* lifetime1 = &lifetime_list.back();
-  lifetime_list.push_back(*CreateLifetime(1, 15, 25));
+  VRegLifetimeList lifetime_list({*CreateLifetime(0, 10, 20), *CreateLifetime(1, 15, 25)}, &arena_);
+  auto* lifetime1 = &lifetime_list.front();
   auto* lifetime2 = &lifetime_list.back();
 
   EXPECT_TRUE(hard_reg_allocation.TryAssign(lifetime1));
@@ -152,9 +156,7 @@ TEST_F(RegAllocTest, HardRegAllocation_SpillAndAssign) {
 }
 
 TEST_F(RegAllocTest, VRegLifetimeAllocator_Allocate_Simple) {
-  VRegLifetimeList lifetime_list(&arena_);
-  VRegLifetime* lifetime = CreateLifetime(0, 10, 20);
-  lifetime_list.push_back(*lifetime);
+  VRegLifetimeList lifetime_list({*CreateLifetime(0, 10, 20)}, &arena_);
 
   VRegLifetimeAllocator allocator(&machine_ir_, &lifetime_list);
   allocator.Allocate();
@@ -163,13 +165,10 @@ TEST_F(RegAllocTest, VRegLifetimeAllocator_Allocate_Simple) {
 }
 
 TEST_F(RegAllocTest, VRegLifetimeAllocator_Allocate_ReuseHardReg) {
-  VRegLifetimeList lifetime_list(&arena_);
-  VRegLifetime* lifetime1 = CreateLifetime(0, 10, 20);
-  VRegLifetime* lifetime2 = CreateLifetime(1, 15, 25);
-  VRegLifetime* lifetime3 = CreateLifetime(2, 20, 30);
-  lifetime_list.push_back(*lifetime1);
-  lifetime_list.push_back(*lifetime2);
-  lifetime_list.push_back(*lifetime3);
+  VRegLifetimeList lifetime_list({*CreateLifetime(0, 10, 20),
+                                  *CreateLifetime(1, 15, 25),
+                                  *CreateLifetime(2, 20, 30)},
+                                 &arena_);
 
   VRegLifetimeAllocator allocator(&machine_ir_, &lifetime_list);
   allocator.Allocate();
@@ -214,6 +213,124 @@ TEST_F(RegAllocTest, VRegLifetimeAllocator_Allocate_Spill) {
     }
   }
   EXPECT_TRUE(spilled);
+}
+
+TEST_F(RegAllocTest, CoalesceLifetimes_NoMerge) {
+  VRegLifetimeList lifetime_list({*CreateLifetime(0, 10, 20), *CreateLifetime(1, 20, 30)}, &arena_);
+
+  CoalesceLifetimes(&lifetime_list);
+
+  EXPECT_EQ(lifetime_list.size(), 2u);
+  EXPECT_EQ(lifetime_list.begin()->begin(), 10);
+  EXPECT_EQ(std::next(lifetime_list.begin())->begin(), 20);
+}
+
+TEST_F(RegAllocTest, CoalesceLifetimes_SimpleMerge) {
+  VRegLifetimeList lifetime_list({*CreateLifetime(0, 10, 20), *CreateLifetime(1, 20, 30)}, &arena_);
+
+  lifetime_list.front().LinkCoalescingCandidate(&lifetime_list.back());
+
+  CoalesceLifetimes(&lifetime_list);
+
+  EXPECT_EQ(lifetime_list.size(), 1u);
+  // Lifetime1 should now cover both ranges.
+  EXPECT_EQ(lifetime_list.front().begin(), 10);
+  EXPECT_EQ(lifetime_list.front().end(), 30);
+}
+
+TEST_F(RegAllocTest, CoalesceLifetimes_MergeWithGap) {
+  VRegLifetimeList lifetime_list({*CreateLifetime(0, 10, 20), *CreateLifetime(1, 30, 40)}, &arena_);
+
+  lifetime_list.front().LinkCoalescingCandidate(&lifetime_list.back());
+
+  CoalesceLifetimes(&lifetime_list);
+
+  EXPECT_EQ(lifetime_list.size(), 1u);
+  EXPECT_EQ(lifetime_list.front().begin(), 10);
+  EXPECT_EQ(lifetime_list.front().end(), 40);
+}
+
+TEST_F(RegAllocTest, CoalesceLifetimes_NoMerge_Interference) {
+  VRegLifetimeList lifetime_list({*CreateLifetime(0, 10, 20), *CreateLifetime(1, 15, 25)}, &arena_);
+
+  lifetime_list.front().LinkCoalescingCandidate(&lifetime_list.back());
+
+  CoalesceLifetimes(&lifetime_list);
+
+  EXPECT_EQ(lifetime_list.size(), 2u);
+}
+
+TEST_F(RegAllocTest, CoalesceLifetimes_NoMerge_DifferentRegClass) {
+  VRegLifetimeList lifetime_list({*CreateLifetime(0, 10, 20, &kGPRRegClass),
+                                  *CreateLifetime(1, 20, 30, &kFPRegClass)},
+                                 &arena_);
+
+  lifetime_list.front().LinkCoalescingCandidate(&lifetime_list.back());
+
+  CoalesceLifetimes(&lifetime_list);
+
+  EXPECT_EQ(lifetime_list.size(), 2u);
+}
+
+TEST_F(RegAllocTest, CoalesceLifetimes_MultipleCandidates) {
+  VRegLifetimeList lifetime_list({*CreateLifetime(0, 10, 20),
+                                  *CreateLifetime(1, 20, 30),
+                                  *CreateLifetime(2, 30, 40)},
+                                 &arena_);
+
+  // lifetime1 can merge with lifetime2 and lifetime3.
+  auto it = lifetime_list.begin();
+  VRegLifetime* lifetime1 = &*it++;
+  VRegLifetime* lifetime2 = &*it++;
+  VRegLifetime* lifetime3 = &*it;
+  lifetime1->LinkCoalescingCandidate(lifetime2);
+  lifetime1->LinkCoalescingCandidate(lifetime3);
+
+  CoalesceLifetimes(&lifetime_list);
+
+  EXPECT_EQ(lifetime_list.size(), 1u);
+  EXPECT_EQ(lifetime_list.front().begin(), 10);
+  EXPECT_EQ(lifetime_list.front().end(), 40);
+}
+
+TEST_F(RegAllocTest, CoalesceLifetimes_ChainedMerge) {
+  VRegLifetimeList lifetime_list({*CreateLifetime(0, 10, 20),
+                                  *CreateLifetime(1, 20, 30),
+                                  *CreateLifetime(2, 30, 40)},
+                                 &arena_);
+
+  // lifetime1 -> lifetime2 -> lifetime3
+  auto it = lifetime_list.begin();
+  VRegLifetime* lifetime1 = &*it++;
+  VRegLifetime* lifetime2 = &*it++;
+  VRegLifetime* lifetime3 = &*it;
+  lifetime1->LinkCoalescingCandidate(lifetime2);
+  lifetime2->LinkCoalescingCandidate(lifetime3);
+
+  CoalesceLifetimes(&lifetime_list);
+
+  // When lifetime1 merges lifetime2, it inherits candidates of lifetime2, which includes lifetime3.
+  // So lifetime1 should then merge lifetime3.
+  EXPECT_EQ(lifetime_list.size(), 1u);
+  EXPECT_EQ(lifetime_list.front().begin(), 10);
+  EXPECT_EQ(lifetime_list.front().end(), 40);
+}
+
+TEST_F(RegAllocTest, CoalesceLifetimes_MergeOrder) {
+  // Verify that coalescing works when the candidate appears later in the list.
+  // Here, later lifetime2 is first in the list and it should merge earlier
+  // lifetime1 (which is second).
+  VRegLifetimeList lifetime_list({*CreateLifetime(1, 20, 30), *CreateLifetime(0, 10, 20)}, &arena_);
+
+  lifetime_list.front().LinkCoalescingCandidate(&lifetime_list.back());
+
+  CoalesceLifetimes(&lifetime_list);
+
+  EXPECT_EQ(lifetime_list.size(), 1u);
+  // The resulting lifetime should be later lifetime2 (because it was first in list and
+  // merged lifetime1).
+  EXPECT_EQ(lifetime_list.front().begin(), 10); // lifetime1 started at 10
+  EXPECT_EQ(lifetime_list.front().end(), 30); // lifetime2 ended at 30
 }
 
 }  // namespace
