@@ -197,7 +197,7 @@ inline constexpr auto& kFpReg64 = kRegisterClass<device_arch_info::FpReg64>;
 inline constexpr auto& kXmmReg = kRegisterClass<device_arch_info::XmmReg>;
 inline constexpr auto& kFLAGS = kRegisterClass<device_arch_info::FLAGS>;
 
-// Note: this logic have to match the logic of Copy::CopyRegClass in x86_64/code.cc
+// Note: this logic have to match the logic of Copy::GetRegInfoByRegClass in x86_64/code.cc
 constexpr const MachineRegClass* GetRegClassForCopy(const MachineRegClass* reg_class) {
   if (IsGReg(reg_class)) {
     if (reg_class->reg_size <= int{sizeof(int32_t)}) {

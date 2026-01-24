@@ -620,7 +620,7 @@ class Copy final : public MachineInsn {
   static constexpr MachineRegKind kCopyRegInfo[2] = {{kRegClass, MachineRegKind::kDef},
                                                      {kRegClass, MachineRegKind::kUse}};
   Copy(MachineReg dst, MachineReg src, const MachineRegKind reg_info[2]);
-  static const MachineRegKind* CopyRegClass(const MachineRegClass* reg_class);
+  static const MachineRegKind* GetRegInfoByRegClass(const MachineRegClass* reg_class);
   friend Copy* NewInArena<Copy, const Copy&>(Arena*, const Copy&);
   Copy(const Copy&);
   MachineInsn* Clone(Arena* arena) const override;
