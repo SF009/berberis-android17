@@ -74,7 +74,8 @@ class RegAllocTest : public ::testing::Test {
     VRegAccess access1(pos, 0, begin, begin + 1);
     // Pos 1 in MockMachineInsn describes the USE access.
     VRegAccess access2(pos, 1, end - 1, end);
-    auto* lifetime = NewInArena<VRegLifetime>(&arena_, &arena_, access1);
+    auto* lifetime = NewInArena<VRegLifetime>(&arena_, &arena_, access1.begin());
+    lifetime->AppendAccess(access1);
     lifetime->AppendAccess(access2);
     return lifetime;
   }
