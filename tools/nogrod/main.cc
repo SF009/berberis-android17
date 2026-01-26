@@ -694,9 +694,10 @@ const TypeInfo* ParseClass(const char* kind,
     parent_die = parent_die->parent();
   }
 
+  const auto& children = die->children();
+  class_name = GenerateClassName(children, class_name, die, dwarf_info, types);
   std::string name = StringPrintf("%s %s", kind, class_name.c_str());
 
-  // TODO: align????
   bool incomplete = die->GetBoolAttributeOr(DW_AT_declaration, false);
 
   if (incomplete) {
@@ -741,9 +742,6 @@ const TypeInfo* ParseClass(const char* kind,
     error("No DW_AT_byte_size specified for type at offset 0x%" PRIx64, die->offset());
   }
 
-  const auto& children = die->children();
-  class_name = GenerateClassName(children, class_name, die, dwarf_info, types);
-  name = StringPrintf("%s %s", kind, class_name.c_str());
   std::unique_ptr<TypeInfoClass> type_info_holder(
       new TypeInfoClass(die->offset(), kind, name, size.value() * CHAR_BIT, class_name));
   TypeInfoClass* type_info = type_info_holder.get();
