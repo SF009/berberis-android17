@@ -257,7 +257,6 @@ class VRegLifetime {
         hard_reg_(0),
         spill_slot_(-1),
         spill_weight_(0),
-        move_hint_(nullptr),
         coalescing_candidates_(arena) {}
 
   VRegLifetime(Arena* arena, int begin)
@@ -267,7 +266,6 @@ class VRegLifetime {
         hard_reg_(0),
         spill_slot_(-1),
         spill_weight_(0),
-        move_hint_(nullptr),
         coalescing_candidates_(arena) {}
 
   void StartLiveRange(int begin) {
@@ -318,30 +316,6 @@ class VRegLifetime {
   }
 
   int spill_weight() const { return spill_weight_; }
-
-  // If lifetimes are connected with reg to reg move, try allocating both on the
-  // same register.
-  // Implement move hints as disjoint set of lifetimes, with representative that
-  // is allocated first (so no union by rank, only path compression).
-
-  VRegLifetime* FindMoveHint() {
-    if (move_hint_ && !move_hint_->IsEmpty()) {
-      move_hint_ = move_hint_->FindMoveHint();
-      return move_hint_;
-    }
-    return this;
-  }
-
-  void SetMoveHint(VRegLifetime* other) {
-    VRegLifetime* hint = FindMoveHint();
-    VRegLifetime* other_hint = other->FindMoveHint();
-    // Select lifetime that begins first.
-    if (hint->begin() > other_hint->begin()) {
-      hint->move_hint_ = other_hint;
-    } else if (other_hint != hint) {
-      other_hint->move_hint_ = hint;
-    }
-  }
 
   // Connects this lifetime with 'other' as coalescing candidates.
   void LinkCoalescingCandidate(VRegLifetime* other) {
@@ -471,14 +445,6 @@ class VRegLifetime {
       }
     }
 
-    // If we don't have a hint, take other's hint.
-    // TODO(b/459067902): Stop using move hint at all after we support coalescing for narrow reg
-    // classes.
-    if (!move_hint_ && other->move_hint_ && other->move_hint_ != this &&
-        !other->move_hint_->IsEmpty()) {
-      SetMoveHint(other->move_hint_);
-    }
-    other->move_hint_ = nullptr;
     other->coalescing_candidates_.clear();
   }
 
@@ -556,8 +522,6 @@ class VRegLifetime {
   int spill_slot_;
   // Spill weight, roughly the number of spill/reload insns to add.
   int spill_weight_;
-  // Lifetime that starts before and is connected by move with this one.
-  VRegLifetime* move_hint_;
   ArenaVector<VRegLifetime*> coalescing_candidates_;
 };
 

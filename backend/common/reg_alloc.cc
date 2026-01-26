@@ -240,19 +240,9 @@ void VRegLifetimeAllocator::AllocateLifetime(VRegLifetimeList::iterator lifetime
   LOG_REG_ALLOC(
       "allocating lifetime %s:\n%s", reg_class->GetDebugName(), lifetime->GetDebugString().c_str());
 
-  // First try preferred register.
-  auto move_hint = lifetime->FindMoveHint();
-  MachineReg pref_reg{0};
-  if (!move_hint->IsEmpty()) {
-    MachineReg pref_reg = move_hint->hard_reg();
-    if (reg_class->HasReg(pref_reg) && TryAssignHardReg(lifetime, pref_reg)) {
-      return;
-    }
-  }
-
   // Walk registers from reg class.
   for (MachineReg hard_reg : *reg_class) {
-    if (hard_reg != pref_reg && TryAssignHardReg(lifetime, hard_reg)) {
+    if (TryAssignHardReg(lifetime, hard_reg)) {
       return;
     }
   }

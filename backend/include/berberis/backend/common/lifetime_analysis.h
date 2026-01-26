@@ -73,7 +73,7 @@ class VRegLifetimeAnalysis {
 
   void AppendAccess(const VRegAccess& access);
 
-  void TrySetMoveHint(const MachineInsn* insn);
+  void TryLinkCoalescingCandidate(const MachineInsn* insn);
 
   Arena* arena_;
   VRegLifetimeList* lifetimes_;

@@ -265,14 +265,6 @@ TEST_F(VRegLifetimeTest, Merge) {
   VRegLifetime others_candidate(&arena_);
   other.LinkCoalescingCandidate(&others_candidate);
 
-  // Setup move hint such that 'other' points to 'hint'.
-  VRegLifetime others_hint(&arena_);
-  others_hint.StartLiveRange(15);
-  others_hint.AppendAccess(CreateAccess(15, 18));
-  // hint (15) < other (20) -> other points to hint.
-  others_hint.SetMoveHint(&other);
-  EXPECT_EQ(other.FindMoveHint(), &others_hint);
-
   lifetime_.Merge(&other);
 
   // Check ranges merged.
@@ -295,14 +287,6 @@ TEST_F(VRegLifetimeTest, Merge) {
 
   // Check candidate points back to lifetime_.
   EXPECT_TRUE(Contains(others_candidate.coalescing_candidates(), &lifetime_));
-
-  // Check move hint.
-  // lifetime_ merged other. other pointed to hint.
-  // lifetime_ calls SetMoveHint(hint).
-  // lifetime_ (0) < hint (15).
-  // hint points to lifetime_.
-  EXPECT_EQ(lifetime_.FindMoveHint(), &lifetime_);
-  EXPECT_EQ(others_hint.FindMoveHint(), &lifetime_);
 }
 
 TEST_F(VRegLifetimeTest, Merge_InterleavedRanges) {
