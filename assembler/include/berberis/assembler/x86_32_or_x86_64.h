@@ -732,7 +732,7 @@ class Assembler : public AssemblerBase {
     }
   }
 
-  // Normally instruction arguments come in the following order: vex, rm, reg, imm.
+  // Normally instruction arguments come in the following order: reg, rm, vex, imm.
   // But certain instructions can have swapped arguments in a different order.
   // In addition to that we have special case where two arguments may need to be swapped
   // to reduce encoding size.
