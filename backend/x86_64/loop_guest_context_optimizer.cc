@@ -150,7 +150,6 @@ void GenerateGetInsns(MachineIR* ir, MachineBasicBlock* bb, const MemRegMap& mem
         get_insn = ir->NewInsn<MovsdXRegOp>(reg_info.reg, {.base = kMachineRegRBP, .disp = disp});
         break;
     }
-
     bb->insn_list().insert(insert_it, get_insn);
   }
 }
@@ -192,16 +191,16 @@ void GeneratePutInsns(MachineIR* ir, MachineBasicBlock* bb, const MemRegMap& mem
 }
 
 void GenerateGetsInPreloop(MachineIR* ir, const Loop* loop, const MemRegMap& mem_reg_map) {
-  CHECK_EQ(loop->entry_blocks().size(), 1);
-  auto* header = loop->entry_blocks().at(0);
-  CHECK_GE(header->in_edges().size(), 2);
-  for (auto in_edge : header->in_edges()) {
-    if (Contains(*loop, in_edge->src())) {
-      // The source of the edge is inside the loop.
-      continue;
-    }
+  for (auto* entry_block : loop->entry_blocks()) {
+    CHECK_GE(entry_block->in_edges().size(), 2);
+    for (auto in_edge : entry_block->in_edges()) {
+      if (Contains(*loop, in_edge->src())) {
+        // The source of the edge is inside the loop.
+        continue;
+      }
 
-    GenerateGetInsns(ir, in_edge->src(), mem_reg_map);
+      GenerateGetInsns(ir, in_edge->src(), mem_reg_map);
+    }
   }
 }
 
@@ -325,7 +324,7 @@ void RemoveLoopGuestContextAccesses(MachineIR* machine_ir) {
 
   auto predicate = [](LoopTreeNode* node) -> bool {
     // TODO(b/203826752): Avoid repeating calling the predicate for innerloops.
-    return !ContainsCall(node->loop()) && node->loop()->is_reducible();
+    return !ContainsCall(node->loop());
   };
 
   OptimizeLoopTree(machine_ir, loop_tree.root(), predicate);
