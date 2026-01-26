@@ -1200,6 +1200,47 @@ class TypesToValues {
         std::forward<ExtraLambdaArgTypes>(extra_types)...);
   }
 
+  template <typename... ExtraLambdaArgTypes, typename TupleType, typename Lambda>
+  static constexpr decltype(auto) Filter(TupleType&& tuple,
+                                         Lambda&& lambda,
+                                         ExtraLambdaArgTypes&&... extra_types) {
+    return FilterHelper<ExtraLambdaArgTypes...>(
+        std::forward<TupleType>(tuple),
+        std::forward<Lambda>(lambda),
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
+        std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+  template <typename TemporaryType,
+            typename... ExtraLambdaArgTypes,
+            typename TupleType,
+            typename Lambda>
+  static constexpr decltype(auto) FilterWithTemporary(TupleType&& tuple,
+                                                      Lambda&& lambda,
+                                                      ExtraLambdaArgTypes&&... extra_types) {
+    TemporaryType tmp{};
+    return FilterHelper<TemporaryType&, ExtraLambdaArgTypes...>(
+        std::forward<TupleType>(tuple),
+        std::forward<Lambda>(lambda),
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
+        tmp,
+        std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+  template <typename TemporaryType,
+            typename... ExtraLambdaArgTypes,
+            typename TupleType,
+            typename Lambda>
+  static constexpr decltype(auto) FilterWithTemporary(TupleType&& tuple,
+                                                      TemporaryType tmp,
+                                                      Lambda&& lambda,
+                                                      ExtraLambdaArgTypes&&... extra_types) {
+    return FilterHelper<TemporaryType&, ExtraLambdaArgTypes...>(
+        std::forward<TupleType>(tuple),
+        std::forward<Lambda>(lambda),
+        std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<TupleType>>>{},
+        tmp,
+        std::forward<ExtraLambdaArgTypes>(extra_types)...);
+  }
+
   template <typename TupleType, typename... ExtraLambdaArgTypes, typename Lambda>
   static constexpr decltype(auto) FlatMap(Lambda&& lambda, ExtraLambdaArgTypes&&... extra_types) {
     return FlatMapHelper<TupleType, ExtraLambdaArgTypes...>(
@@ -1399,6 +1440,41 @@ class TypesToValues {
                 std::tuple_element_t<Is, typename TypesToTypes::ConcatHelper<TupleType>::Result>>(
                 std::forward<ExtraLambdaArgTypes>(extra_types)...)) +
         ... + std::size_t{0});
+  }
+
+  template <typename... ExtraLambdaArgTypes, typename TupleType, std::size_t... Is, typename Lambda>
+  static constexpr decltype(auto) FilterHelper(TupleType&& tuple,
+                                               Lambda&& lambda,
+                                               std::index_sequence<Is...>,
+                                               ExtraLambdaArgTypes&&... extra_types) {
+    return std::tuple_cat([lambda = std::forward<Lambda>(lambda)]<typename ElementType>(
+                              ElementType&& element, ExtraLambdaArgTypes&&... extra_types) {
+      // Detect an attempt to use normal bool as a result. Note that we call lambda identically in
+      // both branches but in one we get constexpr bool kCheckResult and in the other we get auto
+      // lambda_result. We couldn't merge them because C++ doesn't have “conditional constexpr”
+      // declaration.
+      if constexpr (std::is_same_v<decltype(lambda.template operator()<ElementType>(
+                                       std::forward<ExtraLambdaArgTypes>(extra_types)...)),
+                                   bool>) {
+        constexpr bool kCheckResult = lambda.template operator()<ElementType>(
+            std::forward<ExtraLambdaArgTypes>(extra_types)...);
+        if constexpr (kCheckResult) {
+          return std::tuple<ElementType>{element};
+        } else {
+          return std::tuple<>{};
+        }
+      } else {
+        auto lambda_result = lambda.template operator()<ElementType>(
+            std::forward<ExtraLambdaArgTypes>(extra_types)...);
+        constexpr bool kCheckResult = decltype(lambda_result){};
+        if constexpr (kCheckResult) {
+          return std::tuple<ElementType>{element};
+        } else {
+          return std::tuple<>{};
+        }
+      }
+    }(std::get<Is>(std::forward<TupleType>(tuple)),
+                          std::forward<ExtraLambdaArgTypes>(extra_types)...)...);
   }
 
   template <typename TupleType, typename... ExtraLambdaArgTypes, typename Lambda, std::size_t... Is>
