@@ -15,19 +15,26 @@
  */
 
 #include "gtest/gtest.h"
+#include "gmock/gmock.h"
 
 #include "berberis/backend/common/lifetime.h"
 
 #include <string>
 
 #include "berberis/backend/common/machine_ir.h"
-#include "berberis/base/algorithm.h"
 #include "berberis/base/arena_alloc.h"
 
 
 namespace berberis {
 
 namespace {
+
+using ::testing::Contains;
+using ::testing::ElementsAre;
+
+MATCHER_P2(MatchesLiveRange, begin, end, "") {
+  return arg.begin() == begin && arg.end() == end;
+}
 
 // TODO(b/459067902): Move this to a common test utils file.
 const MachineRegClass kRegClass{
@@ -144,10 +151,8 @@ TEST_F(VRegLifetimeTest, Split_SingleRange_Middle) {
   VRegLifetime::List new_lifetimes(&arena_);
   lifetime_.Split(split_pos, &new_lifetimes);
 
-  EXPECT_EQ(new_lifetimes.size(), 1u);
   EXPECT_EQ(lifetime_.end(), 9);
-  EXPECT_EQ(new_lifetimes.front().begin(), 11);
-  EXPECT_EQ(new_lifetimes.front().end(), 20);
+  EXPECT_THAT(new_lifetimes, ElementsAre(MatchesLiveRange(11, 20)));
 }
 
 TEST_F(VRegLifetimeTest, Split_MultipleRanges_SplitInBetween) {
@@ -165,10 +170,8 @@ TEST_F(VRegLifetimeTest, Split_MultipleRanges_SplitInBetween) {
   VRegLifetime::List new_lifetimes(&arena_);
   lifetime_.Split(split_pos, &new_lifetimes);
 
-  EXPECT_EQ(new_lifetimes.size(), 1u);
   EXPECT_EQ(lifetime_.end(), 10);
-  EXPECT_EQ(new_lifetimes.front().begin(), 21);
-  EXPECT_EQ(new_lifetimes.front().end(), 30);
+  EXPECT_THAT(new_lifetimes, ElementsAre(MatchesLiveRange(21, 30)));
 }
 
 TEST_F(VRegLifetimeTest, Split_MultipleRanges_SplitFirstRange) {
@@ -187,18 +190,11 @@ TEST_F(VRegLifetimeTest, Split_MultipleRanges_SplitFirstRange) {
   lifetime_.Split(split_pos, &new_lifetimes);
 
   // Expecting 2 new lifetimes: one from the remainder of first range, one from the second range.
-  EXPECT_EQ(new_lifetimes.size(), 2u);
-
   // Old lifetime
   EXPECT_EQ(lifetime_.end(), 9);
 
   // New lifetimes
-  auto it = new_lifetimes.begin();
-  EXPECT_EQ(it->begin(), 11);
-  EXPECT_EQ(it->end(), 20);
-  ++it;
-  EXPECT_EQ(it->begin(), 30);
-  EXPECT_EQ(it->end(), 40);
+  EXPECT_THAT(new_lifetimes, ElementsAre(MatchesLiveRange(11, 20), MatchesLiveRange(30, 40)));
 }
 
 TEST_F(VRegLifetimeTest, Split_PreservesSpillSlot) {
@@ -231,12 +227,9 @@ TEST_F(VRegLifetimeTest, Split_AtBeginning) {
   VRegLifetime::List new_lifetimes(&arena_);
   lifetime_.Split(split_pos, &new_lifetimes);
 
-  EXPECT_EQ(new_lifetimes.size(), 1u);
-  EXPECT_EQ(new_lifetimes.front().begin(), 0);
-  EXPECT_EQ(new_lifetimes.front().end(), 10);
+  EXPECT_THAT(new_lifetimes, ElementsAre(MatchesLiveRange(0, 10)));
   // The original lifetime is now empty.
   EXPECT_TRUE(lifetime_.GetLiveRangesForTesting().empty());
-
 }
 
 TEST_F(VRegLifetimeTest, LinkCoalescingCandidate) {
@@ -244,13 +237,8 @@ TEST_F(VRegLifetimeTest, LinkCoalescingCandidate) {
 
   lifetime_.LinkCoalescingCandidate(&other);
 
-  const auto& candidates = lifetime_.coalescing_candidates();
-  ASSERT_EQ(candidates.size(), 1u);
-  EXPECT_EQ(candidates[0], &other);
-
-  const auto& other_candidates = other.coalescing_candidates();
-  ASSERT_EQ(other_candidates.size(), 1u);
-  EXPECT_EQ(other_candidates[0], &lifetime_);
+  EXPECT_THAT(lifetime_.coalescing_candidates(), ElementsAre(&other));
+  EXPECT_THAT(other.coalescing_candidates(), ElementsAre(&lifetime_));
 }
 
 TEST_F(VRegLifetimeTest, Merge) {
@@ -270,23 +258,17 @@ TEST_F(VRegLifetimeTest, Merge) {
   // Check ranges merged.
   EXPECT_EQ(lifetime_.begin(), 0);
   EXPECT_EQ(lifetime_.end(), 30);
-  const auto& ranges = lifetime_.GetLiveRangesForTesting();
-  ASSERT_EQ(ranges.size(), 2u);
-  EXPECT_EQ(ranges.front().begin(), 0);
-  EXPECT_EQ(ranges.front().end(), 10);
-  EXPECT_EQ(ranges.back().begin(), 20);
-  EXPECT_EQ(ranges.back().end(), 30);
+  EXPECT_THAT(lifetime_.GetLiveRangesForTesting(),
+              ElementsAre(MatchesLiveRange(0, 10), MatchesLiveRange(20, 30)));
 
   // Check spill weight merged (1 from lifetime_ + 1 from other).
   EXPECT_EQ(lifetime_.spill_weight(), 2);
 
   // Check coalescing candidates merged.
-  const auto& candidates = lifetime_.coalescing_candidates();
-  ASSERT_EQ(candidates.size(), 1u);
-  EXPECT_EQ(candidates[0], &others_candidate);
+  EXPECT_THAT(lifetime_.coalescing_candidates(), ElementsAre(&others_candidate));
 
   // Check candidate points back to lifetime_.
-  EXPECT_TRUE(Contains(others_candidate.coalescing_candidates(), &lifetime_));
+  EXPECT_THAT(others_candidate.coalescing_candidates(), Contains(&lifetime_));
 }
 
 TEST_F(VRegLifetimeTest, Merge_InterleavedRanges) {
@@ -303,16 +285,11 @@ TEST_F(VRegLifetimeTest, Merge_InterleavedRanges) {
 
   lifetime_.Merge(&other);
 
-  const auto& ranges = lifetime_.GetLiveRangesForTesting();
-  ASSERT_EQ(ranges.size(), 4u);
-  auto it = ranges.begin();
-  EXPECT_EQ(it->begin(), 0);
-  ++it;
-  EXPECT_EQ(it->begin(), 10);
-  ++it;
-  EXPECT_EQ(it->begin(), 20);
-  ++it;
-  EXPECT_EQ(it->begin(), 30);
+  EXPECT_THAT(lifetime_.GetLiveRangesForTesting(),
+              ElementsAre(MatchesLiveRange(0, 10),
+                          MatchesLiveRange(10, 20),
+                          MatchesLiveRange(20, 30),
+                          MatchesLiveRange(30, 40)));
 }
 
 } // namespace
