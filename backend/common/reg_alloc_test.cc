@@ -15,6 +15,7 @@
  */
 
 #include "gtest/gtest.h"
+#include "gmock/gmock.h"
 
 #include "berberis/backend/common/lifetime.h"
 #include "berberis/backend/common/machine_ir.h"
@@ -31,7 +32,16 @@ void CoalesceLifetimes(VRegLifetimeList* lifetimes);
 
 namespace {
 
+using ::testing::AllOf;
+using ::testing::ElementsAre;
+using ::testing::Property;
+
+MATCHER_P2(MatchesLifetime, begin, end, "") {
+  return arg.begin() == begin && arg.end() == end;
+}
+
 // Zero is an invalid MachineReg, so we start at 1.
+// The bitmask has bit 'i' set if register 'i' is in the class.
 const MachineRegClass kGPRRegClass = {"GPR", 8, 0b0110, 2, {MachineReg{1}, MachineReg{2}}};
 const MachineRegClass kFPRegClass = {"FP", 8, 0b11000, 2, {MachineReg{3}, MachineReg{4}}};
 
@@ -146,13 +156,12 @@ TEST_F(RegAllocTest, HardRegAllocation_SpillAndAssign) {
   int spill_slot = lifetime1->GetSpill();
   EXPECT_NE(spill_slot, -1);
   // After splitting, the original lifetime should only contain the first access.
-  EXPECT_EQ(lifetime1->end(), 10 + 1);
   // One tiny lifetime from the second access should be added.
-  EXPECT_EQ(lifetime_list.size(), 3u);
-  auto* tiny_lifetime = &lifetime_list.back();
-  EXPECT_EQ(tiny_lifetime->GetSpill(), spill_slot);
-  EXPECT_EQ(tiny_lifetime->begin(), 20 - 1);
-  EXPECT_EQ(tiny_lifetime->end(), 20);
+  EXPECT_THAT(
+      lifetime_list,
+      ElementsAre(MatchesLifetime(10, 11),
+                  MatchesLifetime(15, 25),
+                  AllOf(MatchesLifetime(19, 20), Property(&VRegLifetime::GetSpill, spill_slot))));
 }
 
 TEST_F(RegAllocTest, VRegLifetimeAllocator_Allocate_Simple) {
@@ -220,9 +229,7 @@ TEST_F(RegAllocTest, CoalesceLifetimes_NoMerge) {
 
   CoalesceLifetimes(&lifetime_list);
 
-  EXPECT_EQ(lifetime_list.size(), 2u);
-  EXPECT_EQ(lifetime_list.begin()->begin(), 10);
-  EXPECT_EQ(std::next(lifetime_list.begin())->begin(), 20);
+  EXPECT_THAT(lifetime_list, ElementsAre(MatchesLifetime(10, 20), MatchesLifetime(20, 30)));
 }
 
 TEST_F(RegAllocTest, CoalesceLifetimes_SimpleMerge) {
@@ -232,10 +239,7 @@ TEST_F(RegAllocTest, CoalesceLifetimes_SimpleMerge) {
 
   CoalesceLifetimes(&lifetime_list);
 
-  EXPECT_EQ(lifetime_list.size(), 1u);
-  // Lifetime1 should now cover both ranges.
-  EXPECT_EQ(lifetime_list.front().begin(), 10);
-  EXPECT_EQ(lifetime_list.front().end(), 30);
+  EXPECT_THAT(lifetime_list, ElementsAre(MatchesLifetime(10, 30)));
 }
 
 TEST_F(RegAllocTest, CoalesceLifetimes_MergeWithGap) {
@@ -245,9 +249,7 @@ TEST_F(RegAllocTest, CoalesceLifetimes_MergeWithGap) {
 
   CoalesceLifetimes(&lifetime_list);
 
-  EXPECT_EQ(lifetime_list.size(), 1u);
-  EXPECT_EQ(lifetime_list.front().begin(), 10);
-  EXPECT_EQ(lifetime_list.front().end(), 40);
+  EXPECT_THAT(lifetime_list, ElementsAre(MatchesLifetime(10, 40)));
 }
 
 TEST_F(RegAllocTest, CoalesceLifetimes_NoMerge_Interference) {
@@ -257,7 +259,7 @@ TEST_F(RegAllocTest, CoalesceLifetimes_NoMerge_Interference) {
 
   CoalesceLifetimes(&lifetime_list);
 
-  EXPECT_EQ(lifetime_list.size(), 2u);
+  EXPECT_THAT(lifetime_list, ElementsAre(MatchesLifetime(10, 20), MatchesLifetime(15, 25)));
 }
 
 TEST_F(RegAllocTest, CoalesceLifetimes_NoMerge_DifferentRegClass) {
@@ -269,7 +271,7 @@ TEST_F(RegAllocTest, CoalesceLifetimes_NoMerge_DifferentRegClass) {
 
   CoalesceLifetimes(&lifetime_list);
 
-  EXPECT_EQ(lifetime_list.size(), 2u);
+  EXPECT_THAT(lifetime_list, ElementsAre(MatchesLifetime(10, 20), MatchesLifetime(20, 30)));
 }
 
 TEST_F(RegAllocTest, CoalesceLifetimes_MultipleCandidates) {
@@ -288,9 +290,7 @@ TEST_F(RegAllocTest, CoalesceLifetimes_MultipleCandidates) {
 
   CoalesceLifetimes(&lifetime_list);
 
-  EXPECT_EQ(lifetime_list.size(), 1u);
-  EXPECT_EQ(lifetime_list.front().begin(), 10);
-  EXPECT_EQ(lifetime_list.front().end(), 40);
+  EXPECT_THAT(lifetime_list, ElementsAre(MatchesLifetime(10, 40)));
 }
 
 TEST_F(RegAllocTest, CoalesceLifetimes_ChainedMerge) {
@@ -311,9 +311,7 @@ TEST_F(RegAllocTest, CoalesceLifetimes_ChainedMerge) {
 
   // When lifetime1 merges lifetime2, it inherits candidates of lifetime2, which includes lifetime3.
   // So lifetime1 should then merge lifetime3.
-  EXPECT_EQ(lifetime_list.size(), 1u);
-  EXPECT_EQ(lifetime_list.front().begin(), 10);
-  EXPECT_EQ(lifetime_list.front().end(), 40);
+  EXPECT_THAT(lifetime_list, ElementsAre(MatchesLifetime(10, 40)));
 }
 
 TEST_F(RegAllocTest, CoalesceLifetimes_MergeOrder) {
@@ -326,11 +324,9 @@ TEST_F(RegAllocTest, CoalesceLifetimes_MergeOrder) {
 
   CoalesceLifetimes(&lifetime_list);
 
-  EXPECT_EQ(lifetime_list.size(), 1u);
   // The resulting lifetime should be later lifetime2 (because it was first in list and
   // merged lifetime1).
-  EXPECT_EQ(lifetime_list.front().begin(), 10); // lifetime1 started at 10
-  EXPECT_EQ(lifetime_list.front().end(), 30); // lifetime2 ended at 30
+  EXPECT_THAT(lifetime_list, ElementsAre(MatchesLifetime(10, 30)));
 }
 
 }  // namespace
