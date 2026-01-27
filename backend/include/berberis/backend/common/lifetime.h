@@ -125,7 +125,9 @@ class VRegLiveRange {
 
   template <bool kAllowShrink = false>
   void set_end(int end) {
-    if (!kAllowShrink) { CHECK_LE(end_, end);}
+    if (!kAllowShrink) {
+      CHECK_LE(end_, end);
+    }
     end_ = end;
   }
 
@@ -255,7 +257,7 @@ class VRegLifetime {
         hard_reg_(0),
         spill_slot_(-1),
         spill_weight_(0),
-        move_hint_(nullptr) {}
+        coalescing_candidates_(arena) {}
 
   VRegLifetime(Arena* arena, int begin)
       : arena_(arena),
@@ -264,16 +266,7 @@ class VRegLifetime {
         hard_reg_(0),
         spill_slot_(-1),
         spill_weight_(0),
-        move_hint_(nullptr) {}
-
-  VRegLifetime(Arena* arena, const VRegAccess& access)
-      : arena_(arena),
-        range_list_(1, VRegLiveRange(arena, access), arena),
-        reg_class_(access.GetRegClass()),
-        hard_reg_(0),
-        spill_slot_(-1),
-        spill_weight_(1),
-        move_hint_(nullptr) {}
+        coalescing_candidates_(arena) {}
 
   void StartLiveRange(int begin) {
     // Range list may be empty in tests.
@@ -324,28 +317,15 @@ class VRegLifetime {
 
   int spill_weight() const { return spill_weight_; }
 
-  // If lifetimes are connected with reg to reg move, try allocating both on the
-  // same register.
-  // Implement move hints as disjoint set of lifetimes, with representative that
-  // is allocated first (so no union by rank, only path compression).
-
-  VRegLifetime* FindMoveHint() {
-    if (move_hint_) {
-      move_hint_ = move_hint_->FindMoveHint();
-      return move_hint_;
-    }
-    return this;
+  // Connects this lifetime with 'other' as coalescing candidates.
+  void LinkCoalescingCandidate(VRegLifetime* other) {
+    CHECK_NE(this, other);  // A lifetime cannot coalesce with itself.
+    coalescing_candidates_.push_back(other);
+    other->coalescing_candidates_.push_back(this);
   }
 
-  void SetMoveHint(VRegLifetime* other) {
-    VRegLifetime* hint = FindMoveHint();
-    VRegLifetime* other_hint = other->FindMoveHint();
-    // Select lifetime that begins first.
-    if (hint->begin() > other_hint->begin()) {
-      hint->move_hint_ = other_hint;
-    } else if (other_hint != hint) {
-      other_hint->move_hint_ = hint;
-    }
+  const ArenaVector<VRegLifetime*>& coalescing_candidates() const {
+    return coalescing_candidates_;
   }
 
   int begin() const {
@@ -434,6 +414,40 @@ class VRegLifetime {
     return SPLIT_OK;
   }
 
+  bool IsEmpty() const { return range_list_.empty(); }
+
+  void Merge(VRegLifetime* other) {
+    CHECK(!IsEmpty());
+    CHECK(!other->IsEmpty());
+
+    auto it = range_list_.begin();
+    auto other_it = other->range_list_.begin();
+
+    while (other_it != other->range_list_.end()) {
+      if (it != range_list_.end() && it->begin() < other_it->begin()) {
+        ++it;
+        continue;
+      }
+      // Move other_it to before it.
+      auto moved_other_it = other_it++;
+      range_list_.splice(it, other->range_list_, moved_other_it);
+    }
+
+    CHECK(reg_class_ && other->reg_class_);
+    reg_class_ = reg_class_->GetIntersection(other->reg_class_);
+    CHECK(reg_class_);
+
+    spill_weight_ += other->spill_weight_;
+
+    for (auto candidate : other->coalescing_candidates_) {
+      if (candidate != this) {
+        LinkCoalescingCandidate(candidate);
+      }
+    }
+
+    other->coalescing_candidates_.clear();
+  }
+
   void Split(const SplitPos& split_pos, ArenaList<VRegLifetime>* new_lifetimes) {
     if (split_pos.range_it == range_list_.end()) {
       return;
@@ -461,8 +475,11 @@ class VRegLifetime {
     // Create new lifetimes from ranges after split pos.
     // Note: live ranges for live-ins/outs are shrunk to the actual range of the accesses.
     for (auto range_it = first_range_to_split; range_it != range_list_.end(); ++range_it) {
-      AddLifetimeFromAccessList(new_lifetimes, range_it->access_list().begin(),
-                                range_it->access_list().end(), GetSpill(), arena_);
+      AddLifetimeFromAccessList(new_lifetimes,
+                                range_it->access_list().begin(),
+                                range_it->access_list().end(),
+                                GetSpill(),
+                                arena_);
     }
     range_list_.erase(first_range_to_split, range_list_.end());
   }
@@ -505,8 +522,7 @@ class VRegLifetime {
   int spill_slot_;
   // Spill weight, roughly the number of spill/reload insns to add.
   int spill_weight_;
-  // Lifetime that starts before and is connected by move with this one.
-  VRegLifetime* move_hint_;
+  ArenaVector<VRegLifetime*> coalescing_candidates_;
 };
 
 using VRegLifetimeList = VRegLifetime::List;

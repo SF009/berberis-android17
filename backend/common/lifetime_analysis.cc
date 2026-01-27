@@ -57,8 +57,8 @@ void VRegLifetimeAnalysis::AppendAccess(const VRegAccess& access) {
   lifetime->AppendAccess(access);
 }
 
-// Set move hint for vreg to vreg move.
-void VRegLifetimeAnalysis::TrySetMoveHint(const MachineInsn* insn) {
+// Link coalescing candidates for vreg to vreg move.
+void VRegLifetimeAnalysis::TryLinkCoalescingCandidate(const MachineInsn* insn) {
   if (!insn->is_copy()) {
     return;
   }
@@ -66,16 +66,16 @@ void VRegLifetimeAnalysis::TrySetMoveHint(const MachineInsn* insn) {
   // Copy should have 2 vreg operands.
   CHECK_EQ(insn->NumRegOperands(), 2);
   MachineReg dst = insn->RegAt(0);
-  if (!dst.IsVReg()) {
-    return;
-  }
   MachineReg src = insn->RegAt(1);
-  if (!src.IsVReg()) {
+  if (!src.IsVReg() || !dst.IsVReg()) {
     return;
   }
 
   // Lifetimes must exist.
-  vreg_lifetimes_[dst.GetVRegIndex()]->SetMoveHint(vreg_lifetimes_[src.GetVRegIndex()]);
+  auto dst_lifetime = vreg_lifetimes_.at(dst.GetVRegIndex());
+  auto src_lifetime = vreg_lifetimes_.at(src.GetVRegIndex());
+
+  dst_lifetime->LinkCoalescingCandidate(src_lifetime);
 }
 
 void VRegLifetimeAnalysis::AddInsn(const MachineInsnListPosition& pos) {
@@ -112,7 +112,7 @@ void VRegLifetimeAnalysis::AddInsn(const MachineInsnListPosition& pos) {
     AppendAccess(VRegAccess(pos, i, tick_ + 1, tick_ + 2));
   }
 
-  TrySetMoveHint(insn);
+  TryLinkCoalescingCandidate(insn);
 
   // Instruction have got 2 ticks:
   // - read inputs ('use' operands)
