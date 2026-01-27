@@ -34,18 +34,18 @@ class LoopBuilder {
       : loop_(loop), is_bb_in_loop_(ir->NumBasicBlocks(), false, ir->arena()) {
     CHECK_EQ(loop_->size(), 0u);
     loop_->reserve(ir->NumBasicBlocks());
-    loop_->push_back(loop_head);
-    is_bb_in_loop_[loop_head->id()] = true;
+    loop_->AddToBody(loop_head);
+    is_bb_in_loop_.at(loop_head->id()) = true;
   }
 
   // Appends bb to loop (bb-vector) unless bb is already in loop.
   // Returns whether bb is appended.
   bool PushBackIfNotInLoop(MachineBasicBlock* bb) {
-    if (is_bb_in_loop_[bb->id()]) {
+    if (is_bb_in_loop_.at(bb->id())) {
       return false;
     }
-    loop_->push_back(bb);
-    is_bb_in_loop_[bb->id()] = true;
+    loop_->AddToBody(bb);
+    is_bb_in_loop_.at(bb->id()) = true;
     return true;
   }
 
@@ -107,6 +107,8 @@ Loop* CollectLoop(MachineIR* ir, const MachineEdgeVector& back_edges, size_t beg
       }
     }  // Walk new loop-bbs
   }    // Walk back
+
+  loop->AddEntryBlock(head_bb);
   return loop;
 }
 

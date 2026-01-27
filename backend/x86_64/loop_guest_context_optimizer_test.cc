@@ -481,7 +481,8 @@ TEST(MachineIRLoopGuestContextOptimizer, GeneratePreloop) {
   builder.Gen<Jump>(kNullGuestAddr);
 
   Loop loop(machine_ir.arena());
-  loop.push_back(loop_body);
+  loop.AddToBody(loop_body);
+  loop.AddEntryBlock(loop_body);
 
   MemRegMap mem_reg_map(sizeof(CPUState), std::nullopt, machine_ir.arena());
   auto reg1 = machine_ir.AllocVReg();
@@ -562,7 +563,8 @@ TEST(MachineIRLoopGuestContextOptimizer, GenerateAfterloop) {
   builder.Gen<Jump>(kNullGuestAddr);
 
   Loop loop(machine_ir.arena());
-  loop.push_back(loop_body);
+  loop.AddToBody(loop_body);
+  loop.AddEntryBlock(loop_body);
 
   MemRegMap mem_reg_map(sizeof(CPUState), std::nullopt, machine_ir.arena());
   auto reg1 = machine_ir.AllocVReg();
@@ -647,7 +649,8 @@ TEST(MachineIRLoopGuestContextOptimizer, GenerateMultiplePreloops) {
   builder.Gen<Jump>(kNullGuestAddr);
 
   Loop loop(machine_ir.arena());
-  loop.push_back(loop_body);
+  loop.AddToBody(loop_body);
+  loop.AddEntryBlock(loop_body);
 
   MemRegMap mem_reg_map(sizeof(CPUState), std::nullopt, machine_ir.arena());
   auto reg1 = machine_ir.AllocVReg();
@@ -698,8 +701,9 @@ TEST(MachineIRLoopGuestContextOptimizer, GenerateMultiplePostloops) {
   builder.Gen<Jump>(kNullGuestAddr);
 
   Loop loop(machine_ir.arena());
-  loop.push_back(loop_body1);
-  loop.push_back(loop_body2);
+  loop.AddToBody(loop_body1);
+  loop.AddToBody(loop_body2);
+  loop.AddEntryBlock(loop_body1);
 
   MemRegMap mem_reg_map(sizeof(CPUState), std::nullopt, machine_ir.arena());
   auto reg1 = machine_ir.AllocVReg();
@@ -1003,7 +1007,11 @@ TEST(MachineIRLoopGuestContextOptimizer, CountGuestRegAccesses) {
   }
   builder.Gen<Branch>(body1);
 
-  Loop loop({body1, body2}, machine_ir.arena());
+  Loop loop(machine_ir.arena());
+  loop.AddToBody(body1);
+  loop.AddToBody(body2);
+  loop.AddEntryBlock(body1);
+
   auto guest_access_count = CountGuestRegAccesses(&machine_ir, &loop);
   EXPECT_EQ(guest_access_count[GetThreadStateRegOffset(0)], 1);
   EXPECT_EQ(guest_access_count[GetThreadStateRegOffset(1)], 2);
@@ -1044,7 +1052,11 @@ TEST(MachineIRLoopGuestContextOptimizer, GetOffsetCounters) {
   builder.GenPutImm(GetThreadStateRegOffset(0), 5);
   builder.Gen<Branch>(body1);
 
-  Loop loop({body1, body2}, machine_ir.arena());
+  Loop loop(machine_ir.arena());
+  loop.AddToBody(body1);
+  loop.AddToBody(body2);
+  loop.AddEntryBlock(body1);
+
   auto counters = GetSortedOffsetCounters(&machine_ir, &loop);
   EXPECT_EQ(counters.size(), 3UL);
   EXPECT_EQ(std::get<0>(counters[0]), GetThreadStateRegOffset(0));
@@ -1103,7 +1115,10 @@ TEST(MachineIRLoopGuestContextOptimizer, OptimizeLoopWithPriority) {
   builder.Gen<Jump>(kNullGuestAddr);
 
   ASSERT_EQ(CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
-  Loop loop({body}, machine_ir.arena());
+  Loop loop(machine_ir.arena());
+  loop.AddToBody(body);
+  loop.AddEntryBlock(body);
+
   OptimizeLoop(&machine_ir,
                &loop,
                OptimizeLoopParams{
