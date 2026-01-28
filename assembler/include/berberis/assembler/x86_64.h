@@ -495,38 +495,43 @@ class Assembler : public x86_32_or_x86_64::Assembler<Assembler> {
   }
 
   template <typename ArgumentType1, typename ArgumentType2>
-  void EmitModRM(ArgumentType1 argument1, ArgumentType2 argument2) {
+  auto EmitModRM(ArgumentType1 argument1, ArgumentType2 argument2)
+      -> std::enable_if_t<BaseAssembler::kIsRegister.template operator()<ArgumentType2>()> {
     Emit8(0xc0 | ((argument1.num_ & 0b111) << 3) | (argument2.num_ & 0b111));
   }
 
   template <typename ArgumentType>
-  void EmitModRM(uint8_t opcode_extension, ArgumentType argument) {
+  auto EmitModRM(uint8_t opcode_extension, ArgumentType argument)
+      -> std::enable_if_t<BaseAssembler::kIsRegister.template operator()<ArgumentType>()> {
     CHECK_LE(opcode_extension, 0b111);
     Emit8(0xc0 | (opcode_extension << 3) | (argument.num_ & 0b111));
   }
 
-  template <typename ArgumentType>
-  constexpr void EmitOperandOp(ArgumentType argument, Operand operand) {
-    EmitOperandOp(static_cast<int>(argument.num_ & 0b111), operand);
+  constexpr auto EmitModRM(auto argument, auto memory_operand)
+      -> std::enable_if_t<sizeof(memory_operand.operand) >= 0> {
+    EmitModRM(static_cast<uint8_t>(argument.num_ & 0b111), memory_operand);
   }
 
-  template <size_t kImmediatesSize, typename ArgumentType>
-  constexpr void EmitRipOp(ArgumentType argument, const Label& label) {
-    EmitRipOp<kImmediatesSize>(static_cast<int>(argument.num_) & 0b111, label);
+  template <size_t kImmediatesSize>
+  constexpr auto EmitModRM(auto argument, auto label_operand)
+      -> std::enable_if_t<sizeof(label_operand.label) >= 0> {
+    EmitModRM<kImmediatesSize>(static_cast<uint8_t>(argument.num_ & 0b111), label_operand);
   }
 
   // Emit the ModR/M byte, and optionally the SIB byte and
   // 1- or 4-byte offset for a memory operand.  Also used to encode
   // a three-bit opcode extension into the ModR/M byte.
-  constexpr void EmitOperandOp(int num_ber, const Operand& addr);
+  constexpr auto EmitModRM(uint8_t number, auto memory_operand)
+      -> std::enable_if_t<sizeof(memory_operand.operand) >= 0>;
   // Helper functions to handle various ModR/M and SIB combinations.
   // Should *only* be called from EmitOperandOp!
-  constexpr void EmitIndexDispOperand(int reg, const Operand& addr);
+  constexpr void EmitIndexDispOperand(uint8_t reg, const Operand& addr);
   template <typename ArgType, void (AssemblerBase::*)(ArgType)>
-  constexpr void EmitBaseIndexDispOperand(int base_modrm_and_sib, const Operand& addr);
+  constexpr void EmitBaseIndexDispOperand(ArgType base_modrm_and_sib, const Operand& addr);
   // Emit ModR/M for rip-addressig.
   template <size_t kImmediatesSize>
-  constexpr void EmitRipOp(int num_, const Label& label);
+  constexpr auto EmitModRM(uint8_t num_, auto label_operand)
+      -> std::enable_if_t<sizeof(label_operand.label) >= 0>;
 
   friend BaseAssembler;
 };
@@ -536,68 +541,73 @@ class Assembler : public x86_32_or_x86_64::Assembler<Assembler> {
 // makes effective size of that function very small.
 //
 // But for this to happen function have to be inline and in header.
-constexpr inline void Assembler::EmitOperandOp(int num_ber, const Operand& addr) {
-  // Additional info (register num_ber, etc) is limited to 3 bits.
-  CHECK_LE(unsigned(num_ber), 7);
+constexpr inline auto Assembler::EmitModRM(uint8_t number, auto memory_operand)
+    -> std::enable_if_t<sizeof(memory_operand.operand) >= 0> {
+  // Additional info (register number, etc) is limited to 3 bits.
+  CHECK_LE(unsigned(number), 7);
 
   // Reg field must be shifted by 3 bits.
-  int reg = num_ber << 3;
+  int reg = number << 3;
 
   // On x86 %rsp cannot be index, only base.
-  CHECK(addr.index != rsp);
+  CHECK(memory_operand.operand.index != rsp);
 
   // If base is not %rsp/r12 and we don't have index, then we don't have SIB byte.
   // All other cases have "ModR/M" and SIB bytes.
-  if (addr.base != rsp && addr.base != r12 && addr.index == no_register) {
+  if (memory_operand.operand.base != rsp && memory_operand.operand.base != r12 &&
+      memory_operand.operand.index == no_register) {
     // If we have base register then we could use the same logic as for other common cases.
-    if (addr.base != no_register) {
-      EmitBaseIndexDispOperand<uint8_t, &Assembler::Emit8>((addr.base.num_ & 7) | reg, addr);
+    if (memory_operand.operand.base != no_register) {
+      EmitBaseIndexDispOperand<uint8_t, &Assembler::Emit8>(
+          (memory_operand.operand.base.num_ & 7) | reg, memory_operand.operand);
     } else {
       Emit16(0x2504 | reg);
-      Emit32(addr.disp);
+      Emit32(memory_operand.operand.disp);
     }
-  } else if (addr.index == no_register) {
+  } else if (memory_operand.operand.index == no_register) {
     // Note: when ModR/M and SIB are used "no index" is encoded as if %rsp is used in place of
     // index (that's why %rsp couldn't be used as index - see check above).
     EmitBaseIndexDispOperand<int16_t, &Assembler::Emit16>(
-        0x2004 | ((addr.base.num_ & 7) << 8) | reg, addr);
-  } else if (addr.base == no_register) {
-    EmitIndexDispOperand(reg, addr);
+        0x2004 | ((memory_operand.operand.base.num_ & 7) << 8) | reg, memory_operand.operand);
+  } else if (memory_operand.operand.base == no_register) {
+    EmitIndexDispOperand(reg, memory_operand.operand);
   } else {
-    EmitBaseIndexDispOperand<int16_t, &Assembler::Emit16>(0x04 | (addr.scale << 14) |
-                                                              ((addr.index.num_ & 7) << 11) |
-                                                              ((addr.base.num_ & 7) << 8) | reg,
-                                                          addr);
+    EmitBaseIndexDispOperand<int16_t, &Assembler::Emit16>(
+        0x04 | (memory_operand.operand.scale << 14) |
+            ((memory_operand.operand.index.num_ & 7) << 11) |
+            ((memory_operand.operand.base.num_ & 7) << 8) | reg,
+        memory_operand.operand);
   }
 }
 
-constexpr inline void Assembler::EmitIndexDispOperand(int reg, const Operand& addr) {
+constexpr inline void Assembler::EmitIndexDispOperand(uint8_t reg, const Operand& memory_operand) {
   // We only have index here, no base, use SIB but put %rbp in "base" field.
-  Emit16(0x0504 | (addr.scale << 14) | ((addr.index.num_ & 7) << 11) | reg);
-  Emit32(addr.disp);
+  Emit16(0x0504 | (memory_operand.scale << 14) | ((memory_operand.index.num_ & 7) << 11) | reg);
+  Emit32(memory_operand.disp);
 }
 
 template <size_t kImmediatesSize>
-constexpr inline void Assembler::EmitRipOp(int num_, const Label& label) {
-  Emit8(0x05 | (num_ << 3));
-  jumps_.push_back(Jump{&label, pc(), false});
+constexpr inline auto Assembler::EmitModRM(uint8_t number, auto label_operand)
+    -> std::enable_if_t<sizeof(label_operand.label) >= 0> {
+  Emit8(0x05 | (number << 3));
+  jumps_.push_back(Jump{&label_operand.label, pc(), false});
   Emit32(0xffff'fffc - kImmediatesSize);
 }
 
-template <typename ArgType, void (AssemblerBase::* EmitBase)(ArgType)>
-constexpr inline void Assembler::EmitBaseIndexDispOperand(int base_modrm_and_sib,
-                                                          const Operand& addr) {
-  if (addr.disp == 0 && addr.base != rbp && addr.base != r13) {
+template <typename ArgType, void (AssemblerBase::*EmitBase)(ArgType)>
+constexpr inline void Assembler::EmitBaseIndexDispOperand(ArgType base_modrm_and_sib,
+                                                          const Operand& memory_operand) {
+  if (memory_operand.disp == 0 && memory_operand.base != rbp && memory_operand.base != r13) {
     // We can omit zero displacement only if base isn't %rbp/%r13
     (this->*EmitBase)(base_modrm_and_sib);
-  } else if (IsInRange<int8_t>(addr.disp)) {
+  } else if (IsInRange<int8_t>(memory_operand.disp)) {
     // If disp could it in byte then use byte-disp.
     (this->*EmitBase)(base_modrm_and_sib | 0x40);
-    Emit8(addr.disp);
+    Emit8(memory_operand.disp);
   } else {
     // Otherwise use full-disp.
     (this->*EmitBase)(base_modrm_and_sib | 0x80);
-    Emit32(addr.disp);
+    Emit32(memory_operand.disp);
   }
 }
 

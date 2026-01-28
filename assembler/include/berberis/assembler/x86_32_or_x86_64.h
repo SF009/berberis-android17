@@ -680,14 +680,14 @@ class Assembler : public AssemblerBase {
       }
       if constexpr (reg_is_opcode_extension) {
         if constexpr (operands_count == 1) {
-          static_cast<DerivedAssemblerType*>(this)->EmitOperandOp(
-              static_cast<int>(kOpcodesArray[kPrefixesAndOpcodeExtensionsCount + 1]),
-              ArgumentByType<0, kIsMemoryOperand>(arguments...).operand);
+          static_cast<DerivedAssemblerType*>(this)->EmitModRM(
+              kOpcodesArray[kPrefixesAndOpcodeExtensionsCount + 1],
+              ArgumentByType<0, kIsMemoryOperand>(arguments...));
         } else if constexpr (labels_count == 1) {
           static_cast<DerivedAssemblerType*>(this)
-              ->template EmitRipOp<ImmediatesSize<ArgumentsTypes...>()>(
-                  static_cast<int>(kOpcodesArray[kPrefixesAndOpcodeExtensionsCount + 1]),
-                  ArgumentByType<0, kIsLabelOperand>(arguments...).label);
+              ->template EmitModRM<ImmediatesSize<ArgumentsTypes...>()>(
+                  kOpcodesArray[kPrefixesAndOpcodeExtensionsCount + 1],
+                  ArgumentByType<0, kIsLabelOperand>(arguments...));
         } else {
           static_cast<DerivedAssemblerType*>(this)->EmitModRM(
               kOpcodesArray[kPrefixesAndOpcodeExtensionsCount + 1],
@@ -695,14 +695,14 @@ class Assembler : public AssemblerBase {
         }
       } else if constexpr (registers_count > 0) {
         if constexpr (operands_count == 1) {
-          static_cast<DerivedAssemblerType*>(this)->EmitOperandOp(
+          static_cast<DerivedAssemblerType*>(this)->EmitModRM(
               ArgumentByType<0, kIsRegister>(arguments...),
-              ArgumentByType<0, kIsMemoryOperand>(arguments...).operand);
+              ArgumentByType<0, kIsMemoryOperand>(arguments...));
         } else if constexpr (labels_count == 1) {
           static_cast<DerivedAssemblerType*>(this)
-              ->template EmitRipOp<ImmediatesSize<ArgumentsTypes...>()>(
+              ->template EmitModRM<ImmediatesSize<ArgumentsTypes...>()>(
                   ArgumentByType<0, kIsRegister>(arguments...),
-                  ArgumentByType<0, kIsLabelOperand>(arguments...).label);
+                  ArgumentByType<0, kIsLabelOperand>(arguments...));
         } else {
           static_cast<DerivedAssemblerType*>(this)->EmitModRM(
               ArgumentByType<0, kIsRegister>(arguments...),
