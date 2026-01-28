@@ -351,43 +351,51 @@ class Assembler : public x86_32_or_x86_64::Assembler<Assembler> {
   using Label128Bit = Label64Bit;
 
   // Check if a given type is "a register with size" (for EmitInstruction).
-  template <typename ArgumentType>
-  struct IsRegister {
-    static constexpr bool value = std::is_same_v<ArgumentType, Register8Bit> ||
-                                  std::is_same_v<ArgumentType, Register32Bit> ||
-                                  std::is_same_v<ArgumentType, Register64Bit>;
-  };
+  static constexpr class {
+   public:
+    template <typename ArgumentType>
+    constexpr bool operator()() const {
+      return std::is_same_v<ArgumentType, Register8Bit> ||
+             std::is_same_v<ArgumentType, Register32Bit> ||
+             std::is_same_v<ArgumentType, Register64Bit>;
+    }
+  } kIsRegister;
 
   // Check if a given type is "a memory operand with size" (for EmitInstruction).
-  template <typename ArgumentType>
-  struct IsMemoryOperand {
-    static constexpr bool value =
-        std::is_same_v<ArgumentType, Memory32Bit> || std::is_same_v<ArgumentType, Memory64Bit>;
-  };
+  static constexpr class {
+   public:
+    template <typename ArgumentType>
+    constexpr bool operator()() const {
+      return std::is_same_v<ArgumentType, Memory32Bit> || std::is_same_v<ArgumentType, Memory64Bit>;
+    }
+  } kIsMemoryOperand;
 
-  template <typename ArgumentType>
-  struct IsLabelOperand {
-    static constexpr bool value =
-        std::is_same_v<ArgumentType, Label32Bit> || std::is_same_v<ArgumentType, Label64Bit>;
-  };
+  // Check if a given type is "a memory operand with size" (for EmitInstruction).
+  static constexpr class {
+   public:
+    template <typename ArgumentType>
+    constexpr bool operator()() const {
+      return std::is_same_v<ArgumentType, Label32Bit> || std::is_same_v<ArgumentType, Label64Bit>;
+    }
+  } kIsLabelOperand;
 
   template <typename... ArgumentsTypes>
   void EmitRex(ArgumentsTypes... arguments) {
-    constexpr auto registers_count = kCountArguments<IsRegister, ArgumentsTypes...>;
-    constexpr auto operands_count = kCountArguments<IsMemoryOperand, ArgumentsTypes...>;
+    constexpr auto registers_count = kCountArguments<kIsRegister, ArgumentsTypes...>;
+    constexpr auto operands_count = kCountArguments<kIsMemoryOperand, ArgumentsTypes...>;
     static_assert(registers_count + operands_count <= 2,
                   "Only two-arguments instructions are supported, not VEX or EVEX");
     uint8_t rex = 0;
     if constexpr (registers_count == 2) {
-      rex = Rex<0b0100>(ArgumentByType<0, IsRegister>(arguments...)) |
-            Rex<0b0001>(ArgumentByType<1, IsRegister>(arguments...));
+      rex = Rex<0b0100>(ArgumentByType<0, kIsRegister>(arguments...)) |
+            Rex<0b0001>(ArgumentByType<1, kIsRegister>(arguments...));
     } else if constexpr (registers_count == 1 && operands_count == 1) {
-      rex = Rex<0b0100>(ArgumentByType<0, IsRegister>(arguments...)) |
-            Rex(ArgumentByType<0, IsMemoryOperand>(arguments...));
+      rex = Rex<0b0100>(ArgumentByType<0, kIsRegister>(arguments...)) |
+            Rex(ArgumentByType<0, kIsMemoryOperand>(arguments...));
     } else if constexpr (registers_count == 1) {
-      rex = Rex<0b0001>(ArgumentByType<0, IsRegister>(arguments...));
+      rex = Rex<0b0001>(ArgumentByType<0, kIsRegister>(arguments...));
     } else if constexpr (operands_count == 1) {
-      rex = Rex(ArgumentByType<0, IsMemoryOperand>(arguments...));
+      rex = Rex(ArgumentByType<0, kIsMemoryOperand>(arguments...));
     }
     if (rex) {
       Emit8(rex);
@@ -444,32 +452,32 @@ class Assembler : public x86_32_or_x86_64::Assembler<Assembler> {
             bool reg_is_opcode_extension,
             typename... ArgumentsTypes>
   void EmitVex(ArgumentsTypes... arguments) {
-    constexpr auto registers_count = kCountArguments<IsRegister, ArgumentsTypes...>;
-    constexpr auto operands_count = kCountArguments<IsMemoryOperand, ArgumentsTypes...>;
-    constexpr auto labels_count = kCountArguments<IsLabelOperand, ArgumentsTypes...>;
+    constexpr auto registers_count = kCountArguments<kIsRegister, ArgumentsTypes...>;
+    constexpr auto operands_count = kCountArguments<kIsMemoryOperand, ArgumentsTypes...>;
+    constexpr auto labels_count = kCountArguments<kIsLabelOperand, ArgumentsTypes...>;
     constexpr auto vvvv_parameter = 2 - reg_is_opcode_extension - operands_count - labels_count;
     int vvvv = 0;
     if constexpr (registers_count > vvvv_parameter) {
-      vvvv = ArgumentByType<vvvv_parameter, IsRegister>(arguments...).num_;
+      vvvv = ArgumentByType<vvvv_parameter, kIsRegister>(arguments...).num_;
     }
     auto vex2 = byte2 | 0b111'00000;
     if constexpr (operands_count == 1) {
-      auto operand = ArgumentByType<0, IsMemoryOperand>(arguments...);
+      auto operand = ArgumentByType<0, kIsMemoryOperand>(arguments...);
       vex2 ^= (operand.operand.base.num_ & 0b1000) << 2;
       vex2 ^= (operand.operand.index.num_ & 0b1000) << 3;
       if constexpr (!reg_is_opcode_extension) {
-        vex2 ^= (ArgumentByType<0, IsRegister>(arguments...).num_ & 0b1000) << 4;
+        vex2 ^= (ArgumentByType<0, kIsRegister>(arguments...).num_ & 0b1000) << 4;
       }
     } else if constexpr (labels_count == 1) {
       if constexpr (!reg_is_opcode_extension) {
-        vex2 ^= (ArgumentByType<0, IsRegister>(arguments...).num_ & 0b1000) << 4;
+        vex2 ^= (ArgumentByType<0, kIsRegister>(arguments...).num_ & 0b1000) << 4;
       }
     } else if constexpr (registers_count > 0) {
       if constexpr (reg_is_opcode_extension) {
-        vex2 ^= (ArgumentByType<0, IsRegister>(arguments...).num_ & 0b1000) << 2;
+        vex2 ^= (ArgumentByType<0, kIsRegister>(arguments...).num_ & 0b1000) << 2;
       } else {
-        vex2 ^= (ArgumentByType<0, IsRegister>(arguments...).num_ & 0b1000) << 4;
-        vex2 ^= (ArgumentByType<1, IsRegister>(arguments...).num_ & 0b1000) << 2;
+        vex2 ^= (ArgumentByType<0, kIsRegister>(arguments...).num_ & 0b1000) << 4;
+        vex2 ^= (ArgumentByType<1, kIsRegister>(arguments...).num_ & 0b1000) << 2;
       }
     }
     if (byte1 == 0xc4 && (vex2 & 0b0'1'1'11111) == 0b0'1'1'00001 && (byte3 & 0b1'0000'0'00) == 0) {
