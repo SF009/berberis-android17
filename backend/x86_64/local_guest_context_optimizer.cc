@@ -51,11 +51,12 @@ void LocalGuestContextOptimizer::UnmapOlderThan(size_t pos, RegType reg_type) {
 
 void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(
     const OptimizeLocalParams& params) {
-  const size_t kGenRegLimit =
+  OptimizeLocalParams params_copy = params;
+
+  params_copy.general_reg_limit =
       machine_ir_->abi() == MachineIR::ABI::kOptimizedEnabled
-          ? (params.general_reg_limit >= 6 ? params.general_reg_limit - 6 : 0UL)
-          : params.general_reg_limit;
-  const size_t kSimdRegLimit = params.simd_reg_limit;
+          ? (params_copy.general_reg_limit >= 6 ? params_copy.general_reg_limit - 6 : 0UL)
+          : params_copy.general_reg_limit;
 
   for (auto* bb : machine_ir_->bb_list()) {
     std::fill(mem_reg_map_.begin(), mem_reg_map_.end(), std::nullopt);
@@ -67,10 +68,11 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(
       // If the register pressure at the current instruction is too big, then cancel
       // all active mappings. So that we don't prolong lifetimes through this
       // instruction.
-      if (reg_lifetime_counter_.RegCountAt(pos, RegType::kGeneral) >= kGenRegLimit) {
+      if (reg_lifetime_counter_.RegCountAt(pos, RegType::kGeneral) >=
+          params_copy.general_reg_limit) {
         UnmapOlderThan(pos, RegType::kGeneral);
       }
-      if (reg_lifetime_counter_.RegCountAt(pos, RegType::kXmm) >= kSimdRegLimit) {
+      if (reg_lifetime_counter_.RegCountAt(pos, RegType::kXmm) >= params_copy.simd_reg_limit) {
         UnmapOlderThan(pos, RegType::kXmm);
       }
 
@@ -95,8 +97,9 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(
           if (lifetime.reg_type == RegType::kUnknown) {
             continue;
           }
-          const size_t kLimit =
-              lifetime.reg_type == RegType::kGeneral ? kGenRegLimit : kSimdRegLimit;
+          const size_t kLimit = lifetime.reg_type == RegType::kGeneral
+                                    ? params_copy.general_reg_limit
+                                    : params_copy.simd_reg_limit;
           std::optional<size_t> pos_over_limit =
               reg_lifetime_counter_.UpdateLastUse(src_reg, std::next(insn_it), pos + 1, kLimit);
 
