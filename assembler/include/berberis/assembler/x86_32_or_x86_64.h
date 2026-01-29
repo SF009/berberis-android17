@@ -421,42 +421,57 @@ class Assembler : public AssemblerBase {
     return (code == 0x66) || (code == 0xf2) || (code == 0xf3) || (code == 0xf0);
   }
 
-  // Delegate check to Assembler::template IsRegister.
-  template <typename ArgumentType>
-  struct IsCondition {
-    static constexpr bool value = std::is_same_v<ArgumentType, Condition>;
-  };
+  static constexpr class {
+   public:
+    template <typename ArgumentType>
+    constexpr bool operator()() const {
+      return std::is_same_v<ArgumentType, Condition>;
+    }
+  } kIsCondition;
 
-  template <typename ArgumentType>
-  struct IsRegister {
-    static constexpr bool value = DerivedAssemblerType::template IsRegister<ArgumentType>::value ||
-                                  std::is_same_v<ArgumentType, X87Register>;
-  };
+  static constexpr class {
+   public:
+    template <typename ArgumentType>
+    constexpr bool operator()() const {
+      // Delegate check to Assembler::kIsRegister.
+      return DerivedAssemblerType::kIsRegister.template operator()<ArgumentType>() ||
+             std::is_same_v<ArgumentType, X87Register>;
+    }
+  } kIsRegister;
 
-  template <typename ArgumentType>
-  struct IsMemoryOperand {
-    static constexpr bool value =
-        DerivedAssemblerType::template IsMemoryOperand<ArgumentType>::value;
-  };
+  static constexpr class {
+   public:
+    template <typename ArgumentType>
+    constexpr bool operator()() const {
+      // Delegate check to Assembler::kIsMemoryOperand.
+      return DerivedAssemblerType::kIsMemoryOperand.template operator()<ArgumentType>();
+    }
+  } kIsMemoryOperand;
 
-  template <typename ArgumentType>
-  struct IsLabelOperand {
-    static constexpr bool value =
-        DerivedAssemblerType::template IsLabelOperand<ArgumentType>::value;
-  };
+  static constexpr class {
+   public:
+    template <typename ArgumentType>
+    constexpr bool operator()() const {
+      // Delegate check to Assembler::kIsLabelOperand.
+      return DerivedAssemblerType::kIsLabelOperand.template operator()<ArgumentType>();
+    }
+  } kIsLabelOperand;
 
-  template <typename ArgumentType>
-  struct IsImmediate {
-    static constexpr bool value =
-        std::is_integral_v<ArgumentType> &&
-        ((sizeof(ArgumentType) == sizeof(int8_t)) || (sizeof(ArgumentType) == sizeof(int16_t)) ||
-         (sizeof(ArgumentType) == sizeof(int32_t)) || (sizeof(ArgumentType) == sizeof(int64_t)));
-  };
+  static constexpr class {
+   public:
+    template <typename ArgumentType>
+    constexpr bool operator()() const {
+      return std::is_integral_v<ArgumentType> && ((sizeof(ArgumentType) == sizeof(int8_t)) ||
+                                                  (sizeof(ArgumentType) == sizeof(int16_t)) ||
+                                                  (sizeof(ArgumentType) == sizeof(int32_t)) ||
+                                                  (sizeof(ArgumentType) == sizeof(int64_t)));
+    }
+  } kIsImmediate;
 
   // Count number of arguments selected by Predicate.
-  template <template <typename> typename Predicate, typename... ArgumentTypes>
+  template <auto kPredicate, typename... ArgumentTypes>
   static constexpr std::size_t kCountArguments =
-      ((Predicate<ArgumentTypes>::value ? 1 : 0) + ... + 0);
+      ((kPredicate.template operator()<ArgumentTypes>() ? 1 : 0) + ... + 0);
 
   // Extract arguments selected by Predicate.
   //
@@ -468,20 +483,16 @@ class Assembler : public AssemblerBase {
   //
   // TODO(http://b/140721204): refactor when it would be safe to return std::tuple from function.
   //
-  template <std::size_t index,
-            template <typename>
-            typename Predicate,
-            typename ArgumentType,
-            typename... ArgumentTypes>
+  template <std::size_t index, auto kPredicate, typename ArgumentType, typename... ArgumentTypes>
   static constexpr auto ArgumentByType(ArgumentType argument, ArgumentTypes... arguments) {
-    if constexpr (Predicate<std::decay_t<ArgumentType>>::value) {
+    if constexpr (kPredicate.template operator()<std::decay_t<ArgumentType>>()) {
       if constexpr (index == 0) {
         return argument;
       } else {
-        return ArgumentByType<index - 1, Predicate>(arguments...);
+        return ArgumentByType<index - 1, kPredicate>(arguments...);
       }
     } else {
-      return ArgumentByType<index, Predicate>(arguments...);
+      return ArgumentByType<index, kPredicate>(arguments...);
     }
   }
 
@@ -599,10 +610,10 @@ class Assembler : public AssemblerBase {
       }
       return false;
     }();
-    constexpr auto conditions_count = kCountArguments<IsCondition, ArgumentsTypes...>;
-    constexpr auto operands_count = kCountArguments<IsMemoryOperand, ArgumentsTypes...>;
-    constexpr auto labels_count = kCountArguments<IsLabelOperand, ArgumentsTypes...>;
-    constexpr auto registers_count = kCountArguments<IsRegister, ArgumentsTypes...>;
+    constexpr auto conditions_count = kCountArguments<kIsCondition, ArgumentsTypes...>;
+    constexpr auto operands_count = kCountArguments<kIsMemoryOperand, ArgumentsTypes...>;
+    constexpr auto labels_count = kCountArguments<kIsLabelOperand, ArgumentsTypes...>;
+    constexpr auto registers_count = kCountArguments<kIsRegister, ArgumentsTypes...>;
     // We need to know if Reg field (in ModRM byte) is an opcode extension or if opcode extension
     // goes into the immediate field.
     constexpr auto reg_is_opcode_extension =
@@ -610,7 +621,7 @@ class Assembler : public AssemblerBase {
         (registers_count + operands_count + labels_count <
          2 + kVexOrXop * (std::size(kOpcodesArray) - kLegacyPrefixesCount - 4));
     static_assert((registers_count + operands_count + labels_count + conditions_count +
-                   kCountArguments<IsImmediate, ArgumentsTypes...>) == sizeof...(ArgumentsTypes),
+                   kCountArguments<kIsImmediate, ArgumentsTypes...>) == sizeof...(ArgumentsTypes),
                   "Only registers (with specified size), Operands (with specified size), "
                   "Conditions, and Immediates are supported.");
     static_assert(operands_count <= 1, "Only one operand is allowed in instruction.");
@@ -656,12 +667,12 @@ class Assembler : public AssemblerBase {
                   std::size(kOpcodesArray) == kPrefixesAndOpcodeExtensionsCount + 1) {
       static_cast<DerivedAssemblerType*>(this)->EmitRegisterInOpcode(
           kOpcodesArray[kPrefixesAndOpcodeExtensionsCount],
-          ArgumentByType<0, IsRegister>(arguments...));
+          ArgumentByType<0, kIsRegister>(arguments...));
       EmitImmediates(arguments...);
     } else {
       // Emit "main" single-byte opcode.
       if constexpr (conditions_count == 1) {
-        auto condition_code = static_cast<uint8_t>(ArgumentByType<0, IsCondition>(arguments...));
+        auto condition_code = static_cast<uint8_t>(ArgumentByType<0, kIsCondition>(arguments...));
         CHECK_EQ(0, condition_code & 0xf0);
         Emit8(kOpcodesArray[kPrefixesAndOpcodeExtensionsCount] | condition_code);
       } else {
@@ -669,33 +680,33 @@ class Assembler : public AssemblerBase {
       }
       if constexpr (reg_is_opcode_extension) {
         if constexpr (operands_count == 1) {
-          static_cast<DerivedAssemblerType*>(this)->EmitOperandOp(
-              static_cast<int>(kOpcodesArray[kPrefixesAndOpcodeExtensionsCount + 1]),
-              ArgumentByType<0, IsMemoryOperand>(arguments...).operand);
+          static_cast<DerivedAssemblerType*>(this)->EmitModRM(
+              kOpcodesArray[kPrefixesAndOpcodeExtensionsCount + 1],
+              ArgumentByType<0, kIsMemoryOperand>(arguments...));
         } else if constexpr (labels_count == 1) {
           static_cast<DerivedAssemblerType*>(this)
-              ->template EmitRipOp<ImmediatesSize<ArgumentsTypes...>()>(
-                  static_cast<int>(kOpcodesArray[kPrefixesAndOpcodeExtensionsCount + 1]),
-                  ArgumentByType<0, IsLabelOperand>(arguments...).label);
+              ->template EmitModRM<ImmediatesSize<ArgumentsTypes...>()>(
+                  kOpcodesArray[kPrefixesAndOpcodeExtensionsCount + 1],
+                  ArgumentByType<0, kIsLabelOperand>(arguments...));
         } else {
           static_cast<DerivedAssemblerType*>(this)->EmitModRM(
               kOpcodesArray[kPrefixesAndOpcodeExtensionsCount + 1],
-              ArgumentByType<0, IsRegister>(arguments...));
+              ArgumentByType<0, kIsRegister>(arguments...));
         }
       } else if constexpr (registers_count > 0) {
         if constexpr (operands_count == 1) {
-          static_cast<DerivedAssemblerType*>(this)->EmitOperandOp(
-              ArgumentByType<0, IsRegister>(arguments...),
-              ArgumentByType<0, IsMemoryOperand>(arguments...).operand);
+          static_cast<DerivedAssemblerType*>(this)->EmitModRM(
+              ArgumentByType<0, kIsRegister>(arguments...),
+              ArgumentByType<0, kIsMemoryOperand>(arguments...));
         } else if constexpr (labels_count == 1) {
           static_cast<DerivedAssemblerType*>(this)
-              ->template EmitRipOp<ImmediatesSize<ArgumentsTypes...>()>(
-                  ArgumentByType<0, IsRegister>(arguments...),
-                  ArgumentByType<0, IsLabelOperand>(arguments...).label);
+              ->template EmitModRM<ImmediatesSize<ArgumentsTypes...>()>(
+                  ArgumentByType<0, kIsRegister>(arguments...),
+                  ArgumentByType<0, kIsLabelOperand>(arguments...));
         } else {
           static_cast<DerivedAssemblerType*>(this)->EmitModRM(
-              ArgumentByType<0, IsRegister>(arguments...),
-              ArgumentByType<1, IsRegister>(arguments...));
+              ArgumentByType<0, kIsRegister>(arguments...),
+              ArgumentByType<1, kIsRegister>(arguments...));
         }
       }
       // If reg is an opcode extension then we already used that element.
@@ -708,12 +719,12 @@ class Assembler : public AssemblerBase {
         Emit8(kOpcodesArray[kPrefixesAndOpcodeExtensionsCount + 1]);
       }
       if constexpr (registers_count + operands_count + labels_count == 4) {
-        if constexpr (kCountArguments<IsImmediate, ArgumentsTypes...> == 1) {
-          Emit8((ArgumentByType<registers_count - 1, IsRegister>(arguments...).num_ << 4) |
-                ArgumentByType<0, IsImmediate>(arguments...));
+        if constexpr (kCountArguments<kIsImmediate, ArgumentsTypes...> == 1) {
+          Emit8((ArgumentByType<registers_count - 1, kIsRegister>(arguments...).num_ << 4) |
+                ArgumentByType<0, kIsImmediate>(arguments...));
         } else {
-          static_assert(kCountArguments<IsImmediate, ArgumentsTypes...> == 0);
-          Emit8(ArgumentByType<registers_count - 1, IsRegister>(arguments...).num_ << 4);
+          static_assert(kCountArguments<kIsImmediate, ArgumentsTypes...> == 0);
+          Emit8(ArgumentByType<registers_count - 1, kIsRegister>(arguments...).num_ << 4);
         }
       } else {
         EmitImmediates(arguments...);
@@ -721,7 +732,7 @@ class Assembler : public AssemblerBase {
     }
   }
 
-  // Normally instruction arguments come in the following order: vex, rm, reg, imm.
+  // Normally instruction arguments come in the following order: reg, rm, vex, imm.
   // But certain instructions can have swapped arguments in a different order.
   // In addition to that we have special case where two arguments may need to be swapped
   // to reduce encoding size.

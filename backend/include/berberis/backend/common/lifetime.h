@@ -417,8 +417,10 @@ class VRegLifetime {
   bool IsEmpty() const { return range_list_.empty(); }
 
   void Merge(VRegLifetime* other) {
-    CHECK(!IsEmpty());
-    CHECK(!other->IsEmpty());
+    // Checking lifetimes for emptiness is caller's responsibility.
+    CHECK(!IsEmpty() && !other->IsEmpty());
+    // Merges must be done before hard-reg allocations which may trigger spilling.
+    CHECK(spill_slot_ == -1 && other->spill_slot_ == -1);
 
     auto it = range_list_.begin();
     auto other_it = other->range_list_.begin();
