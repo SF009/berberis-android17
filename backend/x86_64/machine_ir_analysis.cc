@@ -64,10 +64,8 @@ class HavlakDFS {
       : preorder_counter_(1),
         preorder_pos_(ir->NumBasicBlocks(), kUnvisited, ir->arena()),
         max_descendant_preorder_pos_(ir->NumBasicBlocks(), kUnvisited, ir->arena()),
-        ordered_bb_vector_(ir->arena()),
-        analysis_finished_(false) {
-    ordered_bb_vector_.reserve(ir->NumBasicBlocks());
-  }
+        back_edges_(ir->arena()),
+        analysis_finished_(false) {}
 
   // This relies on the property that DFS traversal intervals (defined by entry
   // and exit times) are either disjoint or fully nested.
@@ -84,36 +82,45 @@ class HavlakDFS {
                max_descendant_preorder_pos_.at(potential_ancestor->id());
   }
 
-  ArenaVector<const MachineBasicBlock*> nodes_ordered_by_dfn() {
-    CHECK(analysis_finished_);
-    return ordered_bb_vector_;
-  };
+  const ArenaVector<MachineEdge*>& back_edges() const { return back_edges_; }
 
   void RunDfs(const MachineBasicBlock* entry_bb) {
     DfsRecursive(entry_bb);
+
+    // Pull back-edges with the same target (loop head) together.
+    std::sort(back_edges_.begin(),
+              back_edges_.end(),
+              [](const MachineEdge* left, const MachineEdge* right) {
+                return left->dst()->id() < right->dst()->id();
+              });
+
     analysis_finished_ = true;
   }
 
   void DfsRecursive(const MachineBasicBlock* bb) {
     preorder_pos_.at(bb->id()) = preorder_counter_++;
-    ordered_bb_vector_.push_back(bb);
+
     for (auto* outward_edge : bb->out_edges()) {
       auto* succ_bb = outward_edge->dst();
-      // If unvisited, recurse
       if (preorder_pos_.at(succ_bb->id()) == kUnvisited) {
         DfsRecursive(succ_bb);
+      } else if (max_descendant_preorder_pos_.at(succ_bb->id()) == kUnvisited) {
+        // If succ_bb has been visited (preorder_pos_ != kUnvisited) but has not yet finished
+        // its DFS traversal (max_descendant_preorder_pos_ == kUnvisited), it means succ_bb
+        // is an ancestor of bb in the DFS tree. Thus, this is a back edge.
+        back_edges_.push_back(outward_edge);
       }
     }
+
     max_descendant_preorder_pos_.at(bb->id()) = preorder_counter_ - 1;
   }
 
  private:
   static constexpr uint32_t kUnvisited = 0;
-
   uint32_t preorder_counter_;
   ArenaVector<uint32_t> preorder_pos_;
   ArenaVector<uint32_t> max_descendant_preorder_pos_;
-  ArenaVector<const MachineBasicBlock*> ordered_bb_vector_;
+  ArenaVector<MachineEdge*> back_edges_;
   bool analysis_finished_;
 };
 
@@ -131,12 +138,9 @@ void PostOrderTraverseBBListRecursive(MachineBasicBlock* bb,
   result.push_front(bb);
 }
 
-Loop* CollectLoop(MachineIR* ir,
-                  const MachineEdgeVector& back_edges,
-                  const HavlakDFS* havlak,
-                  size_t begin,
-                  size_t end) {
+Loop* CollectLoop(MachineIR* ir, const HavlakDFS* havlak, size_t begin, size_t end) {
   Arena* arena = ir->arena();
+  const auto back_edges = havlak->back_edges();
   auto* head_bb = back_edges[begin]->dst();
   auto* loop = NewInArena<Loop>(arena, arena);
   loop->AddEntryBlock(head_bb);
@@ -174,6 +178,29 @@ Loop* CollectLoop(MachineIR* ir,
     }
   }
   return loop;
+}
+
+struct EdgeRange {
+  size_t begin;
+  size_t end;
+};
+
+// Helper to find the range of back-edges sharing the same loop header (dst).
+std::optional<EdgeRange> GetNextRange(const ArenaVector<MachineEdge*>& back_edges,
+                                      size_t start_index) {
+  if (start_index >= back_edges.size()) {
+    return std::nullopt;
+  }
+  size_t end_index = start_index + 1;
+  while (end_index < back_edges.size() &&
+         back_edges[start_index]->dst() == back_edges[end_index]->dst()) {
+    ++end_index;
+  }
+  return EdgeRange{start_index, end_index};
+}
+
+std::optional<EdgeRange> GetFirstRange(const ArenaVector<MachineEdge*>& back_edges) {
+  return GetNextRange(back_edges, 0);
 }
 
 }  // namespace
@@ -215,51 +242,16 @@ LoopVector FindLoops(MachineIR* ir) {
   CHECK_EQ(entry_bb->in_edges().size(), 0);
   havlak.RunDfs(entry_bb);
 
-  Arena* arena = ir->arena();
-
-  LoopVector loops_vector(arena);
+  LoopVector loops_vector(ir->arena());
   const size_t kMaxBackEdgesExpected = 16;
   loops_vector.reserve(kMaxBackEdgesExpected);
 
-  ArenaVector<MachineEdge*> back_edges(arena);
-  back_edges.reserve(kMaxBackEdgesExpected);
-
-  // Collects back-edges.
-  // We iterate through basic blocks in the order they were discovered by DFS.
-  // TODO(b/463953668): The DFS pass can be extended to find back-edges in addition to ancestors.
-  // This will remove the need for a separate pass to find back-edges.
-  for (auto* bb : havlak.nodes_ordered_by_dfn()) {
-    for (auto* edge : bb->out_edges()) {
-      // A back-edge is an edge from a node to one of its ancestors in the DFS tree.
-      if (havlak.IsAncestor(edge->dst(), bb)) {
-        back_edges.push_back(edge);
-      }
-    }
-  }
-
-  // Pull back-edges with the same target (loop head) together.
-  std::sort(
-      back_edges.begin(), back_edges.end(), [](const MachineEdge* left, const MachineEdge* right) {
-        return left->dst()->id() < right->dst()->id();
-      });
-
-  // Guard which makes the following loop-body simpler.
-  auto empty_edge = MachineEdge(arena, nullptr, nullptr);
-  back_edges.push_back(&empty_edge);
-
-  size_t begin_edge_no = 0;
-  // Collect loops for back-edges with the same target.
-  for (size_t edge_no = 1; edge_no < back_edges.size(); ++edge_no) {
-    if (back_edges[begin_edge_no]->dst() == back_edges[edge_no]->dst()) {
-      continue;
-    }
-    // Encountered new head - collect loop for the previous one.
-    // Guard (being the last) doesn't require loop collection.
-    auto* loop = CollectLoop(ir, back_edges, &havlak, begin_edge_no, edge_no);
-    if (loop) {
+  for (auto range = GetFirstRange(havlak.back_edges()); range.has_value();
+       range = GetNextRange(havlak.back_edges(), range->end)) {
+    // Note: We still pass 'back_edges' to CollectLoop so it can access the data.
+    if (auto* loop = CollectLoop(ir, &havlak, range->begin, range->end)) {
       loops_vector.push_back(loop);
     }
-    begin_edge_no = edge_no;
   }
   return loops_vector;
 }
