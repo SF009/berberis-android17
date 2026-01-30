@@ -299,8 +299,7 @@ class Assembler : public x86_32_or_x86_64::Assembler<Assembler> {
     }
   } kIsLabelOperand;
 
-  template <typename... ArgumentsType>
-  void EmitRex(ArgumentsType...) {
+  void EmitRex(auto /*extended_operands*/) {
     // There is no REX in 32-bit mode thus we don't need to do anything here.
   }
 
@@ -310,19 +309,11 @@ class Assembler : public x86_32_or_x86_64::Assembler<Assembler> {
     return false;
   }
 
-  template <uint8_t byte1,
-            uint8_t byte2,
-            uint8_t byte3,
-            bool reg_is_opcode_extension,
-            typename... ArgumentsTypes>
-  void EmitVex(ArgumentsTypes... arguments) {
-    constexpr auto registers_count = kCountArguments<kIsRegister, ArgumentsTypes...>;
-    constexpr auto operands_count = kCountArguments<kIsMemoryOperand, ArgumentsTypes...>;
-    constexpr auto labels_count = kCountArguments<kIsLabelOperand, ArgumentsTypes...>;
-    constexpr auto vvvv_parameter = 2 - reg_is_opcode_extension - operands_count - labels_count;
+  template <uint8_t byte1, uint8_t byte2, uint8_t byte3>
+  void EmitVex(auto... extended_operands) {
     int vvvv = 0;
-    if constexpr (registers_count > vvvv_parameter) {
-      vvvv = ArgumentByType<vvvv_parameter, kIsRegister>(arguments...).num_;
+    if constexpr (sizeof...(extended_operands) > 2) {
+      vvvv = std::get<2>(std::tuple{extended_operands...}).num_;
     }
     // Note that ¬R is always 1 in x86-32 mode but it's not set in JSON.
     // This means that 2nd byte of 3-byte vex is always the same in 32bit mode (but 3rd byte of

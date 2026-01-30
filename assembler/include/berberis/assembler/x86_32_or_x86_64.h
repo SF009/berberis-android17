@@ -24,6 +24,7 @@
 #include "berberis/assembler/common.h"
 #include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
+#include "berberis/base/tuple_processing.h"
 
 namespace berberis {
 
@@ -461,6 +462,16 @@ class Assembler : public AssemblerBase {
    public:
     template <typename ArgumentType>
     constexpr bool operator()() const {
+      return kIsRegister.template operator()<ArgumentType>() ||
+             kIsMemoryOperand.template operator()<ArgumentType>() ||
+             kIsLabelOperand.template operator()<ArgumentType>();
+    }
+  } kIsOperand;
+
+  static constexpr class {
+   public:
+    template <typename ArgumentType>
+    constexpr bool operator()() const {
       return std::is_integral_v<ArgumentType> && ((sizeof(ArgumentType) == sizeof(int8_t)) ||
                                                   (sizeof(ArgumentType) == sizeof(int16_t)) ||
                                                   (sizeof(ArgumentType) == sizeof(int32_t)) ||
@@ -468,77 +479,21 @@ class Assembler : public AssemblerBase {
     }
   } kIsImmediate;
 
-  // Count number of arguments selected by Predicate.
-  template <auto kPredicate, typename... ArgumentTypes>
-  static constexpr std::size_t kCountArguments =
-      ((kPredicate.template operator()<ArgumentTypes>() ? 1 : 0) + ... + 0);
-
-  // Extract arguments selected by Predicate.
-  //
-  // Note: This interface begs for the trick used in EmitFunctionTypeHelper in make_intrinsics.cc
-  // in conjunction with structured bindings.
-  //
-  // Unfortunately returning std::tuple slows down AssemblerTest by about 30% when libc++ and clang
-  // are used together (no slowdown on GCC, no slowdown on clang+libstdc++).
-  //
-  // TODO(http://b/140721204): refactor when it would be safe to return std::tuple from function.
-  //
-  template <std::size_t index, auto kPredicate, typename ArgumentType, typename... ArgumentTypes>
-  static constexpr auto ArgumentByType(ArgumentType argument, ArgumentTypes... arguments) {
-    if constexpr (kPredicate.template operator()<std::decay_t<ArgumentType>>()) {
-      if constexpr (index == 0) {
-        return argument;
-      } else {
-        return ArgumentByType<index - 1, kPredicate>(arguments...);
-      }
-    } else {
-      return ArgumentByType<index, kPredicate>(arguments...);
-    }
-  }
-
   // Emit immediates - they always come at the end and don't affect anything except rip-addressig.
-  static constexpr void EmitImmediates() {}
-
-  template <typename FirstArgumentType, typename... ArgumentTypes>
-  void EmitImmediates(FirstArgumentType first_argument, ArgumentTypes... other_arguments) {
-    if constexpr (std::is_integral_v<FirstArgumentType> &&
-                  sizeof(FirstArgumentType) == sizeof(int8_t)) {
-      Emit8(first_argument);
-    } else if constexpr (std::is_integral_v<FirstArgumentType> &&
-                         sizeof(FirstArgumentType) == sizeof(int16_t)) {
-      Emit16(first_argument);
-    } else if constexpr (std::is_integral_v<FirstArgumentType> &&
-                         sizeof(FirstArgumentType) == sizeof(int32_t)) {
-      Emit32(first_argument);
-    } else if constexpr (std::is_integral_v<FirstArgumentType> &&
-                         sizeof(FirstArgumentType) == sizeof(int64_t)) {
-      Emit64(first_argument);
-    }
-    EmitImmediates(other_arguments...);
-  }
-
-  template <typename ArgumentType>
-  static constexpr size_t ImmediateSize() {
-    if constexpr (std::is_integral_v<ArgumentType> && sizeof(ArgumentType) == sizeof(int8_t)) {
-      return 1;
-    } else if constexpr (std::is_integral_v<ArgumentType> &&
-                         sizeof(ArgumentType) == sizeof(int16_t)) {
-      return 2;
-    } else if constexpr (std::is_integral_v<ArgumentType> &&
-                         sizeof(ArgumentType) == sizeof(int32_t)) {
-      return 4;
-    } else if constexpr (std::is_integral_v<ArgumentType> &&
-                         sizeof(ArgumentType) == sizeof(int64_t)) {
-      return 8;
-    } else {
-      static_assert(!std::is_integral_v<ArgumentType>);
-      return 0;
-    }
-  }
-
-  template <typename... ArgumentTypes>
-  static constexpr size_t ImmediatesSize() {
-    return (ImmediateSize<ArgumentTypes>() + ... + 0);
+  void EmitImmediates(auto immediates) {
+    ValuesToValues::ForEach(immediates, [this]<typename ImmediateType>(ImmediateType immediate) {
+      static_assert(std::is_integral_v<ImmediateType>);
+      if constexpr (sizeof(ImmediateType) == sizeof(int8_t)) {
+        Emit8(immediate);
+      } else if constexpr (sizeof(ImmediateType) == sizeof(int16_t)) {
+        Emit16(immediate);
+      } else if constexpr (sizeof(ImmediateType) == sizeof(int32_t)) {
+        Emit32(immediate);
+      } else {
+        static_assert(sizeof(ImmediateType) == sizeof(int64_t));
+        Emit64(immediate);
+      }
+    });
   }
 
   // Note: We may need separate x87 EmitInstruction if we would want to support
@@ -610,52 +565,84 @@ class Assembler : public AssemblerBase {
       }
       return false;
     }();
-    constexpr auto conditions_count = kCountArguments<kIsCondition, ArgumentsTypes...>;
-    constexpr auto operands_count = kCountArguments<kIsMemoryOperand, ArgumentsTypes...>;
-    constexpr auto labels_count = kCountArguments<kIsLabelOperand, ArgumentsTypes...>;
-    constexpr auto registers_count = kCountArguments<kIsRegister, ArgumentsTypes...>;
+    auto conditions = TypesToValues::Filter(std::tuple{arguments...}, kIsCondition);
+    auto operands = TypesToValues::Filter(std::tuple{arguments...}, kIsOperand);
+    auto immediates = TypesToValues::Filter(std::tuple{arguments...}, kIsImmediate);
+    constexpr auto kConditionsCount = std::tuple_size_v<decltype(conditions)>;
+    constexpr auto kOperandsCount = std::tuple_size_v<decltype(operands)>;
+    constexpr auto kLabelsCount = TypesToValues::CountIf<decltype(operands)>(kIsLabelOperand);
+    constexpr auto kRegistersCount = TypesToValues::CountIf<decltype(operands)>(kIsRegister);
+    constexpr auto kImmediatesCount = std::tuple_size_v<decltype(immediates)>;
+    constexpr auto kImmediatesSize = TypesToValues::Produce<decltype(immediates)>(
+        /*immediates_size = */ std::size_t{0},
+        []<typename ImmediateType>(std::size_t& immediates_size) {
+          immediates_size += sizeof(ImmediateType);
+        });
     // We need to know if Reg field (in ModRM byte) is an opcode extension or if opcode extension
     // goes into the immediate field.
-    constexpr auto reg_is_opcode_extension =
-        (registers_count + operands_count > 0) &&
-        (registers_count + operands_count + labels_count <
-         2 + kVexOrXop * (std::size(kOpcodesArray) - kLegacyPrefixesCount - 4));
-    static_assert((registers_count + operands_count + labels_count + conditions_count +
-                   kCountArguments<kIsImmediate, ArgumentsTypes...>) == sizeof...(ArgumentsTypes),
-                  "Only registers (with specified size), Operands (with specified size), "
-                  "Conditions, and Immediates are supported.");
-    static_assert(operands_count <= 1, "Only one operand is allowed in instruction.");
-    static_assert(labels_count <= 1, "Only one label is allowed in instruction.");
-    // 0x0f is an opcode extension, if it's not there then we only have one byte opcode.
-    const size_t kPrefixesAndOpcodeExtensionsCount = []() {
-      if constexpr (kVexOrXop) {
-        static_assert(conditions_count == 0,
-                      "No conditionals are supported in vex/xop instructions.");
-        static_assert((registers_count + operands_count + labels_count) <= 4,
-                      "Up to four-arguments in vex/xop instructions are supported.");
-        return kLegacyPrefixesCount + 3;
+    constexpr auto kRegIsOpcodeExtension =
+        (kOperandsCount > 0) &&
+        (kOperandsCount < 2 + kVexOrXop * (std::size(kOpcodesArray) - kLegacyPrefixesCount - 4));
+    // If reg is used as an opcode extension then we may process values in uniform matter by simply
+    // adding it to other operands.
+    auto extended_operands = [operands]() {
+      if constexpr (kRegIsOpcodeExtension) {
+        return std::tuple_cat(std::tuple{kOpcodesArray.back()}, operands);
       } else {
-        static_assert(conditions_count <= 1, "Only one condition is allowed in instruction.");
-        static_assert((registers_count + operands_count + labels_count) <= 2,
-                      "Only two-arguments legacy instructions are supported.");
-        if constexpr (kOpcodesArray[kLegacyPrefixesCount] == 0x0f) {
-          if constexpr (kOpcodesArray[kLegacyPrefixesCount + 1] == 0x38 ||
-                        kOpcodesArray[kLegacyPrefixesCount + 1] == 0x3a) {
-            return kLegacyPrefixesCount + 2;
-          }
-          return kLegacyPrefixesCount + 1;
-        }
-        return kLegacyPrefixesCount;
+        return operands;
       }
     }();
+    static_assert(
+        (kOperandsCount + kConditionsCount + kImmediatesCount) == sizeof...(ArgumentsTypes),
+        "Only registers (with specified size), Operands (with specified size), "
+        "Conditions, and Immediates are supported.");
+    static_assert(kOperandsCount <= kRegistersCount + 1,
+                  "Only one non-register operand is allowed in instruction.");
     if constexpr (kVexOrXop) {
-      static_cast<DerivedAssemblerType*>(this)
-          ->template EmitVex<kOpcodesArray[kLegacyPrefixesCount],
-                             kOpcodesArray[kLegacyPrefixesCount + 1],
-                             kOpcodesArray[kLegacyPrefixesCount + 2],
-                             reg_is_opcode_extension>(arguments...);
+      static_assert(kConditionsCount == 0,
+                    "No conditionals are supported in vex/xop instructions.");
+      static_assert(kOperandsCount <= 4,
+                    "Up to four-arguments in vex/xop instructions are supported.");
     } else {
-      static_cast<DerivedAssemblerType*>(this)->EmitRex(arguments...);
+      static_assert(kConditionsCount <= 1, "Only one condition is allowed in instruction.");
+      static_assert(kOperandsCount <= 2, "Only two-arguments legacy instructions are supported.");
+    };
+    // 0x0f is an opcode extension, if it's not there then we only have one byte opcode.
+    constexpr size_t kPrefixesAndOpcodeExtensionsCount =
+        kVexOrXop ? kLegacyPrefixesCount + 3
+        : kOpcodesArray[kLegacyPrefixesCount] == 0x0f
+            ? kOpcodesArray[kLegacyPrefixesCount + 1] == 0x38 ||
+                      kOpcodesArray[kLegacyPrefixesCount + 1] == 0x3a
+                  ? kLegacyPrefixesCount + 2
+                  : kLegacyPrefixesCount + 1
+            : kLegacyPrefixesCount;
+    if constexpr (kVexOrXop) {
+      if constexpr (std::tuple_size_v<decltype(extended_operands)> > 2) {
+        static_cast<DerivedAssemblerType*>(this)
+            ->template EmitVex<kOpcodesArray[kLegacyPrefixesCount],
+                               kOpcodesArray[kLegacyPrefixesCount + 1],
+                               kOpcodesArray[kLegacyPrefixesCount + 2]>(
+                std::get<0>(extended_operands),
+                std::get<1>(extended_operands),
+                std::get<2>(extended_operands));
+      } else if constexpr (std::tuple_size_v<decltype(extended_operands)> == 2) {
+        static_cast<DerivedAssemblerType*>(this)
+            ->template EmitVex<kOpcodesArray[kLegacyPrefixesCount],
+                               kOpcodesArray[kLegacyPrefixesCount + 1],
+                               kOpcodesArray[kLegacyPrefixesCount + 2]>(
+                std::get<0>(extended_operands), std::get<1>(extended_operands));
+      } else {
+        static_assert(std::tuple_size_v<decltype(extended_operands)> == 0);
+        static_cast<DerivedAssemblerType*>(this)
+            ->template EmitVex<kOpcodesArray[kLegacyPrefixesCount],
+                               kOpcodesArray[kLegacyPrefixesCount + 1],
+                               kOpcodesArray[kLegacyPrefixesCount + 2]>();
+      }
+    } else {
+      // If instruction doesn't have arguments then rex is never needed.
+      if constexpr (kOperandsCount) {
+        static_cast<DerivedAssemblerType*>(this)->EmitRex(extended_operands);
+      }
       for (size_t extension_opcode_index = kLegacyPrefixesCount;
            extension_opcode_index < kPrefixesAndOpcodeExtensionsCount;
            ++extension_opcode_index) {
@@ -663,54 +650,34 @@ class Assembler : public AssemblerBase {
       }
     }
     // These are older 8086 instructions which encode register number in the opcode itself.
-    if constexpr (registers_count == 1 && operands_count == 0 && labels_count == 0 &&
+    if constexpr (kOperandsCount == 1 &&
                   std::size(kOpcodesArray) == kPrefixesAndOpcodeExtensionsCount + 1) {
+      // Only register may be encoded in opcode.
+      static_assert(kRegistersCount == 1);
       static_cast<DerivedAssemblerType*>(this)->EmitRegisterInOpcode(
-          kOpcodesArray[kPrefixesAndOpcodeExtensionsCount],
-          ArgumentByType<0, kIsRegister>(arguments...));
-      EmitImmediates(arguments...);
+          std::get<0>(extended_operands), std::get<1>(extended_operands));
+      EmitImmediates(immediates);
     } else {
       // Emit "main" single-byte opcode.
-      if constexpr (conditions_count == 1) {
-        auto condition_code = static_cast<uint8_t>(ArgumentByType<0, kIsCondition>(arguments...));
-        CHECK_EQ(0, condition_code & 0xf0);
-        Emit8(kOpcodesArray[kPrefixesAndOpcodeExtensionsCount] | condition_code);
+      if constexpr (kConditionsCount == 1) {
+        auto [condition_code] = conditions;
+        uint8_t condition_byte = bit_cast<uint8_t>(condition_code);
+        CHECK_EQ(0, condition_byte & 0xf0);
+        Emit8(kOpcodesArray[kPrefixesAndOpcodeExtensionsCount] | condition_byte);
       } else {
         Emit8(kOpcodesArray[kPrefixesAndOpcodeExtensionsCount]);
       }
-      if constexpr (reg_is_opcode_extension) {
-        if constexpr (operands_count == 1) {
-          static_cast<DerivedAssemblerType*>(this)->EmitModRM(
-              kOpcodesArray[kPrefixesAndOpcodeExtensionsCount + 1],
-              ArgumentByType<0, kIsMemoryOperand>(arguments...));
-        } else if constexpr (labels_count == 1) {
-          static_cast<DerivedAssemblerType*>(this)
-              ->template EmitModRM<ImmediatesSize<ArgumentsTypes...>()>(
-                  kOpcodesArray[kPrefixesAndOpcodeExtensionsCount + 1],
-                  ArgumentByType<0, kIsLabelOperand>(arguments...));
+      if constexpr (std::tuple_size_v<decltype(operands)> >= 1) {
+        if constexpr (kLabelsCount == 1) {
+          static_cast<DerivedAssemblerType*>(this)->template EmitModRM<kImmediatesSize>(
+              std::get<0>(extended_operands), std::get<1>(extended_operands));
         } else {
-          static_cast<DerivedAssemblerType*>(this)->EmitModRM(
-              kOpcodesArray[kPrefixesAndOpcodeExtensionsCount + 1],
-              ArgumentByType<0, kIsRegister>(arguments...));
-        }
-      } else if constexpr (registers_count > 0) {
-        if constexpr (operands_count == 1) {
-          static_cast<DerivedAssemblerType*>(this)->EmitModRM(
-              ArgumentByType<0, kIsRegister>(arguments...),
-              ArgumentByType<0, kIsMemoryOperand>(arguments...));
-        } else if constexpr (labels_count == 1) {
-          static_cast<DerivedAssemblerType*>(this)
-              ->template EmitModRM<ImmediatesSize<ArgumentsTypes...>()>(
-                  ArgumentByType<0, kIsRegister>(arguments...),
-                  ArgumentByType<0, kIsLabelOperand>(arguments...));
-        } else {
-          static_cast<DerivedAssemblerType*>(this)->EmitModRM(
-              ArgumentByType<0, kIsRegister>(arguments...),
-              ArgumentByType<1, kIsRegister>(arguments...));
+          static_cast<DerivedAssemblerType*>(this)->EmitModRM(std::get<0>(extended_operands),
+                                                              std::get<1>(extended_operands));
         }
       }
       // If reg is an opcode extension then we already used that element.
-      if constexpr (reg_is_opcode_extension) {
+      if constexpr (kRegIsOpcodeExtension) {
         static_assert(std::size(kOpcodesArray) == kPrefixesAndOpcodeExtensionsCount + 2);
       } else if constexpr (std::size(kOpcodesArray) > kPrefixesAndOpcodeExtensionsCount + 1) {
         // Final opcode byte(s) - they are in the place where immediate is expected.
@@ -718,16 +685,15 @@ class Assembler : public AssemblerBase {
         static_assert(std::size(kOpcodesArray) == kPrefixesAndOpcodeExtensionsCount + 2);
         Emit8(kOpcodesArray[kPrefixesAndOpcodeExtensionsCount + 1]);
       }
-      if constexpr (registers_count + operands_count + labels_count == 4) {
-        if constexpr (kCountArguments<kIsImmediate, ArgumentsTypes...> == 1) {
-          Emit8((ArgumentByType<registers_count - 1, kIsRegister>(arguments...).num_ << 4) |
-                ArgumentByType<0, kIsImmediate>(arguments...));
+      if constexpr (kOperandsCount == 4) {
+        if constexpr (kImmediatesCount == 1) {
+          Emit8((std::get<3>(extended_operands).num_ << 4) | std::get<0>(immediates));
         } else {
-          static_assert(kCountArguments<kIsImmediate, ArgumentsTypes...> == 0);
-          Emit8(ArgumentByType<registers_count - 1, kIsRegister>(arguments...).num_ << 4);
+          static_assert(kImmediatesCount == 0);
+          Emit8(std::get<3>(extended_operands).num_ << 4);
         }
       } else {
-        EmitImmediates(arguments...);
+        EmitImmediates(immediates);
       }
     }
   }

@@ -379,31 +379,28 @@ class Assembler : public x86_32_or_x86_64::Assembler<Assembler> {
     }
   } kIsLabelOperand;
 
-  template <typename... ArgumentsTypes>
-  void EmitRex(ArgumentsTypes... arguments) {
-    constexpr auto registers_count = kCountArguments<kIsRegister, ArgumentsTypes...>;
-    constexpr auto operands_count = kCountArguments<kIsMemoryOperand, ArgumentsTypes...>;
-    static_assert(registers_count + operands_count <= 2,
-                  "Only two-arguments instructions are supported, not VEX or EVEX");
-    uint8_t rex = 0;
-    if constexpr (registers_count == 2) {
-      rex = Rex<0b0100>(ArgumentByType<0, kIsRegister>(arguments...)) |
-            Rex<0b0001>(ArgumentByType<1, kIsRegister>(arguments...));
-    } else if constexpr (registers_count == 1 && operands_count == 1) {
-      rex = Rex<0b0100>(ArgumentByType<0, kIsRegister>(arguments...)) |
-            Rex(ArgumentByType<0, kIsMemoryOperand>(arguments...));
-    } else if constexpr (registers_count == 1) {
-      rex = Rex<0b0001>(ArgumentByType<0, kIsRegister>(arguments...));
-    } else if constexpr (operands_count == 1) {
-      rex = Rex(ArgumentByType<0, kIsMemoryOperand>(arguments...));
-    }
+  void EmitRex(auto extended_operands) {
+    static_assert(std::tuple_size_v<decltype(extended_operands)> == 2);
+    uint8_t rex = Rex<0b0100>(std::get<0>(extended_operands)) | Rex(std::get<1>(extended_operands));
     if (rex) {
       Emit8(rex);
     }
   }
 
-  template <uint8_t base_rex, typename ArgumentType>
-  uint8_t Rex(ArgumentType argument) {
+  // Stub implementation for opcode extension.
+  template <uint8_t base_rex>
+  static uint8_t Rex(uint8_t) {
+    static_assert(base_rex == 0b0100);
+    return 0;
+  }
+
+  // Stub implementation for labels.
+  static uint8_t Rex(Label32Bit) { return 0; }
+
+  static uint8_t Rex(Label64Bit) { return 0; }
+
+  template <uint8_t base_rex = 0b0001, typename ArgumentType>
+  static uint8_t Rex(ArgumentType argument) {
     if (argument.num_ & 0b1000) {
       // 64-bit argument requires REX.W bit
       if (std::is_same_v<ArgumentType, Register64Bit>) {
@@ -421,7 +418,7 @@ class Assembler : public x86_32_or_x86_64::Assembler<Assembler> {
     return 0;
   }
 
-  uint8_t Rex(Operand operand) {
+  static uint8_t Rex(Operand operand) {
     // REX.B and REX.X always come from operand.
     uint8_t rex = ((operand.base.num_ & 0b1000) >> 3) | ((operand.index.num_ & 0b1000) >> 2);
     if (rex) {
@@ -432,9 +429,9 @@ class Assembler : public x86_32_or_x86_64::Assembler<Assembler> {
     }
   }
 
-  uint8_t Rex(Memory32Bit operand) { return Rex(operand.operand); }
+  static uint8_t Rex(Memory32Bit operand) { return Rex(operand.operand); }
 
-  uint8_t Rex(Memory64Bit operand) {
+  static uint8_t Rex(Memory64Bit operand) {
     // 64-bit argument requires REX.W bit - and thus REX itself.
     return 0b0100'1000 | Rex(operand.operand);
   }
@@ -446,38 +443,27 @@ class Assembler : public x86_32_or_x86_64::Assembler<Assembler> {
     return rm_arg.num_ >= 8 && vex_arg.num_ < 8;
   }
 
-  template <uint8_t byte1,
-            uint8_t byte2,
-            uint8_t byte3,
-            bool reg_is_opcode_extension,
-            typename... ArgumentsTypes>
-  void EmitVex(ArgumentsTypes... arguments) {
-    constexpr auto registers_count = kCountArguments<kIsRegister, ArgumentsTypes...>;
-    constexpr auto operands_count = kCountArguments<kIsMemoryOperand, ArgumentsTypes...>;
-    constexpr auto labels_count = kCountArguments<kIsLabelOperand, ArgumentsTypes...>;
-    constexpr auto vvvv_parameter = 2 - reg_is_opcode_extension - operands_count - labels_count;
+  template <uint8_t byte1, uint8_t byte2, uint8_t byte3>
+  void EmitVex(auto... extended_operands) {
     int vvvv = 0;
-    if constexpr (registers_count > vvvv_parameter) {
-      vvvv = ArgumentByType<vvvv_parameter, kIsRegister>(arguments...).num_;
+    if constexpr (sizeof...(extended_operands) > 2) {
+      vvvv = std::get<2>(std::tuple{extended_operands...}).num_;
     }
     auto vex2 = byte2 | 0b111'00000;
-    if constexpr (operands_count == 1) {
-      auto operand = ArgumentByType<0, kIsMemoryOperand>(arguments...);
-      vex2 ^= (operand.operand.base.num_ & 0b1000) << 2;
-      vex2 ^= (operand.operand.index.num_ & 0b1000) << 3;
-      if constexpr (!reg_is_opcode_extension) {
-        vex2 ^= (ArgumentByType<0, kIsRegister>(arguments...).num_ & 0b1000) << 4;
+    if constexpr (sizeof...(extended_operands) > 0) {
+      // If instruction does have at least one operand then it does have ModRegRM byte and that
+      // implies two [extended] operands: rm and either reg or opcode extension.
+      static_assert(sizeof...(extended_operands) > 1);
+      auto reg = std::get<0>(std::tuple{extended_operands...});
+      if constexpr (BaseAssembler::kIsRegister.template operator()<decltype(reg)>()) {
+        vex2 ^= (reg.num_ & 0b1000) << 4;
       }
-    } else if constexpr (labels_count == 1) {
-      if constexpr (!reg_is_opcode_extension) {
-        vex2 ^= (ArgumentByType<0, kIsRegister>(arguments...).num_ & 0b1000) << 4;
-      }
-    } else if constexpr (registers_count > 0) {
-      if constexpr (reg_is_opcode_extension) {
-        vex2 ^= (ArgumentByType<0, kIsRegister>(arguments...).num_ & 0b1000) << 2;
-      } else {
-        vex2 ^= (ArgumentByType<0, kIsRegister>(arguments...).num_ & 0b1000) << 4;
-        vex2 ^= (ArgumentByType<1, kIsRegister>(arguments...).num_ & 0b1000) << 2;
+      auto rm = std::get<1>(std::tuple{extended_operands...});
+      if constexpr (BaseAssembler::kIsMemoryOperand.template operator()<decltype(rm)>()) {
+        vex2 ^= (rm.operand.base.num_ & 0b1000) << 2;
+        vex2 ^= (rm.operand.index.num_ & 0b1000) << 3;
+      } else if constexpr (BaseAssembler::kIsRegister.template operator()<decltype(rm)>()) {
+        vex2 ^= (rm.num_ & 0b1000) << 2;
       }
     }
     if (byte1 == 0xc4 && (vex2 & 0b0'1'1'11111) == 0b0'1'1'00001 && (byte3 & 0b1'0000'0'00) == 0) {
