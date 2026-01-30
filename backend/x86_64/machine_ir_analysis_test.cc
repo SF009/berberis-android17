@@ -424,7 +424,111 @@ TEST(MachineIRAnalysis, FindLoopTreeWithMultipleInnerloops) {
   CheckLoopContent(innerloop_node2->loop(), {bb4, bb5});
 }
 
-TEST(MachineIRAnalysis, IrreducibleLoop) {
+TEST(MachineIRAnalysis, FindNonloopNodes) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  // bb1, bb2, bb6, bb7, and bb8 are loop nodes.
+  // bb0 -> bb1 <-> bb2 -> bb3 -> bb4 -> bb5 -> bb6 -> bb7 -> bb8 -> bb9
+  //                                             ^-------------|
+  auto bb0 = machine_ir.NewBasicBlock();
+  auto bb1 = machine_ir.NewBasicBlock();
+  auto bb2 = machine_ir.NewBasicBlock();
+  auto bb3 = machine_ir.NewBasicBlock();
+  auto bb4 = machine_ir.NewBasicBlock();
+  auto bb5 = machine_ir.NewBasicBlock();
+  auto bb6 = machine_ir.NewBasicBlock();
+  auto bb7 = machine_ir.NewBasicBlock();
+  auto bb8 = machine_ir.NewBasicBlock();
+  auto bb9 = machine_ir.NewBasicBlock();
+  machine_ir.AddEdge(bb0, bb1);
+  machine_ir.AddEdge(bb1, bb2);
+  machine_ir.AddEdge(bb2, bb1);
+  machine_ir.AddEdge(bb2, bb3);
+  machine_ir.AddEdge(bb3, bb4);
+  machine_ir.AddEdge(bb4, bb5);
+  machine_ir.AddEdge(bb5, bb6);
+  machine_ir.AddEdge(bb6, bb7);
+  machine_ir.AddEdge(bb7, bb8);
+  machine_ir.AddEdge(bb8, bb6);
+  machine_ir.AddEdge(bb8, bb9);
+
+  builder.StartBasicBlock(bb0);
+  builder.Gen<Branch>(bb1);
+  builder.StartBasicBlock(bb1);
+  builder.Gen<Branch>(bb2);
+  builder.StartBasicBlock(bb2);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb1, bb3, x86_64::kMachineRegFLAGS);
+  builder.StartBasicBlock(bb3);
+  builder.Gen<Branch>(bb4);
+  builder.StartBasicBlock(bb4);
+  builder.Gen<Branch>(bb5);
+  builder.StartBasicBlock(bb5);
+  builder.Gen<Branch>(bb6);
+  builder.StartBasicBlock(bb6);
+  builder.Gen<Branch>(bb7);
+  builder.StartBasicBlock(bb7);
+  builder.Gen<Branch>(bb8);
+  builder.StartBasicBlock(bb8);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb6, bb9, x86_64::kMachineRegFLAGS);
+  builder.StartBasicBlock(bb9);
+  builder.Gen<Jump>(kNullGuestAddr);
+
+  ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+
+  auto nonloop_nodes = FindNonloopNodes(&machine_ir);
+  EXPECT_THAT(nonloop_nodes, testing::UnorderedElementsAre(bb0, bb3, bb4, bb5, bb9));
+}
+
+TEST(MachineIRAnalysis, FindNonloopNodesIrreducible) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  //      bb0
+  //       |
+  //       v
+  //      bb1 ----+
+  //       |      |
+  //       v      v
+  //      bb2<-->bb3
+  //       |
+  //       v
+  //      bb4
+  //
+  // Loop is bb2-bb3, but there is an edge from bb1 to bb3,
+  // which makes the loop irreducible because bb2 doesn't dominate bb3.
+  auto bb0 = machine_ir.NewBasicBlock();
+  auto bb1 = machine_ir.NewBasicBlock();
+  auto bb2 = machine_ir.NewBasicBlock();
+  auto bb3 = machine_ir.NewBasicBlock();
+  auto bb4 = machine_ir.NewBasicBlock();
+  machine_ir.AddEdge(bb0, bb1);
+  machine_ir.AddEdge(bb1, bb2);
+  machine_ir.AddEdge(bb1, bb3);
+  machine_ir.AddEdge(bb2, bb3);
+  machine_ir.AddEdge(bb2, bb4);
+  machine_ir.AddEdge(bb3, bb2);
+
+  builder.StartBasicBlock(bb0);
+  builder.Gen<Branch>(bb1);
+  builder.StartBasicBlock(bb1);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb2, bb3, x86_64::kMachineRegFLAGS);
+  builder.StartBasicBlock(bb2);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb3, bb4, x86_64::kMachineRegFLAGS);
+  builder.StartBasicBlock(bb3);
+  builder.Gen<Branch>(bb2);
+  builder.StartBasicBlock(bb4);
+  builder.Gen<Jump>(kNullGuestAddr);
+
+  auto nonloop_nodes = FindNonloopNodes(&machine_ir);
+  EXPECT_THAT(nonloop_nodes, testing::UnorderedElementsAre(bb0, bb1, bb4));
+}
+
+TEST(MachineIRAnalysis, FindLoopTreeWithIrreducibleLoop) {
   Arena arena;
   x86_64::MachineIR machine_ir(&arena);
 
@@ -467,10 +571,205 @@ TEST(MachineIRAnalysis, IrreducibleLoop) {
   builder.Gen<Jump>(kNullGuestAddr);
 
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
-  EXPECT_FALSE(machine_ir.contains_irreducible_loops());
-  auto loops = x86_64::FindLoops(&machine_ir);
-  EXPECT_TRUE(machine_ir.contains_irreducible_loops());
-  EXPECT_EQ(loops.size(), 0UL);
+  auto loop_tree = x86_64::BuildLoopTree(&machine_ir);
+  auto* root = loop_tree.root();
+
+  EXPECT_EQ(root->NumInnerloops(), 1UL);
+  auto* loop_node = root->GetInnerloopNode(0);
+  CheckLoopContent(loop_node->loop(), {bb2, bb3});
+  CheckLoopHeaders(loop_node->loop(), {bb2, bb3});
+}
+
+TEST(MachineIRAnalysis, FindLoopTreeWithIrreducibleLoopNestedInsideReducibleLoop) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  //         [ bb0 ]
+  //            |
+  //            v
+  //          ( bb1 ) <-------+   <-- Outer Loop Header (Natural)
+  //          /   \         |
+  //         v     v        |
+  //       ( bb2 )<->( bb3 )    ^  <-- Inner Loop (Irreducible)
+  //          \     /       |       (Cycle B-C entered from both A->B and A->C)
+  //           \   /        |
+  //            v v         |
+  //          ( bb4 ) --------+   <-- Outer Loop Latch
+  //            |
+  //            v
+  //         [ bb5 ]
+
+  auto bb0 = machine_ir.NewBasicBlock();
+  auto bb1 = machine_ir.NewBasicBlock();
+  auto bb2 = machine_ir.NewBasicBlock();
+  auto bb3 = machine_ir.NewBasicBlock();
+  auto bb4 = machine_ir.NewBasicBlock();
+  auto bb5 = machine_ir.NewBasicBlock();
+  machine_ir.AddEdge(bb0, bb1);
+  machine_ir.AddEdge(bb1, bb2);
+  machine_ir.AddEdge(bb1, bb3);
+  machine_ir.AddEdge(bb2, bb3);
+  machine_ir.AddEdge(bb3, bb2);
+  machine_ir.AddEdge(bb2, bb4);
+  machine_ir.AddEdge(bb3, bb4);
+  machine_ir.AddEdge(bb4, bb1);
+  machine_ir.AddEdge(bb4, bb5);
+
+  builder.StartBasicBlock(bb0);
+  builder.StartBasicBlock(bb1);
+  builder.StartBasicBlock(bb2);
+  builder.StartBasicBlock(bb3);
+  builder.StartBasicBlock(bb4);
+  builder.StartBasicBlock(bb5);
+  auto loop_tree = x86_64::BuildLoopTree(&machine_ir);
+  auto* root = loop_tree.root();
+
+  EXPECT_EQ(root->NumInnerloops(), 1UL);
+  auto* outerloop_node = root->GetInnerloopNode(0);
+  CheckLoopContent(outerloop_node->loop(), {bb1, bb2, bb3, bb4});
+  CheckLoopHeaders(outerloop_node->loop(), {bb1});
+
+  EXPECT_EQ(outerloop_node->NumInnerloops(), 1UL);
+  auto* innerloop_node = outerloop_node->GetInnerloopNode(0);
+  CheckLoopContent(innerloop_node->loop(), {bb2, bb3});
+  CheckLoopHeaders(innerloop_node->loop(), {bb2, bb3});
+}
+
+TEST(MachineIRAnalysis, FindLoopTreeWithReducibleLoopNestedInsideIrreducibleLoop) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  //           [ a ]
+  //           /   \
+  //          /     v
+  //         |    ( c ) <---------------------+
+  //         |      |                         |
+  //         |      |                         |
+  //         v      v                         |
+  //       ( b ) <--+                         |
+  //         |                                |
+  //         v                                |
+  //       ( d ) <----------+                 |
+  //         |              |                 |
+  //         v              |                 |
+  //       ( e ) -----------+                 |
+  //         |                                |
+  //         v                                |
+  //       ( f ) -----------------------------+
+  //         |
+  //         v
+  //       [ g ]
+
+  auto a = machine_ir.NewBasicBlock();
+  auto b = machine_ir.NewBasicBlock();
+  auto c = machine_ir.NewBasicBlock();
+  auto d = machine_ir.NewBasicBlock();
+  auto e = machine_ir.NewBasicBlock();
+  auto f = machine_ir.NewBasicBlock();
+  auto g = machine_ir.NewBasicBlock();
+
+  machine_ir.AddEdge(a, b);
+  machine_ir.AddEdge(a, c);
+  machine_ir.AddEdge(c, b);
+  machine_ir.AddEdge(b, d);
+  machine_ir.AddEdge(d, e);
+  machine_ir.AddEdge(e, d);
+  machine_ir.AddEdge(e, f);
+  machine_ir.AddEdge(f, c);
+  machine_ir.AddEdge(f, g);
+
+  builder.StartBasicBlock(a);
+  builder.StartBasicBlock(b);
+  builder.StartBasicBlock(c);
+  builder.StartBasicBlock(d);
+  builder.StartBasicBlock(e);
+  builder.StartBasicBlock(f);
+  builder.StartBasicBlock(g);
+
+  auto loop_tree = x86_64::BuildLoopTree(&machine_ir);
+  auto* root = loop_tree.root();
+
+  EXPECT_EQ(root->NumInnerloops(), 1UL);
+  auto* outerloop_node = root->GetInnerloopNode(0);
+  CheckLoopContent(outerloop_node->loop(), {b, c, d, e, f});
+  CheckLoopHeaders(outerloop_node->loop(), {b, c});
+
+  EXPECT_EQ(outerloop_node->NumInnerloops(), 1UL);
+  auto* innerloop_node = outerloop_node->GetInnerloopNode(0);
+  CheckLoopContent(innerloop_node->loop(), {d, e});
+  CheckLoopHeaders(innerloop_node->loop(), {d});
+}
+
+TEST(MachineIRAnalysis, FindLoopTreeWithIrreducibleLoopNestedInsideIrreducibleLoop) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  //           [ a ]
+  //           /   \
+  //          /     v
+  //         |    ( c ) <---------------------+
+  //         |      |                         |
+  //         |      |                         |
+  //         v      v                         |
+  // +--<--( b ) <--+                         |
+  // |       |                                |
+  // |       v                                |
+  // |     ( d ) <----------+                 |
+  // |       |              |                 |
+  // |       v              |                 |
+  // +-->--( e ) ---->------+                 |
+  //         |                                |
+  //         v                                |
+  //       ( f ) ------------>----------------+
+  //         |
+  //         v
+  //       [ g ]
+
+  auto a = machine_ir.NewBasicBlock();
+  auto b = machine_ir.NewBasicBlock();
+  auto c = machine_ir.NewBasicBlock();
+  auto d = machine_ir.NewBasicBlock();
+  auto e = machine_ir.NewBasicBlock();
+  auto f = machine_ir.NewBasicBlock();
+  auto g = machine_ir.NewBasicBlock();
+
+  machine_ir.AddEdge(a, b);
+  machine_ir.AddEdge(a, c);
+  machine_ir.AddEdge(c, b);
+  machine_ir.AddEdge(b, d);
+  machine_ir.AddEdge(b, e);
+  machine_ir.AddEdge(d, e);
+  machine_ir.AddEdge(e, d);
+  machine_ir.AddEdge(e, f);
+  machine_ir.AddEdge(f, c);
+  machine_ir.AddEdge(f, g);
+
+  builder.StartBasicBlock(a);
+  builder.StartBasicBlock(b);
+  builder.StartBasicBlock(c);
+  builder.StartBasicBlock(d);
+  builder.StartBasicBlock(e);
+  builder.StartBasicBlock(f);
+  builder.StartBasicBlock(g);
+
+  auto loop_tree = x86_64::BuildLoopTree(&machine_ir);
+  auto* root = loop_tree.root();
+
+  EXPECT_EQ(root->NumInnerloops(), 1UL);
+  auto* outerloop_node = root->GetInnerloopNode(0);
+  CheckLoopContent(outerloop_node->loop(), {b, c, d, e, f});
+  CheckLoopHeaders(outerloop_node->loop(), {b, c});
+
+  EXPECT_EQ(outerloop_node->NumInnerloops(), 1UL);
+  auto* innerloop_node = outerloop_node->GetInnerloopNode(0);
+  CheckLoopContent(innerloop_node->loop(), {d, e});
+  CheckLoopHeaders(innerloop_node->loop(), {d, e});
 }
 
 }  // namespace

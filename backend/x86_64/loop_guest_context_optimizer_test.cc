@@ -19,6 +19,7 @@
 #include "berberis/backend/x86_64/loop_guest_context_optimizer.h"
 
 #include "berberis/backend/code_emitter.h"
+#include "berberis/backend/common/machine_ir.h"
 #include "berberis/backend/x86_64/machine_ir_builder.h"
 #include "berberis/backend/x86_64/machine_ir_check.h"
 #include "berberis/base/arena_alloc.h"
@@ -1229,6 +1230,168 @@ TEST(MachineIRLoopGuestContextOptimizer, ReplacePutFlagsAndUpdateMap) {
   auto* copy_insn = *bb->insn_list().begin();
   auto mapped_reg = CheckCopyPutInsnAndObtainMappedReg(copy_insn, reg1);
   CheckMemRegMap(mem_reg_map, offset, mapped_reg, MovType::kMovw, true);
+}
+
+TEST(MachineIRLoopGuestContextOptimizer, RemoveGetsInIrreducibleLoop) {
+  Arena arena;
+  MachineIR machine_ir(&arena);
+
+  auto* entry = machine_ir.NewBasicBlock();
+  auto* preloop1 = machine_ir.NewBasicBlock();
+  auto* preloop2 = machine_ir.NewBasicBlock();
+  auto* body1 = machine_ir.NewBasicBlock();
+  auto* body2 = machine_ir.NewBasicBlock();
+  auto* afterloop = machine_ir.NewBasicBlock();
+  machine_ir.AddEdge(entry, preloop1);
+  machine_ir.AddEdge(entry, preloop2);
+  machine_ir.AddEdge(preloop1, body1);
+  machine_ir.AddEdge(preloop2, body2);
+  machine_ir.AddEdge(body2, body1);
+  machine_ir.AddEdge(body1, body2);
+  machine_ir.AddEdge(body1, afterloop);
+
+  MachineReg reg1 = machine_ir.AllocVReg();
+  MachineReg reg2 = machine_ir.AllocVReg();
+
+  MachineIRBuilder builder(&machine_ir);
+
+  builder.StartBasicBlock(entry);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, preloop1, preloop2, kMachineRegFLAGS);
+
+  builder.StartBasicBlock(preloop1);
+  builder.Gen<Branch>(body1);
+
+  builder.StartBasicBlock(preloop2);
+  builder.Gen<Branch>(body2);
+
+  builder.StartBasicBlock(body1);
+  builder.GenGet(reg1, GetThreadStateRegOffset(0));
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, body2, afterloop, kMachineRegFLAGS);
+
+  builder.StartBasicBlock(body2);
+  builder.GenGet(reg2, GetThreadStateRegOffset(1));
+  builder.Gen<Branch>(body1);
+
+  builder.StartBasicBlock(afterloop);
+  builder.Gen<Jump>(kNullGuestAddr);
+
+  RemoveLoopGuestContextAccesses(&machine_ir);
+  ASSERT_EQ(CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+
+  EXPECT_EQ(preloop1->insn_list().size(), 3UL);
+  auto insn_it = preloop1->insn_list().begin();
+  auto* get_insn1 = *insn_it;
+  EXPECT_EQ(get_insn1->opcode(), kMachineOpMovqRegMemBaseDisp);
+  EXPECT_EQ(AsMachineInsnX86_64(get_insn1)->disp(), GetThreadStateRegOffset(0));
+  auto* get_insn2 = *std::next(insn_it);
+  EXPECT_EQ(get_insn2->opcode(), kMachineOpMovqRegMemBaseDisp);
+  EXPECT_EQ(AsMachineInsnX86_64(get_insn2)->disp(), GetThreadStateRegOffset(1));
+
+  EXPECT_EQ(preloop2->insn_list().size(), 3UL);
+  insn_it = preloop2->insn_list().begin();
+  get_insn1 = *insn_it;
+  EXPECT_EQ(get_insn1->opcode(), kMachineOpMovqRegMemBaseDisp);
+  EXPECT_EQ(AsMachineInsnX86_64(get_insn1)->disp(), GetThreadStateRegOffset(0));
+  auto mapped_reg1 = get_insn1->RegAt(0);
+  get_insn2 = *std::next(insn_it);
+  EXPECT_EQ(get_insn2->opcode(), kMachineOpMovqRegMemBaseDisp);
+  EXPECT_EQ(AsMachineInsnX86_64(get_insn2)->disp(), GetThreadStateRegOffset(1));
+  auto mapped_reg2 = get_insn2->RegAt(0);
+
+  EXPECT_EQ(body1->insn_list().size(), 2UL);
+  auto* copy_insn1 = body1->insn_list().front();
+  EXPECT_EQ(mapped_reg1, CheckCopyGetInsnAndObtainMappedReg(copy_insn1, reg1));
+
+  EXPECT_EQ(body2->insn_list().size(), 2UL);
+  auto* copy_insn2 = body2->insn_list().front();
+  EXPECT_EQ(mapped_reg2, CheckCopyGetInsnAndObtainMappedReg(copy_insn2, reg2));
+
+  EXPECT_EQ(afterloop->insn_list().size(), 1UL);
+}
+
+TEST(MachineIRLoopGuestContextOptimizer, RemovePutsInIrreducibleLoop) {
+  Arena arena;
+  MachineIR machine_ir(&arena);
+
+  auto* entry = machine_ir.NewBasicBlock();
+  auto* preloop1 = machine_ir.NewBasicBlock();
+  auto* preloop2 = machine_ir.NewBasicBlock();
+  auto* body1 = machine_ir.NewBasicBlock();
+  auto* body2 = machine_ir.NewBasicBlock();
+  auto* afterloop = machine_ir.NewBasicBlock();
+  machine_ir.AddEdge(entry, preloop1);
+  machine_ir.AddEdge(entry, preloop2);
+  machine_ir.AddEdge(preloop1, body1);
+  machine_ir.AddEdge(preloop2, body2);
+  machine_ir.AddEdge(body2, body1);
+  machine_ir.AddEdge(body1, body2);
+  machine_ir.AddEdge(body1, afterloop);
+
+  MachineReg reg1 = machine_ir.AllocVReg();
+  MachineReg reg2 = machine_ir.AllocVReg();
+
+  MachineIRBuilder builder(&machine_ir);
+
+  builder.StartBasicBlock(entry);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, preloop1, preloop2, kMachineRegFLAGS);
+
+  builder.StartBasicBlock(preloop1);
+  builder.Gen<Branch>(body1);
+
+  builder.StartBasicBlock(preloop2);
+  builder.Gen<Branch>(body2);
+
+  builder.StartBasicBlock(body1);
+  builder.GenPut(GetThreadStateRegOffset(0), reg1);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, body2, afterloop, kMachineRegFLAGS);
+
+  builder.StartBasicBlock(body2);
+  builder.GenPut(GetThreadStateRegOffset(1), reg2);
+  builder.Gen<Branch>(body1);
+
+  builder.StartBasicBlock(afterloop);
+  builder.Gen<Jump>(kNullGuestAddr);
+
+  RemoveLoopGuestContextAccesses(&machine_ir);
+  ASSERT_EQ(CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+
+  EXPECT_EQ(preloop1->insn_list().size(), 3UL);
+  auto insn_it = preloop1->insn_list().begin();
+  auto* get_insn1 = *insn_it;
+  EXPECT_EQ(get_insn1->opcode(), kMachineOpMovqRegMemBaseDisp);
+  EXPECT_EQ(AsMachineInsnX86_64(get_insn1)->disp(), GetThreadStateRegOffset(0));
+  auto* get_insn2 = *std::next(insn_it);
+  EXPECT_EQ(get_insn2->opcode(), kMachineOpMovqRegMemBaseDisp);
+  EXPECT_EQ(AsMachineInsnX86_64(get_insn2)->disp(), GetThreadStateRegOffset(1));
+
+  EXPECT_EQ(preloop2->insn_list().size(), 3UL);
+  insn_it = preloop2->insn_list().begin();
+  get_insn1 = *insn_it;
+  EXPECT_EQ(get_insn1->opcode(), kMachineOpMovqRegMemBaseDisp);
+  EXPECT_EQ(AsMachineInsnX86_64(get_insn1)->disp(), GetThreadStateRegOffset(0));
+  auto mapped_reg1 = get_insn1->RegAt(0);
+  get_insn2 = *std::next(insn_it);
+  EXPECT_EQ(get_insn2->opcode(), kMachineOpMovqRegMemBaseDisp);
+  EXPECT_EQ(AsMachineInsnX86_64(get_insn2)->disp(), GetThreadStateRegOffset(1));
+  auto mapped_reg2 = get_insn2->RegAt(0);
+
+  EXPECT_EQ(body1->insn_list().size(), 2UL);
+  auto* copy_insn1 = body1->insn_list().front();
+  EXPECT_EQ(CheckCopyPutInsnAndObtainMappedReg(copy_insn1, reg1), mapped_reg1);
+
+  EXPECT_EQ(body2->insn_list().size(), 2UL);
+  auto* copy_insn2 = body2->insn_list().front();
+  EXPECT_EQ(CheckCopyPutInsnAndObtainMappedReg(copy_insn2, reg2), mapped_reg2);
+
+  EXPECT_EQ(afterloop->insn_list().size(), 3UL);
+  insn_it = afterloop->insn_list().begin();
+  CheckPutInsn(
+      &machine_ir, *insn_it, kMachineOpMovqMemBaseDispReg, mapped_reg1, GetThreadStateRegOffset(0));
+  CheckPutInsn(&machine_ir,
+               *std::next(insn_it),
+               kMachineOpMovqMemBaseDispReg,
+               mapped_reg2,
+               GetThreadStateRegOffset(1));
 }
 
 }  // namespace
