@@ -44,22 +44,31 @@ class LocalGuestContextOptimizer {
  public:
   explicit LocalGuestContextOptimizer(x86_64::MachineIR* machine_ir)
       : machine_ir_(machine_ir),
-        mem_reg_map_(sizeof(CPUState), std::nullopt, machine_ir->arena()),
-        reg_lifetime_counter_(machine_ir) {}
+        ctx_map_{SingleContextMapping{
+            MemRegUsageMap(sizeof(CPUState), std::nullopt, machine_ir->arena()),
+            RegLifetimeCounter(machine_ir)}} {}
 
-  // Removes entries from mem_reg_map_ with last use <= pos.
+  // Removes entries from mem_reg_map with last use <= pos.
   void UnmapOlderThan(size_t pos, RegType reg_type);
-  const RegLifetimeCounter& GetLifetimeCounterForTesting() const { return reg_lifetime_counter_; }
-  const MemRegUsageMap& GetMemRegUsageMapForTesting() const { return mem_reg_map_; }
+  const RegLifetimeCounter& GetLifetimeCounterForTesting() const {
+    return std::get<SingleContextMapping>(ctx_map_).reg_counter;
+  }
+  const MemRegUsageMap& GetMemRegUsageMapForTesting() const {
+    return std::get<SingleContextMapping>(ctx_map_).mem_reg_map;
+  }
   void RemoveLocalGuestContextAccesses(const OptimizeLocalParams& params);
 
  private:
+  struct SingleContextMapping {
+    MemRegUsageMap mem_reg_map;
+    RegLifetimeCounter reg_counter;
+  };
+
   std::optional<MachineReg> ReplaceGetAndUpdateMap(const MachineInsnList::iterator insn_it);
   void ReplacePutAndUpdateMap(MachineInsnList& insn_list, const MachineInsnList::iterator insn_it);
 
   MachineIR* machine_ir_;
-  MemRegUsageMap mem_reg_map_;
-  RegLifetimeCounter reg_lifetime_counter_;
+  std::variant<SingleContextMapping> ctx_map_;
 };
 
 void RemoveLocalGuestContextAccesses(x86_64::MachineIR* machine_ir,
