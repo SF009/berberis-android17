@@ -49,11 +49,14 @@ class LiteTranslator {
   using CsrName = berberis::CsrName;
   using Decoder = Decoder<SemanticsPlayer<LiteTranslator>>;
   using Register = Assembler::Register;
-  static constexpr auto no_register = Assembler::no_register;
+  // We need some real register here, not Assembler::no_register because we may [attempt to] use it
+  // with assembler functions, etc. We only ever return it while setting success_ to false and
+  // wouldn't use such code, but it's still important to generate code without crashing.
+  static constexpr auto stub_register = Assembler::rax;
   // Note: on RISC-V architecture FP register and SIMD registers are disjoint, but on x86 they are
   // the same.
   using FpRegister = Assembler::XMMRegister;
-  static constexpr auto no_fp_register = Assembler::no_xmm_register;
+  static constexpr auto stub_fp_register = Assembler::xmm0;
   using SimdRegister = Assembler::XMMRegister;
   using Condition = Assembler::Condition;
   using Float32 = Float32;
@@ -116,7 +119,7 @@ class LiteTranslator {
                  Register arg5) {
     UNUSED(syscall_nr, arg0, arg1, arg2, arg3, arg4, arg5);
     Undefined();
-    return Assembler::no_register;
+    return stub_register;
   }
 
   void Fence(Decoder::FenceOpcode /*opcode*/,
@@ -387,7 +390,7 @@ class LiteTranslator {
       return {alloc_result.value(), true};
     }
     success_ = false;
-    return {Assembler::no_register, false};
+    return {stub_register, false};
   }
 
   std::tuple<SimdRegister, bool> GetMappedFpRegOrMap(int reg) {
@@ -408,7 +411,7 @@ class LiteTranslator {
       return reg_option.value();
     }
     success_ = false;
-    return Assembler::no_register;
+    return stub_register;
   };
 
   SimdRegister AllocTempSimdReg() {
@@ -416,19 +419,19 @@ class LiteTranslator {
       return reg_option.value();
     }
     success_ = false;
-    return Assembler::no_xmm_register;
+    return stub_fp_register;
   };
 
   template <intrinsics::TemplateTypeId IntType, bool aq, bool rl>
   Register Lr(Register, MetaValue<IntType>, MetaValue<aq>, MetaValue<rl>) {
     Undefined();
-    return Assembler::no_register;
+    return stub_register;
   }
 
   template <intrinsics::TemplateTypeId IntType, bool aq, bool rl>
   Register Sc(Register, Register, MetaValue<IntType>, MetaValue<aq>, MetaValue<rl>) {
     Undefined();
-    return Assembler::no_register;
+    return stub_register;
   }
 
   template <typename ValueType>
