@@ -96,6 +96,22 @@ class RegAllocTest : public ::testing::Test {
     return lifetime;
   }
 
+  VRegLifetime* CreateLifetimeWithAccess(int vreg_index,
+                                         int access_begin,
+                                         int access_end,
+                                         const MachineRegClass* reg_class = &kGPRRegClass) {
+    CHECK_LT(access_begin, access_end);
+    CHECK_LE(access_end - access_begin, 2);
+    MachineReg vreg = MachineReg::CreateVRegFromIndex(vreg_index);
+    auto* insn = machine_ir_.NewInsn<MockMachineInsn>(vreg, reg_class);
+    bb_->insn_list().push_back(insn);
+    MachineInsnListPosition pos(&bb_->insn_list(), std::prev(bb_->insn_list().end()));
+    VRegAccess access(pos, 0, access_begin, access_end);
+    auto* lifetime = NewInArena<VRegLifetime>(&arena_, &arena_, access.begin());
+    lifetime->AppendAccess(access);
+    return lifetime;
+  }
+
   Arena arena_;
   MachineIR machine_ir_;
   MachineBasicBlock* bb_;
@@ -135,7 +151,123 @@ TEST_F(RegAllocTest, HardRegAllocation_ConsiderSpill) {
 
   VRegLifetime* lifetime2 = CreateLifetime(1, 15, 25);
   EXPECT_FALSE(hard_reg_allocation.TryAssign(lifetime2));
-  EXPECT_NE(hard_reg_allocation.ConsiderSpill(lifetime2), kInfiniteSpillWeight);
+  auto result = hard_reg_allocation.ConsiderSpill(lifetime2);
+  EXPECT_NE(std::get<0>(result), kInfiniteSpillWeight);
+  EXPECT_EQ(std::get<1>(result), SPLIT_OK);
+}
+
+TEST_F(RegAllocTest, HardRegAllocation_ConsiderSpill_SplitImpossible) {
+  HardRegAllocation hard_reg_allocation(&arena_);
+
+  // Lifetime 1: access at [9, 11).
+  VRegLifetime* lifetime1 = CreateLifetimeWithAccess(0, 9, 11);
+  EXPECT_TRUE(hard_reg_allocation.TryAssign(lifetime1));
+
+  // Lifetime 2: starts at 10.
+  VRegLifetime* lifetime2 = CreateLifetime(1, 10, 20);
+  EXPECT_FALSE(hard_reg_allocation.TryAssign(lifetime2));
+
+  auto result = hard_reg_allocation.ConsiderSpill(lifetime2);
+  EXPECT_EQ(std::get<0>(result), kInfiniteSpillWeight);
+  EXPECT_EQ(std::get<1>(result), SPLIT_IMPOSSIBLE);
+}
+
+TEST_F(RegAllocTest, HardRegAllocation_ConsiderSpill_SplitConflict_Unresolvable) {
+  HardRegAllocation hard_reg_allocation(&arena_);
+
+  // Lifetime 1: [10, 20], first access at [10, 11).
+  VRegLifetime* lifetime1 = CreateLifetime(0, 10, 20);
+  EXPECT_TRUE(hard_reg_allocation.TryAssign(lifetime1));
+
+  // Lifetime 2: [10, 20], first access at [10, 11).
+  VRegLifetime* lifetime2 = CreateLifetime(1, 10, 20);
+  EXPECT_FALSE(hard_reg_allocation.TryAssign(lifetime2));
+
+  // Both have same reg class (GPR), so subset check passes (Unresolvable).
+  auto result = hard_reg_allocation.ConsiderSpill(lifetime2);
+  EXPECT_EQ(std::get<0>(result), kInfiniteSpillWeight);
+  EXPECT_EQ(std::get<1>(result), SPLIT_IMPOSSIBLE);
+}
+
+TEST_F(RegAllocTest, HardRegAllocation_ConsiderSpill_SplitConflict_Resolvable) {
+  HardRegAllocation hard_reg_allocation(&arena_);
+
+  static const MachineRegClass kWideRegClass = {
+      "Wide", 8, 0b0110, 2, {MachineReg{1}, MachineReg{2}}};
+  static const MachineRegClass kNarrowRegClass = {"Narrow", 8, 0b0010, 1, {MachineReg{1}}};
+
+  // Lifetime 1: Wide class. Assigned to R1.
+  VRegLifetime* lifetime1 = CreateLifetime(0, 10, 20, &kWideRegClass);
+  EXPECT_TRUE(hard_reg_allocation.TryAssign(lifetime1));
+
+  // Lifetime 2: Narrow class (R1 only). Starts at 10.
+  VRegLifetime* lifetime2 = CreateLifetime(1, 10, 20, &kNarrowRegClass);
+  EXPECT_FALSE(hard_reg_allocation.TryAssign(lifetime2));
+
+  // Lifetime 1 starts at 10, so conflict at start.
+  // Wide is NOT subset of Narrow.
+  // Should be resolvable.
+  auto result = hard_reg_allocation.ConsiderSpill(lifetime2);
+  EXPECT_NE(std::get<0>(result), kInfiniteSpillWeight);
+  EXPECT_EQ(std::get<1>(result), SPLIT_CONFLICT);
+}
+
+TEST_F(RegAllocTest, HardRegAllocation_ConsiderSpill_Priorities) {
+  // Test that IMPOSSIBLE > CONFLICT > OK.
+  // Note: We deliberately violate the "assign in order" rule to setup
+  // multiple disjoint lifetimes in the register that all interfere with
+  // the new lifetime (which overlaps them all).
+
+  // Scenario 1: OK + CONFLICT (Resolvable) -> CONFLICT
+  {
+    HardRegAllocation hra(&arena_);
+    // L1: [15, 25). Access [15, 16).
+    // Disjoint from L2. Intersects New.
+    // Split at 5 (New start) -> OK (no access at 5).
+    VRegLifetime* l1 = CreateLifetime(0, 15, 25);
+    EXPECT_TRUE(hra.TryAssign(l1));
+
+    // L2: [5, 15). Access [5, 6).
+    // Intersects New.
+    // Split at 5 -> CONFLICT (access at 5).
+    // Use Wide/Narrow to make it resolvable.
+    static const MachineRegClass kWideRegClass = {
+        "Wide", 8, 0b0110, 2, {MachineReg{1}, MachineReg{2}}};
+    static const MachineRegClass kNarrowRegClass = {"Narrow", 8, 0b0010, 1, {MachineReg{1}}};
+    VRegLifetime* l2 = CreateLifetime(1, 5, 15, &kWideRegClass);
+    EXPECT_TRUE(hra.TryAssign(l2));
+
+    // New: [5, 25).
+    VRegLifetime* l_new = CreateLifetime(2, 5, 25, &kNarrowRegClass);
+    EXPECT_FALSE(hra.TryAssign(l_new));
+
+    auto res = hra.ConsiderSpill(l_new);
+    EXPECT_NE(std::get<0>(res), kInfiniteSpillWeight);
+    EXPECT_EQ(std::get<1>(res), SPLIT_CONFLICT);
+  }
+
+  // Scenario 2: OK + IMPOSSIBLE -> IMPOSSIBLE
+  {
+    HardRegAllocation hra(&arena_);
+    // L1: [15, 25). Access [15, 16).
+    // Split at 5 -> OK.
+    VRegLifetime* l1 = CreateLifetime(0, 15, 25);
+    EXPECT_TRUE(hra.TryAssign(l1));
+
+    // L3: [5, 15). Access [5, 6).
+    // Split at 5 -> IMPOSSIBLE (access at 5, Subset).
+    VRegLifetime* l3 = CreateLifetime(1, 5, 15);  // Default GPR
+    EXPECT_TRUE(hra.TryAssign(l3));
+
+    // New: [5, 25).
+    // Intersects L1 (OK) and L3 (IMPOSSIBLE).
+    VRegLifetime* l_new = CreateLifetime(2, 5, 25);  // Default GPR
+    EXPECT_FALSE(hra.TryAssign(l_new));
+
+    auto res = hra.ConsiderSpill(l_new);
+    EXPECT_EQ(std::get<0>(res), kInfiniteSpillWeight);
+    EXPECT_EQ(std::get<1>(res), SPLIT_IMPOSSIBLE);
+  }
 }
 
 TEST_F(RegAllocTest, HardRegAllocation_SpillAndAssign) {
@@ -147,7 +279,7 @@ TEST_F(RegAllocTest, HardRegAllocation_SpillAndAssign) {
 
   EXPECT_TRUE(hard_reg_allocation.TryAssign(lifetime1));
   EXPECT_FALSE(hard_reg_allocation.TryAssign(lifetime2));
-  EXPECT_NE(hard_reg_allocation.ConsiderSpill(lifetime2), kInfiniteSpillWeight);
+  EXPECT_NE(std::get<0>(hard_reg_allocation.ConsiderSpill(lifetime2)), kInfiniteSpillWeight);
 
   auto it = std::next(lifetime_list.begin());
 
