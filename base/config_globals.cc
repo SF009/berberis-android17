@@ -171,6 +171,8 @@ std::string ToString(ConfigFlag flag) {
       return "disable-link-jumps-between-regions";
     case kDisableLinkJumpsWithinRegion:
       return "disable-link-jumps-within-region";
+    case kGlobalContextOptimization:
+      return "global-context-optimization";
     case kNumConfigFlags:
       break;
   }

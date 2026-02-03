@@ -59,15 +59,15 @@ TEST(MachineIRLocalGuestContextOptimizer, UnmapOlderThan) {
   optimizer.RemoveLocalGuestContextAccesses(x86_64::OptimizeLocalParams());
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
 
-  auto& mem_reg_map = optimizer.GetMemRegUsageMapForTesting();
-  ASSERT_TRUE(optimizer.GetLifetimeCounterForTesting().LifetimeAt(reg1).has_value());
+  auto& mem_reg_map = optimizer.GetMemRegUsageMapForTesting(bb);
+  ASSERT_TRUE(optimizer.GetLifetimeCounterForTesting(bb).LifetimeAt(reg1).has_value());
   ASSERT_TRUE(IsOffsetMappedToReg(GetThreadStateRegOffset(0), mem_reg_map, reg1));
 
   // Try clearing an older pos which should do nothing.
-  optimizer.UnmapOlderThan(0, x86_64::RegType::kGeneral);
+  optimizer.UnmapOlderThan(bb, 0, x86_64::RegType::kGeneral);
   ASSERT_TRUE(IsOffsetMappedToReg(GetThreadStateRegOffset(0), mem_reg_map, reg1));
 
-  optimizer.UnmapOlderThan(2, x86_64::RegType::kGeneral);
+  optimizer.UnmapOlderThan(bb, 2, x86_64::RegType::kGeneral);
   EXPECT_FALSE(mem_reg_map[GetThreadStateRegOffset(0)].has_value());
   EXPECT_TRUE(mem_reg_map[GetThreadStateRegOffset(1)].has_value());
 }

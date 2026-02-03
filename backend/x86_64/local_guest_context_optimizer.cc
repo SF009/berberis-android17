@@ -26,9 +26,11 @@ namespace berberis::x86_64 {
 
 using OffsetCounterMap = ArenaVector<std::pair<size_t, int>>;
 
-void LocalGuestContextOptimizer::UnmapOlderThan(size_t pos, RegType reg_type) {
-  MemRegUsageMap& mem_reg_map = std::get<SingleContextMapping>(ctx_map_).mem_reg_map;
-  RegLifetimeCounter& reg_counter = std::get<SingleContextMapping>(ctx_map_).reg_counter;
+void LocalGuestContextOptimizer::UnmapOlderThan(MachineBasicBlock* bb,
+                                                size_t pos,
+                                                RegType reg_type) {
+  MemRegUsageMap& mem_reg_map = GetContextMapping(bb).mem_reg_map;
+  RegLifetimeCounter& reg_counter = GetContextMapping(bb).reg_counter;
   for (auto& mapping : mem_reg_map) {
     if (!mapping.has_value()) {
       continue;
@@ -61,22 +63,23 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(
           : params_copy.general_reg_limit;
 
   for (auto* bb : machine_ir_->bb_list()) {
-    MemRegUsageMap& mem_reg_map = std::get<SingleContextMapping>(ctx_map_).mem_reg_map;
-    std::fill(mem_reg_map.begin(), mem_reg_map.end(), std::nullopt);
-    RegLifetimeCounter& reg_counter = std::get<SingleContextMapping>(ctx_map_).reg_counter;
+    MemRegUsageMap& mem_reg_map = GetContextMapping(bb).mem_reg_map;
+    if (std::holds_alternative<SingleContextMapping>(context_map_)) {
+      std::fill(mem_reg_map.begin(), mem_reg_map.end(), std::nullopt);
+    }
+    RegLifetimeCounter& reg_counter = GetContextMapping(bb).reg_counter;
     reg_counter.Count(bb);
 
     size_t pos = 0;
     for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end();
          insn_it++, pos++) {
       // If the register pressure at the current instruction is too big, then cancel
-      // all active mappings. So that we don't prolong lifetimes through this
-      // instruction.
+      // active mappings with lifetimes which end before current instruction.
       if (reg_counter.RegCountAt(pos, RegType::kGeneral) >= params_copy.general_reg_limit) {
-        UnmapOlderThan(pos, RegType::kGeneral);
+        UnmapOlderThan(bb, pos, RegType::kGeneral);
       }
       if (reg_counter.RegCountAt(pos, RegType::kXmm) >= params_copy.simd_reg_limit) {
-        UnmapOlderThan(pos, RegType::kXmm);
+        UnmapOlderThan(bb, pos, RegType::kXmm);
       }
 
       if (machine_ir_->IsCPUStateGet(*insn_it) || machine_ir_->IsCPUStatePut(*insn_it)) {
@@ -85,9 +88,9 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(
         if (machine_ir_->IsCPUStatePut(insn)) {
           // Replacing PUT doesn't prolong the lifetime of its argument. It will
           // only be prolonged if we optimize next GET.
-          ReplacePutAndUpdateMap(bb->insn_list(), insn_it);
+          ReplacePutAndUpdateMap(bb, insn_it);
         } else if (machine_ir_->IsCPUStateGet(insn)) {
-          std::optional<MachineReg> src_reg_opt = ReplaceGetAndUpdateMap(insn_it);
+          std::optional<MachineReg> src_reg_opt = ReplaceGetAndUpdateMap(bb, insn_it);
           if (!src_reg_opt.has_value()) {
             continue;
           }
@@ -111,7 +114,7 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(
           // all active mappings to make sure the next optimization doesn't
           // overflow that limit.
           if (pos_over_limit.has_value()) {
-            UnmapOlderThan(pos_over_limit.value(), lifetime.reg_type);
+            UnmapOlderThan(bb, pos_over_limit.value(), lifetime.reg_type);
           }
         }
       }
@@ -123,11 +126,12 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(
 // also setting up the mapping for future optimizations. On successful
 // optimization, returns the source register we made a copy from.
 std::optional<MachineReg> LocalGuestContextOptimizer::ReplaceGetAndUpdateMap(
+    MachineBasicBlock* bb,
     const MachineInsnList::iterator insn_it) {
   auto* insn = AsMachineInsnX86_64(*insn_it);
   auto dst = insn->RegAt(0);
   auto disp = insn->disp();
-  auto& mem_reg_map = std::get<SingleContextMapping>(ctx_map_).mem_reg_map;
+  auto& mem_reg_map = GetContextMapping(bb).mem_reg_map;
 
   // We only need to keep this load instruction if this is the first access to
   // the guest context at disp.
@@ -149,16 +153,16 @@ std::optional<MachineReg> LocalGuestContextOptimizer::ReplaceGetAndUpdateMap(
   return std::nullopt;
 }
 
-void LocalGuestContextOptimizer::ReplacePutAndUpdateMap(MachineInsnList& insn_list,
+void LocalGuestContextOptimizer::ReplacePutAndUpdateMap(MachineBasicBlock* bb,
                                                         const MachineInsnList::iterator insn_it) {
   auto* insn = AsMachineInsnX86_64(*insn_it);
   auto disp = insn->disp();
-  auto& mem_reg_map = std::get<SingleContextMapping>(ctx_map_).mem_reg_map;
+  auto& mem_reg_map = GetContextMapping(bb).mem_reg_map;
 
   if (mem_reg_map[disp].has_value() && mem_reg_map[disp].value().last_store.has_value()) {
     // Remove the last store instruction.
     auto last_store_it = mem_reg_map[disp].value().last_store.value();
-    insn_list.erase(last_store_it);
+    bb->insn_list().erase(last_store_it);
   }
 
   MappedValue new_value;
