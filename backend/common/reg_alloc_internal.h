@@ -18,6 +18,7 @@
 #define BERBERIS_BACKEND_COMMON_REG_ALLOC_INTERNAL_H_
 
 #include <limits>
+#include <tuple>
 
 #include "berberis/backend/common/lifetime.h"
 #include "berberis/backend/common/machine_ir.h"
@@ -59,7 +60,7 @@ class HardRegAllocation {
   // If TryAssign returned false:
   // Check if it is possible to spill all lifetimes allocated to this hard
   // register that interfere with new_lifetime, and return spill weight.
-  int ConsiderSpill(VRegLifetime* new_lifetime);
+  std::tuple<int, SplitKind> ConsiderSpill(VRegLifetime* new_lifetime);
 
   // If ConsiderSpill returned non-infinite weight:
   // Given spill is possible, actually spill lifetimes that interfere with
