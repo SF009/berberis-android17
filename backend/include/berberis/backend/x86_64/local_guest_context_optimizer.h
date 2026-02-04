@@ -49,46 +49,43 @@ class LocalGuestContextOptimizer {
   // Removes entries from mem_reg_map with last use <= pos.
   void UnmapOlderThan(MachineBasicBlock* bb, size_t pos, RegType reg_type);
   const RegLifetimeCounter& GetLifetimeCounterForTesting(MachineBasicBlock* bb) const {
-    const SingleContextMapping& cm =
-        std::holds_alternative<SingleContextMapping>(context_map_)
-            ? std::get<SingleContextMapping>(context_map_)
-            : std::get<GlobalContextMapping>(context_map_).at(bb->id());
+    const ContextMapping& cm = std::holds_alternative<ContextMapping>(context_map_)
+                                   ? std::get<ContextMapping>(context_map_)
+                                   : std::get<ContextMappingArray>(context_map_).at(bb->id());
     return cm.reg_counter;
   }
   const MemRegUsageMap& GetMemRegUsageMapForTesting(MachineBasicBlock* bb) const {
-    const SingleContextMapping& cm =
-        std::holds_alternative<SingleContextMapping>(context_map_)
-            ? std::get<SingleContextMapping>(context_map_)
-            : std::get<GlobalContextMapping>(context_map_).at(bb->id());
+    const ContextMapping& cm = std::holds_alternative<ContextMapping>(context_map_)
+                                   ? std::get<ContextMapping>(context_map_)
+                                   : std::get<ContextMappingArray>(context_map_).at(bb->id());
     return cm.mem_reg_map;
   }
   void RemoveLocalGuestContextAccesses(const OptimizeLocalParams& params);
 
  private:
-  struct SingleContextMapping {
+  struct ContextMapping {
     MemRegUsageMap mem_reg_map;
     RegLifetimeCounter reg_counter;
   };
-  using GlobalContextMapping = ArenaVector<SingleContextMapping>;
+  using ContextMappingArray = ArenaVector<ContextMapping>;
 
-  static std::variant<SingleContextMapping, GlobalContextMapping> CreateContextMap(
-      MachineIR* machine_ir) {
+  static std::variant<ContextMapping, ContextMappingArray> CreateContextMap(MachineIR* machine_ir) {
     return IsConfigFlagSet(kGlobalContextOptimization)
-               ? std::variant<SingleContextMapping, GlobalContextMapping>(GlobalContextMapping(
+               ? std::variant<ContextMapping, ContextMappingArray>(ContextMappingArray(
                      machine_ir->NumBasicBlocks(),
-                     SingleContextMapping{
+                     ContextMapping{
                          MemRegUsageMap(sizeof(CPUState), std::nullopt, machine_ir->arena()),
                          RegLifetimeCounter(machine_ir)},
                      machine_ir->arena()))
-               : std::variant<SingleContextMapping, GlobalContextMapping>(SingleContextMapping{
+               : std::variant<ContextMapping, ContextMappingArray>(ContextMapping{
                      MemRegUsageMap(sizeof(CPUState), std::nullopt, machine_ir->arena()),
                      RegLifetimeCounter(machine_ir)});
   }
 
-  SingleContextMapping& GetContextMapping(MachineBasicBlock* bb) {
-    return std::holds_alternative<SingleContextMapping>(context_map_)
-               ? std::get<SingleContextMapping>(context_map_)
-               : std::get<GlobalContextMapping>(context_map_).at(bb->id());
+  ContextMapping& GetContextMapping(MachineBasicBlock* bb) {
+    return std::holds_alternative<ContextMapping>(context_map_)
+               ? std::get<ContextMapping>(context_map_)
+               : std::get<ContextMappingArray>(context_map_).at(bb->id());
   }
 
   std::optional<MachineReg> ReplaceGetAndUpdateMap(MachineBasicBlock* bb,
@@ -96,7 +93,7 @@ class LocalGuestContextOptimizer {
   void ReplacePutAndUpdateMap(MachineBasicBlock* bb, const MachineInsnList::iterator insn_it);
 
   MachineIR* machine_ir_;
-  std::variant<SingleContextMapping, GlobalContextMapping> context_map_;
+  std::variant<ContextMapping, ContextMappingArray> context_map_;
 };
 
 void RemoveLocalGuestContextAccesses(x86_64::MachineIR* machine_ir,

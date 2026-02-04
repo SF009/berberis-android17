@@ -64,7 +64,7 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(
 
   for (auto* bb : machine_ir_->bb_list()) {
     MemRegUsageMap& mem_reg_map = GetContextMapping(bb).mem_reg_map;
-    if (std::holds_alternative<SingleContextMapping>(context_map_)) {
+    if (std::holds_alternative<ContextMapping>(context_map_)) {
       std::fill(mem_reg_map.begin(), mem_reg_map.end(), std::nullopt);
     }
     RegLifetimeCounter& reg_counter = GetContextMapping(bb).reg_counter;
