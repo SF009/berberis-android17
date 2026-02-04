@@ -31,9 +31,14 @@ namespace berberis::x86_64 {
 struct OptimizeLocalParams {
   size_t general_reg_limit = 13;
   size_t simd_reg_limit = 13;
+  bool global_opt_enabled = IsConfigFlagSet(kGlobalContextOptimization);
 };
 
-using MappedValue = std::variant<MachineReg, uint64_t>;
+struct PredecessorReg {
+  MachineReg reg;
+};
+
+using MappedValue = std::variant<MachineReg, uint64_t, PredecessorReg>;
 struct MappedRegUsage {
   MappedValue value;
   std::optional<MachineInsnList::iterator> last_store;
@@ -43,8 +48,16 @@ using MemRegUsageMap = ArenaVector<std::optional<MappedRegUsage>>;
 
 class LocalGuestContextOptimizer {
  public:
-  explicit LocalGuestContextOptimizer(x86_64::MachineIR* machine_ir)
-      : machine_ir_(machine_ir), context_map_(CreateContextMap(machine_ir)) {}
+  explicit LocalGuestContextOptimizer(x86_64::MachineIR* machine_ir,
+                                      const OptimizeLocalParams& params)
+      : machine_ir_(machine_ir),
+        context_map_(CreateContextMap(machine_ir, params.global_opt_enabled)),
+        params_(params) {
+    params_.general_reg_limit =
+        machine_ir_->abi() == MachineIR::ABI::kOptimizedEnabled
+            ? (params_.general_reg_limit >= 6 ? params_.general_reg_limit - 6 : 0UL)
+            : params_.general_reg_limit;
+  }
 
   // Removes entries from mem_reg_map with last use <= pos.
   void UnmapOlderThan(MachineBasicBlock* bb, size_t pos, RegType reg_type);
@@ -60,7 +73,7 @@ class LocalGuestContextOptimizer {
                                    : std::get<ContextMappingArray>(context_map_).at(bb->id());
     return cm.mem_reg_map;
   }
-  void RemoveLocalGuestContextAccesses(const OptimizeLocalParams& params);
+  void RemoveLocalGuestContextAccesses();
 
  private:
   struct ContextMapping {
@@ -69,8 +82,10 @@ class LocalGuestContextOptimizer {
   };
   using ContextMappingArray = ArenaVector<ContextMapping>;
 
-  static std::variant<ContextMapping, ContextMappingArray> CreateContextMap(MachineIR* machine_ir) {
-    return IsConfigFlagSet(kGlobalContextOptimization)
+  static std::variant<ContextMapping, ContextMappingArray> CreateContextMap(
+      MachineIR* machine_ir,
+      bool global_opt_enabled) {
+    return global_opt_enabled
                ? std::variant<ContextMapping, ContextMappingArray>(ContextMappingArray(
                      machine_ir->NumBasicBlocks(),
                      ContextMapping{
@@ -88,12 +103,15 @@ class LocalGuestContextOptimizer {
                : std::get<ContextMappingArray>(context_map_).at(bb->id());
   }
 
+  bool EligibleForGlobalOpt(const MachineBasicBlockList& nonloop_nodes, MachineBasicBlock* bb);
+  void InitMemRegMapFromPreds(MachineBasicBlock* bb);
   std::optional<MachineReg> ReplaceGetAndUpdateMap(MachineBasicBlock* bb,
                                                    const MachineInsnList::iterator insn_it);
   void ReplacePutAndUpdateMap(MachineBasicBlock* bb, const MachineInsnList::iterator insn_it);
 
   MachineIR* machine_ir_;
   std::variant<ContextMapping, ContextMappingArray> context_map_;
+  OptimizeLocalParams params_;
 };
 
 void RemoveLocalGuestContextAccesses(x86_64::MachineIR* machine_ir,

@@ -20,6 +20,9 @@
 #include <optional>
 #include <variant>
 
+#include "berberis/backend/x86_64/machine_ir_analysis.h"
+#include "berberis/backend/x86_64/machine_ir_opt.h"
+#include "berberis/base/algorithm.h"
 #include "berberis/base/arena_vector.h"
 
 namespace berberis::x86_64 {
@@ -53,19 +56,20 @@ void LocalGuestContextOptimizer::UnmapOlderThan(MachineBasicBlock* bb,
   }
 }
 
-void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(
-    const OptimizeLocalParams& params) {
-  OptimizeLocalParams params_copy = params;
-
-  params_copy.general_reg_limit =
-      machine_ir_->abi() == MachineIR::ABI::kOptimizedEnabled
-          ? (params_copy.general_reg_limit >= 6 ? params_copy.general_reg_limit - 6 : 0UL)
-          : params_copy.general_reg_limit;
+void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses() {
+  MachineBasicBlockList nonloop_nodes(machine_ir_->arena());
+  if (params_.global_opt_enabled) {
+    // We need reverse post order for global guest context optimization.
+    ReorderBasicBlocksInReversePostOrder(machine_ir_);
+    nonloop_nodes = FindNonloopNodes(machine_ir_);
+  }
 
   for (auto* bb : machine_ir_->bb_list()) {
     MemRegUsageMap& mem_reg_map = GetContextMapping(bb).mem_reg_map;
     if (std::holds_alternative<ContextMapping>(context_map_)) {
       std::fill(mem_reg_map.begin(), mem_reg_map.end(), std::nullopt);
+    } else if (EligibleForGlobalOpt(nonloop_nodes, bb)) {
+      InitMemRegMapFromPreds(bb);
     }
     RegLifetimeCounter& reg_counter = GetContextMapping(bb).reg_counter;
     reg_counter.Count(bb);
@@ -75,10 +79,10 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(
          insn_it++, pos++) {
       // If the register pressure at the current instruction is too big, then cancel
       // active mappings with lifetimes which end before current instruction.
-      if (reg_counter.RegCountAt(pos, RegType::kGeneral) >= params_copy.general_reg_limit) {
+      if (reg_counter.RegCountAt(pos, RegType::kGeneral) >= params_.general_reg_limit) {
         UnmapOlderThan(bb, pos, RegType::kGeneral);
       }
-      if (reg_counter.RegCountAt(pos, RegType::kXmm) >= params_copy.simd_reg_limit) {
+      if (reg_counter.RegCountAt(pos, RegType::kXmm) >= params_.simd_reg_limit) {
         UnmapOlderThan(bb, pos, RegType::kXmm);
       }
 
@@ -103,9 +107,8 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(
           if (lifetime.reg_type == RegType::kUnknown) {
             continue;
           }
-          const size_t kLimit = lifetime.reg_type == RegType::kGeneral
-                                    ? params_copy.general_reg_limit
-                                    : params_copy.simd_reg_limit;
+          const size_t kLimit = lifetime.reg_type == RegType::kGeneral ? params_.general_reg_limit
+                                                                       : params_.simd_reg_limit;
           std::optional<size_t> pos_over_limit =
               reg_counter.UpdateLastUse(src_reg, std::next(insn_it), pos + 1, kLimit);
 
@@ -120,6 +123,42 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses(
       }
     }
   }
+}
+
+bool LocalGuestContextOptimizer::EligibleForGlobalOpt(const MachineBasicBlockList& nonloop_nodes,
+                                                      MachineBasicBlock* bb) {
+  if (!Contains(nonloop_nodes, bb)) {
+    return false;
+  }
+  for (auto in_edge : bb->in_edges()) {
+    MachineBasicBlock* pred = in_edge->src();
+    if (!Contains(nonloop_nodes, pred)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+void LocalGuestContextOptimizer::InitMemRegMapFromPreds(MachineBasicBlock* bb) {
+  MemRegUsageMap& mem_reg_map = GetContextMapping(bb).mem_reg_map;
+  if (bb->in_edges().size() == 1) {
+    auto* pred_bb = bb->in_edges().front()->src();
+    auto& pred_mem_reg_map = GetContextMapping(pred_bb).mem_reg_map;
+    for (size_t i = 0; i < pred_mem_reg_map.size(); i++) {
+      if (pred_mem_reg_map.at(i).has_value()) {
+        MappedValue val = pred_mem_reg_map.at(i).value().value;
+        if (std::holds_alternative<MachineReg>(val)) {
+          mem_reg_map[i] = {
+              MappedRegUsage{PredecessorReg{std::get<MachineReg>(val)}, std::nullopt}};
+        } else if (std::holds_alternative<uint64_t>(val)) {
+          // In constant case we can just use the same mapping.
+          mem_reg_map[i] = {MappedRegUsage{val, std::nullopt}};
+        }
+        // We don't handle mapping through multiple basic blocks currently.
+      }
+    }
+  }
+  // TODO(b/449996703): handle two in_edges.
 }
 
 // Optimizes a GET instruction if possible by replacing with COPY, while
@@ -176,8 +215,8 @@ void LocalGuestContextOptimizer::ReplacePutAndUpdateMap(MachineBasicBlock* bb,
 
 void RemoveLocalGuestContextAccesses(x86_64::MachineIR* machine_ir,
                                      const OptimizeLocalParams& params) {
-  LocalGuestContextOptimizer optimizer(machine_ir);
-  optimizer.RemoveLocalGuestContextAccesses(params);
+  LocalGuestContextOptimizer optimizer(machine_ir, params);
+  optimizer.RemoveLocalGuestContextAccesses();
 }
 
 }  // namespace berberis::x86_64
