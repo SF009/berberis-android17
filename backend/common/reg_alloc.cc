@@ -132,11 +132,12 @@ bool HardRegAllocation::TryAssign(VRegLifetime* new_lifetime) {
   return true;
 }
 
-int HardRegAllocation::ConsiderSpill(VRegLifetime* new_lifetime) {
+std::tuple<int, SplitKind> HardRegAllocation::ConsiderSpill(VRegLifetime* new_lifetime) {
   CHECK_EQ(new_lifetime_, new_lifetime);
 
   spills_.clear();
   int weight = 0;
+  SplitKind combined_split_kind = SPLIT_OK;
 
   for (auto curr = lifetimes_.begin(); curr != lifetimes_.end(); ++curr) {
     VRegLifetime* curr_lifetime = *curr;
@@ -150,14 +151,17 @@ int HardRegAllocation::ConsiderSpill(VRegLifetime* new_lifetime) {
     SplitKind split_kind = curr_lifetime->FindSplitPos(new_lifetime->begin(), &split_pos);
     if (split_kind == SPLIT_IMPOSSIBLE) {
       // Lifetimes interfere in such a way that spill is not possible.
-      return kInfiniteSpillWeight;
+      return {kInfiniteSpillWeight, SPLIT_IMPOSSIBLE};
     } else if (split_kind == SPLIT_CONFLICT) {
       // An access within this lifetime conflicts with first access in 'new_lifetime'.
       // If we spill it, it will compete with 'new_lifetime' at reallocation,
       // and if it can only use register suitable for 'new_lifetime' as well,
       // 'new_lifetime' can be evicted back, resulting in double spill.
       if (curr_lifetime->GetRegClass()->IsSubsetOf(new_lifetime->GetRegClass())) {
-        return kInfiniteSpillWeight;
+        return {kInfiniteSpillWeight, SPLIT_IMPOSSIBLE};
+      }
+      if (combined_split_kind == SPLIT_OK) {
+        combined_split_kind = SPLIT_CONFLICT;
       }
     }
 
@@ -170,7 +174,7 @@ int HardRegAllocation::ConsiderSpill(VRegLifetime* new_lifetime) {
   }
 
   CHECK_LT(weight, kInfiniteSpillWeight);
-  return weight;
+  return {weight, combined_split_kind};
 }
 
 
@@ -213,7 +217,7 @@ VRegLifetimeAllocator::VRegLifetimeAllocator(MachineIR* machine_ir, VRegLifetime
           config::kMaxHardRegs, HardRegAllocation(machine_ir->arena()), machine_ir->arena()) {}
 
 int VRegLifetimeAllocator::ConsiderSpillHardReg(MachineReg hard_reg, VRegLifetime* lifetime) {
-  return allocations_[hard_reg.reg()].ConsiderSpill(lifetime);
+  return std::get<0>(allocations_[hard_reg.reg()].ConsiderSpill(lifetime));
 }
 
 bool VRegLifetimeAllocator::TryAssignHardReg(VRegLifetime* curr_lifetime, MachineReg hard_reg) {
