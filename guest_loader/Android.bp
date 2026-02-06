@@ -64,8 +64,8 @@ cc_defaults {
     host_supported: true,
     srcs: [":_libberberis_guest_loader_srcs"],
     header_libs: [
-        "_libberberis_guest_loader_private_headers",
         "//frameworks/libs/native_bridge_support:native_bridge_guest_linker_headers",
+        "_libberberis_guest_loader_private_headers",
         "libberberis_base_headers",
         "libberberis_guest_abi_headers",
         "libberberis_guest_loader_headers",

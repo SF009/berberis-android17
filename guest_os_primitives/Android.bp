@@ -112,13 +112,13 @@ cc_defaults {
         },
     },
     header_libs: [
+        "//frameworks/libs/native_bridge_support:native_bridge_guest_linker_headers",
         "libberberis_base_headers",
         "libberberis_guest_os_primitives_headers",
         "libberberis_guest_state_headers",
         "libberberis_instrument_headers",
         "libberberis_runtime_headers",
         "libberberis_runtime_primitives_headers",
-        "//frameworks/libs/native_bridge_support:native_bridge_guest_linker_headers",
     ],
     export_header_lib_headers: ["libberberis_guest_os_primitives_headers"],
     include_dirs: [

@@ -135,11 +135,11 @@ cc_test_library {
     srcs: ["code_gen_lib_riscv64_test.cc"],
     static_libs: ["libberberis_code_gen_lib_riscv64"],
     header_libs: [
+        "berberis_test_utils_headers",
         "libberberis_base_headers",
         "libberberis_guest_abi_riscv64_headers",
         "libberberis_guest_state_headers",
         "libberberis_runtime_primitives_headers",
-        "berberis_test_utils_headers",
     ],
     shared: {
         enabled: false,

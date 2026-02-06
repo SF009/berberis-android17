@@ -42,8 +42,8 @@ cc_defaults {
         "libberberis_base_headers",
         "libberberis_guest_abi_headers",
         "libberberis_guest_state_headers",
-        "libberberis_runtime_primitives_headers",
         "libberberis_native_activity_headers",
+        "libberberis_runtime_primitives_headers",
     ],
     export_header_lib_headers: [
         "libberberis_guest_state_headers",
