@@ -73,8 +73,8 @@ cc_library_static {
     host_supported: true,
     header_libs: [
         "libberberis_base_headers",
-        "libberberis_guest_state_headers",
         "libberberis_guest_os_primitives_headers",
+        "libberberis_guest_state_headers",
         "libberberis_runtime_headers",
         "libberberis_runtime_primitives_headers",
     ],
