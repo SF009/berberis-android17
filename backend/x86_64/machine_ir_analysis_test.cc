@@ -156,7 +156,34 @@ TEST(MachineIRAnalysis, MultipleBackEdges) {
   CheckLoopContent(loop, {bb2, bb3, bb4});
 }
 
-TEST(MachineIRAnalysis, TwoLoops) {
+TEST(MachineIRAnalysis, NoLoop) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  // bb1 -> bb2 -> bb3
+  auto bb1 = machine_ir.NewBasicBlock();
+  auto bb2 = machine_ir.NewBasicBlock();
+  auto bb3 = machine_ir.NewBasicBlock();
+  machine_ir.AddEdge(bb1, bb2);
+  machine_ir.AddEdge(bb2, bb3);
+
+  builder.StartBasicBlock(bb1);
+  builder.Gen<Branch>(bb2);
+
+  builder.StartBasicBlock(bb2);
+  builder.Gen<Branch>(bb3);
+
+  builder.StartBasicBlock(bb3);
+  builder.Gen<Jump>(kNullGuestAddr);
+
+  ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+  auto loops = x86_64::FindLoops(&machine_ir);
+  EXPECT_TRUE(loops.empty());
+}
+
+TEST(MachineIRAnalysis, TwoNestedLoops) {
   Arena arena;
   x86_64::MachineIR machine_ir(&arena);
 
@@ -201,6 +228,54 @@ TEST(MachineIRAnalysis, TwoLoops) {
   CheckLoopContent(loop1, {bb1, bb2, bb3, bb4});
   auto loop2 = loops[1];
   CheckLoopContent(loop2, {bb2, bb3});
+}
+
+TEST(MachineIRAnalysis, TwoSeparateLoops) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  // bb0 -> bb3 <-> bb4 -> bb1 <-> bb2 -> bb5
+  auto bb0 = machine_ir.NewBasicBlock();
+  auto bb1 = machine_ir.NewBasicBlock();
+  auto bb2 = machine_ir.NewBasicBlock();
+  auto bb3 = machine_ir.NewBasicBlock();
+  auto bb4 = machine_ir.NewBasicBlock();
+  auto bb5 = machine_ir.NewBasicBlock();
+
+  machine_ir.AddEdge(bb0, bb3);
+  machine_ir.AddEdge(bb3, bb4);
+  machine_ir.AddEdge(bb4, bb3);  // Back-edge for loop {bb3, bb4}
+  machine_ir.AddEdge(bb4, bb1);
+  machine_ir.AddEdge(bb1, bb2);
+  machine_ir.AddEdge(bb2, bb1);  // Back-edge for loop {bb1, bb2}
+  machine_ir.AddEdge(bb2, bb5);
+
+  builder.StartBasicBlock(bb0);
+  builder.Gen<Branch>(bb3);
+  builder.StartBasicBlock(bb1);
+  builder.Gen<Branch>(bb2);
+  builder.StartBasicBlock(bb2);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb1, bb5, x86_64::kMachineRegFLAGS);
+  builder.StartBasicBlock(bb3);
+  builder.Gen<Branch>(bb4);
+  builder.StartBasicBlock(bb4);
+  builder.Gen<CondBranch>(CodeEmitter::Condition::kZero, bb3, bb1, x86_64::kMachineRegFLAGS);
+  builder.StartBasicBlock(bb5);
+  builder.Gen<Jump>(kNullGuestAddr);
+
+  ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+  auto loops = x86_64::FindLoops(&machine_ir);
+  EXPECT_EQ(loops.size(), 2UL);
+
+  // The order of loops in the result vector depends on the header ID due to sorting of back-edges.
+  // We check the loops without relying on a specific order in the returned vector.
+  if (loops[0]->at(0) == bb3) {
+    std::swap(loops[0], loops[1]);
+  }
+  CheckLoopContent(loops[0], {bb1, bb2});
+  CheckLoopContent(loops[1], {bb3, bb4});
 }
 
 TEST(MachineIRAnalysis, LoopTreeInsertLoop) {
