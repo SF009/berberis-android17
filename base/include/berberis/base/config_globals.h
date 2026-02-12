@@ -79,6 +79,7 @@ enum ConfigFlag {
   // current region. Instead we dispatch to another region. Also
   // disables loops (back jumps).
   kDisableLinkJumpsWithinRegion,
+  kGlobalContextOptimization,
   kNumConfigFlags
 };
 
