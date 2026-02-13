@@ -215,7 +215,6 @@ cc_library_shared {
                 "libberberis_native_bridge_riscv64",
             ],
             shared_libs: [
-                "libandroid",
                 "libdl_android",
             ],
         },
