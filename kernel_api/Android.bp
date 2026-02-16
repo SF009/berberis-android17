@@ -128,3 +128,89 @@ cc_library_static {
     ],
     export_header_lib_headers: ["libberberis_kernel_api_headers"],
 }
+
+cc_library_static {
+    name: "libberberis_kernel_api_arm_or_arm64",
+    defaults: [
+        "berberis_guest_agnostic_defaults",
+    ],
+    host_supported: true,
+    header_libs: [
+        "libberberis_base_headers",
+        "libberberis_guest_abi_arm_or_arm64_headers",
+        "libberberis_guest_os_primitives_headers",
+        "libberberis_guest_os_primitives_arm_or_arm64_headers",
+        "libberberis_guest_state_arm_or_arm64_headers",
+        "libberberis_instrument_headers",
+        "libberberis_kernel_api_headers",
+        "libberberis_runtime_primitives_headers",
+    ],
+    whole_static_libs: [
+        "libberberis_kernel_api_common",
+    ],
+    export_header_lib_headers: ["libberberis_kernel_api_headers"],
+    multilib: {
+        lib32: {
+            srcs: [
+                "arm/epoll_emulation.cc",
+                "arm/fcntl_emulation.cc",
+                "arm/kernel_helpers.cc",
+                "arm/open_emulation.cc",
+                "arm/sys_ioctl_emulation.cc",
+                "arm/sys_ptrace_emulation.cc",
+                "arm/syscall_emulation.cc",
+                "arm/syscall_emulation_arch.cc",
+            ],
+            local_include_dirs: ["arm"],
+        },
+        lib64: {
+            srcs: [
+                "arm64/epoll_emulation.cc",
+                "arm64/open_emulation.cc",
+                "arm64/syscall_emulation_arch.cc",
+                "arm64/syscall_emulation.cc",
+            ],
+            local_include_dirs: ["arm64"],
+
+        },
+    },
+    target: {
+        linux_x86: {
+            // We need 32-bit functions here.  Suppress unconditional use of 64-bit offsets.
+            // Functions with 64-bit offsets are still available when used with "64" suffix.
+            //
+            // Note: this is actually only needed for host build since Android build system
+            // insists on defining _FILE_OFFSET_BITS=64 for host-host binaries.
+            //
+            // _FILE_OFFSET_BITS is NOT defined when we are building target-host binaries.
+            cflags: ["-U_FILE_OFFSET_BITS"],
+        },
+    },
+
+}
+
+cc_library_static {
+    name: "libberberis_emulated_kernel_api_checker_arm_or_arm64",
+    defaults: [
+        "berberis_guest_agnostic_defaults",
+    ],
+    host_supported: false,
+    srcs: [
+        "emulated_api_checker.cc",
+    ],
+    header_libs: [
+        "libberberis_base_headers",
+        "libberberis_guest_os_primitives_headers",
+        "libberberis_guest_os_primitives_arm_or_arm64_headers",
+        "libberberis_guest_state_arm_or_arm64_headers",
+        "libberberis_runtime_primitives_headers",
+    ],
+    multilib: {
+        lib32: {
+            local_include_dirs: ["arm"],
+        },
+        lib64: {
+            local_include_dirs: ["arm64"],
+        },
+    },
+}
