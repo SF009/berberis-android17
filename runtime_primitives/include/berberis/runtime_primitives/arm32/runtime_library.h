@@ -34,6 +34,9 @@ namespace berberis {
 // Syntax sugar, cannot use constexpr because of reinterpret_cast.
 inline const auto kEntryUnpredictable = AsHostCodeAddr(AsHostCode(berberis_entry_Unpredictable));
 
+uint32_t GetFPEnvironment(uint32_t fpflags);
+uint32_t SetFPEnvironment(uint32_t val);
+
 }  // namespace berberis
 
 #endif  // BERBERIS_RUNTIME_PRIMITIVES_ARM32_RUNTIME_LIBRARY_H_
