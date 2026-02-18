@@ -110,7 +110,7 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses() {
           const size_t kLimit = lifetime.reg_type == RegType::kGeneral ? params_.general_reg_limit
                                                                        : params_.simd_reg_limit;
           std::optional<size_t> pos_over_limit =
-              reg_counter.UpdateLastUse(src_reg, std::next(insn_it), pos + 1, kLimit);
+              reg_counter.UpdateLastUse(src_reg, pos + 1, kLimit);
 
           // Now, with the prolonged lifetime, the pressure may be reaching the
           // limit at one of the previous instructions. If that happens, cancel
