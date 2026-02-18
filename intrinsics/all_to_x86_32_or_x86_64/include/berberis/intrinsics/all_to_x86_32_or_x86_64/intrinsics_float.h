@@ -176,7 +176,7 @@ inline Float32 FPRound(const Float32& value, int round_control);
 inline Float64 FPRound(const Float64& value, int round_control);
 
 template <typename FloatType>
-inline WrappedFloatType<FloatType> FPRoundTiesAway(WrappedFloatType<FloatType> value) {
+inline WrappedFloatType<FloatType> FPRoundTiesAwayPositive(WrappedFloatType<FloatType> value) {
   // Since x86 does not support this rounding mode exactly, we must manually handle the
   // tie-aways (from ±x.5).
   WrappedFloatType<FloatType> value_rounded_up = FPRound(value, FE_UPWARD);
@@ -185,13 +185,8 @@ inline WrappedFloatType<FloatType> FPRoundTiesAway(WrappedFloatType<FloatType> v
   // large to have fraction parts. We don't care because for such numbers all three possible FPRound
   // calls above and below produce the exact same result (which is the same as original value).
   if (value == value_rounded_up - WrappedFloatType<FloatType>{0.5f}) {
-    if (SignBit(value)) {
-      // If value is negative then FE_TIESAWAY acts as FE_DOWNWARD.
-      return FPRound(value, FE_DOWNWARD);
-    } else {
-      // If value is negative then FE_TIESAWAY acts as FE_UPWARD.
-      return value_rounded_up;
-    }
+    // If value is positive then FE_TIESAWAY acts as FE_UPWARD.
+    return value_rounded_up;
   }
   // Otherwise FE_TIESAWAY acts as FE_TONEAREST.
   return FPRound(value, FE_TONEAREST);
@@ -218,7 +213,7 @@ inline Float32 FPRound(const Float32& value, int round_control) {
       asm volatile("roundss $3,%1,%0" : "=x"(result) : "x"(result));
       break;
     case FE_TIESAWAY:
-      return FPRoundTiesAway(value);
+      return CopySignBit(FPRoundTiesAwayPositive(Absolute(value)), value);
     default:
       FATAL("Internal error: unknown round_control in FPRound!");
   }
@@ -246,7 +241,7 @@ inline Float64 FPRound(const Float64& value, int round_control) {
       asm volatile("roundsd $3,%1,%0" : "=x"(result) : "x"(result));
       break;
     case FE_TIESAWAY:
-      return FPRoundTiesAway(value);
+      return CopySignBit(FPRoundTiesAwayPositive(Absolute(value)), value);
     default:
       FATAL("Internal error: unknown round_control in FPRound!");
   }
