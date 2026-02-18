@@ -21,6 +21,7 @@
 
 namespace berberis::x86_64 {
 
+bool CheckSSA(MachineIR* machine_ir);
 void LowerSSAInstructions(MachineIR* machine_ir);
 
 }  // namespace berberis::x86_64
