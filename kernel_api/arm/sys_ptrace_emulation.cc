@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 The Android Open Source Project
+ * Copyright (C) 2018 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,25 @@
  * limitations under the License.
  */
 
-#ifndef BERBERIS_BACKEND_X86_64_LOWER_SSA_INSTRUCTIONS_H_
-#define BERBERIS_BACKEND_X86_64_LOWER_SSA_INSTRUCTIONS_H_
+#include "berberis/kernel_api/sys_ptrace_emulation.h"
 
-#include "berberis/backend/x86_64/machine_ir.h"
+#include <errno.h>
 
-namespace berberis::x86_64 {
+#include <tuple>
 
-bool CheckSSA(MachineIR* machine_ir);
-void LowerSSAInstructions(MachineIR* machine_ir);
+#include "berberis/base/tracing.h"
 
-}  // namespace berberis::x86_64
+namespace berberis {
 
-#endif  // BERBERIS_BACKEND_X86_64_LOWER_SSA_INSTRUCTIONS_H_
+std::tuple<bool, int> PtraceForGuestArch(int request, pid_t, void*, void*) {
+  constexpr int ARM_PTRACE_GETHBPREGS = 29;
+  if (request == ARM_PTRACE_GETHBPREGS) {
+    // Pretend hardware breakpoints are not supported.
+    TRACE("not supported: ptrace(PTRACE_GETHBPREGS, ...)");
+    errno = EIO;
+    return {true, -1};
+  }
+  return {false, -1};
+}
+
+}  // namespace berberis

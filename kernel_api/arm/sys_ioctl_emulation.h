@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 The Android Open Source Project
+ * Copyright (C) 2014 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,13 @@
  * limitations under the License.
  */
 
-#ifndef BERBERIS_BACKEND_X86_64_LOWER_SSA_INSTRUCTIONS_H_
-#define BERBERIS_BACKEND_X86_64_LOWER_SSA_INSTRUCTIONS_H_
+#ifndef BERBERIS_KERNEL_API_SYS_IOCTL_EMULATION_H_
+#define BERBERIS_KERNEL_API_SYS_IOCTL_EMULATION_H_
 
-#include "berberis/backend/x86_64/machine_ir.h"
+namespace berberis {
 
-namespace berberis::x86_64 {
+int IoCtlForGuest(long d, long request, long arg);
 
-bool CheckSSA(MachineIR* machine_ir);
-void LowerSSAInstructions(MachineIR* machine_ir);
+}  // namespace berberis
 
-}  // namespace berberis::x86_64
-
-#endif  // BERBERIS_BACKEND_X86_64_LOWER_SSA_INSTRUCTIONS_H_
+#endif  // BERBERIS_KERNEL_API_SYS_IOCTL_EMULATION_H_

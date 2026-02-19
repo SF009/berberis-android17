@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 The Android Open Source Project
+ * Copyright (C) 2024 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-#ifndef BERBERIS_BACKEND_X86_64_LOWER_SSA_INSTRUCTIONS_H_
-#define BERBERIS_BACKEND_X86_64_LOWER_SSA_INSTRUCTIONS_H_
+#include <sys/stat.h>
 
-#include "berberis/backend/x86_64/machine_ir.h"
+#include "berberis/guest_state/guest_addr.h"
 
-namespace berberis::x86_64 {
+namespace berberis {
 
-bool CheckSSA(MachineIR* machine_ir);
-void LowerSSAInstructions(MachineIR* machine_ir);
+void ConvertHostStatToGuestArch(const struct stat& host_stat, GuestAddr guest_addr) {
+  // Stat is compatible, just copy over.
+  *ToHostAddr<struct stat>(guest_addr) = host_stat;
+}
 
-}  // namespace berberis::x86_64
-
-#endif  // BERBERIS_BACKEND_X86_64_LOWER_SSA_INSTRUCTIONS_H_
+}  // namespace berberis
