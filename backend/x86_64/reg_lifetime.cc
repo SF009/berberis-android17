@@ -39,7 +39,6 @@ size_t RegLifetimeCounter::RegCountAt(size_t pos, RegType reg_type) const {
 }
 
 std::optional<size_t> RegLifetimeCounter::UpdateLastUse(MachineReg reg,
-                                                        MachineInsnList::iterator end,
                                                         size_t end_pos,
                                                         const size_t kLimit) {
   CHECK(LifetimeAt(reg).has_value());
@@ -61,7 +60,6 @@ std::optional<size_t> RegLifetimeCounter::UpdateLastUse(MachineReg reg,
     }
   }
 
-  lifetime.end = end;
   lifetime.end_pos = end_pos;
   return ret;
 }
@@ -73,8 +71,6 @@ void RegLifetimeCounter::CountRegLifetimeMap(MachineBasicBlock* bb) {
   for (auto reg : bb->live_in()) {
     if (reg.IsVReg()) {
       lifetime_map_[reg.GetVRegIndex()] = RegLifetime{
-          .start = LiveIn{},
-          .end = bb->insn_list().begin(),
           .start_pos = 0,
           .end_pos = 0,
           .reg_type = RegType::kUnknown,
@@ -89,15 +85,9 @@ void RegLifetimeCounter::CountRegLifetimeMap(MachineBasicBlock* bb) {
   //   ADD v1 v2
   //   ... # Here v1 can actually be discarded but our algorithm considers it alive.
   //   v1 = 5
-  std::variant<LiveOut, MachineInsnList::iterator> next_insn;
   size_t pos = 0;
   for (auto insn_it = bb->insn_list().begin(); insn_it != bb->insn_list().end(); insn_it++, pos++) {
     auto insn = *insn_it;
-    if (std::next(insn_it) == bb->insn_list().end()) {
-      next_insn.emplace<LiveOut>(LiveOut{});
-    } else {
-      next_insn.emplace<MachineInsnList::iterator>(std::next(insn_it));
-    }
     for (int i = 0; i < insn->NumRegOperands(); i++) {
       // Skip flags register.
       if (insn->RegKindAt(i).RegClass()->IsSubsetOf(&kFLAGS)) {
@@ -111,13 +101,11 @@ void RegLifetimeCounter::CountRegLifetimeMap(MachineBasicBlock* bb) {
       }
       if (!LifetimeAt(reg).has_value()) {
         lifetime_map_[reg.GetVRegIndex()] = RegLifetime{
-            .start = insn_it,
             .start_pos = pos,
             .reg_type = RegType::kUnknown,
         };
       }
       auto& lifetime = lifetime_map_.at(reg.GetVRegIndex()).value();
-      lifetime.end = next_insn;
       lifetime.end_pos = pos + 1;
       // Update RegType if still unknown. Note that it's also set to unknown
       // when LiveIn.
@@ -139,7 +127,6 @@ void RegLifetimeCounter::CountRegLifetimeMap(MachineBasicBlock* bb) {
     if (reg.IsVReg()) {
       CHECK(LifetimeAt(reg).has_value());
       auto& lifetime = lifetime_map_[reg.GetVRegIndex()].value();
-      lifetime.end = LiveOut{};
       lifetime.end_pos = pos;
     }
   }

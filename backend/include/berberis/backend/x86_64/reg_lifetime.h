@@ -33,16 +33,12 @@ enum class RegType {
   kXmm,
 };
 
-struct LiveIn {};
-struct LiveOut {};
 // Note that we treat each instruction as one unit but if we wanted to more
 // accurately mimic what the register allocator does, we should separate
 // the instruction into two parts: read and write.
 // If a register's lifetime ends on an instruction where it's only read, we can
 // actually reuse that register for the write portion so we are overcounting.
 struct RegLifetime {
-  std::variant<LiveIn, MachineInsnList::iterator> start;
-  std::variant<LiveOut, MachineInsnList::iterator> end;
   // start_pos is first instruction where lifetime begins.
   size_t start_pos;
   // end_pos is one past last instruction where lifetime ends.
@@ -77,11 +73,8 @@ class RegLifetimeCounter {
     return GetMap().at(reg.GetVRegIndex());
   }
   size_t RegCountAt(size_t pos, RegType reg_type) const;
-  // Sets last use of reg to end and end_pos, updating both the map and counts.
-  std::optional<size_t> UpdateLastUse(MachineReg reg,
-                                      MachineInsnList::iterator end,
-                                      size_t end_pos,
-                                      const size_t kLimit);
+  // Sets last use of reg to end_pos, updating both the map and counts.
+  std::optional<size_t> UpdateLastUse(MachineReg reg, size_t end_pos, const size_t kLimit);
 
   const RegLifetimeMap& GetMap() const { return lifetime_map_; }
   const RegLifetimeCounts& GetCounts() const { return lifetime_counts_; }
