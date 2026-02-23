@@ -167,16 +167,10 @@ SplitKind VRegLifetime::FindSplitPos(int begin, SplitPos* pos) {
         continue;
       }
 
-      if (access_it->begin() < begin) {
-        // Future tiny lifetime starts before but ends after 'begin'.
-        // Problematic case we don't allow.
-        return SPLIT_IMPOSSIBLE;
-      }
-
       // Future tiny lifetime starts at or after 'begin'.
       pos->range_it = range_it;
       pos->access_it = access_it;
-      return access_it->begin() == begin ? SPLIT_CONFLICT : SPLIT_OK;
+      return access_it->begin() <= begin ? SPLIT_CONFLICT : SPLIT_OK;
     }
   }
 

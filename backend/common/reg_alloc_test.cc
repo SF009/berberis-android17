@@ -44,6 +44,8 @@ MATCHER_P2(MatchesLifetime, begin, end, "") {
 // The bitmask has bit 'i' set if register 'i' is in the class.
 const MachineRegClass kGPRRegClass = {"GPR", 8, 0b0110, 2, {MachineReg{1}, MachineReg{2}}};
 const MachineRegClass kFPRegClass = {"FP", 8, 0b11000, 2, {MachineReg{3}, MachineReg{4}}};
+const MachineRegClass kNarrowRegClass = {"Narrow", 8, 0b0010, 1, {MachineReg{1}}};
+const MachineRegClass kWideRegClass = {"Wide", 8, 0b0110, 2, {MachineReg{1}, MachineReg{2}}};
 
 class MockMachineInsn : public MachineInsn {
  public:
@@ -82,18 +84,14 @@ class RegAllocTest : public ::testing::Test {
                                int begin,
                                int end,
                                const MachineRegClass* reg_class = &kGPRRegClass) {
-    MachineReg vreg = MachineReg::CreateVRegFromIndex(vreg_index);
-    auto* insn = machine_ir_.NewInsn<MockMachineInsn>(vreg, reg_class);
-    bb_->insn_list().push_back(insn);
-    MachineInsnListPosition pos(&bb_->insn_list(), std::prev(bb_->insn_list().end()));
-    // Pos 0 in MockMachineInsn describes the DEF access.
-    VRegAccess access1(pos, 0, begin, begin + 1);
-    // Pos 1 in MockMachineInsn describes the USE access.
-    VRegAccess access2(pos, 1, end - 1, end);
-    auto* lifetime = NewInArena<VRegLifetime>(&arena_, &arena_, access1.begin());
-    lifetime->AppendAccess(access1);
-    lifetime->AppendAccess(access2);
-    return lifetime;
+    return CreateLifetimeImpl(vreg_index, reg_class, begin, begin + 1, end - 1, end);
+  }
+
+  VRegLifetime* CreateLifetimeWithLongAccess(int vreg_index,
+                                             int begin,
+                                             int end,
+                                             const MachineRegClass* reg_class = &kGPRRegClass) {
+    return CreateLifetimeImpl(vreg_index, reg_class, begin, begin + 2, end - 2, end);
   }
 
   VRegLifetime* CreateLifetimeWithAccess(int vreg_index,
@@ -112,6 +110,28 @@ class RegAllocTest : public ::testing::Test {
     return lifetime;
   }
 
+ private:
+  VRegLifetime* CreateLifetimeImpl(int vreg_index,
+                                   const MachineRegClass* reg_class,
+                                   int first_access_begin,
+                                   int first_access_end,
+                                   int second_access_begin,
+                                   int second_access_end) {
+    MachineReg vreg = MachineReg::CreateVRegFromIndex(vreg_index);
+    auto* insn = machine_ir_.NewInsn<MockMachineInsn>(vreg, reg_class);
+    bb_->insn_list().push_back(insn);
+    MachineInsnListPosition pos(&bb_->insn_list(), std::prev(bb_->insn_list().end()));
+    // Pos 0 in MockMachineInsn describes the DEF access.
+    VRegAccess access1(pos, 0, first_access_begin, first_access_end);
+    // Pos 1 in MockMachineInsn describes the USE access.
+    VRegAccess access2(pos, 1, second_access_begin, second_access_end);
+    auto* lifetime = NewInArena<VRegLifetime>(&arena_, &arena_, access1.begin());
+    lifetime->AppendAccess(access1);
+    lifetime->AppendAccess(access2);
+    return lifetime;
+  }
+
+ protected:
   Arena arena_;
   MachineIR machine_ir_;
   MachineBasicBlock* bb_;
@@ -192,10 +212,6 @@ TEST_F(RegAllocTest, HardRegAllocation_ConsiderSpill_SplitConflict_Unresolvable)
 TEST_F(RegAllocTest, HardRegAllocation_ConsiderSpill_SplitConflict_Resolvable) {
   HardRegAllocation hard_reg_allocation(&arena_);
 
-  static const MachineRegClass kWideRegClass = {
-      "Wide", 8, 0b0110, 2, {MachineReg{1}, MachineReg{2}}};
-  static const MachineRegClass kNarrowRegClass = {"Narrow", 8, 0b0010, 1, {MachineReg{1}}};
-
   // Lifetime 1: Wide class. Assigned to R1.
   VRegLifetime* lifetime1 = CreateLifetime(0, 10, 20, &kWideRegClass);
   EXPECT_TRUE(hard_reg_allocation.TryAssign(lifetime1));
@@ -221,19 +237,15 @@ TEST_F(RegAllocTest, HardRegAllocation_ConsiderSpill_Priorities) {
   // Scenario 1: OK + CONFLICT (Resolvable) -> CONFLICT
   {
     HardRegAllocation hra(&arena_);
-    // L1: [15, 25). Access [15, 16).
-    // Disjoint from L2. Intersects New.
+    // L1: [0, 5). Disjoint from L2 and New. Assigned to same hard reg as L2.
     // Split at 5 (New start) -> OK (no access at 5).
-    VRegLifetime* l1 = CreateLifetime(0, 15, 25);
+    VRegLifetime* l1 = CreateLifetime(0, 0, 5);
     EXPECT_TRUE(hra.TryAssign(l1));
 
-    // L2: [5, 15). Access [5, 6).
-    // Intersects New.
+    // L2: [5, 15). Access [5, 6). Intersects New.
     // Split at 5 -> CONFLICT (access at 5).
     // Use Wide/Narrow to make it resolvable.
-    static const MachineRegClass kWideRegClass = {
-        "Wide", 8, 0b0110, 2, {MachineReg{1}, MachineReg{2}}};
-    static const MachineRegClass kNarrowRegClass = {"Narrow", 8, 0b0010, 1, {MachineReg{1}}};
+    const MachineRegClass kWideRegClass = {"Wide", 8, 0b0110, 2, {MachineReg{1}, MachineReg{2}}};
     VRegLifetime* l2 = CreateLifetime(1, 5, 15, &kWideRegClass);
     EXPECT_TRUE(hra.TryAssign(l2));
 
@@ -249,18 +261,17 @@ TEST_F(RegAllocTest, HardRegAllocation_ConsiderSpill_Priorities) {
   // Scenario 2: OK + IMPOSSIBLE -> IMPOSSIBLE
   {
     HardRegAllocation hra(&arena_);
-    // L1: [15, 25). Access [15, 16).
-    // Split at 5 -> OK.
-    VRegLifetime* l1 = CreateLifetime(0, 15, 25);
+    // L1: [0, 5). Split at 5 -> OK.
+    VRegLifetime* l1 = CreateLifetime(0, 0, 5);
     EXPECT_TRUE(hra.TryAssign(l1));
 
-    // L3: [5, 15). Access [5, 6).
+    // L2: [5, 15). Access [5, 6).
     // Split at 5 -> IMPOSSIBLE (access at 5, Subset).
-    VRegLifetime* l3 = CreateLifetime(1, 5, 15);  // Default GPR
-    EXPECT_TRUE(hra.TryAssign(l3));
+    VRegLifetime* l2 = CreateLifetime(1, 5, 15);  // Default GPR
+    EXPECT_TRUE(hra.TryAssign(l2));
 
     // New: [5, 25).
-    // Intersects L1 (OK) and L3 (IMPOSSIBLE).
+    // Intersects L1 (OK) and L2 (IMPOSSIBLE).
     VRegLifetime* l_new = CreateLifetime(2, 5, 25);  // Default GPR
     EXPECT_FALSE(hra.TryAssign(l_new));
 
@@ -459,6 +470,41 @@ TEST_F(RegAllocTest, CoalesceLifetimes_MergeOrder) {
   // The resulting lifetime should be later lifetime2 (because it was first in list and
   // merged lifetime1).
   EXPECT_THAT(lifetime_list, ElementsAre(MatchesLifetime(10, 30)));
+}
+
+TEST_F(RegAllocTest, VRegLifetimeAllocator_Spill_SpilledLifetimeBeforeNew) {
+  // L1: [9, 30). Assigned to R1. First access [9, 11).
+  // Use kGPRRegClass to allow reallocation to R2 after spill.
+  VRegLifetime* l1 = CreateLifetimeWithLongAccess(0, 9, 30, &kGPRRegClass);
+  // L2: [10, 20). First access [10, 11). Wants R1.
+  VRegLifetime* l2 = CreateLifetime(1, 10, 20, &kNarrowRegClass);
+
+  // L2 evicts L1.
+  // L1 split creates spilled lifetime [9, 30) which is reallocated AFTER L2 (which starts at 10).
+  // This triggers the reallocation with slightly violated lifetime begin order.
+
+  VRegLifetimeList lifetime_list({*l1, *l2}, &arena_);
+
+  VRegLifetimeAllocator allocator(&machine_ir_, &lifetime_list);
+  allocator.Allocate();
+
+  auto it = lifetime_list.begin();
+  auto* l = &*it++;
+  // Original L1 is spilled and split from the beginning leaving an empty lifetime.
+  EXPECT_TRUE(l->IsEmpty());
+  EXPECT_EQ(l->hard_reg(), MachineReg{1});
+  EXPECT_NE(l->GetSpill(), -1);
+  l = &*it++;
+  EXPECT_EQ(l->begin(), 10);
+  EXPECT_EQ(l->end(), 20);
+  EXPECT_EQ(l->hard_reg(), MachineReg{1});
+  EXPECT_EQ(l->GetSpill(), -1);
+  l = &*it++;
+  // Split part of L1 is spilled (evicted) and reallocated to R2.
+  EXPECT_EQ(l->begin(), 9);
+  EXPECT_EQ(l->end(), 30);
+  EXPECT_EQ(l->hard_reg(), MachineReg{2});
+  EXPECT_NE(l->GetSpill(), -1);
 }
 
 }  // namespace

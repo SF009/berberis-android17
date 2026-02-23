@@ -77,6 +77,9 @@ class HardRegAllocation {
   // Lifetimes currently allocated to this hard register.
   VRegLifetimePtrList lifetimes_;
 
+  // Lifetimes ending before this point are erased from the list.
+  int active_lifetimes_begin_;
+
   // Last lifetime being allocated, for CHECKing.
   // TODO(b/232598137): probably use this for ConsiderSpill and SpillAndAssign?
   // This looks more natural...

@@ -102,22 +102,33 @@ VRegLifetimeSpill::VRegLifetimeSpill(VRegLifetimePtrList::iterator i, const Spli
     : lifetime(i), realloc_pos(p) {}
 
 HardRegAllocation::HardRegAllocation(Arena* arena)
-    : arena_(arena), lifetimes_(arena), new_lifetime_(nullptr), spills_(arena) {}
+    : arena_(arena),
+      lifetimes_(arena),
+      active_lifetimes_begin_(0),
+      new_lifetime_(nullptr),
+      spills_(arena) {}
 
 bool HardRegAllocation::TryAssign(VRegLifetime* new_lifetime) {
-  // TODO(b/232598137): had to disable the check below! The problem is that when
-  // new_lifetime_ is split so that there remains no live ranges, we can't
-  // call begin() for it. Seems this place requires some rethinking, as such
-  // case means we can simply reorder lifetimes instead of actually splitting...
-  // Check lifetimes are processed in order by increasing begin.
-  // CHECK(!new_lifetime_ || new_lifetime_->begin() <= new_lifetime->begin());
   new_lifetime_ = new_lifetime;
+
+  // Make sure we still have all the active lifetimes needed to correctly check the interference
+  // with new_lifetime.
+  CHECK_LE(active_lifetimes_begin_, new_lifetime->begin());
+  // For interference test efficiency we release lifetimes ending before new_lifetime, assuming the
+  // assignments are happening in sorted order for linear scan. There is one corner case though when
+  // to allocate new_lifetime we need to spill an access within the instruction where
+  // new_lifetime begins. In this case we would need to reallocate the spilled access
+  // that starts before new_lifetime. Since it's within the same instruction it can only be 1 tick
+  // behind.
+  // Technically active_lifetimes_begin_ may become -1, but it's fine, since it's signed int and
+  // lifetime begin positions are at least 0.
+  static_assert(std::is_signed_v<decltype(active_lifetimes_begin_)>);
+  active_lifetimes_begin_ = new_lifetime->begin() - 1;
 
   for (auto curr = lifetimes_.begin(); curr != lifetimes_.end();) {
     VRegLifetime* curr_lifetime = *curr;
 
-    if (curr_lifetime->end() <= new_lifetime->begin()) {
-      // Curr lifetime ends before new lifetime starts, expire it.
+    if (curr_lifetime->end() <= active_lifetimes_begin_) {
       curr = lifetimes_.erase(curr);
     } else if (curr_lifetime->TestInterference(*new_lifetime)) {
       // Lifetimes interfere, can't assign.
@@ -149,10 +160,7 @@ std::tuple<int, SplitKind> HardRegAllocation::ConsiderSpill(VRegLifetime* new_li
 
     SplitPos split_pos;
     SplitKind split_kind = curr_lifetime->FindSplitPos(new_lifetime->begin(), &split_pos);
-    if (split_kind == SPLIT_IMPOSSIBLE) {
-      // Lifetimes interfere in such a way that spill is not possible.
-      return {kInfiniteSpillWeight, SPLIT_IMPOSSIBLE};
-    } else if (split_kind == SPLIT_CONFLICT) {
+    if (split_kind == SPLIT_CONFLICT) {
       // An access within this lifetime conflicts with first access in 'new_lifetime'.
       // If we spill it, it will compete with 'new_lifetime' at reallocation,
       // and if it can only use register suitable for 'new_lifetime' as well,
