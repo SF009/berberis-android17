@@ -36,8 +36,7 @@ using VRegLifetimePtrList = ArenaList<VRegLifetime*>;
 struct VRegLifetimeSpill {
   VRegLifetimePtrList::iterator lifetime;
   SplitPos realloc_pos;
-
-  VRegLifetimeSpill(VRegLifetimePtrList::iterator i, const SplitPos& p);
+  SplitKind split_kind;
 };
 
 // Every possible spill should have some smaller weight (CHECKed).

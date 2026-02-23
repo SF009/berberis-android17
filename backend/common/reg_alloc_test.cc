@@ -32,8 +32,11 @@ void CoalesceLifetimes(VRegLifetimeList* lifetimes);
 
 namespace {
 
+using ::testing::_;
 using ::testing::AllOf;
 using ::testing::ElementsAre;
+using ::testing::FieldsAre;
+using ::testing::Ne;
 using ::testing::Property;
 
 MATCHER_P2(MatchesLifetime, begin, end, "") {
@@ -74,6 +77,65 @@ class MockMachineInsn : public MachineInsn {
 
   MachineReg regs_[2];
   MachineRegKind reg_kinds_[2];
+};
+
+class MockMachineTwoDefs : public MachineInsn {
+ public:
+  MockMachineTwoDefs(MachineReg reg1, const MachineRegClass* rc1,
+                     MachineReg reg2, const MachineRegClass* rc2)
+      : MachineInsn(static_cast<MachineOpcode>(0),
+                    2,
+                    reg_kinds_,
+                    regs_,
+                    kMachineInsnDefault),
+        regs_{reg1, reg2},
+        reg_kinds_{{rc1, MachineRegKind::kDef}, {rc2, MachineRegKind::kDef}} {}
+
+  std::string GetDebugString() const override { return "mock_two_defs"; }
+  void Emit(CodeEmitter*) const override {}
+
+ private:
+  friend MockMachineTwoDefs* NewInArena<MockMachineTwoDefs, const MockMachineTwoDefs&>(
+      Arena*, const MockMachineTwoDefs&);
+  MachineInsn* Clone(Arena* arena) const override {
+    return NewInArena<MockMachineTwoDefs>(arena, *this);
+  }
+  MachineInsnList Lower(Arena* arena) const override {
+    FATAL("Should not be called");
+    return MachineInsnList(arena);
+  }
+
+  MachineReg regs_[2];
+  MachineRegKind reg_kinds_[2];
+};
+
+class MockMachineOneUse : public MachineInsn {
+ public:
+  MockMachineOneUse(MachineReg reg, const MachineRegClass* rc)
+      : MachineInsn(static_cast<MachineOpcode>(0),
+                    1,
+                    reg_kinds_,
+                    regs_,
+                    kMachineInsnDefault),
+        regs_{reg},
+        reg_kinds_{{rc, MachineRegKind::kUse}} {}
+
+  std::string GetDebugString() const override { return "mock_one_use"; }
+  void Emit(CodeEmitter*) const override {}
+
+ private:
+  friend MockMachineOneUse* NewInArena<MockMachineOneUse, const MockMachineOneUse&>(
+      Arena*, const MockMachineOneUse&);
+  MachineInsn* Clone(Arena* arena) const override {
+    return NewInArena<MockMachineOneUse>(arena, *this);
+  }
+  MachineInsnList Lower(Arena* arena) const override {
+    FATAL("Should not be called");
+    return MachineInsnList(arena);
+  }
+
+  MachineReg regs_[1];
+  MachineRegKind reg_kinds_[1];
 };
 
 class RegAllocTest : public ::testing::Test {
@@ -172,24 +234,22 @@ TEST_F(RegAllocTest, HardRegAllocation_ConsiderSpill) {
   VRegLifetime* lifetime2 = CreateLifetime(1, 15, 25);
   EXPECT_FALSE(hard_reg_allocation.TryAssign(lifetime2));
   auto result = hard_reg_allocation.ConsiderSpill(lifetime2);
-  EXPECT_NE(std::get<0>(result), kInfiniteSpillWeight);
-  EXPECT_EQ(std::get<1>(result), SPLIT_OK);
+  EXPECT_THAT(result, FieldsAre(Ne(kInfiniteSpillWeight), SPLIT_OK));
 }
 
-TEST_F(RegAllocTest, HardRegAllocation_ConsiderSpill_SplitImpossible) {
+TEST_F(RegAllocTest, HardRegAllocation_ConsiderSpill_SplitConflict) {
   HardRegAllocation hard_reg_allocation(&arena_);
 
-  // Lifetime 1: access at [9, 11).
-  VRegLifetime* lifetime1 = CreateLifetimeWithAccess(0, 9, 11);
+  // Lifetime 1: access at [10, 11).
+  VRegLifetime* lifetime1 = CreateLifetimeWithAccess(0, 10, 11);
   EXPECT_TRUE(hard_reg_allocation.TryAssign(lifetime1));
 
-  // Lifetime 2: starts at 10.
-  VRegLifetime* lifetime2 = CreateLifetime(1, 10, 20);
+  // Lifetime 2: starts at 10. Narrow class to make the conflict resolvable.
+  VRegLifetime* lifetime2 = CreateLifetime(1, 10, 20, &kNarrowRegClass);
   EXPECT_FALSE(hard_reg_allocation.TryAssign(lifetime2));
 
   auto result = hard_reg_allocation.ConsiderSpill(lifetime2);
-  EXPECT_EQ(std::get<0>(result), kInfiniteSpillWeight);
-  EXPECT_EQ(std::get<1>(result), SPLIT_IMPOSSIBLE);
+  EXPECT_THAT(result, FieldsAre(Ne(kInfiniteSpillWeight), SPLIT_CONFLICT));
 }
 
 TEST_F(RegAllocTest, HardRegAllocation_ConsiderSpill_SplitConflict_Unresolvable) {
@@ -205,8 +265,7 @@ TEST_F(RegAllocTest, HardRegAllocation_ConsiderSpill_SplitConflict_Unresolvable)
 
   // Both have same reg class (GPR), so subset check passes (Unresolvable).
   auto result = hard_reg_allocation.ConsiderSpill(lifetime2);
-  EXPECT_EQ(std::get<0>(result), kInfiniteSpillWeight);
-  EXPECT_EQ(std::get<1>(result), SPLIT_IMPOSSIBLE);
+  EXPECT_THAT(result, FieldsAre(kInfiniteSpillWeight, SPLIT_IMPOSSIBLE));
 }
 
 TEST_F(RegAllocTest, HardRegAllocation_ConsiderSpill_SplitConflict_Resolvable) {
@@ -224,8 +283,45 @@ TEST_F(RegAllocTest, HardRegAllocation_ConsiderSpill_SplitConflict_Resolvable) {
   // Wide is NOT subset of Narrow.
   // Should be resolvable.
   auto result = hard_reg_allocation.ConsiderSpill(lifetime2);
-  EXPECT_NE(std::get<0>(result), kInfiniteSpillWeight);
-  EXPECT_EQ(std::get<1>(result), SPLIT_CONFLICT);
+  EXPECT_THAT(result, FieldsAre(Ne(kInfiniteSpillWeight), SPLIT_CONFLICT));
+}
+
+TEST_F(RegAllocTest, HardRegAllocation_ConsiderSpill_SplitConflictWithAccessSeparation) {
+  HardRegAllocation hard_reg_allocation(&arena_);
+
+  // Lifetime 1: overall reg class Narrow (intersection of Narrow and Wide).
+  // Access 1: [0, 5), Narrow (1 reg).
+  // Access 2: [10, 11), Wide (2 regs).
+  // Intersection is Narrow.
+  MachineReg vreg0 = MachineReg::CreateVRegFromIndex(0);
+  auto* insn1 = machine_ir_.NewInsn<MockMachineInsn>(vreg0, &kNarrowRegClass);
+  bb_->insn_list().push_back(insn1);
+  MachineInsnListPosition pos1(&bb_->insn_list(), std::prev(bb_->insn_list().end()));
+  VRegAccess access1(pos1, 0, 0, 5);
+
+  auto* insn2 = machine_ir_.NewInsn<MockMachineInsn>(vreg0, &kWideRegClass);
+  bb_->insn_list().push_back(insn2);
+  MachineInsnListPosition pos2(&bb_->insn_list(), std::prev(bb_->insn_list().end()));
+  VRegAccess access2(pos2, 0, 10, 11);
+
+  auto* lifetime1 = NewInArena<VRegLifetime>(&arena_, &arena_, access1.begin());
+  lifetime1->AppendAccess(access1);
+  lifetime1->AppendAccess(access2);
+
+  EXPECT_EQ(lifetime1->GetRegClass()->NumRegs(), kNarrowRegClass.NumRegs());
+
+  EXPECT_TRUE(hard_reg_allocation.TryAssign(lifetime1));
+
+  // Lifetime 2: Narrow (1 reg). Starts at 10.
+  // Conflicts with Access 2 of Lifetime 1.
+  VRegLifetime* lifetime2 = CreateLifetime(1, 10, 20, &kNarrowRegClass);
+  EXPECT_FALSE(hard_reg_allocation.TryAssign(lifetime2));
+
+  // Access 2 of Lifetime 1 is Wide (2 regs) > Lifetime 2 (1 reg).
+  // So it should be separable.
+  auto result = hard_reg_allocation.ConsiderSpill(lifetime2);
+  EXPECT_THAT(result, FieldsAre(Ne(kInfiniteSpillWeight),
+                                SPLIT_CONFLICT_WITH_ACCESS_SEPARATION));
 }
 
 TEST_F(RegAllocTest, HardRegAllocation_ConsiderSpill_Priorities) {
@@ -254,8 +350,7 @@ TEST_F(RegAllocTest, HardRegAllocation_ConsiderSpill_Priorities) {
     EXPECT_FALSE(hra.TryAssign(l_new));
 
     auto res = hra.ConsiderSpill(l_new);
-    EXPECT_NE(std::get<0>(res), kInfiniteSpillWeight);
-    EXPECT_EQ(std::get<1>(res), SPLIT_CONFLICT);
+    EXPECT_THAT(res, FieldsAre(Ne(kInfiniteSpillWeight), SPLIT_CONFLICT));
   }
 
   // Scenario 2: OK + IMPOSSIBLE -> IMPOSSIBLE
@@ -276,8 +371,7 @@ TEST_F(RegAllocTest, HardRegAllocation_ConsiderSpill_Priorities) {
     EXPECT_FALSE(hra.TryAssign(l_new));
 
     auto res = hra.ConsiderSpill(l_new);
-    EXPECT_EQ(std::get<0>(res), kInfiniteSpillWeight);
-    EXPECT_EQ(std::get<1>(res), SPLIT_IMPOSSIBLE);
+    EXPECT_THAT(res, FieldsAre(kInfiniteSpillWeight, SPLIT_IMPOSSIBLE));
   }
 }
 
@@ -290,7 +384,8 @@ TEST_F(RegAllocTest, HardRegAllocation_SpillAndAssign) {
 
   EXPECT_TRUE(hard_reg_allocation.TryAssign(lifetime1));
   EXPECT_FALSE(hard_reg_allocation.TryAssign(lifetime2));
-  EXPECT_NE(std::get<0>(hard_reg_allocation.ConsiderSpill(lifetime2)), kInfiniteSpillWeight);
+  EXPECT_THAT(hard_reg_allocation.ConsiderSpill(lifetime2),
+              FieldsAre(Ne(kInfiniteSpillWeight), _));
 
   auto it = std::next(lifetime_list.begin());
 
@@ -505,6 +600,63 @@ TEST_F(RegAllocTest, VRegLifetimeAllocator_Spill_SpilledLifetimeBeforeNew) {
   EXPECT_EQ(l->end(), 30);
   EXPECT_EQ(l->hard_reg(), MachineReg{2});
   EXPECT_NE(l->GetSpill(), -1);
+}
+
+TEST_F(RegAllocTest, VRegLifetimeAllocator_SplitConflictingNarrowLifetime) {
+  MachineReg v1 = MachineReg::CreateVRegFromIndex(0);
+  MachineReg v2 = MachineReg::CreateVRegFromIndex(1);
+
+  auto* insn1 = machine_ir_.NewInsn<MockMachineTwoDefs>(v1, &kWideRegClass, v2, &kWideRegClass);
+  bb_->insn_list().push_back(insn1);
+  auto* insn2 = machine_ir_.NewInsn<MockMachineOneUse>(v1, &kNarrowRegClass);
+  bb_->insn_list().push_back(insn2);
+  auto* insn3 = machine_ir_.NewInsn<MockMachineOneUse>(v2, &kNarrowRegClass);
+  bb_->insn_list().push_back(insn3);
+
+  MachineInsnListPosition pos1(&bb_->insn_list(), bb_->insn_list().begin());
+  MachineInsnListPosition pos2(&bb_->insn_list(), std::next(bb_->insn_list().begin()));
+  MachineInsnListPosition pos3(&bb_->insn_list(), std::next(bb_->insn_list().begin(), 2));
+
+  // v1: [10, 20). Wide def at 10, Narrow use at 29.
+  // v2: [10, 30). Wide def at 10, Narrow use at 19.
+  // v2 evicts v1 creating wide tiny lifetime at 10, which can be successfully reallocated.
+
+  auto* l1 = NewInArena<VRegLifetime>(&arena_, &arena_, 10);
+  l1->AppendAccess(VRegAccess(pos1, 0, 10, 11));
+  l1->AppendAccess(VRegAccess(pos2, 0, 29, 30));
+
+
+  auto* l2 = NewInArena<VRegLifetime>(&arena_, &arena_, 10);
+  l2->AppendAccess(VRegAccess(pos1, 1, 10, 11));
+  l2->AppendAccess(VRegAccess(pos3, 0, 19, 20));
+
+  VRegLifetimeList lifetime_list({*l1, *l2}, &arena_);
+
+  VRegLifetimeAllocator allocator(&machine_ir_, &lifetime_list);
+  allocator.Allocate();
+
+  bool tiny_wide_lifetime_found = false;
+  bool first_narrow_lifetime_found = false;
+  bool second_narrow_lifetime_found = false;
+
+  for (const auto& lifetime : lifetime_list) {
+    if (lifetime.IsEmpty()) continue;
+    EXPECT_TRUE(lifetime.hard_reg().IsHardReg());
+
+    if (lifetime.GetSpill() != -1) {
+      if (lifetime.begin() == 10 && lifetime.end() == 11) {
+        tiny_wide_lifetime_found = true;
+      } else if (lifetime.begin() == 29 && lifetime.end() == 30) {
+        first_narrow_lifetime_found = true;
+      }
+    } else if (lifetime.begin() == 10 && lifetime.end() == 20) {
+      second_narrow_lifetime_found = true;
+    }
+  }
+
+  EXPECT_TRUE(tiny_wide_lifetime_found);
+  EXPECT_TRUE(first_narrow_lifetime_found);
+  EXPECT_TRUE(second_narrow_lifetime_found);
 }
 
 }  // namespace

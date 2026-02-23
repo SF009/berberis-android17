@@ -17,6 +17,7 @@
 #include "berberis/backend/common/lifetime.h"
 
 #include <algorithm>
+#include <iterator>
 #include <optional>
 #include <string>
 #include <tuple>
@@ -214,19 +215,34 @@ void VRegLifetime::Merge(VRegLifetime* other) {
   other->coalescing_candidates_.clear();
 }
 
-void VRegLifetime::Split(const SplitPos& split_pos, ArenaList<VRegLifetime>* new_lifetimes) {
+void VRegLifetime::Split(const SplitPos& split_pos,
+                         SplitKind split_kind,
+                         ArenaList<VRegLifetime>* new_lifetimes) {
   if (split_pos.range_it == range_list_.end()) {
     return;
   }
-  VRegLiveRangeList::iterator first_range_to_split = split_pos.range_it;
-  VRegAccessList& access_list = split_pos.range_it->access_list();
-  // Create special lifetime for the range for which we split the list of accesses.
-  if (split_pos.access_it != access_list.begin()) {
+  auto first_range_to_split = split_pos.range_it;
+  auto first_access_to_split = split_pos.access_it;
+  auto& access_list = split_pos.range_it->access_list();
+
+  // Separate lifetime for the conflicting access if needed.
+  if (split_kind == SPLIT_CONFLICT_WITH_ACCESS_SEPARATION) {
+    CHECK(split_pos.access_it != split_pos.range_it->access_list().end());
+    auto next_access_it = std::next(split_pos.access_it);
     AddLifetimeFromAccessList(
-        new_lifetimes, split_pos.access_it, access_list.end(), GetSpill(), arena_);
+        new_lifetimes, split_pos.access_it, next_access_it, GetSpill(), arena_);
+    access_list.erase(split_pos.access_it, next_access_it);
+    first_access_to_split = next_access_it;
+  }
+  // If we split the list of accesses in the first range, create a separate lifetime for them.
+  if (first_access_to_split != access_list.begin() &&
+      // May happen if first access is separated above.
+      first_access_to_split != access_list.end()) {
+    AddLifetimeFromAccessList(
+        new_lifetimes, first_access_to_split, access_list.end(), GetSpill(), arena_);
 
     // Erase the accesses that were split off.
-    access_list.erase(split_pos.access_it, access_list.end());
+    access_list.erase(first_access_to_split, access_list.end());
     // Recompute the end of the split range.
     int new_end = 0;
     // Since we erase after the begin, there must be at least one access

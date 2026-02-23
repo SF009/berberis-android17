@@ -98,9 +98,6 @@ void MergeVRegLifetimeList(VRegLifetimeList* dst,
 
 }  // namespace
 
-VRegLifetimeSpill::VRegLifetimeSpill(VRegLifetimePtrList::iterator i, const SplitPos& p)
-    : lifetime(i), realloc_pos(p) {}
-
 HardRegAllocation::HardRegAllocation(Arena* arena)
     : arena_(arena),
       lifetimes_(arena),
@@ -149,6 +146,7 @@ std::tuple<int, SplitKind> HardRegAllocation::ConsiderSpill(VRegLifetime* new_li
   spills_.clear();
   int weight = 0;
   SplitKind combined_split_kind = SPLIT_OK;
+  const int kNewRegClassNumRegs = new_lifetime->GetRegClass()->NumRegs();
 
   for (auto curr = lifetimes_.begin(); curr != lifetimes_.end(); ++curr) {
     VRegLifetime* curr_lifetime = *curr;
@@ -161,21 +159,30 @@ std::tuple<int, SplitKind> HardRegAllocation::ConsiderSpill(VRegLifetime* new_li
     SplitPos split_pos;
     SplitKind split_kind = curr_lifetime->FindSplitPos(new_lifetime->begin(), &split_pos);
     if (split_kind == SPLIT_CONFLICT) {
-      // An access within this lifetime conflicts with first access in 'new_lifetime'.
-      // If we spill it, it will compete with 'new_lifetime' at reallocation,
-      // and if it can only use register suitable for 'new_lifetime' as well,
-      // 'new_lifetime' can be evicted back, resulting in double spill.
-      if (curr_lifetime->GetRegClass()->IsSubsetOf(new_lifetime->GetRegClass())) {
+      // Only one lifetime assigned to this hard register can conflict with the beginning of
+      // new_lifetime.
+      CHECK_EQ(combined_split_kind, SPLIT_OK);
+      // If we split curr_lifetime we would still have to reallocate its access that
+      // conflicts with the beginning of new_lifetime. This access may evict new_lifetime back.
+      // To avoid such double spill and potentially infinite loop of them evicting each other, we
+      // only allow this split if it'll create a lifetime that would have a wider register class
+      // than new_lifetime.
+      if (kNewRegClassNumRegs < curr_lifetime->GetRegClass()->NumRegs()) {
+        // If the whole curr_lifetime is wider, no need to separate the conflicting access.
+      } else if (kNewRegClassNumRegs < split_pos.access_it->GetRegClass()->NumRegs()) {
+        // If only the conflicting access from curr_lifetime is wider than new_lifetime, we can
+        // split it out to a separate lifetime and be sure it won't spill new_lifetime back.
+        split_kind = SPLIT_CONFLICT_WITH_ACCESS_SEPARATION;
+      } else {
+        // Otherwise spill something else.
         return {kInfiniteSpillWeight, SPLIT_IMPOSSIBLE};
       }
-      if (combined_split_kind == SPLIT_OK) {
-        combined_split_kind = SPLIT_CONFLICT;
-      }
+      combined_split_kind = split_kind;
     }
 
     // Record spill.
-    spills_.push_back(VRegLifetimeSpill(curr, split_pos));
-    // Evicting tiny lifetime is free.
+    spills_.push_back(VRegLifetimeSpill(curr, split_pos, split_kind));
+    // Evicting spilled lifetime is free.
     if (curr_lifetime->GetSpill() == -1) {
       weight += curr_lifetime->spill_weight();
     }
@@ -207,7 +214,7 @@ void HardRegAllocation::SpillAndAssign(VRegLifetime* new_lifetime,
 
     // Split spilled lifetime into tiny lifetimes, enqueue them for allocation.
     VRegLifetimeList split(arena_);
-    spill_lifetime->Split(spill.realloc_pos, &split);
+    spill_lifetime->Split(spill.realloc_pos, spill.split_kind, &split);
     MergeVRegLifetimeList(lifetimes, pos, &split);
 
     // Expire spilled lifetime.
