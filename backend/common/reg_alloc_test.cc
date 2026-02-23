@@ -49,6 +49,10 @@ const MachineRegClass kGPRRegClass = {"GPR", 8, 0b0110, 2, {MachineReg{1}, Machi
 const MachineRegClass kFPRegClass = {"FP", 8, 0b11000, 2, {MachineReg{3}, MachineReg{4}}};
 const MachineRegClass kNarrowRegClass = {"Narrow", 8, 0b0010, 1, {MachineReg{1}}};
 const MachineRegClass kWideRegClass = {"Wide", 8, 0b0110, 2, {MachineReg{1}, MachineReg{2}}};
+const MachineRegClass kGeneralReg32 = {
+    "GeneralReg32", 4, 0b0110, 2, {MachineReg{1}, MachineReg{2}}};
+const MachineRegClass kGeneralReg64 = {
+    "GeneralReg64", 8, 0b0110, 2, {MachineReg{1}, MachineReg{2}}};
 
 class MockMachineInsn : public MachineInsn {
  public:
@@ -657,6 +661,20 @@ TEST_F(RegAllocTest, VRegLifetimeAllocator_SplitConflictingNarrowLifetime) {
   EXPECT_TRUE(tiny_wide_lifetime_found);
   EXPECT_TRUE(first_narrow_lifetime_found);
   EXPECT_TRUE(second_narrow_lifetime_found);
+}
+
+TEST_F(RegAllocTest, CoalesceLifetimes_SameRegsDifferentClasses) {
+  // GeneralReg32 and GeneralReg64 have the same registers but different classes.
+  // They should be coalesced if they don't interfere.
+  VRegLifetimeList lifetime_list({*CreateLifetime(0, 10, 20, &kGeneralReg32),
+                                  *CreateLifetime(1, 20, 30, &kGeneralReg64)},
+                                 &arena_);
+
+  lifetime_list.front().LinkCoalescingCandidate(&lifetime_list.back());
+
+  CoalesceLifetimes(&lifetime_list);
+
+  EXPECT_THAT(lifetime_list, ElementsAre(MatchesLifetime(10, 30)));
 }
 
 }  // namespace
