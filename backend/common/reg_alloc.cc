@@ -316,7 +316,7 @@ void CoalesceLifetimes(VRegLifetimeList* lifetimes) {
       if (!other->IsEmpty() &&
           // Narrowing reg class may lead to difficult to handle spills.
           // TODO(b/459067902): support such spill and allow coalescing.
-          lifetime.GetRegClass() == other->GetRegClass() &&
+          lifetime.GetRegClass()->HasSameRegs(other->GetRegClass()) &&
           // We can only merge non-interfering lifetimes.
           !lifetime.TestInterference(*other)) {
         lifetime.Merge(other);
