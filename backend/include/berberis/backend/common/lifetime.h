@@ -176,7 +176,12 @@ using VRegLiveRangeList = ArenaList<VRegLiveRange>;
 // lifetime will not compete with 'new_lifetime' for the same hard register,
 // so we mark this case explicitly.
 
-enum SplitKind { SPLIT_IMPOSSIBLE = 0, SPLIT_CONFLICT, SPLIT_OK };
+enum SplitKind {
+  SPLIT_IMPOSSIBLE = 0,
+  SPLIT_CONFLICT,
+  SPLIT_CONFLICT_WITH_ACCESS_SEPARATION,
+  SPLIT_OK
+};
 
 struct SplitPos {
   VRegLiveRangeList::iterator range_it;
@@ -280,7 +285,9 @@ class VRegLifetime {
 
   void Merge(VRegLifetime* other);
 
-  void Split(const SplitPos& split_pos, ArenaList<VRegLifetime>* new_lifetimes);
+  void Split(const SplitPos& split_pos,
+             SplitKind split_kind,
+             ArenaList<VRegLifetime>* new_lifetimes);
 
   // Walk reg accesses and replace vreg with assigned hard reg.
   void Rewrite(MachineIR* machine_ir);

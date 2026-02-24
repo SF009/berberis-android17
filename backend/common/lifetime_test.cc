@@ -132,7 +132,7 @@ TEST_F(VRegLifetimeTest, Split_NoSplitAtEnd) {
   ASSERT_EQ(kind, SPLIT_OK);
 
   VRegLifetime::List new_lifetimes(&arena_);
-  lifetime_.Split(split_pos, &new_lifetimes);
+  lifetime_.Split(split_pos, kind, &new_lifetimes);
 
   EXPECT_TRUE(new_lifetimes.empty());
   EXPECT_EQ(lifetime_.end(), 10);
@@ -149,7 +149,7 @@ TEST_F(VRegLifetimeTest, Split_SingleRange_Middle) {
   ASSERT_EQ(kind, SPLIT_OK);
 
   VRegLifetime::List new_lifetimes(&arena_);
-  lifetime_.Split(split_pos, &new_lifetimes);
+  lifetime_.Split(split_pos, kind, &new_lifetimes);
 
   EXPECT_EQ(lifetime_.end(), 9);
   EXPECT_THAT(new_lifetimes, ElementsAre(MatchesLiveRange(11, 20)));
@@ -168,7 +168,7 @@ TEST_F(VRegLifetimeTest, Split_MultipleRanges_SplitInBetween) {
   ASSERT_EQ(kind, SPLIT_OK);
 
   VRegLifetime::List new_lifetimes(&arena_);
-  lifetime_.Split(split_pos, &new_lifetimes);
+  lifetime_.Split(split_pos, kind, &new_lifetimes);
 
   EXPECT_EQ(lifetime_.end(), 10);
   EXPECT_THAT(new_lifetimes, ElementsAre(MatchesLiveRange(21, 30)));
@@ -187,7 +187,7 @@ TEST_F(VRegLifetimeTest, Split_MultipleRanges_SplitFirstRange) {
   ASSERT_EQ(kind, SPLIT_OK);
 
   VRegLifetime::List new_lifetimes(&arena_);
-  lifetime_.Split(split_pos, &new_lifetimes);
+  lifetime_.Split(split_pos, kind, &new_lifetimes);
 
   // Expecting 2 new lifetimes: one from the remainder of first range, one from the second range.
   // Old lifetime
@@ -210,7 +210,7 @@ TEST_F(VRegLifetimeTest, Split_PreservesSpillSlot) {
   ASSERT_EQ(kind, SPLIT_OK);
 
   VRegLifetime::List new_lifetimes(&arena_);
-  lifetime_.Split(split_pos, &new_lifetimes);
+  lifetime_.Split(split_pos, kind, &new_lifetimes);
 
   ASSERT_EQ(new_lifetimes.size(), 1u);
   EXPECT_EQ(new_lifetimes.front().GetSpill(), kSpillSlot);
@@ -222,10 +222,10 @@ TEST_F(VRegLifetimeTest, Split_AtBeginning) {
 
   SplitPos split_pos;
   // Split at 0.
-  lifetime_.FindSplitPos(0, &split_pos);
+  SplitKind kind = lifetime_.FindSplitPos(0, &split_pos);
 
   VRegLifetime::List new_lifetimes(&arena_);
-  lifetime_.Split(split_pos, &new_lifetimes);
+  lifetime_.Split(split_pos, kind, &new_lifetimes);
 
   EXPECT_THAT(new_lifetimes, ElementsAre(MatchesLiveRange(0, 10)));
   // The original lifetime is now empty.

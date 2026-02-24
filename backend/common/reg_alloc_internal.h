@@ -36,8 +36,7 @@ using VRegLifetimePtrList = ArenaList<VRegLifetime*>;
 struct VRegLifetimeSpill {
   VRegLifetimePtrList::iterator lifetime;
   SplitPos realloc_pos;
-
-  VRegLifetimeSpill(VRegLifetimePtrList::iterator i, const SplitPos& p);
+  SplitKind split_kind;
 };
 
 // Every possible spill should have some smaller weight (CHECKed).
@@ -76,6 +75,9 @@ class HardRegAllocation {
   Arena* arena_;
   // Lifetimes currently allocated to this hard register.
   VRegLifetimePtrList lifetimes_;
+
+  // Lifetimes ending before this point are erased from the list.
+  int active_lifetimes_begin_;
 
   // Last lifetime being allocated, for CHECKing.
   // TODO(b/232598137): probably use this for ConsiderSpill and SpillAndAssign?
