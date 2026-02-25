@@ -127,7 +127,23 @@ void VRegLifetime::AppendAccess(const VRegAccess& access) {
   } else {
     reg_class_ = access.GetRegClass();
   }
-  ++spill_weight_;
+}
+
+int VRegLifetime::ComputeWeight() const {
+  int weight = 0;
+  for (const auto& range : range_list_) {
+    const auto& accesses = range.access_list();
+    if (accesses.empty()) {
+      continue;
+    }
+    if (accesses.front().IsInput()) {
+      ++weight;
+    }
+    if (range.has_def()) {
+      ++weight;
+    }
+  }
+  return weight;
 }
 
 std::string VRegLifetime::GetDebugString() const {
@@ -204,8 +220,6 @@ void VRegLifetime::Merge(VRegLifetime* other) {
   reg_class_ = reg_class_->GetIntersection(other->reg_class_);
   CHECK(reg_class_);
 
-  spill_weight_ += other->spill_weight_;
-
   for (auto candidate : other->coalescing_candidates_) {
     if (candidate != this) {
       LinkCoalescingCandidate(candidate);
@@ -232,6 +246,7 @@ void VRegLifetime::Split(const SplitPos& split_pos,
     AddLifetimeFromAccessList(
         new_lifetimes, split_pos.access_it, next_access_it, GetSpill(), arena_);
     access_list.erase(split_pos.access_it, next_access_it);
+    split_pos.range_it->UpdateHasDef();
     first_access_to_split = next_access_it;
   }
   // If we split the list of accesses in the first range, create a separate lifetime for them.
@@ -243,6 +258,7 @@ void VRegLifetime::Split(const SplitPos& split_pos,
 
     // Erase the accesses that were split off.
     access_list.erase(first_access_to_split, access_list.end());
+    split_pos.range_it->UpdateHasDef();
     // Recompute the end of the split range.
     int new_end = 0;
     // Since we erase after the begin, there must be at least one access
