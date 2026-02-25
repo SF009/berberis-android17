@@ -17,7 +17,13 @@
 #ifndef BERBERIS_KERNEL_API_SYSCALL_EMULATION_COMMON_H_
 #define BERBERIS_KERNEL_API_SYSCALL_EMULATION_COMMON_H_
 
+#if defined(ANDROID_HOST_MUSL) && defined(__i386__)
+// Musl's stat64 contains extra fields for their time64 ABI compatibility,
+// use the kernel one instead.
+#include <asm/stat.h>
+#else
 #include <sys/stat.h>
+#endif
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
