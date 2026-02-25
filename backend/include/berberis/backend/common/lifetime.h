@@ -80,10 +80,14 @@ using VRegAccessList = ArenaList<VRegAccess>;
 // Continuous live range of virtual register.
 class VRegLiveRange {
  public:
-  VRegLiveRange(Arena* arena, int begin) : begin_(begin), end_(begin), access_list_(arena) {}
+  VRegLiveRange(Arena* arena, int begin)
+      : begin_(begin), end_(begin), access_list_(arena), has_def_(false) {}
 
   VRegLiveRange(Arena* arena, const VRegAccess& access)
-      : begin_(access.begin()), end_(access.end()), access_list_(1, access, arena) {}
+      : begin_(access.begin()),
+        end_(access.end()),
+        access_list_(1, access, arena),
+        has_def_(access.IsDef()) {}
 
   int begin() const { return begin_; }
 
@@ -125,6 +129,21 @@ class VRegLiveRange {
     if (end_ < access.end()) {
       end_ = access.end();
     }
+    if (access.IsDef()) {
+      has_def_ = true;
+    }
+  }
+
+  bool has_def() const { return has_def_; }
+
+  void UpdateHasDef() {
+    has_def_ = false;
+    for (const auto& access : access_list_) {
+      if (access.IsDef()) {
+        has_def_ = true;
+        break;
+      }
+    }
   }
 
   void RewriteVReg(MachineIR* machine_ir, MachineReg hard_reg, int spill_slot);
@@ -142,6 +161,7 @@ class VRegLiveRange {
   int end_;
   // Use list might be empty if register is live but not used :)
   VRegAccessList access_list_;
+  bool has_def_;
 };
 
 using VRegLiveRangeList = ArenaList<VRegLiveRange>;
@@ -200,7 +220,6 @@ class VRegLifetime {
         reg_class_(nullptr),
         hard_reg_(0),
         spill_slot_(-1),
-        spill_weight_(0),
         coalescing_candidates_(arena) {}
 
   VRegLifetime(Arena* arena, int begin)
@@ -209,7 +228,6 @@ class VRegLifetime {
         reg_class_(nullptr),
         hard_reg_(0),
         spill_slot_(-1),
-        spill_weight_(0),
         coalescing_candidates_(arena) {}
 
   void StartLiveRange(int begin) {
@@ -233,7 +251,7 @@ class VRegLifetime {
     spill_slot_ = slot;
   }
 
-  int spill_weight() const { return spill_weight_; }
+  int ComputeWeight() const;
 
   // Connects this lifetime with 'other' as coalescing candidates.
   void LinkCoalescingCandidate(VRegLifetime* other) {
@@ -312,8 +330,6 @@ class VRegLifetime {
   MachineReg hard_reg_;
   // Where to spill previous value of assigned hard register.
   int spill_slot_;
-  // Spill weight, roughly the number of spill/reload insns to add.
-  int spill_weight_;
   ArenaVector<VRegLifetime*> coalescing_candidates_;
 };
 

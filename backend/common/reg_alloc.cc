@@ -184,7 +184,7 @@ std::tuple<int, SplitKind> HardRegAllocation::ConsiderSpill(VRegLifetime* new_li
     spills_.push_back(VRegLifetimeSpill(curr, split_pos, split_kind));
     // Evicting spilled lifetime is free.
     if (curr_lifetime->GetSpill() == -1) {
-      weight += curr_lifetime->spill_weight();
+      weight += curr_lifetime->ComputeWeight();
     }
   }
 
