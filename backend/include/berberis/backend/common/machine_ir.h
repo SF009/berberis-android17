@@ -142,6 +142,10 @@ struct MachineRegClass {
 
   [[nodiscard]] bool HasReg(MachineReg r) const { return reg_mask & (uint64_t{1} << r.reg()); }
 
+  [[nodiscard]] constexpr bool HasSameRegs(const MachineRegClass* other) const {
+    return reg_mask == other->reg_mask;
+  }
+
   [[nodiscard]] bool IsSubsetOf(const MachineRegClass* other) const {
     return (reg_mask & other->reg_mask) == reg_mask;
   }

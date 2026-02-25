@@ -15,6 +15,9 @@
 
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
+    // TODO(b/232598137): This group is too wide. Figure out if we
+    // can have berberis-only team on trendy.
+    default_team: "trendy_team_arc_",
 }
 
 cc_defaults {
