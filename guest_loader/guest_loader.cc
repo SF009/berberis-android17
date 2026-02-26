@@ -70,7 +70,8 @@ const char* FindPtInterp(const LoadedElfFile* loaded_executable) {
 
 void FillRandomBuf(uint8_t* buf, size_t size) {
   // arc4random was introduced in GLIBC 2.36
-#if defined(__GLIBC__) && ((__GLIBC__ < 2) || ((__GLIBC__ == 2) && (__GLIBC_MINOR__ < 36)))
+#if defined(__GLIBC__) && ((__GLIBC__ < 2) || ((__GLIBC__ == 2) && (__GLIBC_MINOR__ < 36))) || \
+    defined(ANDROID_HOST_MUSL)
   // Fall back to implementation-defined stl random
   std::random_device random_device("/dev/urandom");
   std::independent_bits_engine<std::default_random_engine, CHAR_BIT, uint8_t> engine(
