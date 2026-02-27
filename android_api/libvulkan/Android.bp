@@ -46,7 +46,7 @@ cc_library_shared {
 
 cc_library_static {
     name: "libberberis_emulated_libvulkan_api_checker",
-    defaults: ["berberis_defaults_64"],
+    defaults: ["berberis_guest_agnostic_defaults_64"],
     host_supported: true,
     native_bridge_supported: true,
     srcs: [":native_bridge_proxy_libvulkan_checker"],

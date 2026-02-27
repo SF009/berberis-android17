@@ -19,7 +19,10 @@ package {
 
 cc_library_headers {
     name: "libberberis_guest_os_primitives_headers",
-    defaults: ["berberis_all_hosts_defaults"],
+    defaults: [
+        "berberis_enable_arm64_host_defaults",
+        "berberis_guest_agnostic_defaults",
+    ],
     host_supported: true,
     export_include_dirs: ["include"],
     header_libs: [
@@ -38,14 +41,20 @@ cc_library_headers {
 // Don't depend on these headers in other modules.
 cc_library_headers {
     name: "_libberberis_guest_os_primitives_private_headers",
-    defaults: ["berberis_all_hosts_defaults"],
+    defaults: [
+        "berberis_enable_arm64_host_defaults",
+        "berberis_guest_agnostic_defaults",
+    ],
     host_supported: true,
     export_include_dirs: ["."],
 }
 
 cc_library_headers {
     name: "libberberis_guest_os_primitives_riscv64_headers",
-    defaults: ["berberis_all_hosts_defaults"],
+    defaults: [
+        "berberis_enable_arm64_host_defaults",
+        "berberis_riscv64_defaults",
+    ],
     host_supported: true,
     export_include_dirs: ["riscv64/include"],
     header_libs: [
@@ -58,7 +67,7 @@ cc_library_headers {
 
 cc_library_headers {
     name: "libberberis_guest_os_primitives_arm_or_arm64_headers",
-    defaults: ["berberis_all_hosts_defaults"],
+    defaults: ["berberis_arm_or_arm64_defaults"],
     host_supported: true,
     arch: {
         x86: {
@@ -117,7 +126,10 @@ filegroup {
 // Common sources to be shared across arch-specific libraries.
 cc_defaults {
     name: "libberberis_guest_os_primitives_common_defaults",
-    defaults: ["berberis_all_hosts_defaults"],
+    defaults: [
+        "berberis_enable_arm64_host_defaults",
+        "berberis_guest_agnostic_defaults",
+    ],
     host_supported: true,
     srcs: [":libberberis_guest_os_primitives_common_srcs"],
     arch: {
@@ -165,7 +177,10 @@ filegroup {
 // libberberis_guest_os_primitives_common_arch_defaults.
 cc_library_headers {
     name: "_libberberis_guest_os_primitives_local_headers",
-    defaults: ["berberis_all_hosts_defaults"],
+    defaults: [
+        "berberis_enable_arm64_host_defaults",
+        "berberis_guest_agnostic_defaults",
+    ],
     host_supported: true,
     export_include_dirs: ["."],
 }
@@ -187,7 +202,8 @@ cc_defaults {
 cc_library_static {
     name: "libberberis_guest_os_primitives_riscv64",
     defaults: [
-        "berberis_all_hosts_defaults_64",
+        "berberis_enable_arm64_host_defaults",
+        "berberis_riscv64_defaults",
         "libberberis_guest_os_primitives_common_defaults",
         "libberberis_guest_os_primitives_common_arch_defaults",
     ],

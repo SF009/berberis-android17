@@ -20,7 +20,8 @@ package {
 cc_library_static {
     name: "libberberis_runtime_riscv64",
     defaults: [
-        "berberis_all_hosts_defaults_64",
+        "berberis_enable_arm64_host_defaults",
+        "berberis_riscv64_defaults",
         "berberis_runtime_library_defaults",
     ],
     host_supported: true,

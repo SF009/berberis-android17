@@ -19,7 +19,10 @@ package {
 
 cc_library_headers {
     name: "libberberis_runtime_primitives_headers",
-    defaults: ["berberis_all_hosts_defaults"],
+    defaults: [
+        "berberis_enable_arm64_host_defaults",
+        "berberis_guest_agnostic_defaults",
+    ],
     host_supported: true,
     export_include_dirs: ["include"],
     header_libs: [
@@ -36,7 +39,10 @@ cc_library_headers {
 
 cc_library_static {
     name: "libberberis_runtime_primitives",
-    defaults: ["berberis_all_hosts_defaults"],
+    defaults: [
+        "berberis_enable_arm64_host_defaults",
+        "berberis_guest_agnostic_defaults",
+    ],
     host_supported: true,
     srcs: [
         "code_pool.cc",
@@ -74,7 +80,6 @@ filegroup {
 
 cc_defaults {
     name: "berberis_memory_region_reservation_defaults",
-    defaults: ["berberis_all_hosts_defaults"],
     host_supported: true,
     srcs: [":berberis_memory_region_reservation_srcs"],
     header_libs: [
@@ -98,8 +103,9 @@ cc_defaults {
 cc_library_static {
     name: "libberberis_runtime_primitives_riscv64",
     defaults: [
-        "berberis_all_hosts_defaults_64",
+        "berberis_enable_arm64_host_defaults",
         "berberis_memory_region_reservation_defaults",
+        "berberis_riscv64_defaults",
     ],
     host_supported: true,
     srcs: [
@@ -162,7 +168,10 @@ cc_test_library {
 
 cc_library_static {
     name: "libberberis_elf_backed_exec_region",
-    defaults: ["berberis_all_hosts_defaults"],
+    defaults: [
+        "berberis_enable_arm64_host_defaults",
+        "berberis_guest_agnostic_defaults",
+    ],
     host_supported: true,
     target: {
         bionic: {
@@ -180,7 +189,10 @@ cc_library_static {
 // ATTENTION: do not use it outside of static tests!
 cc_library_static {
     name: "libberberis_elf_backed_exec_region_for_static_tests",
-    defaults: ["berberis_all_hosts_defaults"],
+    defaults: [
+        "berberis_enable_arm64_host_defaults",
+        "berberis_guest_agnostic_defaults",
+    ],
     host_supported: true,
     target: {
         bionic: {

@@ -19,7 +19,10 @@ package {
 
 cc_library_headers {
     name: "libberberis_code_gen_lib_headers",
-    defaults: ["berberis_all_hosts_defaults"],
+    defaults: [
+        "berberis_enable_arm64_host_defaults",
+        "berberis_guest_agnostic_defaults",
+    ],
     host_supported: true,
     export_include_dirs: ["include"],
     header_libs: [
@@ -105,7 +108,7 @@ cc_defaults {
 cc_library_static {
     name: "libberberis_code_gen_lib_riscv64",
     defaults: [
-        "berberis_defaults_64",
+        "berberis_riscv64_defaults",
         "berberis_code_gen_lib_defaults",
     ],
     host_supported: true,
