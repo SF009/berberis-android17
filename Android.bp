@@ -51,18 +51,27 @@ cc_defaults {
     arch: {
         arm: {
             enabled: false,
+            cflags: [
+                "-DBERBERIS_GUEST_ILP32=1",
+            ],
         },
         arm64: {
             enabled: false,
-        },
-        riscv64: {
-            // TODO(b/123294366): disconnect guest arch from host arch!
             cflags: [
                 "-DBERBERIS_GUEST_LP64=1",
             ],
         },
+        riscv64: {
+            cflags: [
+                "-DBERBERIS_GUEST_LP64=1",
+            ],
+        },
+        x86: {
+            cflags: [
+                "-DBERBERIS_GUEST_ILP32=1",
+            ],
+        },
         x86_64: {
-            // TODO(b/123294366): disconnect guest arch from host arch!
             cflags: [
                 "-DBERBERIS_GUEST_LP64=1",
             ],
@@ -99,7 +108,6 @@ cc_defaults {
             // TODO(b/123294366): disconnect guest arch from host arch!
             cflags: [
                 "-DNATIVE_BRIDGE_GUEST_ARCH_RISCV64",
-                "-DBERBERIS_GUEST_LP64=1",
             ],
         },
     },
@@ -138,7 +146,6 @@ cc_defaults {
     defaults: ["berberis_arm_or_arm64_defaults"],
     compile_multilib: "32",
 }
-
 
 cc_defaults {
     name: "berberis_arm64_defaults",
