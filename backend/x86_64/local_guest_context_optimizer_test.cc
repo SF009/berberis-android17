@@ -59,15 +59,15 @@ TEST(MachineIRLocalGuestContextOptimizer, UnmapOlderThan) {
   optimizer.RemoveLocalGuestContextAccesses();
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
 
-  auto& mem_reg_map = optimizer.GetMemRegUsageMapForTesting(bb);
-  ASSERT_TRUE(optimizer.GetLifetimeCounterForTesting(bb).LifetimeAt(reg1).has_value());
+  auto& mem_reg_map = optimizer.GetMemRegUsageMapForTesting();
+  ASSERT_TRUE(optimizer.GetLifetimeCounterForTesting().LifetimeAt(reg1).has_value());
   ASSERT_TRUE(IsOffsetMappedToReg(GetThreadStateRegOffset(0), mem_reg_map, reg1));
 
   // Try clearing an older pos which should do nothing.
-  optimizer.UnmapOlderThan(bb, 0, x86_64::RegType::kGeneral);
+  optimizer.UnmapOlderThan(0, x86_64::RegType::kGeneral);
   ASSERT_TRUE(IsOffsetMappedToReg(GetThreadStateRegOffset(0), mem_reg_map, reg1));
 
-  optimizer.UnmapOlderThan(bb, 2, x86_64::RegType::kGeneral);
+  optimizer.UnmapOlderThan(2, x86_64::RegType::kGeneral);
   EXPECT_FALSE(mem_reg_map[GetThreadStateRegOffset(0)].has_value());
   EXPECT_TRUE(mem_reg_map[GetThreadStateRegOffset(1)].has_value());
 }
@@ -322,56 +322,12 @@ TEST(MachineIRLocalGuestContextOptimizer, EligibleForGlobalOpt) {
   ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
 
   // bb2 shouldn't have PredecessorReg because it's in the loop.
-  auto& mem_reg_map2 = optimizer.GetMemRegUsageMapForTesting(bb2);
+  auto& mem_reg_map2 = optimizer.GetMemRegUsageMapForTesting();
   ASSERT_FALSE(mem_reg_map2.at(GetThreadStateRegOffset(0)).has_value());
 
   // bb2 shouldn't have PredecessorReg because its predecessor is in the loop.
-  auto& mem_reg_map3 = optimizer.GetMemRegUsageMapForTesting(bb3);
+  auto& mem_reg_map3 = optimizer.GetMemRegUsageMapForTesting();
   ASSERT_FALSE(mem_reg_map3.at(GetThreadStateRegOffset(1)).has_value());
-}
-
-TEST(MachineIRLocalGuestContextOptimizer, InitMemRegMapFromPreds) {
-  Arena arena;
-  x86_64::MachineIR machine_ir(&arena);
-
-  x86_64::MachineIRBuilder builder(&machine_ir);
-
-  auto bb0 = machine_ir.NewBasicBlock();
-  auto bb1 = machine_ir.NewBasicBlock();
-  auto reg = machine_ir.AllocVReg();
-  machine_ir.AddEdge(bb0, bb1);
-
-  builder.StartBasicBlock(bb0);
-  builder.GenGet(reg, GetThreadStateRegOffset(0));
-  builder.GenPutImm(GetThreadStateRegOffset(1), 1234);
-  builder.Gen<Branch>(bb1);
-
-  builder.StartBasicBlock(bb1);
-  builder.Gen<Jump>(kNullGuestAddr);
-
-  ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
-  auto optimizer = x86_64::LocalGuestContextOptimizer(&machine_ir,
-                                                      x86_64::OptimizeLocalParams{
-                                                          .global_opt_enabled = true,
-                                                      });
-  optimizer.RemoveLocalGuestContextAccesses();
-  ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
-
-  auto& mem_reg_map = optimizer.GetMemRegUsageMapForTesting(bb1);
-
-  ASSERT_TRUE(mem_reg_map.at(GetThreadStateRegOffset(0)).has_value());
-  EXPECT_TRUE(std::holds_alternative<x86_64::PredecessorReg>(
-      mem_reg_map.at(GetThreadStateRegOffset(0)).value().value));
-
-  EXPECT_EQ(
-      std::get<x86_64::PredecessorReg>(mem_reg_map.at(GetThreadStateRegOffset(0)).value().value)
-          .reg,
-      reg);
-
-  ASSERT_TRUE(mem_reg_map.at(GetThreadStateRegOffset(1)).has_value());
-  EXPECT_TRUE(
-      std::holds_alternative<uint64_t>(mem_reg_map.at(GetThreadStateRegOffset(1)).value().value));
-  EXPECT_EQ(std::get<uint64_t>(mem_reg_map.at(GetThreadStateRegOffset(1)).value().value), 1234UL);
 }
 
 TEST(MachineIRLocalGuestContextOptimizer, LimitRegisters) {

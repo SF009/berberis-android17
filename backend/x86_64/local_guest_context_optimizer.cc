@@ -29,11 +29,9 @@ namespace berberis::x86_64 {
 
 using OffsetCounterMap = ArenaVector<std::pair<size_t, int>>;
 
-void LocalGuestContextOptimizer::UnmapOlderThan(MachineBasicBlock* bb,
-                                                size_t pos,
-                                                RegType reg_type) {
-  MemRegUsageMap& mem_reg_map = GetContextMapping(bb).mem_reg_map;
-  RegLifetimeCounter& reg_counter = GetContextMapping(bb).reg_counter;
+void LocalGuestContextOptimizer::UnmapOlderThan(size_t pos, RegType reg_type) {
+  MemRegUsageMap& mem_reg_map = context_map_.mem_reg_map;
+  RegLifetimeCounter& reg_counter = context_map_.reg_counter;
   for (auto& mapping : mem_reg_map) {
     if (!mapping.has_value()) {
       continue;
@@ -65,13 +63,12 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses() {
   }
 
   for (auto* bb : machine_ir_->bb_list()) {
-    MemRegUsageMap& mem_reg_map = GetContextMapping(bb).mem_reg_map;
-    if (std::holds_alternative<ContextMapping>(context_map_)) {
-      std::fill(mem_reg_map.begin(), mem_reg_map.end(), std::nullopt);
-    } else if (EligibleForGlobalOpt(nonloop_nodes, bb)) {
+    MemRegUsageMap& mem_reg_map = context_map_.mem_reg_map;
+    std::fill(mem_reg_map.begin(), mem_reg_map.end(), std::nullopt);
+    if (params_.global_opt_enabled && EligibleForGlobalOpt(nonloop_nodes, bb)) {
       InitMemRegMapFromPreds(bb);
     }
-    RegLifetimeCounter& reg_counter = GetContextMapping(bb).reg_counter;
+    RegLifetimeCounter& reg_counter = context_map_.reg_counter;
     reg_counter.Count(bb);
 
     size_t pos = 0;
@@ -80,10 +77,10 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses() {
       // If the register pressure at the current instruction is too big, then cancel
       // active mappings with lifetimes which end before current instruction.
       if (reg_counter.RegCountAt(pos, RegType::kGeneral) >= params_.general_reg_limit) {
-        UnmapOlderThan(bb, pos, RegType::kGeneral);
+        UnmapOlderThan(pos, RegType::kGeneral);
       }
       if (reg_counter.RegCountAt(pos, RegType::kXmm) >= params_.simd_reg_limit) {
-        UnmapOlderThan(bb, pos, RegType::kXmm);
+        UnmapOlderThan(pos, RegType::kXmm);
       }
 
       if (machine_ir_->IsCPUStateGet(*insn_it) || machine_ir_->IsCPUStatePut(*insn_it)) {
@@ -94,7 +91,7 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses() {
           // only be prolonged if we optimize next GET.
           ReplacePutAndUpdateMap(bb, insn_it);
         } else if (machine_ir_->IsCPUStateGet(insn)) {
-          std::optional<MachineReg> src_reg_opt = ReplaceGetAndUpdateMap(bb, insn_it);
+          std::optional<MachineReg> src_reg_opt = ReplaceGetAndUpdateMap(insn_it);
           if (!src_reg_opt.has_value()) {
             continue;
           }
@@ -117,7 +114,7 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses() {
           // all active mappings to make sure the next optimization doesn't
           // overflow that limit.
           if (pos_over_limit.has_value()) {
-            UnmapOlderThan(bb, pos_over_limit.value(), lifetime.reg_type);
+            UnmapOlderThan(pos_over_limit.value(), lifetime.reg_type);
           }
         }
       }
@@ -139,38 +136,19 @@ bool LocalGuestContextOptimizer::EligibleForGlobalOpt(const MachineBasicBlockLis
   return true;
 }
 
-void LocalGuestContextOptimizer::InitMemRegMapFromPreds(MachineBasicBlock* bb) {
-  MemRegUsageMap& mem_reg_map = GetContextMapping(bb).mem_reg_map;
-  if (bb->in_edges().size() == 1) {
-    auto* pred_bb = bb->in_edges().front()->src();
-    auto& pred_mem_reg_map = GetContextMapping(pred_bb).mem_reg_map;
-    for (size_t i = 0; i < pred_mem_reg_map.size(); i++) {
-      if (pred_mem_reg_map.at(i).has_value()) {
-        MappedValue val = pred_mem_reg_map.at(i).value().value;
-        if (std::holds_alternative<MachineReg>(val)) {
-          mem_reg_map[i] = {
-              MappedRegUsage{PredecessorReg{std::get<MachineReg>(val)}, std::nullopt}};
-        } else if (std::holds_alternative<uint64_t>(val)) {
-          // In constant case we can just use the same mapping.
-          mem_reg_map[i] = {MappedRegUsage{val, std::nullopt}};
-        }
-        // We don't handle mapping through multiple basic blocks currently.
-      }
-    }
-  }
-  // TODO(b/449996703): handle two in_edges.
+void LocalGuestContextOptimizer::InitMemRegMapFromPreds(MachineBasicBlock* /*bb*/) {
+  // TODO(b/449996703) implement this.
 }
 
 // Optimizes a GET instruction if possible by replacing with COPY, while
 // also setting up the mapping for future optimizations. On successful
 // optimization, returns the source register we made a copy from.
 std::optional<MachineReg> LocalGuestContextOptimizer::ReplaceGetAndUpdateMap(
-    MachineBasicBlock* bb,
     const MachineInsnList::iterator insn_it) {
   auto* insn = AsMachineInsnX86_64(*insn_it);
   auto dst = insn->RegAt(0);
   auto disp = insn->disp();
-  auto& mem_reg_map = GetContextMapping(bb).mem_reg_map;
+  auto& mem_reg_map = context_map_.mem_reg_map;
 
   // We only need to keep this load instruction if this is the first access to
   // the guest context at disp.
@@ -196,7 +174,7 @@ void LocalGuestContextOptimizer::ReplacePutAndUpdateMap(MachineBasicBlock* bb,
                                                         const MachineInsnList::iterator insn_it) {
   auto* insn = AsMachineInsnX86_64(*insn_it);
   auto disp = insn->disp();
-  auto& mem_reg_map = GetContextMapping(bb).mem_reg_map;
+  auto& mem_reg_map = context_map_.mem_reg_map;
 
   if (mem_reg_map[disp].has_value() && mem_reg_map[disp].value().last_store.has_value()) {
     // Remove the last store instruction.
