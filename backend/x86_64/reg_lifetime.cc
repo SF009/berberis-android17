@@ -27,6 +27,11 @@
 
 namespace berberis::x86_64 {
 
+void RegLifetimeCounter::AddLiveInLifetime(const MachineReg& reg, RegType reg_type) {
+  lifetime_map_.at(reg.GetVRegIndex()) =
+      RegLifetime{.start_pos = 0, .end_pos = 0, .reg_type = reg_type};
+}
+
 void RegLifetimeCounter::Count(MachineBasicBlock* bb) {
   CountRegLifetimeMap(bb);
   CountRegLifetimes(bb);

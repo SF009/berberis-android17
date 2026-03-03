@@ -41,6 +41,9 @@ void LocalGuestContextOptimizer::UnmapOlderThan(size_t pos, RegType reg_type_to_
     // Ignore immediates.
     if (std::holds_alternative<uint64_t>(reg_usage.value)) {
       continue;
+    } else if (std::holds_alternative<PredecessorReg>(reg_usage.value)) {
+      mapping = std::nullopt;
+      continue;
     }
 
     MachineReg mapped_reg = std::get<MachineReg>(reg_usage.value);
@@ -92,7 +95,7 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses() {
           // only be prolonged if we optimize next GET.
           ReplacePutAndUpdateMap(bb, insn_it);
         } else if (machine_ir_->IsCPUStateGet(insn)) {
-          std::optional<MachineReg> src_reg_opt = ReplaceGetAndUpdateMap(insn_it);
+          std::optional<MachineReg> src_reg_opt = ReplaceGetAndUpdateMap(bb, insn_it);
           if (!src_reg_opt.has_value()) {
             continue;
           }
@@ -130,8 +133,24 @@ bool LocalGuestContextOptimizer::EligibleForGlobalOpt(const MachineBasicBlockLis
   return true;
 }
 
-void LocalGuestContextOptimizer::InitMemRegMapFromPreds(MachineBasicBlock* /*bb*/) {
-  // TODO(b/449996703) implement this.
+void LocalGuestContextOptimizer::InitMemRegMapFromPreds(MachineBasicBlock* bb) {
+  MemRegUsageMap& mem_reg_map = context_map_.mem_reg_map;
+  if (bb->in_edges().size() == 1) {
+    auto* pred_bb = bb->in_edges().front()->src();
+    for (const auto& m : global_mappings_.at(pred_bb->id())) {
+      if (std::holds_alternative<uint64_t>(m.value)) {
+        mem_reg_map.at(m.disp) =
+            MappedRegUsage{.value = std::get<uint64_t>(m.value), .last_store = std::nullopt};
+      } else if (std::holds_alternative<MachineReg>(m.value)) {
+        // We convert it to a predecessor reg here so we know that we need to
+        // add it to live_in/out later if we use it.
+        mem_reg_map.at(m.disp) = MappedRegUsage{
+            .value = PredecessorReg{std::get<MachineReg>(m.value)}, .last_store = std::nullopt};
+      }
+      // else ignore PredecessorRegs.
+    }
+  }
+  // TODO(b/449996703): handle multiple in_edges.
 }
 
 void LocalGuestContextOptimizer::PopulateOffsetsUsed(MachineBasicBlock* bb,
@@ -156,6 +175,7 @@ void LocalGuestContextOptimizer::PopulateOffsetsUsed(MachineBasicBlock* bb,
 // also setting up the mapping for future optimizations. On successful
 // optimization, returns the source register we made a copy from.
 std::optional<MachineReg> LocalGuestContextOptimizer::ReplaceGetAndUpdateMap(
+    MachineBasicBlock* bb,
     const MachineInsnList::iterator insn_it) {
   auto* insn = AsMachineInsnX86_64(*insn_it);
   auto dst = insn->RegAt(0);
@@ -167,6 +187,24 @@ std::optional<MachineReg> LocalGuestContextOptimizer::ReplaceGetAndUpdateMap(
   if (!mem_reg_map[disp].has_value()) {
     mem_reg_map[disp] = {dst, {}};
     return std::nullopt;
+  }
+
+  // If it's a predecessor reg, replace with MachineReg and update live_in/outs.
+  if (std::holds_alternative<PredecessorReg>(mem_reg_map[disp].value().value)) {
+    // TODO(b/449996703): handle two in_edges.
+    CHECK(bb->in_edges().size() == 1);
+    MachineReg reg = std::get<PredecessorReg>(mem_reg_map[disp].value().value).reg;
+    if (!Contains(bb->live_in(), reg)) {
+      bb->live_in().push_back(reg);
+      context_map_.reg_counter.AddLiveInLifetime(
+          reg, IsSimdOffset(disp) ? RegType::kXmm : RegType::kGeneral);
+    }
+    MachineBasicBlock* pred_bb = bb->in_edges().front()->src();
+    if (!Contains(pred_bb->live_out(), reg)) {
+      pred_bb->live_out().push_back(reg);
+    }
+
+    mem_reg_map[disp].value().value = reg;
   }
 
   if (std::holds_alternative<MachineReg>(mem_reg_map[disp].value().value)) {

@@ -64,6 +64,7 @@ class RegLifetimeCounter {
         lifetime_map_(machine_ir->NumVReg(), machine_ir->arena()),
         lifetime_counts_(machine_ir->arena()) {}
 
+  void AddLiveInLifetime(const MachineReg& reg, RegType reg_type);
   void Count(MachineBasicBlock* bb);
   const RegLifetime& GetLifetimeAt(const MachineReg& reg) const {
     CHECK(LifetimeAt(reg).has_value());
@@ -74,6 +75,7 @@ class RegLifetimeCounter {
   }
   size_t RegCountAt(size_t pos, RegType reg_type) const;
   // Sets last use of reg to end_pos, updating both the map and counts.
+  // Returns the last position where we hit reg limit if any so we know where to unmap.
   std::optional<size_t> UpdateLastUse(MachineReg reg, size_t end_pos, const size_t kLimit);
 
   const RegLifetimeMap& GetMap() const { return lifetime_map_; }

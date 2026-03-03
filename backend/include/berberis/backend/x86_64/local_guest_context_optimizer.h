@@ -89,7 +89,8 @@ class LocalGuestContextOptimizer {
   bool EligibleForGlobalOpt(const MachineBasicBlockList& nonloop_nodes, MachineBasicBlock* bb);
   void InitMemRegMapFromPreds(MachineBasicBlock* bb);
   void PopulateOffsetsUsed(MachineBasicBlock* bb, ArenaVector<uint32_t>& offsets);
-  std::optional<MachineReg> ReplaceGetAndUpdateMap(const MachineInsnList::iterator insn_it);
+  std::optional<MachineReg> ReplaceGetAndUpdateMap(MachineBasicBlock* bb,
+                                                   const MachineInsnList::iterator insn_it);
   void ReplacePutAndUpdateMap(MachineBasicBlock* bb, const MachineInsnList::iterator insn_it);
   void PrepareGlobalMappingsForSuccessors(MachineBasicBlock* bb,
                                           const MachineBasicBlockList& nonloop_nodes);
