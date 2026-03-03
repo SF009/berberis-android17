@@ -20,7 +20,7 @@ package {
 
 cc_library_headers {
     name: "libberberis_native_activity_headers",
-    defaults: ["berberis_defaults"],
+    defaults: ["berberis_guest_agnostic_defaults"],
     host_supported: true,
     export_include_dirs: ["include"],
 }
@@ -62,7 +62,7 @@ cc_defaults {
 cc_library_static {
     name: "libberberis_native_activity_riscv64",
     defaults: [
-        "berberis_defaults_64",
+        "berberis_riscv64_defaults",
         "libberberis_native_activity_defaults",
     ],
     header_libs: [

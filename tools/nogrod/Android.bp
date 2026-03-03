@@ -19,7 +19,7 @@ package {
 
 cc_defaults {
     name: "nogrod_defaults",
-    defaults: ["berberis_defaults_64"],
+    defaults: ["berberis_guest_agnostic_defaults_64"],
 }
 
 cc_library {
