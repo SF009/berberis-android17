@@ -19,7 +19,7 @@ package {
 
 cc_library_headers {
     name: "libberberis_heavy_optimizer_riscv64_headers",
-    defaults: ["berberis_defaults_64"],
+    defaults: ["berberis_riscv64_defaults"],
     host_supported: true,
     export_include_dirs: ["include"],
     header_libs: [
@@ -34,7 +34,7 @@ cc_library_headers {
 
 cc_library_static {
     name: "libberberis_heavy_optimizer_riscv64",
-    defaults: ["berberis_defaults_64"],
+    defaults: ["berberis_riscv64_defaults"],
     host_supported: true,
     local_include_dirs: ["."],
     header_libs: [

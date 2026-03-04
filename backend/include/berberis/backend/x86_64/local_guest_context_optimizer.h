@@ -54,15 +54,22 @@ class LocalGuestContextOptimizer {
         context_map_(
             ContextMapping{MemRegUsageMap(sizeof(CPUState), std::nullopt, machine_ir->arena()),
                            RegLifetimeCounter(machine_ir)}),
-        params_(params) {
+        params_(params),
+        global_mappings_(machine_ir->arena()),
+        offsets_used_reservation_(machine_ir->arena()) {
     params_.general_reg_limit =
         machine_ir_->abi() == MachineIR::ABI::kOptimizedEnabled
             ? (params_.general_reg_limit >= 6 ? params_.general_reg_limit - 6 : 0UL)
             : params_.general_reg_limit;
+    if (params.global_opt_enabled) {
+      offsets_used_reservation_.reserve(sizeof(CPUState));
+      global_mappings_.resize(machine_ir->NumBasicBlocks(),
+                              ArenaVector<DispRegMapping>(machine_ir->arena()));
+    }
   }
 
   // Removes entries from mem_reg_map with last use <= pos.
-  void UnmapOlderThan(size_t pos, RegType reg_type);
+  void UnmapOlderThan(size_t pos, RegType reg_type_to_unmap);
   const RegLifetimeCounter& GetLifetimeCounterForTesting() const {
     return context_map_.reg_counter;
   }
@@ -74,15 +81,29 @@ class LocalGuestContextOptimizer {
     MemRegUsageMap mem_reg_map;
     RegLifetimeCounter reg_counter;
   };
+  struct DispRegMapping {
+    uint32_t disp;
+    std::variant<MachineReg, uint64_t> value;
+  };
 
   bool EligibleForGlobalOpt(const MachineBasicBlockList& nonloop_nodes, MachineBasicBlock* bb);
   void InitMemRegMapFromPreds(MachineBasicBlock* bb);
+  void PopulateOffsetsUsed(MachineBasicBlock* bb, ArenaVector<uint32_t>& offsets);
   std::optional<MachineReg> ReplaceGetAndUpdateMap(const MachineInsnList::iterator insn_it);
   void ReplacePutAndUpdateMap(MachineBasicBlock* bb, const MachineInsnList::iterator insn_it);
+  void PrepareGlobalMappingsForSuccessors(MachineBasicBlock* bb,
+                                          const MachineBasicBlockList& nonloop_nodes);
+  // Updates register lifetimes and mem_reg_map when a register's lifetime is extended.
+  void UpdateRegLastUse(MachineReg reg, size_t new_pos, uint32_t offset);
 
   MachineIR* machine_ir_;
   ContextMapping context_map_;
   OptimizeLocalParams params_;
+  // These are the mappings available for global context optimization. They
+  // map from bb.id -> [DispRegMapping]
+  ArenaVector<ArenaVector<DispRegMapping>> global_mappings_;
+  // Kept as member variable as optimization to prevent reallocations.
+  ArenaVector<uint32_t> offsets_used_reservation_;
 };
 
 void RemoveLocalGuestContextAccesses(x86_64::MachineIR* machine_ir,

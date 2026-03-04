@@ -114,7 +114,10 @@ genrule {
 
 cc_library_headers {
     name: "libberberis_device_arch_info_headers",
-    defaults: ["berberis_all_hosts_defaults"],
+    defaults: [
+        "berberis_enable_arm64_host_defaults",
+        "berberis_guest_agnostic_defaults",
+    ],
     host_supported: true,
     export_include_dirs: ["include"],
     header_libs: [

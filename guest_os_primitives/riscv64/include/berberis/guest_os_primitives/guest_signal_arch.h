@@ -27,7 +27,7 @@ struct Guest_sigaction {
   Guest_sigset_t sa_mask;
 };
 
-#if defined(NATIVE_BRIDGE_GUEST_ARCH_RISCV64)
+#if defined(BERBERIS_GUEST_LP64)
 CHECK_STRUCT_LAYOUT(Guest_sigaction, 192, 64);
 CHECK_FIELD_LAYOUT(Guest_sigaction, guest_sa_sigaction, 0, 64);
 CHECK_FIELD_LAYOUT(Guest_sigaction, sa_flags, 64, 64);

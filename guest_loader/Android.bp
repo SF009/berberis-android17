@@ -19,7 +19,7 @@ package {
 
 cc_library_headers {
     name: "libberberis_guest_loader_headers",
-    defaults: ["berberis_defaults"],
+    defaults: ["berberis_guest_agnostic_defaults"],
     host_supported: true,
     export_include_dirs: ["include"],
     header_libs: [
@@ -36,7 +36,7 @@ cc_library_headers {
 // Don't depend on these headers in other modules.
 cc_library_headers {
     name: "_libberberis_guest_loader_private_headers",
-    defaults: ["berberis_defaults"],
+    defaults: ["berberis_guest_agnostic_defaults"],
     host_supported: true,
     export_include_dirs: ["."],
     header_libs: ["libberberis_guest_loader_headers"],
@@ -86,7 +86,7 @@ cc_defaults {
 cc_library_static {
     name: "libberberis_guest_loader_riscv64",
     defaults: [
-        "berberis_defaults_64",
+        "berberis_riscv64_defaults",
         "libberberis_guest_loader_defaults",
     ],
     srcs: [
@@ -154,7 +154,7 @@ cc_defaults {
 cc_test {
     name: "berberis_guest_loader_riscv64_tests",
     defaults: [
-        "berberis_defaults_64",
+        "berberis_riscv64_defaults",
         "libberberis_guest_loader_tests_defaults",
     ],
     static_libs: [

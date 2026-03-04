@@ -19,7 +19,10 @@ package {
 
 cc_library_headers {
     name: "libberberis_base_headers",
-    defaults: ["berberis_all_hosts_defaults"],
+    defaults: [
+        "berberis_enable_arm64_host_defaults",
+        "berberis_guest_agnostic_defaults",
+    ],
     native_bridge_supported: true,
     host_supported: true,
     export_include_dirs: ["include"],
@@ -46,7 +49,10 @@ cc_library_headers {
 
 cc_library_static {
     name: "libberberis_base",
-    defaults: ["berberis_all_hosts_defaults"],
+    defaults: [
+        "berberis_enable_arm64_host_defaults",
+        "berberis_guest_agnostic_defaults",
+    ],
     host_supported: true,
     srcs: [
         "config_globals.cc",

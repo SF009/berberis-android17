@@ -30,7 +30,7 @@ cc_library_shared {
 
 cc_library_static {
     name: "libberberis_emulated_libcamera2ndk_api_checker",
-    defaults: ["berberis_defaults_64"],
+    defaults: ["berberis_riscv64_defaults"],
     host_supported: false,
     srcs: [
         ":native_bridge_proxy_libcamera2ndk_api_checker_files",

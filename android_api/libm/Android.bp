@@ -18,9 +18,10 @@ package {
 }
 
 cc_library_shared {
+    // TODO(b/232598137): Libm-proxy isn't enabled yet.
     name: "libberberis_proxy_libm",
     defaults: [
-        "berberis_defaults_64",
+        "berberis_riscv64_defaults",
         "native_bridge_proxy_libm_defaults",
     ],
     header_libs: [

@@ -51,30 +51,20 @@ cc_defaults {
     arch: {
         arm: {
             enabled: false,
-            cflags: [
-                "-DBERBERIS_GUEST_ILP32=1",
-            ],
+            cflags: ["-DBERBERIS_GUEST_ILP32=1"],
         },
         arm64: {
             enabled: false,
-            cflags: [
-                "-DBERBERIS_GUEST_LP64=1",
-            ],
+            cflags: ["-DBERBERIS_GUEST_LP64=1"],
         },
         riscv64: {
-            cflags: [
-                "-DBERBERIS_GUEST_LP64=1",
-            ],
+            cflags: ["-DBERBERIS_GUEST_LP64=1"],
         },
         x86: {
-            cflags: [
-                "-DBERBERIS_GUEST_ILP32=1",
-            ],
+            cflags: ["-DBERBERIS_GUEST_ILP32=1"],
         },
         x86_64: {
-            cflags: [
-                "-DBERBERIS_GUEST_LP64=1",
-            ],
+            cflags: ["-DBERBERIS_GUEST_LP64=1"],
         },
     },
     compile_multilib: "both",
@@ -89,40 +79,34 @@ cc_defaults {
 }
 
 cc_defaults {
-    name: "berberis_defaults",
+    name: "berberis_guest_agnostic_defaults_64",
     defaults: ["berberis_guest_agnostic_defaults"],
+    compile_multilib: "64",
+}
+
+cc_defaults {
+    name: "berberis_enable_arm64_host_defaults",
     arch: {
+        arm64: {
+            enabled: true,
+        },
+    },
+}
+
+cc_defaults {
+    name: "berberis_riscv64_defaults",
+    defaults: ["berberis_guest_agnostic_defaults"],
+    compile_multilib: "64",
+    arch: {
+        arm64: {
+            // TODO(b/123294366): disconnect guest arch from host arch!
+            cflags: ["-DNATIVE_BRIDGE_GUEST_ARCH_RISCV64"],
+        },
         x86_64: {
             // TODO(b/123294366): disconnect guest arch from host arch!
             cflags: ["-DNATIVE_BRIDGE_GUEST_ARCH_RISCV64"],
         },
     },
-}
-
-cc_defaults {
-    name: "berberis_all_hosts_defaults",
-    defaults: ["berberis_defaults"],
-    arch: {
-        arm64: {
-            enabled: true,
-            // TODO(b/123294366): disconnect guest arch from host arch!
-            cflags: [
-                "-DNATIVE_BRIDGE_GUEST_ARCH_RISCV64",
-            ],
-        },
-    },
-}
-
-cc_defaults {
-    name: "berberis_defaults_64",
-    defaults: ["berberis_defaults"],
-    compile_multilib: "64",
-}
-
-cc_defaults {
-    name: "berberis_all_hosts_defaults_64",
-    defaults: ["berberis_all_hosts_defaults"],
-    compile_multilib: "64",
 }
 
 cc_defaults {
@@ -155,7 +139,7 @@ cc_defaults {
 
 cc_defaults {
     name: "berberis_test_library_defaults",
-    defaults: ["berberis_defaults"],
+    defaults: ["berberis_guest_agnostic_defaults"],
     host_supported: true,
     shared: {
         enabled: false,
@@ -170,7 +154,7 @@ cc_defaults {
 
 cc_library_shared {
     name: "libberberis_riscv64",
-    defaults: ["berberis_defaults_64"],
+    defaults: ["berberis_guest_agnostic_defaults_64"],
     host_supported: true,
     static_libs: [
         "libbase",
@@ -178,7 +162,6 @@ cc_library_shared {
         "libberberis_base",
         "libberberis_elf_backed_exec_region",
         "libberberis_instrument",
-        "libberberis_intrinsics",
         "libberberis_kernel_api_riscv64",
         "libberberis_runtime_primitives",
         "libberberis_tinyloader",
@@ -235,12 +218,11 @@ cc_library_shared {
 
 cc_test_host {
     name: "berberis_host_tests",
-    defaults: ["berberis_defaults"],
+    defaults: ["berberis_guest_agnostic_defaults"],
     static_libs: [
         "libberberis_assembler",
         "libberberis_base",
         "libberberis_elf_backed_exec_region",
-        "libberberis_intrinsics",
         "libberberis_instrument",
         "libberberis_runtime_primitives",
         "libberberis_tinyloader",
@@ -257,12 +239,14 @@ cc_test_host {
         "libberberis_device_arch_info_tests",
         "libberberis_elf_backed_exec_region_unit_tests",
         "libberberis_intrinsics_unit_tests",
-        "libberberis_intrinsics_unit_tests_riscv64",
         "libberberis_tinyloader_unit_tests",
         "libberberis_runtime_primitives_unit_tests",
     ],
     arch: {
         arm64: {
+            whole_static_libs: [
+                "libberberis_intrinsics_unit_tests_riscv64",
+            ],
             srcs: [
                 "base/raw_syscall_tests.cc",
             ],
@@ -303,6 +287,7 @@ cc_test_host {
                 "libberberis_guest_os_primitives_unit_tests",
                 "libberberis_heavy_optimizer_riscv64_unit_tests",
                 "libberberis_interpreter_riscv64_unit_tests",
+                "libberberis_intrinsics_unit_tests_riscv64",
                 "libberberis_lite_translator_riscv64_to_x86_64_unit_tests",
                 "libberberis_runtime_riscv64_unit_tests",
                 "libberberis_runtime_primitives_riscv64_unit_tests",
@@ -338,7 +323,7 @@ filegroup {
 // We want to esnrue that possible fix of this bug wouldn't be unnoticed: b/382703210
 cc_test_host {
     name: "berberis_host_tests_avx",
-    defaults: ["berberis_defaults"],
+    defaults: ["berberis_guest_agnostic_defaults"],
     shared_libs: [
         "libbase",
         "liblog",
@@ -362,7 +347,7 @@ cc_test_host {
 // Ensure that everything works in no-AVX case too (there clang follows psABI correctly).
 cc_test_host {
     name: "berberis_host_tests_no_avx",
-    defaults: ["berberis_defaults"],
+    defaults: ["berberis_guest_agnostic_defaults"],
     shared_libs: [
         "libbase",
         "liblog",
