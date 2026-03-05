@@ -60,18 +60,14 @@ void LocalGuestContextOptimizer::UnmapOlderThan(size_t pos, RegType reg_type_to_
 
 void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses() {
   MachineBasicBlockList nonloop_nodes(machine_ir_->arena());
-  if (params_.global_opt_enabled) {
-    // We need reverse post order for global guest context optimization.
-    ReorderBasicBlocksInReversePostOrder(machine_ir_);
-    nonloop_nodes = FindNonloopNodes(machine_ir_);
-  }
+  // We need reverse post order for global guest context optimization.
+  ReorderBasicBlocksInReversePostOrder(machine_ir_);
+  nonloop_nodes = FindNonloopNodes(machine_ir_);
 
   for (auto* bb : machine_ir_->bb_list()) {
     MemRegUsageMap& mem_reg_map = context_map_.mem_reg_map;
     std::fill(mem_reg_map.begin(), mem_reg_map.end(), std::nullopt);
-    if (params_.global_opt_enabled && EligibleForGlobalOpt(nonloop_nodes, bb)) {
-      InitMemRegMapFromPreds(bb);
-    }
+    InitMemRegMapFromPreds(bb);
     RegLifetimeCounter& reg_counter = context_map_.reg_counter;
     reg_counter.Count(bb);
 
@@ -113,9 +109,7 @@ void LocalGuestContextOptimizer::RemoveLocalGuestContextAccesses() {
       }
     }
 
-    if (params_.global_opt_enabled) {
-      PrepareGlobalMappingsForSuccessors(bb, nonloop_nodes);
-    }
+    PrepareGlobalMappingsForSuccessors(bb, nonloop_nodes);
   }
 }
 
