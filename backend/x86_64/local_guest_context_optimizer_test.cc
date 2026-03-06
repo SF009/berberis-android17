@@ -24,6 +24,7 @@
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/backend/x86_64/machine_ir_builder.h"
 #include "berberis/backend/x86_64/machine_ir_check.h"
+#include "berberis/base/algorithm.h"
 #include "berberis/base/arena_alloc.h"
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state.h"
@@ -52,7 +53,8 @@ TEST(MachineIRLocalGuestContextOptimizer, UnmapOlderThan) {
   builder.StartBasicBlock(bb);
   builder.Gen<x86_64::MovqRegImm>(machine_ir.AllocVReg(), 0);
   builder.GenPut(GetThreadStateRegOffset(0), reg1);
-  builder.GenGet(reg2, GetThreadStateRegOffset(1));
+  builder.GenPutImm(GetThreadStateRegOffset(1), 12321);
+  builder.GenGet(reg2, GetThreadStateRegOffset(2));
   builder.Gen<Jump>(kNullGuestAddr);
 
   auto optimizer = x86_64::LocalGuestContextOptimizer(&machine_ir, x86_64::OptimizeLocalParams());
@@ -67,9 +69,43 @@ TEST(MachineIRLocalGuestContextOptimizer, UnmapOlderThan) {
   optimizer.UnmapOlderThan(0, x86_64::RegType::kGeneral);
   ASSERT_TRUE(IsOffsetMappedToReg(GetThreadStateRegOffset(0), mem_reg_map, reg1));
 
-  optimizer.UnmapOlderThan(2, x86_64::RegType::kGeneral);
+  optimizer.UnmapOlderThan(3, x86_64::RegType::kGeneral);
   EXPECT_FALSE(mem_reg_map[GetThreadStateRegOffset(0)].has_value());
+  // 1 should always be fine since it's a constant.
   EXPECT_TRUE(mem_reg_map[GetThreadStateRegOffset(1)].has_value());
+  EXPECT_TRUE(mem_reg_map[GetThreadStateRegOffset(2)].has_value());
+}
+
+TEST(MachineIRLocalGuestContextOptimizer, UnmapPredecessorReg) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  auto* bb0 = machine_ir.NewBasicBlock();
+  auto* bb1 = machine_ir.NewBasicBlock();
+  auto reg0 = machine_ir.AllocVReg();
+  auto reg1 = machine_ir.AllocVReg();
+  machine_ir.AddEdge(bb0, bb1);
+
+  builder.StartBasicBlock(bb0);
+  builder.GenPut(GetThreadStateRegOffset(0), machine_ir.AllocVReg());
+  builder.Gen<Branch>(bb1);
+
+  builder.StartBasicBlock(bb1);
+  builder.Gen<x86_64::MovqRegImm>(reg0, 123);
+  builder.Gen<x86_64::MovqRegImm>(reg1, 456);
+  builder.Gen<x86_64::AddqRegReg, x86_64::kNoSSA>(reg0, reg1, x86_64::kMachineRegFLAGS);
+  builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(0));
+  builder.Gen<Jump>(kNullGuestAddr);
+
+  auto optimizer = x86_64::LocalGuestContextOptimizer(
+      &machine_ir, x86_64::OptimizeLocalParams{.general_reg_limit = 2});
+  optimizer.RemoveLocalGuestContextAccesses();
+  ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+
+  // Should be unmapped because we went over reg limit at the Add.
+  auto& mem_reg_map = optimizer.GetMemRegUsageMapForTesting();
+  ASSERT_FALSE(IsOffsetMappedToReg(GetThreadStateRegOffset(0), mem_reg_map, reg1));
 }
 
 TEST(MachineIRLocalGuestContextOptimizer, RemoveReadAfterWrite) {
@@ -328,6 +364,62 @@ TEST(MachineIRLocalGuestContextOptimizer, EligibleForGlobalOpt) {
   // bb2 shouldn't have PredecessorReg because its predecessor is in the loop.
   auto& mem_reg_map3 = optimizer.GetMemRegUsageMapForTesting();
   ASSERT_FALSE(mem_reg_map3.at(GetThreadStateRegOffset(1)).has_value());
+}
+
+TEST(MachineIRLocalGuestContextOptimizer, GlobalGuestContextOptimization) {
+  Arena arena;
+  x86_64::MachineIR machine_ir(&arena);
+  x86_64::MachineIRBuilder builder(&machine_ir);
+
+  auto bb0 = machine_ir.NewBasicBlock();
+  auto bb1 = machine_ir.NewBasicBlock();
+  auto bb2 = machine_ir.NewBasicBlock();
+  auto reg0 = machine_ir.AllocVReg();
+  auto reg1 = machine_ir.AllocVReg();
+  machine_ir.AddEdge(bb0, bb1);
+  machine_ir.AddEdge(bb1, bb2);
+
+  builder.StartBasicBlock(bb0);
+  builder.GenGet(reg0, GetThreadStateRegOffset(0));
+  builder.GenGet(reg1, GetThreadStateRegOffset(1));
+  builder.Gen<Branch>(bb1);
+
+  builder.StartBasicBlock(bb1);
+  builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(0));
+  builder.GenPutImm(GetThreadStateRegOffset(2), 12321);
+  builder.Gen<Branch>(bb2);
+
+  builder.StartBasicBlock(bb2);
+  builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(0));
+  builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(1));
+  builder.GenGet(machine_ir.AllocVReg(), GetThreadStateRegOffset(2));
+  builder.Gen<Jump>(kNullGuestAddr);
+
+  ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+
+  x86_64::RemoveLocalGuestContextAccesses(&machine_ir,
+                                          x86_64::OptimizeLocalParams{
+                                              .global_opt_enabled = true,
+                                          });
+  ASSERT_EQ(x86_64::CheckMachineIR(machine_ir), x86_64::kMachineIRCheckSuccess);
+
+  EXPECT_TRUE(Contains(bb0->live_out(), reg0));
+  EXPECT_FALSE(Contains(bb0->live_out(), reg1));
+  EXPECT_TRUE(Contains(bb1->live_in(), reg0));
+  EXPECT_FALSE(Contains(bb1->live_in(), reg1));
+  EXPECT_TRUE(Contains(bb1->live_out(), reg0));
+
+  auto insn_it = bb1->insn_list().begin();
+  EXPECT_EQ((*insn_it)->opcode(), kMachineOpCopy);
+  EXPECT_EQ((*insn_it)->RegAt(1), reg0);
+
+  insn_it = bb2->insn_list().begin();
+  EXPECT_EQ((*insn_it)->opcode(), kMachineOpCopy);
+  EXPECT_EQ((*insn_it++)->RegAt(1), reg0);
+  // This one shouldn't be optimized as we only allow using regs from neighbors.
+  EXPECT_EQ((*insn_it++)->opcode(), kMachineOpMovqRegMemBaseDisp);
+  EXPECT_EQ((*insn_it)->opcode(), kMachineOpMovqRegImm);
+  EXPECT_EQ(x86_64::AsMachineInsnX86_64(*insn_it)->imm(), 12321UL);
 }
 
 TEST(MachineIRLocalGuestContextOptimizer, LimitRegisters) {
