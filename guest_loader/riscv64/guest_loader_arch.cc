@@ -26,7 +26,6 @@
 
 namespace berberis {
 
-// TODO(b/279068747): Ensure these paths are correct.
 // Paths required by guest_loader_impl.h.
 const char* kAppProcessRelativePath = "riscv64/app_process64";
 const char* kPtInterpRelativePath = "riscv64/linker64";
