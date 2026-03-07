@@ -118,6 +118,9 @@ void DuplicateLiveOutsMap::RenameAndRemoveDuplicateLiveIns(
   for (auto* insn : bb->insn_list()) {
     for (int i = 0; i < insn->NumRegOperands(); ++i) {
       auto reg = insn->RegAt(i);
+      if (Contains(bb->live_out(), reg)) {
+        continue;
+      }
       auto mapped_reg = GetDuplicate(prev_bb, reg);
       if (mapped_reg.IsInvalidReg()) {
         continue;
