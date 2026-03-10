@@ -17,11 +17,13 @@
 #ifndef BERBERIS_CODE_GEN_LIB_CODE_GEN_LIB_ARCH_H_
 #define BERBERIS_CODE_GEN_LIB_CODE_GEN_LIB_ARCH_H_
 
+#include <cstddef>
+
 #include "berberis/guest_state/guest_state.h"
 
 namespace berberis {
 
-inline constexpr size_t kReturnAddressRegisterOffset = offsetof(ThreadState, cpu.x[30]);
+inline constexpr size_t kReturnAddressRegisterOffset = offsetof(ThreadState, cpu.r[14]);
 
 }  // namespace berberis
 #endif  // BERBERIS_CODE_GEN_LIB_CODE_GEN_LIB_ARCH_H_

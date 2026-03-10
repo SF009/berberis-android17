@@ -333,7 +333,7 @@ cc_test_host {
     arch: {
         x86_64: {
             cflags: ["-mavx"],
-            srcs: ["intrinsics/all_to_x86_64/tuple_test.cc"],
+            srcs: ["cpu_emulation/intrinsics/all_to_x86_64/tuple_test.cc"],
             // Note: we must NOT use any static or shared libraries with SIMDRegister type involved
             // here, only header_libs, because those may be compiled with no-avx.
             // Safest way is to only use libbase/loblog needed for gTest itself.
@@ -357,7 +357,7 @@ cc_test_host {
     arch: {
         x86_64: {
             cflags: ["-mno-avx"],
-            srcs: ["intrinsics/all_to_x86_64/tuple_test.cc"],
+            srcs: ["cpu_emulation/intrinsics/all_to_x86_64/tuple_test.cc"],
             // Note: we must NOT use any static or shared libraries with SIMDRegister type involved
             // here, only header_libs, because those may be compiled with avx.
             // Safest way is to only use libbase/loblog needed for gTest itself.
