@@ -18,6 +18,7 @@
 
 #include "berberis/base/config.h"
 #include "berberis/guest_state/guest_state.h"
+#include "berberis/runtime_primitives/host_code.h"
 
 extern "C" void berberis_HandleNotTranslated(berberis::ThreadState* state);
 extern "C" void berberis_GetDispatchAddress(berberis::ThreadState* state);

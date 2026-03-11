@@ -22,7 +22,6 @@
 #include "berberis/base/checks.h"
 #include "berberis/base/gettid.h"
 #include "berberis/base/tracing.h"
-#include "berberis/guest_os_primitives/scoped_pending_signals.h"
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state.h"
 

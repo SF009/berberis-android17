@@ -159,7 +159,6 @@ cc_test {
     ],
     static_libs: [
         "libberberis_guest_loader_riscv64",
-        "libberberis_runtime_riscv64",
     ],
     shared_libs: [
         "libberberis_riscv64",

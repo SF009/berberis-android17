@@ -22,7 +22,6 @@ cc_library_static {
     defaults: [
         "berberis_enable_arm64_host_defaults",
         "berberis_riscv64_defaults",
-        "berberis_runtime_library_defaults",
     ],
     host_supported: true,
     arch: {
