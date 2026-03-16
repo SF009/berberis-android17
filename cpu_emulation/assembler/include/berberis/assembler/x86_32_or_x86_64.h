@@ -306,7 +306,7 @@ class Assembler : public AssemblerBase {
     }
   }
 
-  void Call(int32_t offset) {
+  void CallRel(int32_t offset) {
     CHECK_GE(offset, INT32_MIN + 5);
     Emit8(0xe8);
     Emit32(offset - 5);
@@ -848,7 +848,7 @@ template <typename DerivedAssemblerType>
 constexpr inline void Assembler<DerivedAssemblerType>::Call(const Label& label) {
   if (label.IsBound()) {
     int32_t offset = label.position() - pc();
-    Call(offset);
+    CallRel(offset);
   } else {
     Emit8(0xe8);
     Emit32(0xffff'fffc);
