@@ -30,6 +30,14 @@ using x86_64::Assembler;
 
 namespace {
 
+bool IsGeneralRegChar(char c) {
+  return strchr("zbscipl", c) != nullptr;
+}
+
+bool IsFpRegChar(char c) {
+  return strchr("fd", c) != nullptr;
+}
+
 void ExtendIntArg(MacroAssembler<Assembler>& as,
                   char type,
                   Assembler::Register dst,
@@ -124,8 +132,7 @@ void GenWrapGuestFunction(MachineCode* mc,
       Assembler::xmm7,
   };
   for (size_t i = 1; signature[i] != '\0'; ++i) {
-    if (signature[i] == 'z' || signature[i] == 'b' || signature[i] == 's' || signature[i] == 'c' ||
-        signature[i] == 'i' || signature[i] == 'p' || signature[i] == 'l') {
+    if (IsGeneralRegChar(signature[i])) {
       if (argc < static_cast<int>(std::size(kParamRegs))) {
         ExtendIntArg(as, signature[i], kParamRegs[argc], kParamRegs[argc]);
         as.Movq({.base = Assembler::rsp, .disp = kArgvOffset + argc * 8}, kParamRegs[argc]);
@@ -145,7 +152,7 @@ void GenWrapGuestFunction(MachineCode* mc,
         ++stack_argc;
       }
       ++argc;
-    } else if (signature[i] == 'f' || signature[i] == 'd') {
+    } else if (IsFpRegChar(signature[i])) {
       // Floating-point parameters are passed in the floating-point parameter registers (fa0..7)
       // first, then the general-purpose parameter registers (a0..7), then on the stack.
       if (fp_argc < static_cast<int>(std::size(kFpParamRegs))) {
@@ -189,11 +196,10 @@ void GenWrapGuestFunction(MachineCode* mc,
   as.Movl({.base = Assembler::rsp, .disp = kStackArgcOffset}, stack_argc * 8);
 
   // Set resc.
-  if (signature[0] == 'z' || signature[0] == 'b' || signature[0] == 's' || signature[0] == 'c' ||
-      signature[0] == 'i' || signature[0] == 'p' || signature[0] == 'l') {
+  if (IsGeneralRegChar(signature[0])) {
     as.Movl({.base = Assembler::rsp, .disp = kRescOffset}, 1);
     as.Movl({.base = Assembler::rsp, .disp = kFpRescOffset}, 0);
-  } else if (signature[0] == 'f' || signature[0] == 'd') {
+  } else if (IsFpRegChar(signature[0])) {
     as.Movl({.base = Assembler::rsp, .disp = kRescOffset}, 0);
     as.Movl({.base = Assembler::rsp, .disp = kFpRescOffset}, 1);
   } else {
@@ -208,8 +214,7 @@ void GenWrapGuestFunction(MachineCode* mc,
   as.Call(guest_runner);
 
   // Get the result.
-  if (signature[0] == 'z' || signature[0] == 'b' || signature[0] == 's' || signature[0] == 'c' ||
-      signature[0] == 'i' || signature[0] == 'p' || signature[0] == 'l') {
+  if (IsGeneralRegChar(signature[0])) {
     // It is not necessary to unbox integer return values. The callee will truncate rax to only
     // retrieve the bits appropriate for the return type.
     as.Movq(Assembler::rax, {.base = Assembler::rsp, .disp = kArgvOffset});
