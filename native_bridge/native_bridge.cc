@@ -99,10 +99,10 @@ using GuestAddr = berberis::GuestAddr;
 // Treble uses "sphal" name for the vendor namespace.
 constexpr const char* kVendorNamespaceName = "sphal";
 
-class NdktNativeBridge {
+class BerberisNativeBridge {
  public:
-  NdktNativeBridge();
-  ~NdktNativeBridge();
+  BerberisNativeBridge();
+  ~BerberisNativeBridge();
 
   bool Initialize(std::string* error_msg);
   void* LoadLibrary(const char* libpath, int flags, const native_bridge_namespace_t* ns = nullptr);
@@ -141,11 +141,11 @@ class NdktNativeBridge {
   std::map<std::string, native_bridge_namespace_t> exported_namespaces_;
 };
 
-NdktNativeBridge::NdktNativeBridge() : guest_loader_(nullptr) {}
+BerberisNativeBridge::BerberisNativeBridge() : guest_loader_(nullptr) {}
 
-NdktNativeBridge::~NdktNativeBridge() {}
+BerberisNativeBridge::~BerberisNativeBridge() {}
 
-bool NdktNativeBridge::Initialize(std::string* error_msg) {
+bool BerberisNativeBridge::Initialize(std::string* error_msg) {
   guest_loader_ = berberis::GuestLoader::StartAppProcessInNewThread(error_msg);
   berberis::RegisterKnownGuestFunctionWrapper("ANativeActivity_onCreate",
                                               berberis::WrapGuestNativeActivityOnCreate);
@@ -153,7 +153,7 @@ bool NdktNativeBridge::Initialize(std::string* error_msg) {
   return guest_loader_ != nullptr;
 }
 
-void* NdktNativeBridge::LoadLibrary(const char* libpath,
+void* BerberisNativeBridge::LoadLibrary(const char* libpath,
                                     int flags,
                                     const native_bridge_namespace_t* ns) {
   // We don't have a callback after all java initialization is finished. So we call the finalizing
@@ -190,7 +190,7 @@ void* NdktNativeBridge::LoadLibrary(const char* libpath,
   return handle;
 }
 
-void* NdktNativeBridge::LoadGuestLibrary(const char* libpath,
+void* BerberisNativeBridge::LoadGuestLibrary(const char* libpath,
                                          int flags,
                                          const native_bridge_namespace_t* ns) {
   android_dlextinfo extinfo_holder;
@@ -205,22 +205,22 @@ void* NdktNativeBridge::LoadGuestLibrary(const char* libpath,
   return guest_loader_->DlOpenExt(libpath, flags, extinfo);
 }
 
-void NdktNativeBridge::AddHostLibrary(void* handle) {
+void BerberisNativeBridge::AddHostLibrary(void* handle) {
   const std::lock_guard<std::mutex> guard(host_libraries_lock_);
   host_libraries_.insert(handle);
 }
 
-bool NdktNativeBridge::IsHostHandle(void* handle) const {
+bool BerberisNativeBridge::IsHostHandle(void* handle) const {
   const std::lock_guard<std::mutex> guard(host_libraries_lock_);
   return berberis::Contains(host_libraries_, handle);
 }
 
-GuestAddr NdktNativeBridge::DlSym(void* handle, const char* name) {
+GuestAddr BerberisNativeBridge::DlSym(void* handle, const char* name) {
   CHECK(!IsHostHandle(handle));
   return guest_loader_->DlSym(handle, name);
 }
 
-const char* NdktNativeBridge::DlError() {
+const char* BerberisNativeBridge::DlError() {
   // There is no good way of knowing where the error happened, - prioritize the guest loader.
   const char* error = guest_loader_->DlError();
   if (error != nullptr) {
@@ -230,7 +230,7 @@ const char* NdktNativeBridge::DlError() {
   return dlerror();
 }
 
-native_bridge_namespace_t* NdktNativeBridge::CreateNamespace(
+native_bridge_namespace_t* BerberisNativeBridge::CreateNamespace(
     const char* name,
     const char* ld_library_path,
     const char* default_library_path,
@@ -267,7 +267,7 @@ native_bridge_namespace_t* NdktNativeBridge::CreateNamespace(
   return CreateNativeBridgeNamespace(host_namespace, guest_namespace);
 }
 
-native_bridge_namespace_t* NdktNativeBridge::GetExportedNamespace(const char* name) {
+native_bridge_namespace_t* BerberisNativeBridge::GetExportedNamespace(const char* name) {
   const std::lock_guard<std::mutex> guard(namespaces_lock_);
   auto it = exported_namespaces_.find(name);
   if (it != exported_namespaces_.end()) {
@@ -286,13 +286,13 @@ native_bridge_namespace_t* NdktNativeBridge::GetExportedNamespace(const char* na
   return &insert_it->second;
 }
 
-bool NdktNativeBridge::InitAnonymousNamespace(const char* public_ns_sonames,
+bool BerberisNativeBridge::InitAnonymousNamespace(const char* public_ns_sonames,
                                               const char* anon_ns_library_path) {
   return guest_loader_->InitAnonymousNamespace(public_ns_sonames, anon_ns_library_path) &&
          android_init_anonymous_namespace(public_ns_sonames, anon_ns_library_path);
 }
 
-bool NdktNativeBridge::LinkNamespaces(native_bridge_namespace_t* from,
+bool BerberisNativeBridge::LinkNamespaces(native_bridge_namespace_t* from,
                                       native_bridge_namespace_t* to,
                                       const char* shared_libs_sonames) {
   return guest_loader_->LinkNamespaces(
@@ -300,7 +300,7 @@ bool NdktNativeBridge::LinkNamespaces(native_bridge_namespace_t* from,
          android_link_namespaces(from->host_namespace, to->host_namespace, shared_libs_sonames);
 }
 
-native_bridge_namespace_t* NdktNativeBridge::CreateNativeBridgeNamespace(
+native_bridge_namespace_t* BerberisNativeBridge::CreateNativeBridgeNamespace(
     android_namespace_t* host_namespace,
     android_namespace_t* guest_namespace) {
   const std::lock_guard<std::mutex> guard(namespaces_lock_);
@@ -330,7 +330,7 @@ void ProtectMappingsFromGuest() {
 
 extern "C" const char* __progname;
 
-bool NdktNativeBridge::FinalizeInit() {
+bool BerberisNativeBridge::FinalizeInit() {
   // Guest-libc is expected to be loaded along with app-process during Initialize(). At that time
   // __progname isn't yet initialized in java. So now when it should be initialized we copy it over
   // from host to guest.
@@ -355,7 +355,7 @@ bool NdktNativeBridge::FinalizeInit() {
   return true;
 }
 
-NdktNativeBridge g_ndkt_native_bridge;
+BerberisNativeBridge g_berberis_native_bridge;
 
 // Runtime values must be non-NULL, otherwise native bridge will be disabled.
 // Note, that 'supported_abis' and 'abi_count' are deprecated (b/18061712).
@@ -416,7 +416,7 @@ bool native_bridge_initialize(const android::NativeBridgeRuntimeCallbacks* runti
   }
 
   std::string error_msg;
-  if (!g_ndkt_native_bridge.Initialize(&error_msg)) {
+  if (!g_berberis_native_bridge.Initialize(&error_msg)) {
     LOG_ALWAYS_FATAL("native_bridge_initialize: %s", error_msg.c_str());
   }
   return true;
@@ -426,7 +426,7 @@ void* native_bridge_loadLibrary(const char* libpath, int flag) {
   // We should only get here if this library is not native.
   LOG_NB("native_bridge_loadLibrary(path='%s', flag=0x%x)", libpath ? libpath : "(null)", flag);
 
-  return g_ndkt_native_bridge.LoadLibrary(libpath, flag);
+  return g_berberis_native_bridge.LoadLibrary(libpath, flag);
 }
 
 void* native_bridge_getTrampolineWithJNICallType(void* handle,
@@ -443,11 +443,11 @@ void* native_bridge_getTrampolineWithJNICallType(void* handle,
       len,
       jni_call_type);
 
-  if (g_ndkt_native_bridge.IsHostHandle(handle)) {
+  if (g_berberis_native_bridge.IsHostHandle(handle)) {
     return dlsym(handle, name);
   }
 
-  GuestAddr guest_addr = g_ndkt_native_bridge.DlSym(handle, name);
+  GuestAddr guest_addr = g_berberis_native_bridge.DlSym(handle, name);
   if (!guest_addr) {
     return nullptr;
   }
@@ -546,7 +546,7 @@ int native_bridge_unloadLibrary(void* handle) {
 
 const char* native_bridge_getError() {
   LOG_NB("native_bridge_getError()");
-  return g_ndkt_native_bridge.DlError();
+  return g_berberis_native_bridge.DlError();
 }
 
 bool native_bridge_isPathSupported(const char* library_path) {
@@ -559,7 +559,7 @@ bool native_bridge_initAnonymousNamespace(const char* public_ns_sonames,
   LOG_NB("native_bridge_initAnonymousNamespace(public_ns_sonames=%s, anon_ns_library_path=%s)",
          public_ns_sonames,
          anon_ns_library_path);
-  return g_ndkt_native_bridge.InitAnonymousNamespace(public_ns_sonames, anon_ns_library_path);
+  return g_berberis_native_bridge.InitAnonymousNamespace(public_ns_sonames, anon_ns_library_path);
 }
 
 native_bridge_namespace_t* native_bridge_createNamespace(const char* name,
@@ -569,7 +569,7 @@ native_bridge_namespace_t* native_bridge_createNamespace(const char* name,
                                                          const char* permitted_when_isolated_path,
                                                          native_bridge_namespace_t* parent_ns) {
   LOG_NB("native_bridge_createNamespace(name=%s, path=%s)", name, ld_library_path);
-  return g_ndkt_native_bridge.CreateNamespace(
+  return g_berberis_native_bridge.CreateNamespace(
       name, ld_library_path, default_library_path, type, permitted_when_isolated_path, parent_ns);
 }
 
@@ -581,24 +581,24 @@ bool native_bridge_linkNamespaces(native_bridge_namespace_t* from,
          to,
          shared_libs_sonames);
 
-  return g_ndkt_native_bridge.LinkNamespaces(from, to, shared_libs_sonames);
+  return g_berberis_native_bridge.LinkNamespaces(from, to, shared_libs_sonames);
 }
 
 void* native_bridge_loadLibraryExt(const char* libpath, int flag, native_bridge_namespace_t* ns) {
   LOG_NB("native_bridge_loadLibraryExt(path=%s)", libpath);
 
-  return g_ndkt_native_bridge.LoadLibrary(libpath, flag, ns);
+  return g_berberis_native_bridge.LoadLibrary(libpath, flag, ns);
 }
 
 native_bridge_namespace_t* native_bridge_getVendorNamespace() {
   LOG_NB("native_bridge_getVendorNamespace()");
   // This method is retained for backwards compatibility.
-  return g_ndkt_native_bridge.GetExportedNamespace(kVendorNamespaceName);
+  return g_berberis_native_bridge.GetExportedNamespace(kVendorNamespaceName);
 }
 
 native_bridge_namespace_t* native_bridge_getExportedNamespace(const char* name) {
   LOG_NB("native_bridge_getExportedNamespace(name=%s)", name);
-  return g_ndkt_native_bridge.GetExportedNamespace(name);
+  return g_berberis_native_bridge.GetExportedNamespace(name);
 }
 
 void native_bridge_preZygoteFork() {
@@ -616,10 +616,10 @@ void native_bridge_preZygoteFork() {
   // after waitUntilAllThreadsStopped() in ART.
 
   // TODO(b/188923523): Consider moving to berberis::GuestPreZygoteFork().
-  void* liblog = g_ndkt_native_bridge.LoadGuestLibrary("liblog.so", RTLD_NOLOAD);
+  void* liblog = g_berberis_native_bridge.LoadGuestLibrary("liblog.so", RTLD_NOLOAD);
   // Nothing to close if the guest library hasn't been loaded.
   if (liblog) {
-    auto addr = g_ndkt_native_bridge.DlSym(liblog, "__android_log_close");
+    auto addr = g_berberis_native_bridge.DlSym(liblog, "__android_log_close");
     CHECK_NE(addr, berberis::kNullGuestAddr);
     berberis::GuestCall call;
     call.RunVoid(addr);
