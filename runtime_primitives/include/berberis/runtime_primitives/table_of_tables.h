@@ -23,7 +23,7 @@
 #include <cstdint>
 #include <mutex>
 
-#include "berberis/base/logging.h"
+#include "berberis/base/checks.h"
 #include "berberis/base/memfd_backed_mmap.h"
 #include "berberis/base/mmap.h"
 

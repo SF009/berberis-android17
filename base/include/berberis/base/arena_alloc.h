@@ -22,7 +22,6 @@
 #include <new>
 
 #include "berberis/base/bit_util.h"
-#include "berberis/base/logging.h"
 #include "berberis/base/mmap.h"
 #include "berberis/base/mmap_pool.h"
 #include "berberis/base/page_size.h"

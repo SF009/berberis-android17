@@ -25,7 +25,7 @@
 #include "berberis/assembler/machine_code.h"
 #include "berberis/base/arena_alloc.h"
 #include "berberis/base/arena_vector.h"
-#include "berberis/base/logging.h"
+#include "berberis/base/checks.h"
 #include "berberis/base/macros.h"  // DISALLOW_IMPLICIT_CONSTRUCTORS
 
 namespace berberis {

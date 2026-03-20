@@ -22,11 +22,10 @@
 #include <utility>
 
 #include "berberis/assembler/machine_code.h"
+#include "berberis/base/checks.h"
 #include "berberis/base/forever_alloc.h"
 #include "berberis/base/forever_map.h"
-#include "berberis/base/logging.h"
 #include "berberis/code_gen_lib/gen_wrapper.h"
-#include "berberis/guest_abi/guest_type.h"
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/runtime_primitives/code_pool.h"
 #include "berberis/runtime_primitives/host_code.h"

@@ -19,7 +19,6 @@
 
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state_opaque.h"
-#include "berberis/runtime_primitives/checks.h"
 #include "berberis/runtime_primitives/host_code.h"
 
 namespace berberis {
