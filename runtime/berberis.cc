@@ -22,7 +22,7 @@
 #include "berberis/guest_os_primitives/guest_thread_manager.h"
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/runtime/init_guest_arch.h"
-#include "berberis/runtime/translator.h"
+#include "berberis/translator/translator.h"
 #include "berberis/runtime_primitives/guest_function_wrapper_impl.h"
 #include "berberis/runtime_primitives/translation_cache.h"
 

@@ -16,7 +16,7 @@
 
 #include "translator_x86_64.h"
 #include "berberis/base/config.h"  // kGuestPageSize;
-#include "berberis/runtime/translator.h"
+#include "berberis/translator/translator.h"
 #include "translator.h"
 
 #include <cstdint>

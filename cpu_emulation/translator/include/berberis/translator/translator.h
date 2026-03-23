@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef BERBERIS_RUNTIME_TRANSLATOR_H_
-#define BERBERIS_RUNTIME_TRANSLATOR_H_
+#ifndef BERBERIS_TRANSLATOR_TRANSLATOR_H_
+#define BERBERIS_TRANSLATOR_TRANSLATOR_H_
 
 namespace berberis {
 
@@ -23,4 +23,4 @@ void InitTranslator();
 
 }  // namespace berberis
 
-#endif  // BERBERIS_RUNTIME_TRANSLATOR_H_
+#endif  // BERBERIS_TRANSLATOR_TRANSLATOR_H_
