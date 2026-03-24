@@ -5,3 +5,5 @@
 * If unsure build ndk_translation_all and ndk_translation_run_host_tests targets
 with lunch set to cf_x86_64_phone-trunk_staging-userdebug
 * Command line utilities: Strictly prefer fdfind to find and ag to grep
+* When modifying module lists in blueprints or header lists in sources make
+sure to sort the result, to comply with the existing style
