@@ -20,9 +20,11 @@
 
 #include "berberis/base/checks.h"
 #include "berberis/base/tracing.h"
+#include "berberis/guest_os_primitives/guest_thread_manager.h"
 #include "berberis/guest_os_primitives/scoped_pending_signals.h"
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state_opaque.h"
+#include "berberis/runtime_primitives/translation_cache.h"
 
 namespace berberis {
 
@@ -46,6 +48,14 @@ extern "C" __attribute__((used, __visibility__("hidden"))) void berberis_HandleN
   info.si_code = SEGV_ACCERR;
   info.si_addr = ToHostAddr<void>(GetInsnAddr(cpu));
   syscall(SYS_rt_tgsigqueueinfo, GetpidSyscall(), GettidSyscall(), SIGSEGV, &info);
+}
+
+// Invalidate regions overlapping with the range. Could be pretty slow.
+void InvalidateGuestRange(GuestAddr start, GuestAddr end) {
+  TranslationCache* cache = TranslationCache::GetInstance();
+  cache->InvalidateGuestRange(start, end);
+  // TODO(b/28081995): Specify region to avoid flushing too much.
+  FlushGuestCodeCache();
 }
 
 }  // namespace berberis
