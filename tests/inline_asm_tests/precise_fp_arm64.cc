@@ -16,6 +16,7 @@
 
 #include "gtest/gtest.h"
 
+#include <bit>
 #include <cmath>
 #include <cstdint>
 
@@ -64,7 +65,7 @@ TEST(Arm64InsnTest, DivFp32PreciseNaN) {
 
   // Verify that FDIV canonicalizes a qNaN to the default NaN.
   __uint128_t arg1 = kDefaultNaN32AsInteger | (1U << 31);  // A qNaN
-  __uint128_t arg2 = bit_cast<uint32_t>(1.0f);
+  __uint128_t arg2 = std::bit_cast<uint32_t>(1.0f);
   ASSERT_EQ(AsmFdiv(arg1, arg2, kFpcrDnBit), kDefaultNaN32AsInteger);
 }
 
@@ -73,7 +74,7 @@ TEST(Arm64InsnTest, DivFp64PreciseNaN) {
 
   // Verify that FDIV canonicalizes a qNaN to the default NaN.
   __uint128_t arg1 = kDefaultNaN64AsInteger | (1ULL << 63);  // A qNaN
-  __uint128_t arg2 = bit_cast<uint64_t>(1.0);
+  __uint128_t arg2 = std::bit_cast<uint64_t>(1.0);
   ASSERT_EQ(AsmFdiv(arg1, arg2, kFpcrDnBit), kDefaultNaN64AsInteger);
 }
 
@@ -81,16 +82,17 @@ TEST(Arm64InsnTest, DivFp64x2PreciseNaN) {
   constexpr auto AsmFdiv = ASM_INSN_WRAP_FUNC_W_RES_WWC_ARG("fdiv %0.2d, %1.2d, %2.2d");
 
   // Verify that FDIV canonicalizes a qNaN to the default NaN.
-  __uint128_t arg1 = MakeUInt128(bit_cast<uint64_t>(2.0), kDefaultNaN64AsInteger | (1ULL << 63));
+  __uint128_t arg1 =
+      MakeUInt128(std::bit_cast<uint64_t>(2.0), kDefaultNaN64AsInteger | (1ULL << 63));
   __uint128_t arg2 = MakeF64x2(1.0, 1.0);
   __uint128_t res = AsmFdiv(arg1, arg2, kFpcrDnBit);
-  ASSERT_EQ(res, MakeUInt128(bit_cast<uint64_t>(2.0), kDefaultNaN64AsInteger));
+  ASSERT_EQ(res, MakeUInt128(std::bit_cast<uint64_t>(2.0), kDefaultNaN64AsInteger));
 }
 
 TEST(Arm64InsnTest, MaxFp32PreciseNaN) {
   constexpr auto AsmFmax = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fmax %s0, %s1, %s2");
-  uint32_t fp_arg_two = bit_cast<uint32_t>(2.0f);
-  uint32_t fp_arg_minus_two = bit_cast<uint32_t>(-2.0f);
+  uint32_t fp_arg_two = std::bit_cast<uint32_t>(2.0f);
+  uint32_t fp_arg_minus_two = std::bit_cast<uint32_t>(-2.0f);
 
   ASSERT_EQ(AsmFmax(fp_arg_two, kQuietNaN32AsInteger), MakeU32x4(kQuietNaN32AsInteger, 0, 0, 0));
   ASSERT_EQ(AsmFmax(fp_arg_minus_two, kQuietNaN32AsInteger),
@@ -108,8 +110,8 @@ TEST(Arm64InsnTest, MaxFp32PreciseNaN) {
 
 TEST(Arm64InsnTest, MaxFp64PreciseNaN) {
   constexpr auto AsmFmax = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fmax %d0, %d1, %d2");
-  uint64_t fp_arg_two = bit_cast<uint64_t>(2.0);
-  uint64_t fp_arg_minus_two = bit_cast<uint64_t>(-2.0);
+  uint64_t fp_arg_two = std::bit_cast<uint64_t>(2.0);
+  uint64_t fp_arg_minus_two = std::bit_cast<uint64_t>(-2.0);
 
   ASSERT_EQ(AsmFmax(fp_arg_two, kQuietNaN64AsInteger), MakeUInt128(kQuietNaN64AsInteger, 0U));
   ASSERT_EQ(AsmFmax(fp_arg_minus_two, kQuietNaN64AsInteger), MakeUInt128(kQuietNaN64AsInteger, 0));
@@ -125,8 +127,8 @@ TEST(Arm64InsnTest, MaxFp64PreciseNaN) {
 
 TEST(Arm64InsnTest, MaxNumberFp32PreciseNaN) {
   constexpr auto AsmFmaxnm = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fmaxnm %s0, %s1, %s2");
-  uint32_t fp_arg_two = bit_cast<uint32_t>(2.0f);
-  uint64_t fp_arg_minus_two = bit_cast<uint64_t>(-2.0);
+  uint32_t fp_arg_two = std::bit_cast<uint32_t>(2.0f);
+  uint64_t fp_arg_minus_two = std::bit_cast<uint64_t>(-2.0);
 
   ASSERT_EQ(AsmFmaxnm(kSignalingNaN32AsInteger_1, fp_arg_two),
             MakeU32x4(kQuietNaN32AsInteger_1, 0, 0, 0));
@@ -140,8 +142,8 @@ TEST(Arm64InsnTest, MaxNumberFp32PreciseNaN) {
 
 TEST(Arm64InsnTest, MaxNumberFp64PreciseNaN) {
   constexpr auto AsmFmaxnm = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fmaxnm %d0, %d1, %d2");
-  uint64_t fp_arg_two = bit_cast<uint64_t>(2.0);
-  uint64_t fp_arg_minus_two = bit_cast<uint64_t>(-2.0);
+  uint64_t fp_arg_two = std::bit_cast<uint64_t>(2.0);
+  uint64_t fp_arg_minus_two = std::bit_cast<uint64_t>(-2.0);
 
   ASSERT_EQ(AsmFmaxnm(kSignalingNaN64AsInteger_1, fp_arg_two),
             MakeUInt128(kQuietNaN64AsInteger_1, 0));
@@ -155,8 +157,8 @@ TEST(Arm64InsnTest, MaxNumberFp64PreciseNaN) {
 
 TEST(Arm64InsnTest, MinFp32PreciseNaN) {
   constexpr auto AsmFmin = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fmin %s0, %s1, %s2");
-  uint32_t fp_arg_two = bit_cast<uint32_t>(2.0f);
-  uint32_t fp_arg_minus_two = bit_cast<uint32_t>(-2.0f);
+  uint32_t fp_arg_two = std::bit_cast<uint32_t>(2.0f);
+  uint32_t fp_arg_minus_two = std::bit_cast<uint32_t>(-2.0f);
 
   ASSERT_EQ(AsmFmin(fp_arg_two, kQuietNaN32AsInteger), MakeU32x4(kQuietNaN32AsInteger, 0, 0, 0));
   ASSERT_EQ(AsmFmin(fp_arg_minus_two, kQuietNaN32AsInteger),
@@ -174,8 +176,8 @@ TEST(Arm64InsnTest, MinFp32PreciseNaN) {
 
 TEST(Arm64InsnTest, MinFp64PreciseNaN) {
   constexpr auto AsmFmin = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fmin %d0, %d1, %d2");
-  uint64_t fp_arg_two = bit_cast<uint64_t>(2.0);
-  uint64_t fp_arg_minus_two = bit_cast<uint64_t>(-2.0);
+  uint64_t fp_arg_two = std::bit_cast<uint64_t>(2.0);
+  uint64_t fp_arg_minus_two = std::bit_cast<uint64_t>(-2.0);
 
   ASSERT_EQ(AsmFmin(fp_arg_two, kQuietNaN64AsInteger), MakeUInt128(kQuietNaN64AsInteger, 0U));
   ASSERT_EQ(AsmFmin(fp_arg_minus_two, kQuietNaN64AsInteger), MakeUInt128(kQuietNaN64AsInteger, 0));
@@ -191,8 +193,8 @@ TEST(Arm64InsnTest, MinFp64PreciseNaN) {
 
 TEST(Arm64InsnTest, MinNumberFp32PreciseNaN) {
   constexpr auto AsmFminnm = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fminnm %s0, %s1, %s2");
-  uint32_t fp_arg_two = bit_cast<uint32_t>(2.0f);
-  uint32_t fp_arg_minus_two = bit_cast<uint32_t>(-2.0f);
+  uint32_t fp_arg_two = std::bit_cast<uint32_t>(2.0f);
+  uint32_t fp_arg_minus_two = std::bit_cast<uint32_t>(-2.0f);
 
   ASSERT_EQ(AsmFminnm(kSignalingNaN32AsInteger_1, fp_arg_two),
             MakeU32x4(kQuietNaN32AsInteger_1, 0, 0, 0));
@@ -206,8 +208,8 @@ TEST(Arm64InsnTest, MinNumberFp32PreciseNaN) {
 
 TEST(Arm64InsnTest, MinNumberFp64PreciseNaN) {
   constexpr auto AsmFminnm = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fminnm %d0, %d1, %d2");
-  uint64_t fp_arg_two = bit_cast<uint64_t>(2.0);
-  uint64_t fp_arg_minus_two = bit_cast<uint64_t>(-2.0);
+  uint64_t fp_arg_two = std::bit_cast<uint64_t>(2.0);
+  uint64_t fp_arg_minus_two = std::bit_cast<uint64_t>(-2.0);
 
   ASSERT_EQ(AsmFminnm(kSignalingNaN64AsInteger_1, fp_arg_two),
             MakeUInt128(kQuietNaN64AsInteger_1, 0));
@@ -221,102 +223,102 @@ TEST(Arm64InsnTest, MinNumberFp64PreciseNaN) {
 
 TEST(Arm64InsnTest, MaxNumberF32x4PreciseNaN) {
   constexpr auto AsmFmaxnm = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fmaxnm %0.4s, %1.4s, %2.4s");
-  __uint128_t arg1 = MakeU32x4(bit_cast<uint32_t>(1.0f),
-                               bit_cast<uint32_t>(-1.0f),
+  __uint128_t arg1 = MakeU32x4(std::bit_cast<uint32_t>(1.0f),
+                               std::bit_cast<uint32_t>(-1.0f),
                                kSignalingNaN32AsInteger_1,
                                kQuietNaN32AsInteger);
   __uint128_t arg2 = MakeU32x4(kSignalingNaN32AsInteger_1,
                                kQuietNaN32AsInteger,
-                               bit_cast<uint32_t>(1.0f),
-                               bit_cast<uint32_t>(-1.0f));
+                               std::bit_cast<uint32_t>(1.0f),
+                               std::bit_cast<uint32_t>(-1.0f));
   ASSERT_EQ(AsmFmaxnm(arg1, arg2),
             MakeU32x4(kQuietNaN32AsInteger_1,
-                      bit_cast<uint32_t>(-1.0f),
+                      std::bit_cast<uint32_t>(-1.0f),
                       kQuietNaN32AsInteger_1,
-                      bit_cast<uint32_t>(-1.0f)));
+                      std::bit_cast<uint32_t>(-1.0f)));
 }
 
 TEST(Arm64InsnTest, MaxNumberF64x2PreciseNaN) {
   constexpr auto AsmFmaxnm = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fmaxnm %0.2d, %1.2d, %2.2d");
-  __uint128_t arg1 = MakeUInt128(bit_cast<uint64_t>(1.0), kSignalingNaN64AsInteger_1);
-  __uint128_t arg2 = MakeUInt128(kSignalingNaN64AsInteger_1, bit_cast<uint64_t>(-1.0));
+  __uint128_t arg1 = MakeUInt128(std::bit_cast<uint64_t>(1.0), kSignalingNaN64AsInteger_1);
+  __uint128_t arg2 = MakeUInt128(kSignalingNaN64AsInteger_1, std::bit_cast<uint64_t>(-1.0));
   ASSERT_EQ(AsmFmaxnm(arg1, arg2), MakeUInt128(kQuietNaN64AsInteger_1, kQuietNaN64AsInteger_1));
 }
 
 TEST(Arm64InsnTest, MinNumberF32x4PreciseNaN) {
   constexpr auto AsmFminnm = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fminnm %0.4s, %1.4s, %2.4s");
-  __uint128_t arg1 = MakeU32x4(bit_cast<uint32_t>(1.0f),
-                               bit_cast<uint32_t>(-1.0f),
+  __uint128_t arg1 = MakeU32x4(std::bit_cast<uint32_t>(1.0f),
+                               std::bit_cast<uint32_t>(-1.0f),
                                kSignalingNaN32AsInteger_1,
                                kQuietNaN32AsInteger);
   __uint128_t arg2 = MakeU32x4(kSignalingNaN32AsInteger_1,
                                kQuietNaN32AsInteger,
-                               bit_cast<uint32_t>(1.0f),
-                               bit_cast<uint32_t>(-1.0f));
+                               std::bit_cast<uint32_t>(1.0f),
+                               std::bit_cast<uint32_t>(-1.0f));
   ASSERT_EQ(AsmFminnm(arg1, arg2),
             MakeU32x4(kQuietNaN32AsInteger_1,
-                      bit_cast<uint32_t>(-1.0f),
+                      std::bit_cast<uint32_t>(-1.0f),
                       kQuietNaN32AsInteger_1,
-                      bit_cast<uint32_t>(-1.0f)));
+                      std::bit_cast<uint32_t>(-1.0f)));
 }
 
 TEST(Arm64InsnTest, MinNumberF64x2PreciseNaN) {
   constexpr auto AsmFminnm = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fminnm %0.2d, %1.2d, %2.2d");
-  __uint128_t arg1 = MakeUInt128(bit_cast<uint64_t>(1.0), kSignalingNaN64AsInteger_1);
-  __uint128_t arg2 = MakeUInt128(kSignalingNaN64AsInteger_1, bit_cast<uint64_t>(-1.0));
+  __uint128_t arg1 = MakeUInt128(std::bit_cast<uint64_t>(1.0), kSignalingNaN64AsInteger_1);
+  __uint128_t arg2 = MakeUInt128(kSignalingNaN64AsInteger_1, std::bit_cast<uint64_t>(-1.0));
   ASSERT_EQ(AsmFminnm(arg1, arg2), MakeUInt128(kQuietNaN64AsInteger_1, kQuietNaN64AsInteger_1));
 }
 
 TEST(Arm64InsnTest, MaxPairwiseNumberF32ScalarPreciseNaN) {
   constexpr auto AsmFmaxnmp = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fmaxnmp %s0, %1.2s");
-  __uint128_t arg = MakeF32x4(bit_cast<float>(kSignalingNaN32AsInteger_1), 2.0f, 7.0f, -0.0f);
+  __uint128_t arg = MakeF32x4(std::bit_cast<float>(kSignalingNaN32AsInteger_1), 2.0f, 7.0f, -0.0f);
   ASSERT_EQ(AsmFmaxnmp(arg), kQuietNaN32AsInteger_1);
 }
 
 TEST(Arm64InsnTest, MaxPairwiseNumberF32x4PreciseNaN) {
   constexpr auto AsmFmaxnmp = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fmaxnmp %0.4s, %1.4s, %2.4s");
-  __uint128_t arg1 = MakeF32x4(bit_cast<float>(kSignalingNaN32AsInteger_1),
+  __uint128_t arg1 = MakeF32x4(std::bit_cast<float>(kSignalingNaN32AsInteger_1),
                                2.0f,
                                7.0f,
-                               bit_cast<float>(kSignalingNaN32AsInteger_1));
+                               std::bit_cast<float>(kSignalingNaN32AsInteger_1));
   __uint128_t arg2 = MakeF32x4(6.0f, 1.0f, -8.0f, 5.0f);
   ASSERT_EQ(AsmFmaxnmp(arg1, arg2),
-            MakeF32x4(bit_cast<float>(kQuietNaN32AsInteger_1),
-                      bit_cast<float>(kQuietNaN32AsInteger_1),
+            MakeF32x4(std::bit_cast<float>(kQuietNaN32AsInteger_1),
+                      std::bit_cast<float>(kQuietNaN32AsInteger_1),
                       6.0f,
                       5.0f));
 }
 
 TEST(Arm64InsnTest, MinPairwiseNumberF32ScalarPreciseNaN) {
   constexpr auto AsmFminnmp = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fminnmp %s0, %1.2s");
-  __uint128_t arg = MakeF32x4(bit_cast<float>(kSignalingNaN32AsInteger_1), 2.0f, 7.0f, -0.0f);
+  __uint128_t arg = MakeF32x4(std::bit_cast<float>(kSignalingNaN32AsInteger_1), 2.0f, 7.0f, -0.0f);
   ASSERT_EQ(AsmFminnmp(arg), kQuietNaN32AsInteger_1);
 }
 
 TEST(Arm64InsnTest, MinPairwiseNumberF32x4PreciseNaN) {
   constexpr auto AsmFminnmp = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fminnmp %0.4s, %1.4s, %2.4s");
-  __uint128_t arg1 = MakeF32x4(bit_cast<float>(kSignalingNaN32AsInteger_1),
+  __uint128_t arg1 = MakeF32x4(std::bit_cast<float>(kSignalingNaN32AsInteger_1),
                                2.0f,
                                7.0f,
-                               bit_cast<float>(kSignalingNaN32AsInteger_1));
+                               std::bit_cast<float>(kSignalingNaN32AsInteger_1));
   __uint128_t arg2 = MakeF32x4(6.0f, 1.0f, -8.0f, 5.0f);
   ASSERT_EQ(AsmFminnmp(arg1, arg2),
-            MakeF32x4(bit_cast<float>(kQuietNaN32AsInteger_1),
-                      bit_cast<float>(kQuietNaN32AsInteger_1),
+            MakeF32x4(std::bit_cast<float>(kQuietNaN32AsInteger_1),
+                      std::bit_cast<float>(kQuietNaN32AsInteger_1),
                       1.0f,
                       -8.0f));
 }
 
 TEST(Arm64InsnTest, MaxNumberAcrossF32x4PreciseNaN) {
   constexpr auto AsmFmaxnmv = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fmaxnmv %s0, %1.4s");
-  __uint128_t arg = MakeF32x4(0.0f, 2.0f, 3.0f, bit_cast<float>(kSignalingNaN32AsInteger_1));
-  ASSERT_EQ(AsmFmaxnmv(arg), bit_cast<uint32_t>(2.0f));
+  __uint128_t arg = MakeF32x4(0.0f, 2.0f, 3.0f, std::bit_cast<float>(kSignalingNaN32AsInteger_1));
+  ASSERT_EQ(AsmFmaxnmv(arg), std::bit_cast<uint32_t>(2.0f));
 }
 
 TEST(Arm64InsnTest, MinNumberAcrossF32x4PreciseNaN) {
   constexpr auto AsmFminnmv = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fminnmv %s0, %1.4s");
-  __uint128_t arg = MakeF32x4(0.0f, 2.0f, 3.0f, bit_cast<float>(kSignalingNaN32AsInteger_1));
-  ASSERT_EQ(AsmFminnmv(arg), bit_cast<uint32_t>(0.0f));
+  __uint128_t arg = MakeF32x4(0.0f, 2.0f, 3.0f, std::bit_cast<float>(kSignalingNaN32AsInteger_1));
+  ASSERT_EQ(AsmFminnmv(arg), std::bit_cast<uint32_t>(0.0f));
 }
 
 TEST(Arm64InsnTest, AbdF64PreciseNaN) {
@@ -326,7 +328,7 @@ TEST(Arm64InsnTest, AbdF64PreciseNaN) {
   // produces the positive one.  That is, a NaN input doesn't necessarily
   // propagate to the result as is even with the Default NaN mode turned off.
   uint64_t arg1 = kDefaultNaN64AsInteger | (1ULL << 63);  // A "negative" qNaN
-  uint64_t arg2 = bit_cast<uint32_t>(1.0f);
+  uint64_t arg2 = std::bit_cast<uint32_t>(1.0f);
   ASSERT_EQ(AsmFabd(arg1, arg2), kDefaultNaN64AsInteger);
 }
 
@@ -334,10 +336,10 @@ TEST(Arm64InsnTest, DivFp32FlushToZero) {
   constexpr auto AsmFdiv = ASM_INSN_WRAP_FUNC_W_RES_WWC_ARG("fdiv %s0, %s1, %s2");
 
   // Verify that 0.0 / denormal yields a NaN.
-  __uint128_t arg1 = bit_cast<uint32_t>(0.0f);
+  __uint128_t arg1 = std::bit_cast<uint32_t>(0.0f);
   __uint128_t arg2 = 0x8000'8000ULL;  // denormal
   __uint128_t res = AsmFdiv(arg1, arg2, kFpcrFzBit);
-  ASSERT_TRUE(isnan(bit_cast<float>(static_cast<uint32_t>(res))));
+  ASSERT_TRUE(isnan(std::bit_cast<float>(static_cast<uint32_t>(res))));
   ASSERT_EQ(res >> 32, 0ULL);
 }
 
@@ -345,16 +347,16 @@ TEST(Arm64InsnTest, DivFp64FlushToZero) {
   constexpr auto AsmFdiv = ASM_INSN_WRAP_FUNC_W_RES_WWC_ARG("fdiv %d0, %d1, %d2");
 
   // Verify that 0.0 / denormal yields a NaN.
-  __uint128_t arg1 = bit_cast<uint64_t>(0.0);
+  __uint128_t arg1 = std::bit_cast<uint64_t>(0.0);
   __uint128_t arg2 = 0x8000'0000'8000'0000ULL;  // denormal
   __uint128_t res = AsmFdiv(arg1, arg2, kFpcrFzBit);
-  ASSERT_TRUE(isnan(bit_cast<double>(static_cast<uint64_t>(res))));
+  ASSERT_TRUE(isnan(std::bit_cast<double>(static_cast<uint64_t>(res))));
   ASSERT_EQ(res >> 64, 0ULL);
 }
 
 TEST(Arm64InsnTest, AddFp64FpStatusIdcWhenFzOn) {
   __uint128_t arg1 = 0x8000'0000'8000'0000ULL;  // Denormal
-  __uint128_t arg2 = bit_cast<uint64_t>(0.0);
+  __uint128_t arg2 = std::bit_cast<uint64_t>(0.0);
 
   uint64_t fpcr = kFpcrFzBit;
   uint64_t fpsr;
@@ -391,8 +393,8 @@ TEST(Arm64InsnTest, AddFp64FpStatusIxc) {
 
 TEST(Arm64InsnTest, AddFp64FpStatusDzc) {
   constexpr auto AsmFDiv = ASM_INSN_WRAP_FUNC_WQ_RES_WW0_ARG("fdiv %d0, %d2, %d3");
-  auto num = MakeUInt128(bit_cast<uint64_t>(2.0), 0ULL);
-  auto den = MakeUInt128(bit_cast<uint64_t>(0.0), 0ULL);
+  auto num = MakeUInt128(std::bit_cast<uint64_t>(2.0), 0ULL);
+  auto den = MakeUInt128(std::bit_cast<uint64_t>(0.0), 0ULL);
 
   auto [res, fpsr] = AsmFDiv(num, den, 0);
   ASSERT_EQ(fpsr, kFpsrDzcBit);

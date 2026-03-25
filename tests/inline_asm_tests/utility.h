@@ -17,28 +17,21 @@
 #ifndef BERBERIS_TESTS_INLINE_ASM_TESTS_UTILITY_H_
 #define BERBERIS_TESTS_INLINE_ASM_TESTS_UTILITY_H_
 
+#include <bit>
 #include <cstdint>
 #include <cstring>
 #include <tuple>
 
 extern "C" uint64_t get_fp64_literal();
 
-template <class Dest, class Source>
-inline Dest bit_cast(const Source& source) {
-  static_assert(sizeof(Dest) == sizeof(Source));
-  Dest dest;
-  memcpy(&dest, &source, sizeof(dest));
-  return dest;
-}
-
 inline __uint128_t MakeF32x4(float f1, float f2, float f3, float f4) {
   float array[] = {f1, f2, f3, f4};
-  return bit_cast<__uint128_t>(array);
+  return std::bit_cast<__uint128_t>(array);
 }
 
 inline __uint128_t MakeF64x2(double d1, double d2) {
   double array[] = {d1, d2};
-  return bit_cast<__uint128_t>(array);
+  return std::bit_cast<__uint128_t>(array);
 }
 
 constexpr __uint128_t MakeUInt128(uint64_t low, uint64_t high) {
