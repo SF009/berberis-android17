@@ -20,8 +20,8 @@
 #include "berberis/guest_abi/guest_function_wrapper_signature.h"
 #include "berberis/guest_abi/guest_type.h"
 #include "berberis/guest_state/guest_addr.h"
+#include "berberis/runtime_library/runtime_library.h"  // RunGuestCall
 #include "berberis/runtime_primitives/guest_function_wrapper_impl.h"
-#include "berberis/runtime_primitives/runtime_library.h"  // RunGuestCall
 
 namespace berberis {
 

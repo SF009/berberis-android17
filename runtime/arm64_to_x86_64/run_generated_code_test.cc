@@ -19,7 +19,7 @@
 #include "berberis/assembler/machine_code.h"
 #include "berberis/assembler/x86_64.h"
 #include "berberis/guest_state/guest_state.h"
-#include "berberis/runtime_primitives/runtime_library.h"  // berberis_RunGeneratedCode
+#include "berberis/runtime_library/runtime_library.h"  // berberis_RunGeneratedCode
 #include "berberis/test_utils/scoped_exec_region.h"
 
 namespace berberis {

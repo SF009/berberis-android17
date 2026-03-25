@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef BERBERIS_RUNTIME_PRIMITIVES_RUNTIME_LIBRARY_H_
-#define BERBERIS_RUNTIME_PRIMITIVES_RUNTIME_LIBRARY_H_
+#ifndef BERBERIS_RUNTIME_LIBRARY_RUNTIME_LIBRARY_H_
+#define BERBERIS_RUNTIME_LIBRARY_RUNTIME_LIBRARY_H_
 
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state_opaque.h"
@@ -68,4 +68,4 @@ void ExecuteGuestCall(ThreadState* state);
 
 }  // namespace berberis
 
-#endif  // BERBERIS_RUNTIME_PRIMITIVES_RUNTIME_LIBRARY_H_
+#endif  // BERBERIS_RUNTIME_LIBRARY_RUNTIME_LIBRARY_H_

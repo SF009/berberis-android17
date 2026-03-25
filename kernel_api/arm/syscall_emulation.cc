@@ -34,7 +34,7 @@
 #include "berberis/kernel_api/runtime_bridge.h"
 #include "berberis/kernel_api/syscall_emulation_common.h"
 #include "berberis/kernel_api/unistd_emulation.h"
-#include "berberis/runtime_primitives/runtime_library.h"
+#include "berberis/runtime_library/runtime_library.h"
 
 #include "epoll_emulation.h"
 #include "signal_emulation.h"

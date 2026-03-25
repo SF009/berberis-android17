@@ -36,7 +36,7 @@
 // TODO(b/346604197): Enable on arm64 once these modules are ported.
 #ifdef __x86_64__
 #include "berberis/guest_os_primitives/scoped_pending_signals.h"
-#include "berberis/runtime_primitives/runtime_library.h"
+#include "berberis/runtime_library/runtime_library.h"
 #endif
 
 #include "epoll_emulation.h"

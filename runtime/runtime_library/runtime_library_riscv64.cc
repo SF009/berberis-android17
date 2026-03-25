@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "berberis/runtime_primitives/runtime_library.h"
+#include "berberis/runtime_library/runtime_library.h"
 
 #include "berberis/base/config.h"
 #include "berberis/guest_state/guest_state.h"

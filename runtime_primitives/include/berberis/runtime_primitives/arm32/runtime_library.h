@@ -17,8 +17,8 @@
 #ifndef BERBERIS_RUNTIME_PRIMITIVES_ARM32_RUNTIME_LIBRARY_H_
 #define BERBERIS_RUNTIME_PRIMITIVES_ARM32_RUNTIME_LIBRARY_H_
 
+#include "berberis/runtime_library/runtime_library.h"
 #include "berberis/runtime_primitives/host_code.h"
-#include "berberis/runtime_primitives/runtime_library.h"
 
 extern "C" {
 
