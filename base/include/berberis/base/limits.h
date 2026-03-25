@@ -33,8 +33,6 @@ class numeric_limits<berberis::WrappedFloatType<BaseType>> {
   static constexpr bool has_infinity = true;
   static constexpr bool has_quiet_NaN = std::numeric_limits<BaseType>::has_quiet_NaN;
   static constexpr bool has_signaling_NaN = std::numeric_limits<BaseType>::has_signaling_NaN;
-  static constexpr std::float_denorm_style has_denorm = std::numeric_limits<BaseType>::has_denorm;
-  static constexpr bool has_denorm_loss = std::numeric_limits<BaseType>::has_denorm_loss;
   static constexpr std::float_round_style round_style = std::numeric_limits<BaseType>::round_style;
   static constexpr bool is_iec559 = std::numeric_limits<BaseType>::is_iec559;
   static constexpr bool is_bounded = true;

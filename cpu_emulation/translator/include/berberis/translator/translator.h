@@ -14,21 +14,13 @@
  * limitations under the License.
  */
 
-#include "berberis/guest_os_primitives/guest_thread_manager.h"
-#include "berberis/guest_state/guest_addr.h"
-#include "berberis/runtime_primitives/runtime_library.h"
-#include "berberis/runtime_primitives/translation_cache.h"
-
-#include "berberis/base/checks.h"
+#ifndef BERBERIS_TRANSLATOR_TRANSLATOR_H_
+#define BERBERIS_TRANSLATOR_TRANSLATOR_H_
 
 namespace berberis {
 
-// Invalidate regions overlapping with the range. Could be pretty slow.
-void InvalidateGuestRange(GuestAddr start, GuestAddr end) {
-  TranslationCache* cache = TranslationCache::GetInstance();
-  cache->InvalidateGuestRange(start, end);
-  // TODO(b/28081995): Specify region to avoid flushing too much.
-  FlushGuestCodeCache();
-}
+void InitTranslator();
 
 }  // namespace berberis
+
+#endif  // BERBERIS_TRANSLATOR_TRANSLATOR_H_

@@ -24,7 +24,7 @@
 #include <unistd.h>
 
 #include "berberis/base/bit_util.h"
-#include "berberis/base/logging.h"
+#include "berberis/base/checks.h"
 #include "berberis/base/raw_syscall.h"
 
 namespace berberis {

@@ -22,9 +22,9 @@
 #include <atomic>
 #include <type_traits>
 
+#include "berberis/base/checks.h"
 #include "berberis/base/fd.h"
 #include "berberis/base/large_mmap.h"
-#include "berberis/base/logging.h"
 #include "berberis/base/mmap.h"
 
 namespace berberis {

@@ -22,7 +22,7 @@
 #include <cstddef>
 
 #include "berberis/base/bit_util.h"
-#include "berberis/base/logging.h"
+#include "berberis/base/checks.h"
 #include "berberis/base/stringprintf.h"
 #include "berberis/guest_abi/guest_call.h"
 #include "berberis/guest_loader/guest_loader.h"
