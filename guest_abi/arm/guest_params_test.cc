@@ -16,7 +16,9 @@
 
 #include "gtest/gtest.h"
 
-#include "berberis/base/bit_util.h"
+#include <bit>
+#include <cstdint>
+
 #include "berberis/guest_abi/guest_params.h"
 #include "berberis/guest_state/guest_state.h"
 
@@ -81,9 +83,9 @@ TEST(Params, PtrFloatFloatArgs) {
 
   static int x;
 
-  state.cpu.r[0] = bit_cast<uint32_t>(&x);
-  state.cpu.r[1] = bit_cast<uint32_t>(1.0f);
-  state.cpu.r[2] = bit_cast<uint32_t>(-.75f);
+  state.cpu.r[0] = std::bit_cast<uint32_t>(&x);
+  state.cpu.r[1] = std::bit_cast<uint32_t>(1.0f);
+  state.cpu.r[2] = std::bit_cast<uint32_t>(-.75f);
 
   auto [arg1, arg2, arg3] = GuestParamsValues<void(int*, float, float)>(&state);
   auto [arg1f, arg2f, arg3f] = GuestParamsValues<void (*)(int*, float, float)>(&state);
@@ -112,8 +114,8 @@ TEST(Params, PtrFloatFloatArgsVfp) {
 
   static int x;
 
-  state.cpu.r[0] = bit_cast<uint32_t>(&x);
-  state.cpu.r[1] = bit_cast<uint32_t>(42.0f);
+  state.cpu.r[0] = std::bit_cast<uint32_t>(&x);
+  state.cpu.r[1] = std::bit_cast<uint32_t>(42.0f);
   state.cpu.r[2] = 0xa3d7'0a3d;    // -0.57 - bottom half
   state.cpu.r[3] = 0xbfe2'3d70;    // -0.57 - top half
   SetVfpFloat(&state, 0, 1.0f);    // s0
@@ -150,14 +152,14 @@ TEST(Params, PtrIntPtrLongLongArgs) {
   ThreadState state{};
 
   alignas(8) uint64_t stack[4];
-  state.cpu.r[13] = bit_cast<uint32_t>(&stack[0]);
+  state.cpu.r[13] = std::bit_cast<uint32_t>(&stack[0]);
 
   static int x;
   constexpr uint64_t kTestValue64 = 0xffff'0000'ffff'0000ULL;
 
-  state.cpu.r[0] = bit_cast<uint32_t>(&x);
-  state.cpu.r[1] = bit_cast<uint32_t>(123);
-  state.cpu.r[2] = bit_cast<uint32_t>(&x);
+  state.cpu.r[0] = std::bit_cast<uint32_t>(&x);
+  state.cpu.r[1] = std::bit_cast<uint32_t>(123);
+  state.cpu.r[2] = std::bit_cast<uint32_t>(&x);
   stack[0] = kTestValue64;
 
   auto [arg1, arg2, arg3, arg4] = GuestParamsValues<void(int*, int, int*, uint64_t)>(&state);
@@ -196,7 +198,7 @@ TEST(Params, LongLongArgHugeStructResult) {
     uint64_t values[10];
   } result{};
 
-  state.cpu.r[0] = bit_cast<uint32_t>(&result);
+  state.cpu.r[0] = std::bit_cast<uint32_t>(&result);
   state.cpu.r[2] = 0xbeef;
   state.cpu.r[3] = 0xdead;
 
@@ -225,9 +227,9 @@ TEST(GuestVAListParams, PtrFloatFloatArgs) {
 
   static int x;
 
-  state.cpu.r[0] = bit_cast<uint32_t>(&x);
-  state.cpu.r[1] = bit_cast<uint32_t>(1.0f);
-  state.cpu.r[2] = bit_cast<uint32_t>(-.75f);
+  state.cpu.r[0] = std::bit_cast<uint32_t>(&x);
+  state.cpu.r[1] = std::bit_cast<uint32_t>(1.0f);
+  state.cpu.r[2] = std::bit_cast<uint32_t>(-.75f);
 
   GuestVAListParams params = GuestParamsValues<void(...)>(&state);
 
@@ -240,14 +242,14 @@ TEST(GuestVAListParams, PtrIntPtrLongLongArgs) {
   ThreadState state{};
 
   alignas(8) uint64_t stack[4];
-  state.cpu.r[13] = bit_cast<uint32_t>(&stack[0]);
+  state.cpu.r[13] = std::bit_cast<uint32_t>(&stack[0]);
 
   static int x;
   constexpr uint64_t kTestValue64 = 0xffff'0000'ffff'0000ULL;
 
-  state.cpu.r[0] = bit_cast<uint32_t>(&x);
-  state.cpu.r[1] = bit_cast<uint32_t>(123);
-  state.cpu.r[2] = bit_cast<uint32_t>(&x);
+  state.cpu.r[0] = std::bit_cast<uint32_t>(&x);
+  state.cpu.r[1] = std::bit_cast<uint32_t>(123);
+  state.cpu.r[2] = std::bit_cast<uint32_t>(&x);
   stack[0] = kTestValue64;
 
   GuestVAListParams params = GuestParamsValues<void(...)>(&state);

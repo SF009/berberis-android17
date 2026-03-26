@@ -20,7 +20,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "berberis/base/bit_util.h"
+#include <bit>
+
 #include "berberis/base/logging.h"
 #include "berberis/base/scoped_errno.h"
 #include "berberis/base/struct_check.h"
@@ -73,12 +74,12 @@ long RunGuestSyscall___NR_ioctl(long arg_1, long arg_2, long arg_3) {
 
 long RunGuestSyscall___NR_newfstatat(long arg_1, long arg_2, long arg_3, long arg_4) {
   struct stat host_stat;
-  int result = FstatatForGuest(static_cast<int>(arg_1),       // dirfd
-                               bit_cast<const char*>(arg_2),  // path
+  int result = FstatatForGuest(static_cast<int>(arg_1),            // dirfd
+                               std::bit_cast<const char*>(arg_2),  // path
                                &host_stat,
                                static_cast<int>(arg_4));  // flags
   if (result != -1) {
-    berberis::ConvertHostStatToGuestArch(host_stat, bit_cast<GuestAddr>(arg_3));
+    berberis::ConvertHostStatToGuestArch(host_stat, std::bit_cast<GuestAddr>(arg_3));
   }
   return result;
 }
