@@ -17,10 +17,10 @@
 #ifndef ALL_TO_X86_32_OR_x86_64_BERBERIS_INTRINSICS_INTRINSICS_FLOAT_H_
 #define ALL_TO_X86_32_OR_x86_64_BERBERIS_INTRINSICS_INTRINSICS_FLOAT_H_
 
+#include <bit>
 #include <cmath>
 
-#include "berberis/base/bit_util.h"
-#include "berberis/base/logging.h"
+#include "berberis/base/checks.h"
 #include "berberis/intrinsics/common/intrinsics_float.h"  // Float32/Float64
 #include "berberis/intrinsics/guest_rounding_modes.h"     // FE_HOSTROUND/FE_TIESAWAY
 
@@ -129,7 +129,7 @@ MAKE_BINARY_OPERATOR(ucomi, "%2,%1", setnb, >=)
     memcpy(&src2, &v2, sizeof(v2));                                             \
     float result;                                                               \
     asm volatile(#guest_name "ss %2,%0" : "=x"(result) : "0"(src1), "x"(src2)); \
-    return bit_cast<uint32_t, float>(result) & 0x1;                             \
+    return std::bit_cast<uint32_t, float>(result) & 0x1;                        \
   }                                                                             \
                                                                                 \
   inline bool operator operator_name(const Float64& v1, const Float64& v2) {    \
@@ -140,7 +140,7 @@ MAKE_BINARY_OPERATOR(ucomi, "%2,%1", setnb, >=)
     memcpy(&src2, &v2, sizeof(v2));                                             \
     double result;                                                              \
     asm volatile(#guest_name "sd %2,%0" : "=x"(result) : "0"(src1), "x"(src2)); \
-    return bit_cast<uint64_t, double>(result) & 0x1;                            \
+    return std::bit_cast<uint64_t, double>(result) & 0x1;                       \
   }
 
 MAKE_BINARY_OPERATOR(cmpeq, ==)

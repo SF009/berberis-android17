@@ -17,6 +17,7 @@
 #ifndef BERBERIS_INTRINSICS_SIMD_REGISTER_H_
 #define BERBERIS_INTRINSICS_SIMD_REGISTER_H_
 
+#include <bit>
 #include <cstdint>
 #include <cstring>
 #include <tuple>

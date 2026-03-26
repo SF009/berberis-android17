@@ -16,6 +16,7 @@
 
 #include "gtest/gtest.h"
 
+#include <bit>
 #include <cmath>
 #include <utility>  // std::forward
 
@@ -89,27 +90,30 @@ constexpr uint64_t kDefaultNaN64AsInteger = 0x7ff8'0000'0000'0000;
 // If they fail in your platforms then you don't need complex dance in intrinsics_float_x86.h
 
 TEST(FPU, float_std_fabs) {
-  uint32_t fabs_result = bit_cast<uint32_t, float>(NonInlineWrapper<float(float)>::Call<std::fabs>(
-      bit_cast<float, uint32_t>(kBadNegativeNan32)));
+  uint32_t fabs_result =
+      std::bit_cast<uint32_t, float>(NonInlineWrapper<float(float)>::Call<std::fabs>(
+          std::bit_cast<float, uint32_t>(kBadNegativeNan32)));
   EXPECT_NE(fabs_result, kBadPositiveNan32);
 }
 
 TEST(FPU, float_fabsf) {
-  uint32_t fabsf_result = bit_cast<uint32_t, float>(
-      NonInlineWrapper<float(float)>::Call<::fabsf>(bit_cast<float, uint32_t>(kBadNegativeNan32)));
+  uint32_t fabsf_result =
+      std::bit_cast<uint32_t, float>(NonInlineWrapper<float(float)>::Call<::fabsf>(
+          std::bit_cast<float, uint32_t>(kBadNegativeNan32)));
   EXPECT_NE(fabsf_result, kBadPositiveNan32);
 }
 
 TEST(FPU, double_std_fabs) {
   uint64_t fabs_result =
-      bit_cast<uint64_t, double>(NonInlineWrapper<double(double)>::Call<std::fabs>(
-          bit_cast<double, uint64_t>(kBadNegativeNan64)));
+      std::bit_cast<uint64_t, double>(NonInlineWrapper<double(double)>::Call<std::fabs>(
+          std::bit_cast<double, uint64_t>(kBadNegativeNan64)));
   EXPECT_NE(fabs_result, kBadPositiveNan64);
 }
 
 TEST(FPU, double_fabs) {
-  uint64_t fabs_result = bit_cast<uint64_t, double>(NonInlineWrapper<double(double)>::Call<::fabs>(
-      bit_cast<double, uint64_t>(kBadNegativeNan64)));
+  uint64_t fabs_result =
+      std::bit_cast<uint64_t, double>(NonInlineWrapper<double(double)>::Call<::fabs>(
+          std::bit_cast<double, uint64_t>(kBadNegativeNan64)));
   EXPECT_NE(fabs_result, kBadPositiveNan64);
 }
 
@@ -117,395 +121,405 @@ TEST(FPU, double_fabs) {
 
 TEST(FPU, Float32_fabs) {
   uint32_t fabs_result =
-      bit_cast<uint32_t, Float32>(NonInlineWrapper<Float32(const Float32&)>::Call<Absolute>(
-          bit_cast<Float32, uint32_t>(kBadNegativeNan32)));
+      std::bit_cast<uint32_t, Float32>(NonInlineWrapper<Float32(const Float32&)>::Call<Absolute>(
+          std::bit_cast<Float32, uint32_t>(kBadNegativeNan32)));
   EXPECT_EQ(fabs_result, kBadPositiveNan32);
 }
 
 TEST(FPU, Float64_fabs) {
   uint64_t fabs_result =
-      bit_cast<uint64_t, Float64>(NonInlineWrapper<Float64(const Float64&)>::Call<Absolute>(
-          bit_cast<Float64, uint64_t>(kBadNegativeNan64)));
+      std::bit_cast<uint64_t, Float64>(NonInlineWrapper<Float64(const Float64&)>::Call<Absolute>(
+          std::bit_cast<Float64, uint64_t>(kBadNegativeNan64)));
   EXPECT_EQ(fabs_result, kBadPositiveNan64);
 }
 
 TEST(FPU, Float32_fneg) {
   uint32_t fabs_result =
-      bit_cast<uint32_t, Float32>(NonInlineWrapper<Float32(const Float32&)>::Call<Negative>(
-          bit_cast<Float32, uint32_t>(kBadNegativeNan32)));
+      std::bit_cast<uint32_t, Float32>(NonInlineWrapper<Float32(const Float32&)>::Call<Negative>(
+          std::bit_cast<Float32, uint32_t>(kBadNegativeNan32)));
   EXPECT_EQ(fabs_result, kBadPositiveNan32);
 }
 
 TEST(FPU, Float64_fneg) {
   uint64_t fabs_result =
-      bit_cast<uint64_t, Float64>(NonInlineWrapper<Float64(const Float64&)>::Call<Negative>(
-          bit_cast<Float64, uint64_t>(kBadNegativeNan64)));
+      std::bit_cast<uint64_t, Float64>(NonInlineWrapper<Float64(const Float64&)>::Call<Negative>(
+          std::bit_cast<Float64, uint64_t>(kBadNegativeNan64)));
   EXPECT_EQ(fabs_result, kBadPositiveNan64);
 }
 
 TEST(FPU, Float32_InfPlusMinusInf) {
   // +inf + +inf => +inf
-  uint32_t result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kPlusInfinity32) +
-                                                bit_cast<Float32, uint32_t>(kPlusInfinity32));
+  uint32_t result =
+      std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kPlusInfinity32) +
+                                       std::bit_cast<Float32, uint32_t>(kPlusInfinity32));
   EXPECT_EQ(result, kPlusInfinity32);
   // -inf + -inf => -inf
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kMinusInfinity32) +
-                                       bit_cast<Float32, uint32_t>(kMinusInfinity32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kMinusInfinity32) +
+                                            std::bit_cast<Float32, uint32_t>(kMinusInfinity32));
   EXPECT_EQ(result, kMinusInfinity32);
   // +inf + -inf => dNaN
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kPlusInfinity32) +
-                                       bit_cast<Float32, uint32_t>(kMinusInfinity32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kPlusInfinity32) +
+                                            std::bit_cast<Float32, uint32_t>(kMinusInfinity32));
   EXPECT_EQ(result, kDefaultNaN32AsInteger);
   // -inf + +inf => dNaN
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kMinusInfinity32) +
-                                       bit_cast<Float32, uint32_t>(kPlusInfinity32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kMinusInfinity32) +
+                                            std::bit_cast<Float32, uint32_t>(kPlusInfinity32));
   EXPECT_EQ(result, kDefaultNaN32AsInteger);
 }
 
 TEST(FPU, Float64_InfPlusMinusInf) {
   // +inf + +inf => +inf
-  uint64_t result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kPlusInfinity64) +
-                                                bit_cast<Float64, uint64_t>(kPlusInfinity64));
+  uint64_t result =
+      std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kPlusInfinity64) +
+                                       std::bit_cast<Float64, uint64_t>(kPlusInfinity64));
   EXPECT_EQ(result, kPlusInfinity64);
   // -inf + -inf => -inf
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kMinusInfinity64) +
-                                       bit_cast<Float64, uint64_t>(kMinusInfinity64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kMinusInfinity64) +
+                                            std::bit_cast<Float64, uint64_t>(kMinusInfinity64));
   EXPECT_EQ(result, kMinusInfinity64);
   // +inf + -inf => dNaN
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kPlusInfinity64) +
-                                       bit_cast<Float64, uint64_t>(kMinusInfinity64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kPlusInfinity64) +
+                                            std::bit_cast<Float64, uint64_t>(kMinusInfinity64));
   EXPECT_EQ(result, kDefaultNaN64AsInteger);
   // -inf + +inf => dNaN
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kMinusInfinity64) +
-                                       bit_cast<Float64, uint64_t>(kPlusInfinity64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kMinusInfinity64) +
+                                            std::bit_cast<Float64, uint64_t>(kPlusInfinity64));
   EXPECT_EQ(result, kDefaultNaN64AsInteger);
 }
 
 TEST(FPU, Float32_ZeroPlusMinusZero) {
   // +0.f + +0.f => +0.f
-  uint32_t result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kPlusZero32) +
-                                                bit_cast<Float32, uint32_t>(kPlusZero32));
+  uint32_t result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kPlusZero32) +
+                                                     std::bit_cast<Float32, uint32_t>(kPlusZero32));
   EXPECT_EQ(result, kPlusZero32);
   // +0.f + -0.f => +0.f
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kPlusZero32) +
-                                       bit_cast<Float32, uint32_t>(kMinusZero32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kPlusZero32) +
+                                            std::bit_cast<Float32, uint32_t>(kMinusZero32));
   EXPECT_EQ(result, kPlusZero32);
   // -0.f + +0.f => +0.f
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kMinusZero32) +
-                                       bit_cast<Float32, uint32_t>(kPlusZero32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kMinusZero32) +
+                                            std::bit_cast<Float32, uint32_t>(kPlusZero32));
   EXPECT_EQ(result, kPlusZero32);
   // -0.f + -0.f => -0.f
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kMinusZero32) +
-                                       bit_cast<Float32, uint32_t>(kMinusZero32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kMinusZero32) +
+                                            std::bit_cast<Float32, uint32_t>(kMinusZero32));
   EXPECT_EQ(result, kMinusZero32);
 }
 
 TEST(FPU, Float64_ZeroPlusMinusZero) {
   // +0.f + +0.f => +0.f
-  uint64_t result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kPlusZero64) +
-                                                bit_cast<Float64, uint64_t>(kPlusZero64));
+  uint64_t result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kPlusZero64) +
+                                                     std::bit_cast<Float64, uint64_t>(kPlusZero64));
   EXPECT_EQ(result, kPlusZero64);
   // +0.f + -0.f => +0.f
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kPlusZero64) +
-                                       bit_cast<Float64, uint64_t>(kMinusZero64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kPlusZero64) +
+                                            std::bit_cast<Float64, uint64_t>(kMinusZero64));
   EXPECT_EQ(result, kPlusZero64);
   // -0.f + +0.f => +0.f
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kMinusZero64) +
-                                       bit_cast<Float64, uint64_t>(kPlusZero64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kMinusZero64) +
+                                            std::bit_cast<Float64, uint64_t>(kPlusZero64));
   EXPECT_EQ(result, kPlusZero64);
   // -0.f + -0.f => -0.f
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kMinusZero64) +
-                                       bit_cast<Float64, uint64_t>(kMinusZero64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kMinusZero64) +
+                                            std::bit_cast<Float64, uint64_t>(kMinusZero64));
   EXPECT_EQ(result, kMinusZero64);
 }
 
 TEST(FPU, Float32_InfMinusInf) {
   // +inf - -inf => +inf
-  uint32_t result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kPlusInfinity32) -
-                                                bit_cast<Float32, uint32_t>(kMinusInfinity32));
+  uint32_t result =
+      std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kPlusInfinity32) -
+                                       std::bit_cast<Float32, uint32_t>(kMinusInfinity32));
   EXPECT_EQ(result, kPlusInfinity32);
   // -inf - +inf => -inf
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kMinusInfinity32) -
-                                       bit_cast<Float32, uint32_t>(kPlusInfinity32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kMinusInfinity32) -
+                                            std::bit_cast<Float32, uint32_t>(kPlusInfinity32));
   EXPECT_EQ(result, kMinusInfinity32);
   // +inf - +inf => dNaN
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kPlusInfinity32) -
-                                       bit_cast<Float32, uint32_t>(kPlusInfinity32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kPlusInfinity32) -
+                                            std::bit_cast<Float32, uint32_t>(kPlusInfinity32));
   EXPECT_EQ(result, kDefaultNaN32AsInteger);
   // -inf - -inf => dNaN
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kMinusInfinity32) -
-                                       bit_cast<Float32, uint32_t>(kMinusInfinity32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kMinusInfinity32) -
+                                            std::bit_cast<Float32, uint32_t>(kMinusInfinity32));
   EXPECT_EQ(result, kDefaultNaN32AsInteger);
 }
 
 TEST(FPU, Float64_InfMinusInf) {
   // +inf - -inf => +inf
-  uint64_t result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kPlusInfinity64) -
-                                                bit_cast<Float64, uint64_t>(kMinusInfinity64));
+  uint64_t result =
+      std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kPlusInfinity64) -
+                                       std::bit_cast<Float64, uint64_t>(kMinusInfinity64));
   EXPECT_EQ(result, kPlusInfinity64);
   // -inf - +inf => -inf
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kMinusInfinity64) -
-                                       bit_cast<Float64, uint64_t>(kPlusInfinity64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kMinusInfinity64) -
+                                            std::bit_cast<Float64, uint64_t>(kPlusInfinity64));
   EXPECT_EQ(result, kMinusInfinity64);
   // +inf - +inf => dNaN
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kPlusInfinity64) -
-                                       bit_cast<Float64, uint64_t>(kPlusInfinity64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kPlusInfinity64) -
+                                            std::bit_cast<Float64, uint64_t>(kPlusInfinity64));
   EXPECT_EQ(result, kDefaultNaN64AsInteger);
   // -inf - -inf => dNaN
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kMinusInfinity64) -
-                                       bit_cast<Float64, uint64_t>(kMinusInfinity64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kMinusInfinity64) -
+                                            std::bit_cast<Float64, uint64_t>(kMinusInfinity64));
   EXPECT_EQ(result, kDefaultNaN64AsInteger);
 }
 
 TEST(FPU, Float32_ZeroMinusZero) {
   // +0.f - +0.f => +0.f
-  uint32_t result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kPlusZero32) -
-                                                bit_cast<Float32, uint32_t>(kPlusZero32));
+  uint32_t result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kPlusZero32) -
+                                                     std::bit_cast<Float32, uint32_t>(kPlusZero32));
   EXPECT_EQ(result, kPlusZero32);
   // +0.f - -0.f => +0.f
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kPlusZero32) -
-                                       bit_cast<Float32, uint32_t>(kMinusZero32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kPlusZero32) -
+                                            std::bit_cast<Float32, uint32_t>(kMinusZero32));
   EXPECT_EQ(result, kPlusZero32);
   // -0.f - +0.f => -0.f
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kMinusZero32) -
-                                       bit_cast<Float32, uint32_t>(kPlusZero32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kMinusZero32) -
+                                            std::bit_cast<Float32, uint32_t>(kPlusZero32));
   EXPECT_EQ(result, kMinusZero32);
   // -0.f - +0.f => +0.f
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kMinusZero32) -
-                                       bit_cast<Float32, uint32_t>(kMinusZero32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kMinusZero32) -
+                                            std::bit_cast<Float32, uint32_t>(kMinusZero32));
   EXPECT_EQ(result, kPlusZero32);
 }
 
 TEST(FPU, Float64_ZeroMinusZero) {
   // +0.0 - +0.0 => +0.0
-  uint64_t result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kPlusZero64) -
-                                                bit_cast<Float64, uint64_t>(kPlusZero64));
+  uint64_t result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kPlusZero64) -
+                                                     std::bit_cast<Float64, uint64_t>(kPlusZero64));
   EXPECT_EQ(result, kPlusZero64);
   // +0.0 - -0.0 => +0.0
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kPlusZero64) -
-                                       bit_cast<Float64, uint64_t>(kMinusZero64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kPlusZero64) -
+                                            std::bit_cast<Float64, uint64_t>(kMinusZero64));
   EXPECT_EQ(result, kPlusZero64);
   // -0.0 - +0.0 => -0.0
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kMinusZero64) -
-                                       bit_cast<Float64, uint64_t>(kPlusZero64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kMinusZero64) -
+                                            std::bit_cast<Float64, uint64_t>(kPlusZero64));
   EXPECT_EQ(result, kMinusZero64);
   // -0.0 - +0.0 => +0.0
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kMinusZero64) -
-                                       bit_cast<Float64, uint64_t>(kMinusZero64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kMinusZero64) -
+                                            std::bit_cast<Float64, uint64_t>(kMinusZero64));
   EXPECT_EQ(result, kPlusZero64);
 }
 
 TEST(FPU, Float32_InfMultiplyByZero) {
   // +inf * +0.f => dNaN
-  uint32_t result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kPlusInfinity32) *
-                                                bit_cast<Float32, uint32_t>(kPlusZero32));
+  uint32_t result =
+      std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kPlusInfinity32) *
+                                       std::bit_cast<Float32, uint32_t>(kPlusZero32));
   EXPECT_EQ(result, kDefaultNaN32AsInteger);
   // +0.f * +inf => dNaN
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kPlusZero32) *
-                                       bit_cast<Float32, uint32_t>(kPlusInfinity32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kPlusZero32) *
+                                            std::bit_cast<Float32, uint32_t>(kPlusInfinity32));
   EXPECT_EQ(result, kDefaultNaN32AsInteger);
   // +inf * -0.f => dNaN
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kPlusInfinity32) *
-                                       bit_cast<Float32, uint32_t>(kMinusZero32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kPlusInfinity32) *
+                                            std::bit_cast<Float32, uint32_t>(kMinusZero32));
   EXPECT_EQ(result, kDefaultNaN32AsInteger);
   // -0.f * +inf => dNaN
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kMinusZero32) *
-                                       bit_cast<Float32, uint32_t>(kPlusInfinity32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kMinusZero32) *
+                                            std::bit_cast<Float32, uint32_t>(kPlusInfinity32));
   EXPECT_EQ(result, kDefaultNaN32AsInteger);
   // -inf * +0.f => dNaN
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kMinusInfinity32) *
-                                       bit_cast<Float32, uint32_t>(kPlusZero32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kMinusInfinity32) *
+                                            std::bit_cast<Float32, uint32_t>(kPlusZero32));
   EXPECT_EQ(result, kDefaultNaN32AsInteger);
   // +0.f * -inf => dNaN
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kPlusZero32) *
-                                       bit_cast<Float32, uint32_t>(kMinusInfinity32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kPlusZero32) *
+                                            std::bit_cast<Float32, uint32_t>(kMinusInfinity32));
   EXPECT_EQ(result, kDefaultNaN32AsInteger);
   // -inf * -0.f => dNaN
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kMinusInfinity32) *
-                                       bit_cast<Float32, uint32_t>(kMinusZero32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kMinusInfinity32) *
+                                            std::bit_cast<Float32, uint32_t>(kMinusZero32));
   EXPECT_EQ(result, kDefaultNaN32AsInteger);
   // -0.f * -inf => dNaN
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kMinusZero32) *
-                                       bit_cast<Float32, uint32_t>(kMinusInfinity32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kMinusZero32) *
+                                            std::bit_cast<Float32, uint32_t>(kMinusInfinity32));
   EXPECT_EQ(result, kDefaultNaN32AsInteger);
 }
 
 TEST(FPU, Float64_InfMultiplyByZero) {
   // +inf * +0.0 => dNaN
-  uint64_t result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kPlusInfinity64) *
-                                                bit_cast<Float64, uint64_t>(kPlusZero64));
+  uint64_t result =
+      std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kPlusInfinity64) *
+                                       std::bit_cast<Float64, uint64_t>(kPlusZero64));
   EXPECT_EQ(result, kDefaultNaN64AsInteger);
   // +0.0 * +inf => dNaN
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kPlusZero64) *
-                                       bit_cast<Float64, uint64_t>(kPlusInfinity64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kPlusZero64) *
+                                            std::bit_cast<Float64, uint64_t>(kPlusInfinity64));
   EXPECT_EQ(result, kDefaultNaN64AsInteger);
   // +inf * -0.0 => dNaN
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kPlusInfinity64) *
-                                       bit_cast<Float64, uint64_t>(kMinusZero64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kPlusInfinity64) *
+                                            std::bit_cast<Float64, uint64_t>(kMinusZero64));
   EXPECT_EQ(result, kDefaultNaN64AsInteger);
   // -0.0 * +inf => dNaN
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kMinusZero64) *
-                                       bit_cast<Float64, uint64_t>(kPlusInfinity64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kMinusZero64) *
+                                            std::bit_cast<Float64, uint64_t>(kPlusInfinity64));
   EXPECT_EQ(result, kDefaultNaN64AsInteger);
   // -inf * +0.0 => dNaN
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kMinusInfinity64) *
-                                       bit_cast<Float64, uint64_t>(kPlusZero64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kMinusInfinity64) *
+                                            std::bit_cast<Float64, uint64_t>(kPlusZero64));
   EXPECT_EQ(result, kDefaultNaN64AsInteger);
   // +0.0 * -inf => dNaN
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kPlusZero64) *
-                                       bit_cast<Float64, uint64_t>(kMinusInfinity64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kPlusZero64) *
+                                            std::bit_cast<Float64, uint64_t>(kMinusInfinity64));
   EXPECT_EQ(result, kDefaultNaN64AsInteger);
   // -inf * -0.0 => dNaN
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kMinusInfinity64) *
-                                       bit_cast<Float64, uint64_t>(kMinusZero64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kMinusInfinity64) *
+                                            std::bit_cast<Float64, uint64_t>(kMinusZero64));
   EXPECT_EQ(result, kDefaultNaN64AsInteger);
   // -0.0 * -inf => dNaN
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kMinusZero64) *
-                                       bit_cast<Float64, uint64_t>(kMinusInfinity64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kMinusZero64) *
+                                            std::bit_cast<Float64, uint64_t>(kMinusInfinity64));
   EXPECT_EQ(result, kDefaultNaN64AsInteger);
 }
 
 TEST(FPU, Float32_ZeroMultiplyByZero) {
   // +0.f * +0.f => +0.f
-  uint32_t result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kPlusZero32) *
-                                                bit_cast<Float32, uint32_t>(kPlusZero32));
+  uint32_t result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kPlusZero32) *
+                                                     std::bit_cast<Float32, uint32_t>(kPlusZero32));
   EXPECT_EQ(result, kPlusZero32);
   // +0.f * -0.f => -0.f
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kPlusZero32) *
-                                       bit_cast<Float32, uint32_t>(kMinusZero32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kPlusZero32) *
+                                            std::bit_cast<Float32, uint32_t>(kMinusZero32));
   EXPECT_EQ(result, kMinusZero32);
   // -0.f * +0.f => -0.f
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kMinusZero32) *
-                                       bit_cast<Float32, uint32_t>(kPlusZero32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kMinusZero32) *
+                                            std::bit_cast<Float32, uint32_t>(kPlusZero32));
   EXPECT_EQ(result, kMinusZero32);
   // -0.f * -0.f => +0.f
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kMinusZero32) *
-                                       bit_cast<Float32, uint32_t>(kMinusZero32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kMinusZero32) *
+                                            std::bit_cast<Float32, uint32_t>(kMinusZero32));
   EXPECT_EQ(result, kPlusZero32);
 }
 
 TEST(FPU, Float64_ZeroMultiplyByZero) {
   // +0.0 * +0.0 => +0.0
-  uint64_t result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kPlusZero64) *
-                                                bit_cast<Float64, uint64_t>(kPlusZero64));
+  uint64_t result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kPlusZero64) *
+                                                     std::bit_cast<Float64, uint64_t>(kPlusZero64));
   EXPECT_EQ(result, kPlusZero64);
   // +0.0 * -0.0 => -0.0
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kPlusZero64) *
-                                       bit_cast<Float64, uint64_t>(kMinusZero64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kPlusZero64) *
+                                            std::bit_cast<Float64, uint64_t>(kMinusZero64));
   EXPECT_EQ(result, kMinusZero64);
   // -0.0 * +0.0 => -0.0
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kMinusZero64) *
-                                       bit_cast<Float64, uint64_t>(kPlusZero64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kMinusZero64) *
+                                            std::bit_cast<Float64, uint64_t>(kPlusZero64));
   EXPECT_EQ(result, kMinusZero64);
   // -0.0 * -0.0 => +0.0
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kMinusZero64) *
-                                       bit_cast<Float64, uint64_t>(kMinusZero64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kMinusZero64) *
+                                            std::bit_cast<Float64, uint64_t>(kMinusZero64));
   EXPECT_EQ(result, kPlusZero64);
 }
 
 TEST(FPU, Float32_InfDivideByInf) {
   // +inf / +inf => dNaN
-  uint32_t result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kPlusInfinity32) /
-                                                bit_cast<Float32, uint32_t>(kPlusInfinity32));
+  uint32_t result =
+      std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kPlusInfinity32) /
+                                       std::bit_cast<Float32, uint32_t>(kPlusInfinity32));
   EXPECT_EQ(result, kDefaultNaN32AsInteger);
   // +inf / -inf => dNaN
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kPlusInfinity32) /
-                                       bit_cast<Float32, uint32_t>(kMinusInfinity32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kPlusInfinity32) /
+                                            std::bit_cast<Float32, uint32_t>(kMinusInfinity32));
   EXPECT_EQ(result, kDefaultNaN32AsInteger);
   // -inf / +inf => dNaN
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kMinusInfinity32) /
-                                       bit_cast<Float32, uint32_t>(kPlusInfinity32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kMinusInfinity32) /
+                                            std::bit_cast<Float32, uint32_t>(kPlusInfinity32));
   EXPECT_EQ(result, kDefaultNaN32AsInteger);
   // -inf / -inf => dNaN
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kMinusInfinity32) /
-                                       bit_cast<Float32, uint32_t>(kMinusInfinity32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kMinusInfinity32) /
+                                            std::bit_cast<Float32, uint32_t>(kMinusInfinity32));
   EXPECT_EQ(result, kDefaultNaN32AsInteger);
 }
 
 TEST(FPU, Float64_InfDivideByInf) {
   // +inf / +inf => dNaN
-  uint64_t result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kPlusInfinity64) /
-                                                bit_cast<Float64, uint64_t>(kPlusInfinity64));
+  uint64_t result =
+      std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kPlusInfinity64) /
+                                       std::bit_cast<Float64, uint64_t>(kPlusInfinity64));
   EXPECT_EQ(result, kDefaultNaN64AsInteger);
   // +inf / -inf => dNaN
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kPlusInfinity64) /
-                                       bit_cast<Float64, uint64_t>(kMinusInfinity64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kPlusInfinity64) /
+                                            std::bit_cast<Float64, uint64_t>(kMinusInfinity64));
   EXPECT_EQ(result, kDefaultNaN64AsInteger);
   // -inf / +inf => dNaN
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kMinusInfinity64) /
-                                       bit_cast<Float64, uint64_t>(kPlusInfinity64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kMinusInfinity64) /
+                                            std::bit_cast<Float64, uint64_t>(kPlusInfinity64));
   EXPECT_EQ(result, kDefaultNaN64AsInteger);
   // -inf / -inf => dNaN
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kMinusInfinity64) /
-                                       bit_cast<Float64, uint64_t>(kMinusInfinity64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kMinusInfinity64) /
+                                            std::bit_cast<Float64, uint64_t>(kMinusInfinity64));
   EXPECT_EQ(result, kDefaultNaN64AsInteger);
 }
 
 TEST(FPU, Float32_ZeroDivideByZero) {
   // +0.f - +0.f => dNaN
-  uint32_t result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kPlusZero32) /
-                                                bit_cast<Float32, uint32_t>(kPlusZero32));
+  uint32_t result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kPlusZero32) /
+                                                     std::bit_cast<Float32, uint32_t>(kPlusZero32));
   EXPECT_EQ(result, kDefaultNaN32AsInteger);
   // +0.f - -0.f => dNaN
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kPlusZero32) /
-                                       bit_cast<Float32, uint32_t>(kMinusZero32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kPlusZero32) /
+                                            std::bit_cast<Float32, uint32_t>(kMinusZero32));
   EXPECT_EQ(result, kDefaultNaN32AsInteger);
   // -0.f - +0.f => dNaN
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kMinusZero32) /
-                                       bit_cast<Float32, uint32_t>(kPlusZero32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kMinusZero32) /
+                                            std::bit_cast<Float32, uint32_t>(kPlusZero32));
   EXPECT_EQ(result, kDefaultNaN32AsInteger);
   // -0.f - +0.f => dNaN
-  result = bit_cast<uint32_t, Float32>(bit_cast<Float32, uint32_t>(kMinusZero32) /
-                                       bit_cast<Float32, uint32_t>(kMinusZero32));
+  result = std::bit_cast<uint32_t, Float32>(std::bit_cast<Float32, uint32_t>(kMinusZero32) /
+                                            std::bit_cast<Float32, uint32_t>(kMinusZero32));
   EXPECT_EQ(result, kDefaultNaN32AsInteger);
 }
 
 TEST(FPU, Float64_ZeroDivideByZero) {
   // +0.0 - +0.0 => dNaN
-  uint64_t result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kPlusZero64) /
-                                                bit_cast<Float64, uint64_t>(kPlusZero64));
+  uint64_t result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kPlusZero64) /
+                                                     std::bit_cast<Float64, uint64_t>(kPlusZero64));
   EXPECT_EQ(result, kDefaultNaN64AsInteger);
   // +0.0 - -0.0 => dNaN
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kPlusZero64) /
-                                       bit_cast<Float64, uint64_t>(kMinusZero64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kPlusZero64) /
+                                            std::bit_cast<Float64, uint64_t>(kMinusZero64));
   EXPECT_EQ(result, kDefaultNaN64AsInteger);
   // -0.0 - +0.0 => dNaN
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kMinusZero64) /
-                                       bit_cast<Float64, uint64_t>(kPlusZero64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kMinusZero64) /
+                                            std::bit_cast<Float64, uint64_t>(kPlusZero64));
   EXPECT_EQ(result, kDefaultNaN64AsInteger);
   // -0.0 - +0.0 => dNaN
-  result = bit_cast<uint64_t, Float64>(bit_cast<Float64, uint64_t>(kMinusZero64) /
-                                       bit_cast<Float64, uint64_t>(kMinusZero64));
+  result = std::bit_cast<uint64_t, Float64>(std::bit_cast<Float64, uint64_t>(kMinusZero64) /
+                                            std::bit_cast<Float64, uint64_t>(kMinusZero64));
   EXPECT_EQ(result, kDefaultNaN64AsInteger);
 }
 
 TEST(FPU, Float32_Sqrt) {
   // +0.0 => +0.0
-  uint32_t result = bit_cast<uint32_t, Float32>(Sqrt(bit_cast<Float32, uint32_t>(kPlusZero32)));
+  uint32_t result =
+      std::bit_cast<uint32_t, Float32>(Sqrt(std::bit_cast<Float32, uint32_t>(kPlusZero32)));
   EXPECT_EQ(result, kPlusZero32);
   // -0.0 => -0.0
-  result = bit_cast<uint32_t, Float32>(Sqrt(bit_cast<Float32, uint32_t>(kMinusZero32)));
+  result = std::bit_cast<uint32_t, Float32>(Sqrt(std::bit_cast<Float32, uint32_t>(kMinusZero32)));
   EXPECT_EQ(result, kMinusZero32);
   // +1.0 => +1.0
-  result = bit_cast<uint32_t, Float32>(Sqrt(bit_cast<Float32, uint32_t>(kPlusOne32)));
+  result = std::bit_cast<uint32_t, Float32>(Sqrt(std::bit_cast<Float32, uint32_t>(kPlusOne32)));
   EXPECT_EQ(result, kPlusOne32);
   // -1.0 => dNaN
-  result = bit_cast<uint32_t, Float32>(Sqrt(bit_cast<Float32, uint32_t>(kMinusOne32)));
+  result = std::bit_cast<uint32_t, Float32>(Sqrt(std::bit_cast<Float32, uint32_t>(kMinusOne32)));
   EXPECT_EQ(result, kDefaultNaN32AsInteger);
 }
 
 TEST(FPU, Float64_Sqrt) {
   // +0.0 => +0.0
-  uint64_t result = bit_cast<uint64_t, Float64>(Sqrt(bit_cast<Float64, uint64_t>(kPlusZero64)));
+  uint64_t result =
+      std::bit_cast<uint64_t, Float64>(Sqrt(std::bit_cast<Float64, uint64_t>(kPlusZero64)));
   EXPECT_EQ(result, kPlusZero64);
   // -0.0 => -0.0
-  result = bit_cast<uint64_t, Float64>(Sqrt(bit_cast<Float64, uint64_t>(kMinusZero64)));
+  result = std::bit_cast<uint64_t, Float64>(Sqrt(std::bit_cast<Float64, uint64_t>(kMinusZero64)));
   EXPECT_EQ(result, kMinusZero64);
   // +1.0 => +1.0
-  result = bit_cast<uint64_t, Float64>(Sqrt(bit_cast<Float64, uint64_t>(kPlusOne64)));
+  result = std::bit_cast<uint64_t, Float64>(Sqrt(std::bit_cast<Float64, uint64_t>(kPlusOne64)));
   EXPECT_EQ(result, kPlusOne64);
   // -1.0 => dNaN
-  result = bit_cast<uint64_t, Float64>(Sqrt(bit_cast<Float64, uint64_t>(kMinusOne64)));
+  result = std::bit_cast<uint64_t, Float64>(Sqrt(std::bit_cast<Float64, uint64_t>(kMinusOne64)));
   EXPECT_EQ(result, kDefaultNaN64AsInteger);
 }
 

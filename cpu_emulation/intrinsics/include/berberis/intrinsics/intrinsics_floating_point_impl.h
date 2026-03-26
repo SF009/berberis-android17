@@ -17,11 +17,11 @@
 #ifndef BERBERIS_INTRINSICS_INTRINSICS_FLOATING_POINT_IMPL_H_
 #define BERBERIS_INTRINSICS_INTRINSICS_FLOATING_POINT_IMPL_H_
 
+#include <bit>
 #include <limits>
 #include <tuple>
 #include <type_traits>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/float.h"  // Float32/Float64/ProcessNans
 #include "berberis/base/limits.h" // std::numeric_limits for Float32/Float64
 #include "berberis/intrinsics/guest_cpu_flags.h"
@@ -60,7 +60,7 @@ std::tuple<uint64_t> FClass(FloatType arg) {
   constexpr IntType quiet_bit =
       __builtin_bit_cast(IntType, std::numeric_limits<FloatType>::quiet_NaN()) &
       ~__builtin_bit_cast(IntType, std::numeric_limits<FloatType>::signaling_NaN());
-  const IntType raw_bits = bit_cast<IntType>(arg);
+  const IntType raw_bits = std::bit_cast<IntType>(arg);
 
   switch (FPClassify(arg)) {
     case FPInfo::kNaN:
@@ -305,26 +305,26 @@ FloatType RSqrtEstimate(FloatType op) {
       return CopySignBit(std::numeric_limits<FloatType>::infinity(), op);
     case FPInfo::kNormal:
       if constexpr (std::is_same_v<FloatType, Float32>) {
-        uint32_t op_32 = bit_cast<uint32_t>(op);
+        uint32_t op_32 = std::bit_cast<uint32_t>(op);
         op_32 &= ~0xffff;
         op_32 += 0x8000;
-        Float32 fp32 = bit_cast<Float32>(op_32);
+        Float32 fp32 = std::bit_cast<Float32>(op_32);
         fp32 = (FloatType{1.0} / Sqrt(fp32));
-        op_32 = bit_cast<uint32_t>(fp32);
+        op_32 = std::bit_cast<uint32_t>(fp32);
         op_32 += 0x4000;
         op_32 &= ~0x7fff;
-        return bit_cast<Float32>(op_32);
+        return std::bit_cast<Float32>(op_32);
       } else {
         static_assert(std::is_same_v<FloatType, Float64>);
-        uint64_t op_64 = bit_cast<uint64_t>(op);
+        uint64_t op_64 = std::bit_cast<uint64_t>(op);
         op_64 &= ~0x1fff'ffff'ffff;
         op_64 += 0x1000'0000'0000;
-        Float64 fp64 = bit_cast<Float64>(op_64);
+        Float64 fp64 = std::bit_cast<Float64>(op_64);
         fp64 = (FloatType{1.0} / Sqrt(fp64));
-        op_64 = bit_cast<uint64_t>(fp64);
+        op_64 = std::bit_cast<uint64_t>(fp64);
         op_64 += 0x0800'0000'0000;
         op_64 &= ~0x0fff'ffff'ffff;
-        return bit_cast<Float64>(op_64);
+        return std::bit_cast<Float64>(op_64);
       }
   }
 }
@@ -341,7 +341,8 @@ std::tuple<FloatType> FSgnj(FloatType x, FloatType y) {
   using UInt = std::make_unsigned_t<Int>;
   constexpr UInt sign_bit = std::numeric_limits<Int>::min();
   constexpr UInt non_sign_bit = std::numeric_limits<Int>::max();
-  return {bit_cast<FloatType>((bit_cast<UInt>(x) & non_sign_bit) | (bit_cast<UInt>(y) & sign_bit))};
+  return {std::bit_cast<FloatType>((std::bit_cast<UInt>(x) & non_sign_bit) |
+                                   (std::bit_cast<UInt>(y) & sign_bit))};
 }
 
 template <typename FloatType, enum PreferredIntrinsicsImplementation>
@@ -354,7 +355,7 @@ std::tuple<FloatType> FSgnjx(FloatType x, FloatType y) {
   using Int = typename TypeTraits<FloatType>::Int;
   using UInt = std::make_unsigned_t<Int>;
   constexpr UInt sign_bit = std::numeric_limits<Int>::min();
-  return {bit_cast<FloatType>(bit_cast<UInt>(x) ^ (bit_cast<UInt>(y) & sign_bit))};
+  return {std::bit_cast<FloatType>(std::bit_cast<UInt>(x) ^ (std::bit_cast<UInt>(y) & sign_bit))};
 }
 
 template <typename FloatType,

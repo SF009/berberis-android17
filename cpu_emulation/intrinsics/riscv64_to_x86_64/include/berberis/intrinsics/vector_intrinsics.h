@@ -19,6 +19,9 @@
 
 #include <x86intrin.h>
 
+#include <bit>
+#include <cstdint>
+
 #include "berberis/base/dependent_false.h"
 #include "berberis/intrinsics/common/intrinsics.h"
 #include "berberis/intrinsics/constants_pool.h"
@@ -30,13 +33,13 @@ namespace berberis::intrinsics {
 
 template <auto kDefaultElement>
 [[nodiscard]] inline const std::tuple<SIMD128Register>& VectorBroadcast() {
-  return *bit_cast<const std::tuple<SIMD128Register>*>(static_cast<uintptr_t>(
+  return *std::bit_cast<const std::tuple<SIMD128Register>*>(static_cast<uintptr_t>(
       constants_pool::kVectorConst<typename decltype(kDefaultElement)::BaseType{kDefaultElement}>));
 }
 
 [[nodiscard, gnu::pure]] inline std::tuple<SIMD128Register> MakeBitmaskFromVl(size_t vl) {
   return {_mm_loadu_si128(reinterpret_cast<__m128i_u const*>(
-      bit_cast<const uint8_t*>(static_cast<uintptr_t>(constants_pool::kBitMaskTable)) +
+      std::bit_cast<const uint8_t*>(static_cast<uintptr_t>(constants_pool::kBitMaskTable)) +
       (vl & 7U) * 32 + 16 - ((vl & (~7ULL)) >> 3)))};
 }
 
@@ -44,26 +47,26 @@ template <typename ElementType>
 [[nodiscard, gnu::pure]] inline std::tuple<SIMD128Register> BitMaskToSimdMask(size_t mask) {
   SIMD128Register result;
   if constexpr (sizeof(ElementType) == sizeof(Int8)) {
-    uint64_t low_mask = bit_cast<const uint64_t*>(
+    uint64_t low_mask = std::bit_cast<const uint64_t*>(
         static_cast<uintptr_t>(constants_pool::kBitMaskTo8bitMask))[mask & 0xff];
-    uint64_t high_mask = bit_cast<const uint64_t*>(
+    uint64_t high_mask = std::bit_cast<const uint64_t*>(
         static_cast<uintptr_t>(constants_pool::kBitMaskTo8bitMask))[(mask >> 8) & 0xff];
     result.Set(low_mask, 0);
     result.Set(high_mask, 1);
   } else {
     __m128i simd_half_mask;
     if constexpr (sizeof(ElementType) == sizeof(Int16)) {
-      uint64_t half_size_mask = bit_cast<const uint64_t*>(
+      uint64_t half_size_mask = std::bit_cast<const uint64_t*>(
           static_cast<uintptr_t>(constants_pool::kBitMaskTo8bitMask))[mask & 0xff];
       simd_half_mask =
           _mm_unpacklo_epi8(_mm_cvtsi64_si128(half_size_mask), _mm_cvtsi64_si128(half_size_mask));
     } else if constexpr (sizeof(ElementType) == sizeof(Int32)) {
-      uint64_t half_size_mask = bit_cast<const uint64_t*>(
+      uint64_t half_size_mask = std::bit_cast<const uint64_t*>(
           static_cast<uintptr_t>(constants_pool::kBitMaskTo16bitMask))[mask & 0xf];
       simd_half_mask =
           _mm_unpacklo_epi16(_mm_cvtsi64_si128(half_size_mask), _mm_cvtsi64_si128(half_size_mask));
     } else if constexpr (sizeof(ElementType) == sizeof(Int64)) {
-      uint64_t half_size_mask = bit_cast<const uint64_t*>(
+      uint64_t half_size_mask = std::bit_cast<const uint64_t*>(
           static_cast<uintptr_t>(constants_pool::kBitMaskTo32bitMask))[mask & 0x3];
       simd_half_mask =
           _mm_unpacklo_epi32(_mm_cvtsi64_si128(half_size_mask), _mm_cvtsi64_si128(half_size_mask));
@@ -85,7 +88,7 @@ template <auto kElement>
   } else if constexpr (kElement == static_cast<ElementType>(~ElementType{0})) {
     return {src | ~simd_mask};
   } else {
-    return {(*bit_cast<const SIMD128Register*>(
+    return {(*std::bit_cast<const SIMD128Register*>(
                  static_cast<uintptr_t>(constants_pool::kVectorConst<kElement>)) &
              ~simd_mask) |
             (src & simd_mask)};
@@ -102,7 +105,7 @@ SimdMaskToBitMask(SIMD128Register simd_mask) {
   } else {
     static_assert(sizeof(ElementType) == sizeof(Int16) || sizeof(ElementType) == sizeof(Int32) ||
                   sizeof(ElementType) == sizeof(Int64));
-    const __m128i kPMovmskXToPMovmskb = *bit_cast<const __m128i*>(static_cast<uintptr_t>(
+    const __m128i kPMovmskXToPMovmskb = *std::bit_cast<const __m128i*>(static_cast<uintptr_t>(
         sizeof(ElementType) == sizeof(Int16)   ? constants_pool::kPMovmskwToPMovmskb
         : sizeof(ElementType) == sizeof(Int32) ? constants_pool::kPMovmskdToPMovmskb
                                                : constants_pool::kPMovmskqToPMovmskb));
@@ -122,7 +125,7 @@ template <typename ElementType,
                        : (sizeof(ElementType) == sizeof(UInt32)) ? constants_pool::kVid32Bit
                                                                  : constants_pool::kVid64Bit;
   const SIMD128Register* const kVidPtr =
-      bit_cast<const SIMD128Register*>(static_cast<uintptr_t>(kVid));
+      std::bit_cast<const SIMD128Register*>(static_cast<uintptr_t>(kVid));
   return kVidPtr[index];
 }
 

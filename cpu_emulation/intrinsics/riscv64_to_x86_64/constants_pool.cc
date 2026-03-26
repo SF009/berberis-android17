@@ -16,10 +16,11 @@
 
 #include "berberis/intrinsics/constants_pool.h"
 
-#include <inttypes.h>
 #include <sys/mman.h>
 
-#include "berberis/base/bit_util.h"
+#include <bit>
+#include <cinttypes>
+
 #include "berberis/base/mmap.h"
 #include "berberis/base/struct_check.h"
 #include "berberis/intrinsics/simd_register.h"
@@ -373,7 +374,7 @@ int32_t GetConstants() {
       new (addr) MacroAssemblerConstants(kBerberisMacroAssemblerConstants);
   // Note that we are returning only 32-bit address here, but it's guaranteed to
   // be enough since struct is in low memory because of MAP_32BIT flag.
-  return bit_cast<intptr_t>(Constants);
+  return std::bit_cast<intptr_t>(Constants);
 }
 
 }  // namespace
