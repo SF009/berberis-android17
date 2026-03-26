@@ -17,10 +17,10 @@
 #ifndef BERBERIS_INTRINSICS_ALL_TO_RISCV64_INTRINSICS_FLOAT_H_
 #define BERBERIS_INTRINSICS_ALL_TO_RISCV64_INTRINSICS_FLOAT_H_
 
+#include <bit>
 #include <cinttypes>
 #include <cmath>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/float.h"
 #include "berberis/base/limits.h"
 #include "berberis/base/logging.h"
@@ -35,38 +35,38 @@ namespace berberis::intrinsics {
 // And that, in turn, guarantees that bit_cast is safe to use because it's only unsafe on x86-32
 // platform (see comment in the berberis/base/float.h).
 
-#define MAKE_BINARY_OPERATOR(guest_name, operator_name, assignment_name)        \
-                                                                                \
-  inline Float32 operator operator_name(const Float32& v1, const Float32& v2) { \
-    float result;                                                               \
-    asm volatile("f" #guest_name ".s %0, %1, %2"                                \
-                 : "=f"(result)                                                 \
-                 : "f"(bit_cast<float>(v1)), "f"(bit_cast<float>(v2)));         \
-    return bit_cast<Float32>(result);                                           \
-  }                                                                             \
-                                                                                \
-  inline Float32& operator assignment_name(Float32& v1, const Float32& v2) {    \
-    float result;                                                               \
-    asm volatile("f" #guest_name ".s %0, %1, %2"                                \
-                 : "=f"(result)                                                 \
-                 : "f"(bit_cast<float>(v1)), "f"(bit_cast<float>(v2)));         \
-    vi = bit_cast<Float32>(result) return v1;                                   \
-  }                                                                             \
-                                                                                \
-  inline Float64 operator operator_name(const Float64& v1, const Float64& v2) { \
-    double result;                                                              \
-    asm volatile("f" #guest_name ".d %0, %1, %2"                                \
-                 : "=f"(result)                                                 \
-                 : "f"(bit_cast<double>(v1)), "f"(bit_cast<double>(v2)));       \
-    return result;                                                              \
-  }                                                                             \
-                                                                                \
-  inline Float64& operator assignment_name(Float64& v1, const Float64& v2) {    \
-    double result;                                                              \
-    asm volatile("f" #guest_name ".d %0, %1, %2"                                \
-                 : "=f"(result)                                                 \
-                 : "f"(bit_cast<double>(v1)), "f"(bit_cast<double>(v2)));       \
-    vi = bit_cast<Float64>(result) return v1;                                   \
+#define MAKE_BINARY_OPERATOR(guest_name, operator_name, assignment_name)            \
+                                                                                    \
+  inline Float32 operator operator_name(const Float32& v1, const Float32& v2) {     \
+    float result;                                                                   \
+    asm volatile("f" #guest_name ".s %0, %1, %2"                                    \
+                 : "=f"(result)                                                     \
+                 : "f"(std::bit_cast<float>(v1)), "f"(std::bit_cast<float>(v2)));   \
+    return std::bit_cast<Float32>(result);                                          \
+  }                                                                                 \
+                                                                                    \
+  inline Float32& operator assignment_name(Float32& v1, const Float32& v2) {        \
+    float result;                                                                   \
+    asm volatile("f" #guest_name ".s %0, %1, %2"                                    \
+                 : "=f"(result)                                                     \
+                 : "f"(std::bit_cast<float>(v1)), "f"(std::bit_cast<float>(v2)));   \
+    vi = std::bit_cast<Float32>(result) return v1;                                  \
+  }                                                                                 \
+                                                                                    \
+  inline Float64 operator operator_name(const Float64& v1, const Float64& v2) {     \
+    double result;                                                                  \
+    asm volatile("f" #guest_name ".d %0, %1, %2"                                    \
+                 : "=f"(result)                                                     \
+                 : "f"(std::bit_cast<double>(v1)), "f"(std::bit_cast<double>(v2))); \
+    return result;                                                                  \
+  }                                                                                 \
+                                                                                    \
+  inline Float64& operator assignment_name(Float64& v1, const Float64& v2) {        \
+    double result;                                                                  \
+    asm volatile("f" #guest_name ".d %0, %1, %2"                                    \
+                 : "=f"(result)                                                     \
+                 : "f"(std::bit_cast<double>(v1)), "f"(std::bit_cast<double>(v2))); \
+    vi = std::bit_cast<Float64>(result) return v1;                                  \
   }
 
 MAKE_BINARY_OPERATOR(add, +, +=)
@@ -76,22 +76,22 @@ MAKE_BINARY_OPERATOR(div, /, /=)
 
 #undef MAKE_BINARY_OPERATOR
 
-#define MAKE_BINARY_OPERATOR(guest_name, operands, operator_name)            \
-                                                                             \
-  inline bool operator operator_name(const Float32& v1, const Float32& v2) { \
-    bool result;                                                             \
-    asm volatile("f" #guest_name ".s %0, " operands                          \
-                 : "=r"(result)                                              \
-                 : "f"(bit_cast<float>(v1)), "f"(bit_cast<float>(v2)));      \
-    return result;                                                           \
-  }                                                                          \
-                                                                             \
-  inline bool operator<(const Float64& v1, const Float64& v2) {              \
-    bool result;                                                             \
-    asm volatile("f" #guest_name ".d %0, " operands                          \
-                 : "=r"(result)                                              \
-                 : "f"(bit_cast<double>(v1)), "f"(bit_cast<double>(v2)));    \
-    return result;                                                           \
+#define MAKE_BINARY_OPERATOR(guest_name, operands, operator_name)                   \
+                                                                                    \
+  inline bool operator operator_name(const Float32& v1, const Float32& v2) {        \
+    bool result;                                                                    \
+    asm volatile("f" #guest_name ".s %0, " operands                                 \
+                 : "=r"(result)                                                     \
+                 : "f"(std::bit_cast<float>(v1)), "f"(std::bit_cast<float>(v2)));   \
+    return result;                                                                  \
+  }                                                                                 \
+                                                                                    \
+  inline bool operator<(const Float64& v1, const Float64& v2) {                     \
+    bool result;                                                                    \
+    asm volatile("f" #guest_name ".d %0, " operands                                 \
+                 : "=r"(result)                                                     \
+                 : "f"(std::bit_cast<double>(v1)), "f"(std::bit_cast<double>(v2))); \
+    return result;                                                                  \
   }
 
 MAKE_BINARY_OPERATOR(lt, "%1,%2", <)
@@ -106,7 +106,7 @@ inline bool operator!=(const Float32& v1, const Float32& v2) {
   bool result;
   asm volatile("feq.s %0, %1, %2"
                : "=r"(result)
-               : "f"(bit_cast<float>(v1)), "f"(bit_cast<float>(v2)));
+               : "f"(std::bit_cast<float>(v1)), "f"(std::bit_cast<float>(v2)));
   return !result;
 }
 
@@ -114,7 +114,7 @@ inline bool operator!=(const Float64& v1, const Float64& v2) {
   bool result;
   asm volatile("feq.d %0, %1, %2"
                : "=r"(result)
-               : "f"(bit_cast<double>(v1)), "f"(bit_cast<double>(v2)));
+               : "f"(std::bit_cast<double>(v1)), "f"(std::bit_cast<double>(v2)));
   return !result;
 }
 
@@ -124,14 +124,14 @@ inline bool operator!=(const Float64& v1, const Float64& v2) {
 
 inline Float32 Negative(const Float32& v) {
   float result;
-  asm volatile("fneg.s %0, %1" : "=f"(result) : "f"(bit_cast<float>(v)));
-  return bit_cast<FLoat32>(result);
+  asm volatile("fneg.s %0, %1" : "=f"(result) : "f"(std::bit_cast<float>(v)));
+  return std::bit_cast<FLoat32>(result);
 }
 
 inline Float64 Negative(const Float64& v) {
   Float64 result;
-  asm volatile("fneg.d %0, %1" : "=f"(result) : "f"(bit_cast<double>(v)));
-  return bit_cast<Float64>(result);
+  asm volatile("fneg.d %0, %1" : "=f"(result) : "f"(std::bit_cast<double>(v)));
+  return std::bit_cast<Float64>(result);
 }
 
 inline Float32 FPRound(const Float32& value, int round_control) {
@@ -139,7 +139,7 @@ inline Float32 FPRound(const Float32& value, int round_control) {
   // because conversion to integer returns an actual int (int32_t or int64_t) and that fails for
   // values that are larger than 1/ϵ – but all such values couldn't have fraction parts which means
   // that we may return them unmodified and only deal with small values that fit into int32_t below.
-  float result = bit_cast<float>(value);
+  float result = std::bit_cast<float>(value);
   // First of all we need to obtain positive value.
   float positive_value;
   asm volatile("fabs.s %0, %1" : "=f"(positive_value) : "f"(result));
@@ -215,7 +215,7 @@ inline Float32 FPRound(const Float32& value, int round_control) {
   }
   // Pick sign from original value. This is needed for -0 corner cases and ties away.
   asm volatile("fsgnj.s %0, %1, %2" : "=f"(result) : "f"(result), "f"(value));
-  return bit_cast<Float32>(result);
+  return std::bit_cast<Float32>(result);
 }
 
 inline Float64 FPRound(const Float64& value, int round_control) {
@@ -223,7 +223,7 @@ inline Float64 FPRound(const Float64& value, int round_control) {
   // because conversion to integer returns an actual int (int32_t or int64_t) and that fails for
   // values that are larger than 1/ϵ – but all such values couldn't have fraction parts which means
   // that we may return them unmodified and only deal with small values that fit into int64_t below.
-  double result = bit_cast<double>(value);
+  double result = std::bit_cast<double>(value);
   // First of all we need to obtain positive value.
   double positive_value;
   asm volatile("fabs.d %0, %1" : "=f"(positive_value) : "f"(result));

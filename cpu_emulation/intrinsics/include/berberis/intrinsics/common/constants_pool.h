@@ -17,8 +17,8 @@
 #ifndef BERBERIS_INTRINSICS_COMMON_CONSTANTS_POOL_H_
 #define BERBERIS_INTRINSICS_COMMON_CONSTANTS_POOL_H_
 
-#include <stdint.h>
 #include <bit>
+#include <cstdint>
 
 #include <type_traits>
 

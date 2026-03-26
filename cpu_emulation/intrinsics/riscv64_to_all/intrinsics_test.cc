@@ -16,6 +16,7 @@
 
 #include "gtest/gtest.h"
 
+#include <bit>
 #include <cstdint>
 #include <tuple>
 
@@ -150,9 +151,9 @@ TEST(Intrinsics, Rsqrt) {
   ASSERT_EQ(std::bit_cast<double>(RSqrtEstimate<Float64>(Float64{255})), 0.0625);
   ASSERT_EQ(std::bit_cast<float>(RSqrtEstimate<Float32>(Float32{255})), 0.0625f);
   ASSERT_EQ(std::bit_cast<double>(RSqrtEstimate<Float64>(Float64{2000.123})),
-            bit_cast<double>(uint64_t(0x3f96'e000'0000'0000)));
+            std::bit_cast<double>(uint64_t(0x3f96'e000'0000'0000)));
   ASSERT_EQ(std::bit_cast<float>(RSqrtEstimate<Float32>(Float32{2000.123})),
-            bit_cast<float>(uint32_t(0x3cb7'0000)));
+            std::bit_cast<float>(uint32_t(0x3cb7'0000)));
 
   ASSERT_EQ(std::bit_cast<double>(RSqrtEstimate<Float64>(Float64{0.1123})), 2.984375);
   ASSERT_EQ(std::bit_cast<float>(RSqrtEstimate<Float32>(Float32{0.1123})), 2.984375f);
@@ -162,10 +163,10 @@ TEST(Intrinsics, Rsqrt) {
   ASSERT_EQ(std::bit_cast<float>(RSqrtEstimate<Float32>(Float32{0})),
             std::numeric_limits<float>::infinity());
 
-  ASSERT_EQ(bit_cast<uint64_t>(RSqrtEstimate<Float64>(Float64{-2.1})),
-            bit_cast<uint64_t>(std::numeric_limits<Float64>::quiet_NaN()));
-  ASSERT_EQ(bit_cast<uint32_t>(RSqrtEstimate<Float32>(Float32{-2.1})),
-            bit_cast<uint32_t>(std::numeric_limits<Float32>::quiet_NaN()));
+  ASSERT_EQ(std::bit_cast<uint64_t>(RSqrtEstimate<Float64>(Float64{-2.1})),
+            std::bit_cast<uint64_t>(std::numeric_limits<Float64>::quiet_NaN()));
+  ASSERT_EQ(std::bit_cast<uint32_t>(RSqrtEstimate<Float32>(Float32{-2.1})),
+            std::bit_cast<uint32_t>(std::numeric_limits<Float32>::quiet_NaN()));
 }
 
 }  // namespace
