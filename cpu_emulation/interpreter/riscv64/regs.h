@@ -17,10 +17,10 @@
 #ifndef BERBERIS_REGS_H_
 #define BERBERIS_REGS_H_
 
+#include <bit>
 #include <cstdint>
 #include <cstring>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/float.h"
 
 namespace berberis {
@@ -39,7 +39,7 @@ inline auto IntegerToGPRReg(IntegerType arg)
   if constexpr (sizeof(IntegerType) <= sizeof(uint32_t)) {
     return static_cast<int32_t>(arg);
   } else {
-    return bit_cast<uint64_t>(arg);
+    return std::bit_cast<uint64_t>(arg);
   }
 }
 
@@ -55,7 +55,7 @@ inline Float32 FPRegToFloat<Float32>(uint64_t arg) {
 
 template <>
 inline Float64 FPRegToFloat<Float64>(uint64_t arg) {
-  return bit_cast<Float64>(arg);
+  return std::bit_cast<Float64>(arg);
 }
 
 template <typename FloatType>
@@ -64,12 +64,12 @@ inline uint64_t FloatToFPReg(FloatType arg);
 template <>
 inline uint64_t FloatToFPReg<Float32>(Float32 arg) {
   // Note: NanBoxAndSetFpReg would properly Nan-box the value.
-  return bit_cast<uint32_t>(arg);
+  return std::bit_cast<uint32_t>(arg);
 }
 
 template <>
 inline uint64_t FloatToFPReg<Float64>(Float64 arg) {
-  return bit_cast<uint64_t>(arg);
+  return std::bit_cast<uint64_t>(arg);
 }
 
 }  // namespace berberis

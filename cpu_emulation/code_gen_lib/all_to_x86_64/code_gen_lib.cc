@@ -16,6 +16,9 @@
 
 #include "berberis/code_gen_lib/code_gen_lib.h"
 
+#include <bit>
+#include <cstdint>
+
 #include "berberis/assembler/machine_code.h"
 #include "berberis/assembler/x86_64.h"
 #include "berberis/base/checks.h"
@@ -183,7 +186,7 @@ void EmitIndirectDispatch(x86_64::Assembler* as, x86_64::Assembler::Register tar
   // scratch1 always holds insn_addr at this point.
   as->Shrq(scratch1, int8_t{24});
   as->Andl(scratch1, 0xff'ffff);
-  as->Movq(scratch2, bit_cast<uint64_t>(main_table_ptr));
+  as->Movq(scratch2, std::bit_cast<uint64_t>(main_table_ptr));
   as->Movq(scratch2,
            {.base = scratch2, .index = scratch1, .scale = x86_64::Assembler::kTimesEight});
 

@@ -17,12 +17,12 @@
 #ifndef BERBERIS_ASSEMBLER_X86_32_OR_X86_64_H_
 #define BERBERIS_ASSEMBLER_X86_32_OR_X86_64_H_
 
+#include <bit>      // std::bit_cast
 #include <cstddef>  // std::size_t
 #include <cstdint>
 #include <type_traits>  // std::enable_if, std::is_integral
 
 #include "berberis/assembler/common.h"
-#include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
 #include "berberis/base/tuple_processing.h"
 
@@ -661,7 +661,7 @@ class Assembler : public AssemblerBase {
       // Emit "main" single-byte opcode.
       if constexpr (kConditionsCount == 1) {
         auto [condition_code] = conditions;
-        uint8_t condition_byte = bit_cast<uint8_t>(condition_code);
+        uint8_t condition_byte = std::bit_cast<uint8_t>(condition_code);
         CHECK_EQ(0, condition_byte & 0xf0);
         Emit8(kOpcodesArray[kPrefixesAndOpcodeExtensionsCount] | condition_byte);
       } else {

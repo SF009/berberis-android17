@@ -19,6 +19,7 @@
 #ifndef BERBERIS_ASSEMBLER_X86_32_H_
 #define BERBERIS_ASSEMBLER_X86_32_H_
 
+#include <bit>          // std::bit_cast
 #include <type_traits>  // std::is_same
 
 #include "berberis/assembler/x86_32_or_x86_64.h"
@@ -207,7 +208,8 @@ class Assembler : public x86_32_or_x86_64::Assembler<Assembler> {
     Emit8(0xe8);
     Emit32(0xcccc'cccc);
     // Set last 4 bytes to displacement from current pc to 'target'.
-    AddRelocation(pc() - 4, RelocationType::RelocAbsToDisp32, pc(), bit_cast<intptr_t>(target));
+    AddRelocation(
+        pc() - 4, RelocationType::RelocAbsToDisp32, pc(), std::bit_cast<intptr_t>(target));
   }
 
   // Unside Jcc(Label), hidden by special version below.
@@ -233,10 +235,11 @@ class Assembler : public x86_32_or_x86_64::Assembler<Assembler> {
     Emit8(0x80 | static_cast<uint8_t>(cc));
     Emit32(0xcccc'cccc);
     // Set last 4 bytes to displacement from current pc to 'target'.
-    AddRelocation(pc() - 4, RelocationType::RelocAbsToDisp32, pc(), bit_cast<intptr_t>(target));
+    AddRelocation(
+        pc() - 4, RelocationType::RelocAbsToDisp32, pc(), std::bit_cast<intptr_t>(target));
   }
 
-  void Jcc(Condition cc, const void* target) { Jcc(cc, bit_cast<uintptr_t>(target)); }
+  void Jcc(Condition cc, const void* target) { Jcc(cc, std::bit_cast<uintptr_t>(target)); }
 
   // Unside Jmp(Reg), hidden by special version below.
   using BaseAssembler::Jmp;
@@ -253,10 +256,11 @@ class Assembler : public x86_32_or_x86_64::Assembler<Assembler> {
     Emit8(0xe9);
     Emit32(0xcccc'cccc);
     // Set last 4 bytes to displacement from current pc to 'target'.
-    AddRelocation(pc() - 4, RelocationType::RelocAbsToDisp32, pc(), bit_cast<intptr_t>(target));
+    AddRelocation(
+        pc() - 4, RelocationType::RelocAbsToDisp32, pc(), std::bit_cast<intptr_t>(target));
   }
 
-  void Jmp(const void* target) { Jmp(bit_cast<uintptr_t>(target)); }
+  void Jmp(const void* target) { Jmp(std::bit_cast<uintptr_t>(target)); }
 
 #endif  // defined(__i386__)
 

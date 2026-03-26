@@ -17,6 +17,7 @@
 #include "berberis/backend/x86_64/insn_folding.h"
 
 #include <algorithm>
+#include <bit>
 #include <cstdint>
 #include <tuple>
 
@@ -298,7 +299,7 @@ std::tuple<FoldingType, berberis::MachineInsn*> InsnFolding::TryFoldImmediateInp
             machine_ir_->NewInsn<MovqRegImm>(insn->RegAt(0), imm64_1.value())};
   }
 
-  int64_t signed_imm = bit_cast<int64_t>(imm64_1.value());
+  int64_t signed_imm = std::bit_cast<int64_t>(imm64_1.value());
   int32_t signed_imm32 = static_cast<int32_t>(signed_imm);
   if (!kIsInput64Bit) {
     // Use the lower half of the register as the immediate operand.
