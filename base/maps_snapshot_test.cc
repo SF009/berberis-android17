@@ -18,6 +18,7 @@
 
 #include "sys/mman.h"
 
+#include <bit>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>  // strncmp
@@ -40,12 +41,12 @@ TEST(MapsSnapshot, Basic) {
   maps_snapshot->ClearForTesting();
 
   // No mappings can be found before snapshot is taken by Update().
-  auto no_mappings_result = maps_snapshot->GetMappedObjectRecord(bit_cast<uintptr_t>(&Foo));
+  auto no_mappings_result = maps_snapshot->GetMappedObjectRecord(std::bit_cast<uintptr_t>(&Foo));
   ASSERT_FALSE(no_mappings_result.has_value());
 
   maps_snapshot->Update();
 
-  auto result = maps_snapshot->GetMappedObjectRecord(bit_cast<uintptr_t>(&Foo));
+  auto result = maps_snapshot->GetMappedObjectRecord(std::bit_cast<uintptr_t>(&Foo));
   ASSERT_TRUE(result.has_value());
   ASSERT_FALSE(result.value().pathname.empty());
 }
@@ -56,7 +57,8 @@ TEST(MapsSnapshot, UpdateAndRetry) {
   maps_snapshot->ClearForTesting();
 
   // With UpdateAndRetry we should find the mapping right away.
-  auto result = maps_snapshot->GetMappedObjectRecordOrUpdateAndRetry(bit_cast<uintptr_t>(&Foo));
+  auto result =
+      maps_snapshot->GetMappedObjectRecordOrUpdateAndRetry(std::bit_cast<uintptr_t>(&Foo));
   ASSERT_TRUE(result.has_value());
   ASSERT_FALSE(result.value().pathname.empty());
 }
@@ -67,7 +69,7 @@ TEST(MapsSnapshot, AnonymousMapping) {
   void* addr = mmap(nullptr, 4096, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
   ASSERT_NE(addr, MAP_FAILED);
   maps_snapshot->Update();
-  auto result = maps_snapshot->GetMappedObjectRecord(bit_cast<uintptr_t>(addr));
+  auto result = maps_snapshot->GetMappedObjectRecord(std::bit_cast<uintptr_t>(addr));
   munmap(addr, 4096);
 
   ASSERT_TRUE(result.has_value());
@@ -112,7 +114,7 @@ TEST(MapsSnapshot, ExactFilenameMatch) {
   ASSERT_GT(addr, 0u);
 
   maps_snapshot->Update();
-  auto result = maps_snapshot->GetMappedObjectRecord(bit_cast<uintptr_t>(addr));
+  auto result = maps_snapshot->GetMappedObjectRecord(std::bit_cast<uintptr_t>(addr));
 
   ASSERT_TRUE(result.has_value());
   // MapsSnapshot only stores first 255 symbols plus terminating null.

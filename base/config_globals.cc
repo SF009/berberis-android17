@@ -20,6 +20,7 @@
 #include <sys/system_properties.h>
 #endif
 
+#include <bit>
 #include <bitset>
 #include <cerrno>
 #include <cstdint>

@@ -27,8 +27,6 @@
 
 namespace berberis {
 
-using std::bit_cast;
-
 template <typename BaseType>
 class Raw;
 
@@ -93,12 +91,12 @@ constexpr Wrapping<T> AlignDown(Wrapping<T> x) {
 // Helper to align pointers.
 template <size_t kAlign, typename T>
 constexpr T* AlignDown(T* p) {
-  return bit_cast<T*>(AlignDown<kAlign>(bit_cast<uintptr_t>(p)));
+  return std::bit_cast<T*>(AlignDown<kAlign>(std::bit_cast<uintptr_t>(p)));
 }
 
 template <typename T>
 constexpr T* AlignDown(T* p, size_t align) {
-  return bit_cast<T*>(AlignDown(bit_cast<uintptr_t>(p), align));
+  return std::bit_cast<T*>(AlignDown(std::bit_cast<uintptr_t>(p), align));
 }
 
 template <size_t kAlign, typename T>
@@ -129,12 +127,12 @@ constexpr Wrapping<T> AlignUp(Wrapping<T> x) {
 // Helper to align pointers.
 template <size_t kAlign, typename T>
 constexpr T* AlignUp(T* p) {
-  return bit_cast<T*>(AlignUp<kAlign>(bit_cast<uintptr_t>(p)));
+  return std::bit_cast<T*>(AlignUp<kAlign>(std::bit_cast<uintptr_t>(p)));
 }
 
 template <typename T>
 constexpr T* AlignUp(T* p, size_t align) {
-  return bit_cast<T*>(AlignUp(bit_cast<uintptr_t>(p), align));
+  return std::bit_cast<T*>(AlignUp(std::bit_cast<uintptr_t>(p), align));
 }
 
 template <size_t kAlign, typename T>
@@ -165,12 +163,12 @@ constexpr bool IsAligned(Wrapping<T> x) {
 // Helper to align pointers.
 template <size_t kAlign, typename T>
 constexpr bool IsAligned(T* p, size_t align) {
-  return IsAligned<kAlign>(bit_cast<uintptr_t>(p), align);
+  return IsAligned<kAlign>(std::bit_cast<uintptr_t>(p), align);
 }
 
 template <typename T>
 constexpr bool IsAligned(T* p, size_t align) {
-  return IsAligned(bit_cast<uintptr_t>(p), align);
+  return IsAligned(std::bit_cast<uintptr_t>(p), align);
 }
 
 template <typename T>

@@ -18,6 +18,7 @@
 
 #include "berberis/base/float.h"
 
+#include <bit>
 #include <cstdint>
 #include <cstring>
 
@@ -33,34 +34,36 @@ namespace {
 TEST(FloatTest, Smoke) {
   // BitCastToFloat and BitCastToRaw don't change the bits of integer, they just treat them
   // differently.
-  static_assert(bit_cast<uint16_t>(BitCastToFloat(Int16{0x3c00})) ==
-                bit_cast<uint16_t>(Float16{_Float16{1.0}}));
-  static_assert(bit_cast<uint16_t>(BitCastToFloat(RawInt16{0x3c00})) ==
-                bit_cast<uint16_t>(Float16{_Float16{1.0}}));
-  static_assert(bit_cast<uint16_t>(BitCastToFloat(SatInt16{0x3c00})) ==
-                bit_cast<uint16_t>(Float16{_Float16{1.0}}));
-  static_assert(bit_cast<uint16_t>(BitCastToFloat(SatUInt16{0x3c00})) ==
-                bit_cast<uint16_t>(Float16{_Float16{1.0}}));
-  static_assert(bit_cast<uint16_t>(BitCastToFloat(UInt16{0x3c00})) ==
-                bit_cast<uint16_t>(Float16{_Float16{1.0}}));
+  static_assert(std::bit_cast<uint16_t>(BitCastToFloat(Int16{0x3c00})) ==
+                std::bit_cast<uint16_t>(Float16{_Float16{1.0}}));
+  static_assert(std::bit_cast<uint16_t>(BitCastToFloat(RawInt16{0x3c00})) ==
+                std::bit_cast<uint16_t>(Float16{_Float16{1.0}}));
+  static_assert(std::bit_cast<uint16_t>(BitCastToFloat(SatInt16{0x3c00})) ==
+                std::bit_cast<uint16_t>(Float16{_Float16{1.0}}));
+  static_assert(std::bit_cast<uint16_t>(BitCastToFloat(SatUInt16{0x3c00})) ==
+                std::bit_cast<uint16_t>(Float16{_Float16{1.0}}));
+  static_assert(std::bit_cast<uint16_t>(BitCastToFloat(UInt16{0x3c00})) ==
+                std::bit_cast<uint16_t>(Float16{_Float16{1.0}}));
 
-  EXPECT_EQ(bit_cast<uint16_t>(BitCastToRaw(Float16{_Float16{1.0}})),
-            bit_cast<uint16_t>(Int16{0x3c00}));
+  EXPECT_EQ(std::bit_cast<uint16_t>(BitCastToRaw(Float16{_Float16{1.0}})),
+            std::bit_cast<uint16_t>(Int16{0x3c00}));
 
-  static_assert(bit_cast<uint32_t>(Widen(Float16{_Float16{1.0}})) ==
-                bit_cast<uint32_t>(Float32{1.0f}));
-  static_assert(bit_cast<uint64_t>(Widen(Float32{1.0f})) == bit_cast<uint64_t>(Float64{1.0}));
+  static_assert(std::bit_cast<uint32_t>(Widen(Float16{_Float16{1.0}})) ==
+                std::bit_cast<uint32_t>(Float32{1.0f}));
+  static_assert(std::bit_cast<uint64_t>(Widen(Float32{1.0f})) ==
+                std::bit_cast<uint64_t>(Float64{1.0}));
 #if defined(__x86_64__)
   auto widened_float = Widen(Float64{1.0});
   auto wide_float = static_cast<long double>(1.0);
   // Note: long double has 10 bytes of payload plus 6 bytes of passing on x86 platform.
-  // We don't need to compate padding and it's also why we couldn't use bit_cast and constexpr.
+  // We don't need to compate padding and it's also why we couldn't use std::bit_cast and constexpr.
   EXPECT_EQ(memcmp(&widened_float, &wide_float, 10), 0);
 #endif
 
-  static_assert(bit_cast<uint16_t>(Narrow(Float32{1.0f})) ==
-                bit_cast<uint16_t>(Float16{_Float16{1.0}}));
-  static_assert(bit_cast<uint32_t>(Narrow(Float64{1.0})) == bit_cast<uint32_t>(Float32{1.0f}));
+  static_assert(std::bit_cast<uint16_t>(Narrow(Float32{1.0f})) ==
+                std::bit_cast<uint16_t>(Float16{_Float16{1.0}}));
+  static_assert(std::bit_cast<uint32_t>(Narrow(Float64{1.0})) ==
+                std::bit_cast<uint32_t>(Float32{1.0f}));
 }
 
 }  // namespace

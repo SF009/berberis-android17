@@ -25,6 +25,7 @@
 #include <sys/user.h>
 #include <unistd.h>
 
+#include <bit>
 #include <cstddef>
 #include <optional>
 #include <tuple>
@@ -41,8 +42,6 @@
 #define PFLAGS_TO_PROT(x)                                                        \
   (MAYBE_MAP_FLAG((x), PF_X, PROT_EXEC) | MAYBE_MAP_FLAG((x), PF_R, PROT_READ) | \
    MAYBE_MAP_FLAG((x), PF_W, PROT_WRITE))
-
-using berberis::bit_cast;
 
 namespace {
 
@@ -353,7 +352,7 @@ bool TinyElfLoader::ReadProgramHeadersFromMemory(const ElfEhdr* header, uintptr_
     return false;
   }
 
-  *phdr_table = bit_cast<const ElfPhdr*>(load_addr + header->e_phoff);
+  *phdr_table = std::bit_cast<const ElfPhdr*>(load_addr + header->e_phoff);
   *phdr_num = phnum;
   return true;
 }
@@ -366,7 +365,7 @@ uint8_t* TinyElfLoader::Reserve(void* hint, size_t size, TinyLoader::mmap64_fn_t
     return nullptr;
   }
 
-  return bit_cast<uint8_t*>(mmap_ptr);
+  return std::bit_cast<uint8_t*>(mmap_ptr);
 }
 
 bool TinyElfLoader::ReserveAddressSpace(ElfHalf e_type, const ElfPhdr* phdr_table, size_t phdr_num,
@@ -380,7 +379,7 @@ bool TinyElfLoader::ReserveAddressSpace(ElfHalf e_type, const ElfPhdr* phdr_tabl
     return false;
   }
 
-  uint8_t* addr = bit_cast<uint8_t*>(min_vaddr);
+  uint8_t* addr = std::bit_cast<uint8_t*>(min_vaddr);
   uint8_t* start;
 
   if (e_type == ET_EXEC) {
@@ -469,9 +468,9 @@ bool TinyElfLoader::LoadSegments(int fd, size_t file_size, ElfHalf e_type,
                     " p_offset (%p) + p_filesz (%p) ( = %p) past end of file (0x%zx)",
                     name_,
                     i,
-                    bit_cast<void*>(phdr->p_offset),
-                    bit_cast<void*>(phdr->p_filesz),
-                    bit_cast<void*>(file_end),
+                    std::bit_cast<void*>(phdr->p_offset),
+                    std::bit_cast<void*>(phdr->p_filesz),
+                    std::bit_cast<void*>(file_end),
                     file_size);
       return false;
     }
@@ -483,7 +482,7 @@ bool TinyElfLoader::LoadSegments(int fd, size_t file_size, ElfHalf e_type,
         return false;
       }
 
-      void* seg_addr = mmap64_fn(bit_cast<void*>(seg_page_start),
+      void* seg_addr = mmap64_fn(std::bit_cast<void*>(seg_page_start),
                                  file_length,
                                  prot,
                                  MAP_FIXED | MAP_PRIVATE,
@@ -499,7 +498,8 @@ bool TinyElfLoader::LoadSegments(int fd, size_t file_size, ElfHalf e_type,
     // if the segment is writable, and does not end on a page boundary,
     // zero-fill it until the page limit.
     if ((phdr->p_flags & PF_W) != 0 && page_offset(seg_file_end) > 0) {
-      memset(bit_cast<void*>(seg_file_end), 0, berberis::kPageSize - page_offset(seg_file_end));
+      memset(
+          std::bit_cast<void*>(seg_file_end), 0, berberis::kPageSize - page_offset(seg_file_end));
     }
 
     seg_file_end = page_align_up(seg_file_end);
@@ -510,7 +510,7 @@ bool TinyElfLoader::LoadSegments(int fd, size_t file_size, ElfHalf e_type,
     // map for all extra pages.
     if (seg_page_end > seg_file_end) {
       size_t zeromap_size = seg_page_end - seg_file_end;
-      void* zeromap = mmap64_fn(bit_cast<void*>(seg_file_end),
+      void* zeromap = mmap64_fn(std::bit_cast<void*>(seg_file_end),
                                 zeromap_size,
                                 PFLAGS_TO_PROT(phdr->p_flags),
                                 MAP_FIXED | MAP_ANONYMOUS | MAP_PRIVATE,
@@ -538,7 +538,7 @@ bool TinyElfLoader::FindDynamicSegment(const ElfEhdr* header) {
     const ElfPhdr& phdr = loaded_phdr_[i];
     if (phdr.p_type == PT_DYNAMIC) {
       // TODO(dimitry): Check all addresses and sizes referencing loaded segments.
-      dynamic_ = bit_cast<ElfDyn*>(load_bias_ + phdr.p_vaddr);
+      dynamic_ = std::bit_cast<ElfDyn*>(load_bias_ + phdr.p_vaddr);
       return true;
     }
   }
@@ -549,7 +549,7 @@ bool TinyElfLoader::FindDynamicSegment(const ElfEhdr* header) {
 
 bool TinyElfLoader::InitializeFields(const ElfEhdr* header) {
   if (header->e_entry != 0) {
-    entry_point_ = bit_cast<void*>(load_bias_ + header->e_entry);
+    entry_point_ = std::bit_cast<void*>(load_bias_ + header->e_entry);
   }
 
   // There is nothing else to do for a static executable.
@@ -560,12 +560,13 @@ bool TinyElfLoader::InitializeFields(const ElfEhdr* header) {
   for (const ElfDyn* d = dynamic_; d->d_tag != DT_NULL; ++d) {
     if (d->d_tag == DT_GNU_HASH) {
       has_gnu_hash_ = true;
-      gnu_nbucket_ = bit_cast<uint32_t*>(load_bias_ + d->d_un.d_ptr)[0];
-      gnu_maskwords_ = bit_cast<uint32_t*>(load_bias_ + d->d_un.d_ptr)[2];
-      gnu_shift2_ = bit_cast<uint32_t*>(load_bias_ + d->d_un.d_ptr)[3];
-      gnu_bloom_filter_ = bit_cast<ElfAddr*>(load_bias_ + d->d_un.d_ptr + 16);
-      gnu_bucket_ = bit_cast<uint32_t*>(gnu_bloom_filter_ + gnu_maskwords_);
-      gnu_chain_ = gnu_bucket_ + gnu_nbucket_ - bit_cast<uint32_t*>(load_bias_ + d->d_un.d_ptr)[1];
+      gnu_nbucket_ = std::bit_cast<uint32_t*>(load_bias_ + d->d_un.d_ptr)[0];
+      gnu_maskwords_ = std::bit_cast<uint32_t*>(load_bias_ + d->d_un.d_ptr)[2];
+      gnu_shift2_ = std::bit_cast<uint32_t*>(load_bias_ + d->d_un.d_ptr)[3];
+      gnu_bloom_filter_ = std::bit_cast<ElfAddr*>(load_bias_ + d->d_un.d_ptr + 16);
+      gnu_bucket_ = std::bit_cast<uint32_t*>(gnu_bloom_filter_ + gnu_maskwords_);
+      gnu_chain_ =
+          gnu_bucket_ + gnu_nbucket_ - std::bit_cast<uint32_t*>(load_bias_ + d->d_un.d_ptr)[1];
 
       if (!powerof2(gnu_maskwords_)) {
         set_error_msg(&error_msg_,
@@ -577,14 +578,14 @@ bool TinyElfLoader::InitializeFields(const ElfEhdr* header) {
 
       --gnu_maskwords_;
     } else if (d->d_tag == DT_HASH) {
-      sysv_nbucket_ = bit_cast<uint32_t*>(load_bias_ + d->d_un.d_ptr)[0];
-      sysv_nchain_ = bit_cast<uint32_t*>(load_bias_ + d->d_un.d_ptr)[1];
-      sysv_bucket_ = bit_cast<uint32_t*>(load_bias_ + d->d_un.d_ptr + 8);
-      sysv_chain_ = bit_cast<uint32_t*>(load_bias_ + d->d_un.d_ptr + 8 + sysv_nbucket_ * 4);
+      sysv_nbucket_ = std::bit_cast<uint32_t*>(load_bias_ + d->d_un.d_ptr)[0];
+      sysv_nchain_ = std::bit_cast<uint32_t*>(load_bias_ + d->d_un.d_ptr)[1];
+      sysv_bucket_ = std::bit_cast<uint32_t*>(load_bias_ + d->d_un.d_ptr + 8);
+      sysv_chain_ = std::bit_cast<uint32_t*>(load_bias_ + d->d_un.d_ptr + 8 + sysv_nbucket_ * 4);
     } else if (d->d_tag == DT_SYMTAB) {
-      symtab_ = bit_cast<ElfSym*>(load_bias_ + d->d_un.d_ptr);
+      symtab_ = std::bit_cast<ElfSym*>(load_bias_ + d->d_un.d_ptr);
     } else if (d->d_tag == DT_STRTAB) {
-      strtab_ = bit_cast<const char*>(load_bias_ + d->d_un.d_ptr);
+      strtab_ = std::bit_cast<const char*>(load_bias_ + d->d_un.d_ptr);
     } else if (d->d_tag == DT_STRSZ) {
       strtab_size_ = d->d_un.d_val;
     }
@@ -609,8 +610,8 @@ bool TinyElfLoader::InitializeFields(const ElfEhdr* header) {
 }
 
 bool TinyElfLoader::Parse(void* load_ptr, size_t load_size, LoadedElfFile* loaded_elf_file) {
-  uintptr_t load_addr = bit_cast<uintptr_t>(load_ptr);
-  const ElfEhdr* header = bit_cast<const ElfEhdr*>(load_addr);
+  uintptr_t load_addr = std::bit_cast<uintptr_t>(load_ptr);
+  const ElfEhdr* header = std::bit_cast<const ElfEhdr*>(load_addr);
   if (!CheckElfHeader(header)) {
     return false;
   }
@@ -693,7 +694,7 @@ std::optional<uintptr_t> TinyElfLoader::CalculateLoadBias(const void* load_ptr, 
   const ElfPhdr* phdr_table = nullptr;
   size_t phdr_num = 0;
 
-  uintptr_t load_addr = bit_cast<uintptr_t>(load_ptr);
+  uintptr_t load_addr = std::bit_cast<uintptr_t>(load_ptr);
   if (!ReadProgramHeadersFromMemory(header, load_addr, load_size, &phdr_table, &phdr_num)) {
     return std::nullopt;
   }
@@ -709,7 +710,7 @@ std::optional<uintptr_t> TinyElfLoader::CalculateLoadBias(const void* load_ptr, 
     set_error_msg(&error_msg_,
                   "\"%s\" min_vaddr(0x%zx) > load_addr(%p)",
                   name_,
-                  bit_cast<size_t>(min_vaddr),
+                  std::bit_cast<size_t>(min_vaddr),
                   load_ptr);
     return std::nullopt;
   }
