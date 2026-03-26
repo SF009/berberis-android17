@@ -16,9 +16,11 @@
 
 #include "berberis/code_gen_lib/code_gen_lib.h"
 
+#include <bit>
+#include <cstdint>
+
 #include "berberis/assembler/machine_code.h"
 #include "berberis/assembler/x86_32.h"
-#include "berberis/base/bit_util.h"
 #include "berberis/base/config.h"
 #include "berberis/base/config_globals.h"
 #include "berberis/calling_conventions/calling_conventions_x86_32.h"
@@ -94,9 +96,10 @@ void EmitDispatch(Assembler* as, Assembler::Register target) {
   // jmp    *(%reg1,%reg2,4)
   as->Movzxwl(reg2, Assembler::eax);
   as->Shrl(reg1, int8_t{16});
-  as->Movl(
-      reg1,
-      {.index = reg1, .scale = Assembler::kTimesFour, .disp = bit_cast<int32_t>(main_table_ptr)});
+  as->Movl(reg1,
+           {.index = reg1,
+            .scale = Assembler::kTimesFour,
+            .disp = std::bit_cast<int32_t>(main_table_ptr)});
   as->Jmpl({.base = reg1, .index = reg2, .scale = Assembler::kTimesFour});
 }
 
@@ -120,7 +123,7 @@ void GenTrampolineAdaptor(MachineCode* mc,
   if (kInstrumentTrampolines) {
     if (auto instrument = GetOnTrampolineCall(name)) {
       as.Movl({.base = as.esp}, kStateRegister);
-      as.Movl({.base = as.esp, .disp = 4}, bit_cast<int32_t>(name));
+      as.Movl({.base = as.esp, .disp = 4}, std::bit_cast<int32_t>(name));
       as.Call(AsHostCode(instrument));
     }
   }
@@ -132,7 +135,7 @@ void GenTrampolineAdaptor(MachineCode* mc,
   if (kInstrumentTrampolines) {
     if (auto instrument = GetOnTrampolineReturn(name)) {
       as.Movl({.base = as.esp}, kStateRegister);
-      as.Movl({.base = as.esp, .disp = 4}, bit_cast<int32_t>(name));
+      as.Movl({.base = as.esp, .disp = 4}, std::bit_cast<int32_t>(name));
       as.Call(AsHostCode(instrument));
     }
   }
@@ -178,7 +181,8 @@ void EmitJump(Assembler* as, GuestAddr target) {
 
   // Now we have same stack state as we had on entry to this
   // code, so we can just do tail call to other translation unit.
-  as->Jmpl({.disp = bit_cast<int32_t>(TranslationCache::GetInstance()->GetHostCodePtr(target))});
+  as->Jmpl(
+      {.disp = std::bit_cast<int32_t>(TranslationCache::GetInstance()->GetHostCodePtr(target))});
 }
 
 // ATTENTION: 'target' should be a general register - see constraints for IndirectJump!

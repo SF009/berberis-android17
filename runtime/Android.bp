@@ -49,6 +49,7 @@ cc_defaults {
         "libberberis_guest_state_headers",
         "libberberis_instrument_headers",
         "libberberis_runtime_headers",
+        "libberberis_runtime_library_headers",
         "libberberis_runtime_primitives_headers",
         "libberberis_translator_headers",
     ],
@@ -101,6 +102,7 @@ cc_test_library {
         "berberis_test_utils_headers",
         "libberberis_assembler_headers",
         "libberberis_guest_state_arm_or_arm64_headers",
+        "libberberis_runtime_library_headers",
         "libberberis_runtime_primitives_headers",
     ],
     arch: {

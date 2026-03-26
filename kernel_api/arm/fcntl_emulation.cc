@@ -30,6 +30,8 @@
 #include <fcntl.h>
 #include <sys/file.h>
 
+#include <bit>
+#include <cstddef>
 #include <tuple>
 
 #include "berberis/base/bit_util.h"
@@ -132,7 +134,7 @@ std::tuple<bool, int> GuestFcntlArch(int fd, int cmd, long arg_3) {
     case GUEST_F_SETLKW:
     case GUEST_F_GETLK: {
       // Musl only has a 64-bit flock for both flock and flock64, translate flock calls to flock64.
-      Guest_flock* guest_flock = bit_cast<Guest_flock*>(arg_3);
+      Guest_flock* guest_flock = std::bit_cast<Guest_flock*>(arg_3);
       struct flock64 host_flock64;
       // In case of GETLK input flock describes region
       // to check, thus conversion is also required.
@@ -150,7 +152,7 @@ std::tuple<bool, int> GuestFcntlArch(int fd, int cmd, long arg_3) {
     case GUEST_F_SETLK64:
     case GUEST_F_SETLKW64:
     case GUEST_F_GETLK64: {
-      Guest_flock64* guest_flock64 = bit_cast<Guest_flock64*>(arg_3);
+      Guest_flock64* guest_flock64 = std::bit_cast<Guest_flock64*>(arg_3);
       struct flock64 host_flock64;
       // In case of GETLK input flock describes region
       // to check, thus conversion is also required.

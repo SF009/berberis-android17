@@ -37,9 +37,9 @@
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state.h"
 #include "berberis/native_bridge/jmethod_shorty.h"
+#include "berberis/runtime_library/runtime_library.h"
 #include "berberis/runtime_primitives/host_code.h"
 #include "berberis/runtime_primitives/known_guest_function_wrapper.h"
-#include "berberis/runtime_primitives/runtime_library.h"
 
 #include "guest_jni_trampolines.h"
 

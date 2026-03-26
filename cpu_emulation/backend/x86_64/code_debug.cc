@@ -16,6 +16,7 @@
 
 // x86_64 machine IR insns debugging.
 
+#include <bit>
 #include <cinttypes>
 #include <string>
 
@@ -123,7 +124,7 @@ std::string GetDebugString(const MachineInsnX86_64& insn,
         break;
       case X86Operand::kComment:
         if (insn.disp2() || insn.disp3()) {
-          result += bit_cast<char*>(uint64_t(insn.disp3()) << 32 | insn.disp2());
+          result += std::bit_cast<char*>(uint64_t(insn.disp3()) << 32 | insn.disp2());
         }
         break;
     }

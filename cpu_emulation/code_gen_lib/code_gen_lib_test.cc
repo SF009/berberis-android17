@@ -16,6 +16,9 @@
 
 #include "gtest/gtest.h"
 
+#include <bit>
+#include <cstdint>
+
 #if defined(__i386__)
 #include "berberis/assembler/x86_32.h"
 #elif defined(__x86_64__)
@@ -23,7 +26,6 @@
 #endif
 
 #include "berberis/assembler/machine_code.h"
-#include "berberis/base/bit_util.h"
 #include "berberis/code_gen_lib/gen_adaptor.h"
 #include "berberis/code_gen_lib/gen_wrapper.h"
 #include "berberis/guest_abi/guest_arguments.h"
@@ -277,17 +279,17 @@ void Run10Fp(GuestAddr pc, GuestArgumentBuffer* buf) {
 #if defined(NATIVE_BRIDGE_GUEST_ARCH_ARM)
   ASSERT_EQ(10, buf->argc);
   ASSERT_EQ(1, buf->resc);
-  ASSERT_FLOAT_EQ(0.0f, bit_cast<float>(buf->argv[0]));
-  ASSERT_FLOAT_EQ(1.1f, bit_cast<float>(buf->argv[1]));
-  ASSERT_FLOAT_EQ(2.2f, bit_cast<float>(buf->argv[2]));
-  ASSERT_FLOAT_EQ(3.3f, bit_cast<float>(buf->argv[3]));
-  ASSERT_FLOAT_EQ(4.4f, bit_cast<float>(buf->argv[4]));
-  ASSERT_FLOAT_EQ(5.5f, bit_cast<float>(buf->argv[5]));
-  ASSERT_FLOAT_EQ(6.6f, bit_cast<float>(buf->argv[6]));
-  ASSERT_FLOAT_EQ(7.7f, bit_cast<float>(buf->argv[7]));
-  ASSERT_FLOAT_EQ(8.8f, bit_cast<float>(buf->argv[8]));
-  ASSERT_FLOAT_EQ(9.9f, bit_cast<float>(buf->argv[9]));
-  buf->argv[0] = bit_cast<uint32_t>(45.45f);
+  ASSERT_FLOAT_EQ(0.0f, std::bit_cast<float>(buf->argv[0]));
+  ASSERT_FLOAT_EQ(1.1f, std::bit_cast<float>(buf->argv[1]));
+  ASSERT_FLOAT_EQ(2.2f, std::bit_cast<float>(buf->argv[2]));
+  ASSERT_FLOAT_EQ(3.3f, std::bit_cast<float>(buf->argv[3]));
+  ASSERT_FLOAT_EQ(4.4f, std::bit_cast<float>(buf->argv[4]));
+  ASSERT_FLOAT_EQ(5.5f, std::bit_cast<float>(buf->argv[5]));
+  ASSERT_FLOAT_EQ(6.6f, std::bit_cast<float>(buf->argv[6]));
+  ASSERT_FLOAT_EQ(7.7f, std::bit_cast<float>(buf->argv[7]));
+  ASSERT_FLOAT_EQ(8.8f, std::bit_cast<float>(buf->argv[8]));
+  ASSERT_FLOAT_EQ(9.9f, std::bit_cast<float>(buf->argv[9]));
+  buf->argv[0] = std::bit_cast<uint32_t>(45.45f);
 #elif defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
   ASSERT_EQ(0, buf->argc);
   ASSERT_EQ(8, buf->simd_argc);
@@ -295,17 +297,17 @@ void Run10Fp(GuestAddr pc, GuestArgumentBuffer* buf) {
   ASSERT_EQ(0, buf->resc);
   ASSERT_EQ(1, buf->simd_resc);
   // For 32-bit parameters, only least-significant bits are defined!
-  ASSERT_FLOAT_EQ(0.0f, bit_cast<float>(static_cast<uint32_t>(buf->simd_argv[0])));
-  ASSERT_FLOAT_EQ(1.1f, bit_cast<float>(static_cast<uint32_t>(buf->simd_argv[1])));
-  ASSERT_FLOAT_EQ(2.2f, bit_cast<float>(static_cast<uint32_t>(buf->simd_argv[2])));
-  ASSERT_FLOAT_EQ(3.3f, bit_cast<float>(static_cast<uint32_t>(buf->simd_argv[3])));
-  ASSERT_FLOAT_EQ(4.4f, bit_cast<float>(static_cast<uint32_t>(buf->simd_argv[4])));
-  ASSERT_FLOAT_EQ(5.5f, bit_cast<float>(static_cast<uint32_t>(buf->simd_argv[5])));
-  ASSERT_FLOAT_EQ(6.6f, bit_cast<float>(static_cast<uint32_t>(buf->simd_argv[6])));
-  ASSERT_FLOAT_EQ(7.7f, bit_cast<float>(static_cast<uint32_t>(buf->simd_argv[7])));
-  ASSERT_FLOAT_EQ(8.8f, bit_cast<float>(static_cast<uint32_t>(buf->stack_argv[0])));
-  ASSERT_FLOAT_EQ(9.9f, bit_cast<float>(static_cast<uint32_t>(buf->stack_argv[1])));
-  buf->simd_argv[0] = bit_cast<uint32_t>(45.45f);
+  ASSERT_FLOAT_EQ(0.0f, std::bit_cast<float>(static_cast<uint32_t>(buf->simd_argv[0])));
+  ASSERT_FLOAT_EQ(1.1f, std::bit_cast<float>(static_cast<uint32_t>(buf->simd_argv[1])));
+  ASSERT_FLOAT_EQ(2.2f, std::bit_cast<float>(static_cast<uint32_t>(buf->simd_argv[2])));
+  ASSERT_FLOAT_EQ(3.3f, std::bit_cast<float>(static_cast<uint32_t>(buf->simd_argv[3])));
+  ASSERT_FLOAT_EQ(4.4f, std::bit_cast<float>(static_cast<uint32_t>(buf->simd_argv[4])));
+  ASSERT_FLOAT_EQ(5.5f, std::bit_cast<float>(static_cast<uint32_t>(buf->simd_argv[5])));
+  ASSERT_FLOAT_EQ(6.6f, std::bit_cast<float>(static_cast<uint32_t>(buf->simd_argv[6])));
+  ASSERT_FLOAT_EQ(7.7f, std::bit_cast<float>(static_cast<uint32_t>(buf->simd_argv[7])));
+  ASSERT_FLOAT_EQ(8.8f, std::bit_cast<float>(static_cast<uint32_t>(buf->stack_argv[0])));
+  ASSERT_FLOAT_EQ(9.9f, std::bit_cast<float>(static_cast<uint32_t>(buf->stack_argv[1])));
+  buf->simd_argv[0] = std::bit_cast<uint32_t>(45.45f);
 #else
 #error "Unknown guest arch"
 #endif

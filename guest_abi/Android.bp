@@ -30,6 +30,7 @@ cc_library_headers {
         "libberberis_base_headers",
         "libberberis_calling_conventions_headers",
         "libberberis_guest_state_headers",
+        "libberberis_runtime_library_headers",
         "libberberis_runtime_primitives_headers",
     ],
     export_header_lib_headers: [
@@ -37,6 +38,7 @@ cc_library_headers {
         "libberberis_base_headers",
         "libberberis_calling_conventions_headers",
         "libberberis_guest_state_headers",
+        "libberberis_runtime_library_headers",
         "libberberis_runtime_primitives_headers",
     ],
 }

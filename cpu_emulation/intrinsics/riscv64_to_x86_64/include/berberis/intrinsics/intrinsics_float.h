@@ -17,10 +17,10 @@
 #ifndef BERBERIS_INTRINSICS_RISCV64_TO_X86_64_INTRINSICS_FLOAT_H_
 #define BERBERIS_INTRINSICS_RISCV64_TO_X86_64_INTRINSICS_FLOAT_H_
 
+#include <bit>
 #include <cmath>
 #include <limits>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/float.h"
 #include "berberis/base/limits.h"
 #include "berberis/base/type_traits.h"
@@ -47,7 +47,7 @@ inline FloatType ExecuteFloatOperationRmm(OperationType operation, Args... args)
     }
     int_result += Wrapping{0x0000'0000'1000'0000U};
     int_result &= Wrapping{0xffff'ffff'e000'0000U};
-    wide_result = bit_cast<Float64>(int_result);
+    wide_result = std::bit_cast<Float64>(int_result);
   } else if constexpr (std::is_same_v<FloatType, Float64>) {
     // In 64bit->80bit case we need to adjust significand bits to ensure we are creating ±∞ and not
     // pseudo-infinity (supported on 8087/80287, but not on modern CPUs).

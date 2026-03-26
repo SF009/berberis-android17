@@ -525,9 +525,9 @@ class MachineInsn final : public MachineInsnX86_64 {
             } else if constexpr (std::is_integral_v<ConstructorArg>) {
               MachineInsnX86_64::set_imm(arg);
             } else if constexpr (std::is_same_v<ConstructorArg, const void*>) {
-              MachineInsnX86_64::set_imm(bit_cast<int64_t>(arg));
+              MachineInsnX86_64::set_imm(std::bit_cast<int64_t>(arg));
             } else if constexpr (std::is_same_v<ConstructorArg, const char*>) {
-              int64_t comment = bit_cast<int64_t>(arg);
+              int64_t comment = std::bit_cast<int64_t>(arg);
               MachineInsnX86_64::set_disp2(static_cast<int32_t>(comment));
               MachineInsnX86_64::set_disp3(static_cast<int32_t>(comment >> 32));
             } else if constexpr (std::is_same_v<ConstructorArg, MachineReg>) {
@@ -603,7 +603,7 @@ class MachineInsn final : public MachineInsnX86_64 {
                       return std::tuple{MachineInsnX86_64::cond()};
                     } else if constexpr (device_arch_info::kIsImmediate<Operand>) {
                       if constexpr (std::is_same_v<typename Operand::Class::Type, const void*>) {
-                        return std::tuple{bit_cast<const void*>(MachineInsnX86_64::imm())};
+                        return std::tuple{std::bit_cast<const void*>(MachineInsnX86_64::imm())};
                       } else {
                         return std::tuple{
                             static_cast<typename Operand::Class::Type>(MachineInsnX86_64::imm())};
@@ -695,9 +695,9 @@ class MachineInsn final : public MachineInsnX86_64 {
                       [[maybe_unused]] std::tuple<size_t, size_t, size_t>& indexes) {
                     auto& [kind_idx, reg_idx, mem_idx] = indexes;
                     if constexpr (device_arch_info::kIsComment<Operand>) {
-                      return bit_cast<const char*>(static_cast<uint64_t>(MachineInsnX86_64::disp3())
-                                                       << 32 |
-                                                   MachineInsnX86_64::disp2());
+                      return std::bit_cast<const char*>(
+                          static_cast<uint64_t>(MachineInsnX86_64::disp3()) << 32 |
+                          MachineInsnX86_64::disp2());
                     } else if constexpr (device_arch_info::kIsCondition<Operand>) {
                       return MachineInsnX86_64::cond();
                     } else if constexpr (device_arch_info::kIsImmediate<Operand>) {

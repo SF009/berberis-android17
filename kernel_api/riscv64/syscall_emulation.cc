@@ -21,7 +21,9 @@
 #include <sys/sysinfo.h>
 #include <sys/types.h>
 
+#include <bit>
 #include <cerrno>
+#include <cstddef>
 
 #include "berberis/base/macros.h"
 #include "berberis/base/scoped_errno.h"
@@ -36,7 +38,7 @@
 // TODO(b/346604197): Enable on arm64 once these modules are ported.
 #ifdef __x86_64__
 #include "berberis/guest_os_primitives/scoped_pending_signals.h"
-#include "berberis/runtime_primitives/runtime_library.h"
+#include "berberis/runtime_library/runtime_library.h"
 #endif
 
 #include "epoll_emulation.h"
@@ -106,12 +108,12 @@ long RunGuestSyscall___NR_ioctl(long arg_1, long arg_2, long arg_3) {
 
 long RunGuestSyscall___NR_newfstatat(long arg_1, long arg_2, long arg_3, long arg_4) {
   struct stat host_stat;
-  int result = FstatatForGuest(static_cast<int>(arg_1),       // dirfd
-                               bit_cast<const char*>(arg_2),  // path
+  int result = FstatatForGuest(static_cast<int>(arg_1),            // dirfd
+                               std::bit_cast<const char*>(arg_2),  // path
                                &host_stat,
                                static_cast<int>(arg_4));  // flags
   if (result != -1) {
-    ConvertHostStatToGuestArch(host_stat, bit_cast<GuestAddr>(arg_3));
+    ConvertHostStatToGuestArch(host_stat, std::bit_cast<GuestAddr>(arg_3));
   }
   return result;
 }
@@ -126,9 +128,9 @@ long RunGuestSyscall___NR_riscv_hwprobe(long arg_1,
   // There are currently no flags defined by the kernel. This may change in the future.
   static constexpr unsigned int kFlagsAll = 0;
 
-  auto pairs = bit_cast<Guest_riscv_hwprobe*>(arg_1);
-  auto pair_count = bit_cast<size_t>(arg_2);
-  auto flags = static_cast<unsigned int>(bit_cast<unsigned long>(arg_5));
+  auto pairs = std::bit_cast<Guest_riscv_hwprobe*>(arg_1);
+  auto pair_count = std::bit_cast<size_t>(arg_2);
+  auto flags = static_cast<unsigned int>(std::bit_cast<unsigned long>(arg_5));
   if ((flags & ~kFlagsAll) != 0) {
     return -EINVAL;
   }
@@ -146,9 +148,9 @@ long RunGuestSyscall___NR_riscv_flush_icache(long arg_1, long arg_2, long arg_3)
   static constexpr uint64_t kFlagsAll = kFlagsLocal;
 
   // ATTENTION: On RISC-V, arg_2 is the address range end, not the address range size.
-  auto start = bit_cast<GuestAddr>(arg_1);
-  auto end = bit_cast<GuestAddr>(arg_2);
-  auto flags = bit_cast<uint64_t>(arg_3);
+  auto start = std::bit_cast<GuestAddr>(arg_1);
+  auto end = std::bit_cast<GuestAddr>(arg_2);
+  auto flags = std::bit_cast<uint64_t>(arg_3);
   if (end < start || (flags & ~kFlagsAll) != 0) {
     errno = EINVAL;
     return -1;

@@ -16,7 +16,9 @@
 
 #include "gtest/gtest.h"
 
-#include "berberis/base/bit_util.h"
+#include <bit>
+#include <cstddef>
+
 #include "berberis/guest_abi/function_wrappers.h"
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/test_utils/guest_exec_region.h"
@@ -30,10 +32,10 @@ class GuestFunctionWrapperTest : public TranslationTest {};
 
 TEST_F(GuestFunctionWrapperTest, WrapNull) {
   using FooPtr = int (*)(int, int);
-  EXPECT_EQ(WrapGuestFunction(bit_cast<GuestType<FooPtr>>(0L), "foo"), nullptr);
+  EXPECT_EQ(WrapGuestFunction(std::bit_cast<GuestType<FooPtr>>(0L), "foo"), nullptr);
 
   using BarPtr = void (*)(void*);
-  EXPECT_EQ(WrapGuestFunction(bit_cast<GuestType<BarPtr>>(0L), "bar"), nullptr);
+  EXPECT_EQ(WrapGuestFunction(std::bit_cast<GuestType<BarPtr>>(0L), "bar"), nullptr);
 }
 
 TEST_F(GuestFunctionWrapperTest, Wrap2Sub) {
@@ -46,7 +48,7 @@ TEST_F(GuestFunctionWrapperTest, Wrap2Sub) {
   });
 
   using TwoArgFunction = int (*)(int, int);
-  TwoArgFunction sub = WrapGuestFunction(bit_cast<GuestType<TwoArgFunction>>(pc), "sub");
+  TwoArgFunction sub = WrapGuestFunction(std::bit_cast<GuestType<TwoArgFunction>>(pc), "sub");
 
   int x = sub(239, 11);
   EXPECT_EQ(x, 228);
@@ -62,7 +64,7 @@ TEST_F(GuestFunctionWrapperTest, Wrap2SubLong) {
   });
 
   using TwoArgFunction = int64_t (*)(int64_t, int64_t);
-  TwoArgFunction sub = WrapGuestFunction(bit_cast<GuestType<TwoArgFunction>>(pc), "sub_long");
+  TwoArgFunction sub = WrapGuestFunction(std::bit_cast<GuestType<TwoArgFunction>>(pc), "sub_long");
 
   uint64_t x = sub(0xffff'0000'ffff'0001ULL, 0x7fff'0000'ffff'0000ULL);
   EXPECT_EQ(x, 0x8000'0000'0000'0001ULL);
@@ -78,7 +80,7 @@ TEST_F(GuestFunctionWrapperTest, Wrap2SubFloat) {
   });
 
   using TwoArgFunction = float (*)(float, float);
-  TwoArgFunction sub = WrapGuestFunction(bit_cast<GuestType<TwoArgFunction>>(pc), "sub_float");
+  TwoArgFunction sub = WrapGuestFunction(std::bit_cast<GuestType<TwoArgFunction>>(pc), "sub_float");
 
   float x = sub(2.71f, 3.14f);
   EXPECT_FLOAT_EQ(x, -0.43f);
@@ -94,7 +96,8 @@ TEST_F(GuestFunctionWrapperTest, Wrap2SubDouble) {
   });
 
   using TwoArgFunction = double (*)(double, double);
-  TwoArgFunction sub = WrapGuestFunction(bit_cast<GuestType<TwoArgFunction>>(pc), "sub_double");
+  TwoArgFunction sub =
+      WrapGuestFunction(std::bit_cast<GuestType<TwoArgFunction>>(pc), "sub_double");
 
   double x = sub(2.71, 3.14);
   EXPECT_DOUBLE_EQ(x, -0.43);

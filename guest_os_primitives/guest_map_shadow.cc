@@ -31,7 +31,7 @@
 #include "berberis/base/mmap.h"
 #include "berberis/base/tracing.h"
 #include "berberis/guest_state/guest_addr.h"
-#include "berberis/runtime_primitives/runtime_library.h"  // InvalidateGuestRange
+#include "berberis/runtime_library/runtime_library.h"  // InvalidateGuestRange
 
 namespace berberis {
 

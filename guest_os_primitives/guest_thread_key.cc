@@ -18,7 +18,7 @@
 
 #include "berberis/base/tracing.h"
 #include "berberis/guest_state/guest_addr.h"
-#include "berberis/runtime_primitives/runtime_library.h"
+#include "berberis/runtime_library/runtime_library.h"
 
 #include "guest_thread_manager_impl.h"
 

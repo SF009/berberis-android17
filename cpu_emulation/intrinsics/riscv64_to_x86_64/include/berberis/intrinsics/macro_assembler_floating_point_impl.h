@@ -17,7 +17,9 @@
 #ifndef RISCV64_TO_X86_64_BERBERIS_INTRINSICS_MACRO_ASSEMBLER_FLOATING_POINT_IMPL_H_
 #define RISCV64_TO_X86_64_BERBERIS_INTRINSICS_MACRO_ASSEMBLER_FLOATING_POINT_IMPL_H_
 
-#include "berberis/base/bit_util.h"
+#include <bit>
+#include <cstdint>
+
 #include "berberis/intrinsics/macro_assembler.h"
 
 namespace berberis {
@@ -122,7 +124,7 @@ constexpr void MacroAssembler<Assembler, AssemblerBase>::FeSetExceptionsAndRound
                    .scale = fenv_scratch.scale,
                    .disp = fenv_scratch.disp + 28};
   // Convert RISC-V exceptions into x87 exceptions.
-  uint8_t x87_exceptions = bit_cast<unsigned char*>(
+  uint8_t x87_exceptions = std::bit_cast<unsigned char*>(
       static_cast<uintptr_t>(constants_offsets::kRiscVToX87Exceptions))[exceptions];
   // We have to store the whole floating point environment since it's not possible to just change
   // status word without affecting other state.
@@ -231,7 +233,7 @@ constexpr void MacroAssembler<Assembler, AssemblerBase>::FeSetExceptionsImmTrans
                    .scale = fenv_scratch.scale,
                    .disp = fenv_scratch.disp + 28};
   // Convert RISC-V exceptions into x87 exceptions.
-  uint8_t x87_exceptions = bit_cast<unsigned char*>(
+  uint8_t x87_exceptions = std::bit_cast<unsigned char*>(
       static_cast<uintptr_t>(constants_offsets::kRiscVToX87Exceptions))[exceptions];
   // We have to store the whole floating point environment since it's not possible to just change
   // status word without affecting other state.

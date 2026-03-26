@@ -40,7 +40,6 @@
 
 #include <cmath>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/float.h"
 #include "berberis/base/limits.h"
 

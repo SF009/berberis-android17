@@ -18,11 +18,11 @@
 #define BERBERIS_GUEST_ABI_GUEST_PARAMS_ARCH_H_
 
 #include <array>
+#include <bit>
 #include <cstdint>
 #include <tuple>
 #include <type_traits>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/dependent_false.h"
 #include "berberis/calling_conventions/calling_conventions_arm.h"
 #include "berberis/guest_abi/guest_abi.h"
@@ -250,7 +250,7 @@ class GuestVAListParams : GuestParamsAndReturnHelper {
   template <typename Func, GuestAbi::CallingConventionsVariant kCallingConventionsVariant>
   GuestVAListParams(const GuestParamsValues<Func, kCallingConventionsVariant>&& named_parameters)
       : calling_conventions_(named_parameters.kVAStartBase,
-                             bit_cast<uint32_t>(named_parameters.s_)),
+                             std::bit_cast<uint32_t>(named_parameters.s_)),
         r_(named_parameters.r_) {}
 
   // Initialize with va_list which is pointer to parameters which are located

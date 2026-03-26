@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "berberis/runtime_primitives/runtime_library.h"
+#include "berberis/runtime_library/runtime_library.h"
 
 #if defined(__x86_64__)
 #include "berberis/assembler/machine_code.h"

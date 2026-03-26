@@ -17,7 +17,7 @@
 #include "berberis/guest_abi/guest_call.h"
 
 #include "berberis/base/logging.h"
-#include "berberis/runtime_primitives/runtime_library.h"
+#include "berberis/runtime_library/runtime_library.h"
 
 namespace berberis {
 

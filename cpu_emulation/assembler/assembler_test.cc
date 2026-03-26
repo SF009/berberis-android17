@@ -18,6 +18,7 @@
 
 #include <sys/mman.h>
 
+#include <bit>
 #include <cstring>
 #include <iterator>
 #include <string>
@@ -28,7 +29,6 @@
 #include "berberis/assembler/rv64i.h"
 #include "berberis/assembler/x86_32.h"
 #include "berberis/assembler/x86_64.h"
-#include "berberis/base/bit_util.h"
 #include "berberis/base/tracing.h"
 #include "berberis/test_utils/scoped_exec_region.h"
 
@@ -595,7 +595,7 @@ bool LabelTest() {
   MachineCode code;
   CodeEmitter as(&code);
   Assembler::Label skip, skip2, back, end;
-  as.Call(bit_cast<const void*>(&Callee));
+  as.Call(std::bit_cast<const void*>(&Callee));
   as.Jmp(skip);
   as.Movl(Assembler::eax, 2);
   as.Bind(&skip);
@@ -785,7 +785,7 @@ bool CallFPTest() {
   CodeEmitter as(&code);
   as.Push(0x3f80'0000);
   as.Push(0x4000'0000);
-  as.Call(bit_cast<const void*>(&FloatFunc));
+  as.Call(std::bit_cast<const void*>(&FloatFunc));
   as.Fstps({.base = Assembler::esp});
   as.Pop(Assembler::eax);
   as.Addl(Assembler::esp, 4);
@@ -823,8 +823,8 @@ bool ReadGlobalTest() {
   CodeEmitter as(&code);
   static const uint32_t kData[] __attribute__((aligned(16))) =  // NOLINT
       {0x0011'2233, 0x4455'6677, 0x8899'aabb, 0xccdd'eeff};
-  as.Movsd(Assembler::xmm0, {.disp = bit_cast<int32_t>(&kData)});
-  as.Movdqa(Assembler::xmm1, {.disp = bit_cast<int32_t>(&kData)});
+  as.Movsd(Assembler::xmm0, {.disp = std::bit_cast<int32_t>(&kData)});
+  as.Movdqa(Assembler::xmm1, {.disp = std::bit_cast<int32_t>(&kData)});
   as.Movl(Assembler::eax, {.base = Assembler::esp, .disp = 4});
   as.Movl(Assembler::ecx, {.base = Assembler::esp, .disp = 8});
   as.Movsd({.base = Assembler::eax}, Assembler::xmm0);
@@ -853,7 +853,7 @@ bool LabelTest() {
   MachineCode code;
   CodeEmitter as(&code);
   Assembler::Label skip, skip2, back, end;
-  as.Call(bit_cast<const void*>(&Callee));
+  as.Call(std::bit_cast<const void*>(&Callee));
   as.Jmp(skip);
   as.Movl(Assembler::rax, 2);
   as.Bind(&skip);
@@ -1015,7 +1015,7 @@ bool CallFPTest() {
   as.Movd(Assembler::xmm0, Assembler::rax);
   as.Movl(Assembler::rax, 0x3f80'0000);
   as.Movd(Assembler::xmm1, Assembler::rax);
-  as.Call(bit_cast<const void*>(&FloatFunc));
+  as.Call(std::bit_cast<const void*>(&FloatFunc));
   as.Movd(Assembler::rax, Assembler::xmm0);
   as.Ret();
   as.Finalize();
@@ -1069,7 +1069,7 @@ bool XmmMemTest() {
 
   using TestFunc = uint64_t(char* p);
   uint64_t result = exec.get<TestFunc>()(p);
-  uint64_t doubled = *bit_cast<uint64_t*>(p);
+  uint64_t doubled = *std::bit_cast<uint64_t*>(p);
   return result == 0x406d'e000'0000'0000ULL && doubled == 0x407d'e000'0000'0000ULL;
 }
 
@@ -1181,7 +1181,7 @@ bool ReadGlobalTest() {
       mmap(nullptr, 4096, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_32BIT, -1, 0);
   // Copy our global there.
   memcpy(data, kData, 16);
-  int32_t data_offset = static_cast<int32_t>(bit_cast<intptr_t>(data));
+  int32_t data_offset = static_cast<int32_t>(std::bit_cast<intptr_t>(data));
   as.Movsd(Assembler::xmm0, {.disp = data_offset});
   as.Movdqa(Assembler::xmm1, {.disp = data_offset});
   as.Movsd({.base = Assembler::rdi}, Assembler::xmm0);

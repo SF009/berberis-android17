@@ -16,11 +16,11 @@
 
 #include "gtest/gtest.h"
 
+#include <bit>
 #include <cstdint>
 #include <initializer_list>
 #include <tuple>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state.h"
 #include "berberis/interpreter/riscv64/interpreter.h"
@@ -97,7 +97,7 @@ class Riscv64ToArm64InterpreterTest : public ::testing::Test {
 
   void TestLoad(uint32_t insn_bytes, uint64_t expected_result) {
     // Offset is always 8.
-    SetXReg<2>(state_.cpu, ToGuestAddr(bit_cast<uint8_t*>(&kDataToLoad) - 8));
+    SetXReg<2>(state_.cpu, ToGuestAddr(std::bit_cast<uint8_t*>(&kDataToLoad) - 8));
     RunInstruction(insn_bytes);
     EXPECT_EQ(GetXReg<1>(state_.cpu), expected_result);
   }
@@ -120,7 +120,7 @@ class Riscv64ToArm64InterpreterTest : public ::testing::Test {
 
   void TestStore(uint32_t insn_bytes, uint64_t expected_result) {
     // Offset is always 8.
-    SetXReg<1>(state_.cpu, ToGuestAddr(bit_cast<uint8_t*>(&store_area_) - 8));
+    SetXReg<1>(state_.cpu, ToGuestAddr(std::bit_cast<uint8_t*>(&store_area_) - 8));
     SetXReg<2>(state_.cpu, kDataToStore);
     store_area_ = 0;
     RunInstruction(insn_bytes);
@@ -186,7 +186,7 @@ class Riscv64ToArm64InterpreterTest : public ::testing::Test {
                uint64_t expected_memory) {
     // Copy arg1 into store_area_
     store_area_ = arg1;
-    SetXReg<2>(state_.cpu, ToGuestAddr(bit_cast<uint8_t*>(&store_area_)));
+    SetXReg<2>(state_.cpu, ToGuestAddr(std::bit_cast<uint8_t*>(&store_area_)));
     SetXReg<3>(state_.cpu, arg2);
     RunInstruction(insn_bytes);
     EXPECT_EQ(GetXReg<1>(state_.cpu), expected_result);
@@ -267,19 +267,20 @@ TEST_F(Riscv64ToArm64InterpreterTest, OpInstructions) {
   // Xnor
   TestOp(0x4031'40b3, {{0b0101, 0b0011, 0xffff'ffff'ffff'fff9}});
   // Max
-  TestOp(0x0a31'60b3, {{bit_cast<uint64_t>(int64_t{-5}), 4, 4}});
+  TestOp(0x0a31'60b3, {{std::bit_cast<uint64_t>(int64_t{-5}), 4, 4}});
   TestOp(0x0a31'60b3,
-         {{bit_cast<uint64_t>(int64_t{-5}),
-           bit_cast<uint64_t>(int64_t{-10}),
-           bit_cast<uint64_t>(int64_t{-5})}});
+         {{std::bit_cast<uint64_t>(int64_t{-5}),
+           std::bit_cast<uint64_t>(int64_t{-10}),
+           std::bit_cast<uint64_t>(int64_t{-5})}});
   // Maxu
   TestOp(0x0a31'70b3, {{50, 1, 50}});
   // Min
-  TestOp(0x0a31'40b3, {{bit_cast<uint64_t>(int64_t{-5}), 4, bit_cast<uint64_t>(int64_t{-5})}});
   TestOp(0x0a31'40b3,
-         {{bit_cast<uint64_t>(int64_t{-5}),
-           bit_cast<uint64_t>(int64_t{-10}),
-           bit_cast<uint64_t>(int64_t{-10})}});
+         {{std::bit_cast<uint64_t>(int64_t{-5}), 4, std::bit_cast<uint64_t>(int64_t{-5})}});
+  TestOp(0x0a31'40b3,
+         {{std::bit_cast<uint64_t>(int64_t{-5}),
+           std::bit_cast<uint64_t>(int64_t{-10}),
+           std::bit_cast<uint64_t>(int64_t{-10})}});
   // Minu
   TestOp(0x0a31'50b3, {{50, 1, 1}});
   // Ror

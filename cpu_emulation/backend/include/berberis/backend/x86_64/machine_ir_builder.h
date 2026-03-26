@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <iterator>
 #include <tuple>
 #include <utility>
@@ -377,7 +378,7 @@ template <auto kIntrinsic, typename... FuncInfo>
           std::tuple_cat(
               std::tuple{kFuncName},
               ValuesToValues::Take<CallImm::kDynamicFunction>(
-                  std::tuple{bit_cast<const void*>(func_info)...}),
+                  std::tuple{std::bit_cast<const void*>(func_info)...}),
               call_outs,
               args,
               TypesToValues::Map<typename CallImm::ClobberRegisters>(

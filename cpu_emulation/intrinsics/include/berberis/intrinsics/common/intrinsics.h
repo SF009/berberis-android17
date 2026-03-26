@@ -17,6 +17,7 @@
 #ifndef BERBERIS_INTRINSICS_COMMON_INTRINSICS_H_
 #define BERBERIS_INTRINSICS_COMMON_INTRINSICS_H_
 
+#include <bit>  // std::has_single_bit, std::std::countr_zero
 #include <cstdint>
 #include <type_traits>
 
