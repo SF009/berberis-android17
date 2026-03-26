@@ -16,7 +16,9 @@
 
 #include "gtest/gtest.h"
 
-#include "berberis/base/bit_util.h"
+#include <bit>
+#include <cstdint>
+
 #include "berberis/guest_abi/function_wrappers.h"
 #include "berberis/guest_abi/guest_abi.h"
 #include "berberis/guest_abi/guest_type.h"
@@ -54,7 +56,7 @@ class HostFunctionWrapperTest : public TranslationTest {
     WrapHostFunction<kCallingConventionsVariant>(host_function, "HostFunction");
 
     auto caller = WrapGuestFunction(
-        bit_cast<GuestType<GuestResultType (*)(Func, AdditionalParams...)>>(guest_function),
+        std::bit_cast<GuestType<GuestResultType (*)(Func, AdditionalParams...)>>(guest_function),
         "GuestFunction");
 
     return caller(host_function, params...);

@@ -21,7 +21,9 @@
 #include <linux/unistd.h>
 #include <sys/types.h>
 
-#include "berberis/base/bit_util.h"
+#include <bit>
+#include <cstddef>
+
 #include "berberis/base/logging.h"
 #include "berberis/base/scoped_errno.h"
 #include "berberis/base/tracing.h"
@@ -58,8 +60,8 @@ long RunGuestSyscall___ARM_NR_cacheflush(long arg_1, long arg_2, long arg_3) {
   // ATTENTION: on arm, arg_2 is address range end, not address range size!
   // ATTENTION: on arm, arg_3 should be 0.
   // See <kernel>/arch/arm/kernel/traps.c
-  auto start = bit_cast<GuestAddr>(arg_1);
-  auto end = bit_cast<GuestAddr>(arg_2);
+  auto start = std::bit_cast<GuestAddr>(arg_1);
+  auto end = std::bit_cast<GuestAddr>(arg_2);
   if (end < start || arg_3 != 0) {
     errno = EINVAL;
     return -1;
@@ -71,7 +73,7 @@ long RunGuestSyscall___ARM_NR_cacheflush(long arg_1, long arg_2, long arg_3) {
 }
 
 long RunGuestSyscall___ARM_NR_set_tls(long arg_1) {
-  GetCurrentGuestThread()->state()->tls = bit_cast<GuestAddr>(arg_1);
+  GetCurrentGuestThread()->state()->tls = std::bit_cast<GuestAddr>(arg_1);
   return 0;
 }
 
@@ -133,19 +135,19 @@ long RunGuestSyscall___NR_fstat64(long arg_1, long arg_2) {
   struct stat64 host_stat;
   int res = syscall(__NR_fstat64, arg_1, &host_stat);
   if (res != -1) {
-    ConvertHostStat64ToGuest(&host_stat, bit_cast<Guest_stat64*>(arg_2));
+    ConvertHostStat64ToGuest(&host_stat, std::bit_cast<Guest_stat64*>(arg_2));
   }
   return res;
 }
 
 long RunGuestSyscall___NR_fstatat64(long arg_1, long arg_2, long arg_3, long arg_4) {
   struct stat64 host_stat;
-  int res = Fstatat64ForGuest(static_cast<int>(arg_1),       // dirfd
-                              bit_cast<const char*>(arg_2),  // path
+  int res = Fstatat64ForGuest(static_cast<int>(arg_1),            // dirfd
+                              std::bit_cast<const char*>(arg_2),  // path
                               &host_stat,
                               static_cast<int>(arg_4));  // flags
   if (res != -1) {
-    ConvertHostStat64ToGuest(&host_stat, bit_cast<Guest_stat64*>(arg_3));
+    ConvertHostStat64ToGuest(&host_stat, std::bit_cast<Guest_stat64*>(arg_3));
   }
   return res;
 }
@@ -202,9 +204,9 @@ long RunGuestSyscall___NR_msgctl(long arg_1, long arg_2, long arg_3) {
 }
 
 long RunGuestSyscall___NR_open(long arg_1, long arg_2, long arg_3) {
-  return static_cast<long>(berberis::OpenForGuest(bit_cast<const char*>(arg_1),  // path
-                                                  static_cast<int>(arg_2),       // flags
-                                                  static_cast<mode_t>(arg_3)));  // mode
+  return static_cast<long>(berberis::OpenForGuest(std::bit_cast<const char*>(arg_1),  // path
+                                                  static_cast<int>(arg_2),            // flags
+                                                  static_cast<mode_t>(arg_3)));       // mode
 }
 
 long RunGuestSyscall___NR_pciconfig_read(long arg_1,
@@ -230,9 +232,9 @@ long RunGuestSyscall___NR_pciconfig_write(long arg_1,
 }
 
 long RunGuestSyscall___NR_readlink(long arg_1, long arg_2, long arg_3) {
-  return static_cast<long>(ReadLinkForGuest(bit_cast<const char*>(arg_1),  // path
-                                            bit_cast<char*>(arg_2),        // buf
-                                            bit_cast<size_t>(arg_3)));     // buf_size
+  return static_cast<long>(ReadLinkForGuest(std::bit_cast<const char*>(arg_1),  // path
+                                            std::bit_cast<char*>(arg_2),        // buf
+                                            std::bit_cast<size_t>(arg_3)));     // buf_size
 }
 
 long RunGuestSyscall___NR_semctl(long arg_1, long arg_2, long arg_3, long arg_4) {
@@ -269,7 +271,7 @@ long RunGuestSyscall___NR_sigaction(long arg_1, long arg_2, long arg_3) {
   Guest_sigaction kernel_act;
   const Guest_sigaction* new_kernel_act = nullptr;
 
-  const Guest_old_sigaction* new_act = bit_cast<const Guest_old_sigaction*>(arg_2);
+  const Guest_old_sigaction* new_act = std::bit_cast<const Guest_old_sigaction*>(arg_2);
   if (new_act) {
     kernel_act.guest_sa_sigaction = new_act->guest_sa_sigaction;
     kernel_act.sa_flags = new_act->sa_flags;
@@ -286,7 +288,7 @@ long RunGuestSyscall___NR_sigaction(long arg_1, long arg_2, long arg_3) {
     return -1;
   }
 
-  Guest_old_sigaction* old_act = bit_cast<Guest_old_sigaction*>(arg_3);
+  Guest_old_sigaction* old_act = std::bit_cast<Guest_old_sigaction*>(arg_3);
   if (old_act) {
     old_act->guest_sa_sigaction = kernel_act.guest_sa_sigaction;
     old_act->sa_flags = kernel_act.sa_flags;
@@ -299,12 +301,12 @@ long RunGuestSyscall___NR_sigaction(long arg_1, long arg_2, long arg_3) {
 
 long RunGuestSyscall___NR_stat64(long arg_1, long arg_2) {
   struct stat64 host_stat;
-  int res = Fstatat64ForGuest(AT_FDCWD,                      // dirfd
-                              bit_cast<const char*>(arg_1),  // path
+  int res = Fstatat64ForGuest(AT_FDCWD,                           // dirfd
+                              std::bit_cast<const char*>(arg_1),  // path
                               &host_stat,
                               0);  // flags
   if (res != -1) {
-    ConvertHostStat64ToGuest(&host_stat, bit_cast<Guest_stat64*>(arg_2));
+    ConvertHostStat64ToGuest(&host_stat, std::bit_cast<Guest_stat64*>(arg_2));
   }
   return res;
 }

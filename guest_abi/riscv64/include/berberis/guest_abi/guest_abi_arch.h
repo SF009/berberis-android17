@@ -17,10 +17,10 @@
 #ifndef BERBERIS_GUEST_ABI_GUEST_ABI_ARCH_H_
 #define BERBERIS_GUEST_ABI_GUEST_ABI_ARCH_H_
 
+#include <bit>
 #include <cstdint>
 #include <type_traits>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/calling_conventions/calling_conventions_riscv64.h"  // IWYU pragma: export.
 #include "berberis/guest_abi/guest_type.h"
 
@@ -149,9 +149,9 @@ class GuestAbi {
 
     static constexpr uint64_t Box(FloatingPointType value) {
       if constexpr (sizeof(FloatingPointType) == sizeof(uint64_t)) {
-        return bit_cast<uint64_t>(value);
+        return std::bit_cast<uint64_t>(value);
       } else if constexpr (sizeof(FloatingPointType) == sizeof(uint32_t)) {
-        return static_cast<uint64_t>(bit_cast<uint32_t>(value));
+        return static_cast<uint64_t>(std::bit_cast<uint32_t>(value));
       } else {
         FATAL("Unsupported floating-point argument width");
       }
@@ -159,9 +159,9 @@ class GuestAbi {
 
     static constexpr FloatingPointType Unbox(uint64_t value) {
       if constexpr (sizeof(FloatingPointType) == sizeof(uint64_t)) {
-        return bit_cast<FloatingPointType>(value);
+        return std::bit_cast<FloatingPointType>(value);
       } else if constexpr (sizeof(FloatingPointType) == sizeof(uint32_t)) {
-        return bit_cast<FloatingPointType>(static_cast<uint32_t>(value));
+        return std::bit_cast<FloatingPointType>(static_cast<uint32_t>(value));
       } else {
         FATAL("Unsupported floating-point argument width");
       }
@@ -194,9 +194,9 @@ class GuestAbi {
 
     static constexpr uint64_t Box(FloatingPointType value) {
       if constexpr (sizeof(FloatingPointType) == sizeof(uint64_t)) {
-        return bit_cast<uint64_t>(value);
+        return std::bit_cast<uint64_t>(value);
       } else if constexpr (sizeof(FloatingPointType) == sizeof(uint32_t)) {
-        return bit_cast<uint32_t>(value) | kNanBoxFloat32;
+        return std::bit_cast<uint32_t>(value) | kNanBoxFloat32;
       } else {
         FATAL("Unsupported floating-point argument width");
       }
@@ -204,10 +204,10 @@ class GuestAbi {
 
     static constexpr FloatingPointType Unbox(uint64_t value) {
       if constexpr (sizeof(FloatingPointType) == sizeof(uint64_t)) {
-        return bit_cast<Type>(value);
+        return std::bit_cast<Type>(value);
       } else if constexpr (sizeof(FloatingPointType) == sizeof(uint32_t)) {
         // Integer narrowing removes the NaN box.
-        return bit_cast<Type>(static_cast<uint32_t>(value));
+        return std::bit_cast<Type>(static_cast<uint32_t>(value));
       } else {
         FATAL("Unsupported floating-point argument width");
       }

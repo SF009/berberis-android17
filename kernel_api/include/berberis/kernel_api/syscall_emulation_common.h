@@ -28,9 +28,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <bit>
 #include <cerrno>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/macros.h"
 #include "berberis/base/tracing.h"
 #include "berberis/guest_state/guest_addr.h"
@@ -66,9 +66,9 @@ inline long RunGuestSyscall___NR_close(long arg_1) {
 }
 
 inline long RunGuestSyscall___NR_execve(long arg_1, long arg_2, long arg_3) {
-  return static_cast<long>(ExecveForGuest(bit_cast<const char*>(arg_1),     // filename
-                                          bit_cast<char* const*>(arg_2),    // argv
-                                          bit_cast<char* const*>(arg_3)));  // envp
+  return static_cast<long>(ExecveForGuest(std::bit_cast<const char*>(arg_1),     // filename
+                                          std::bit_cast<char* const*>(arg_2),    // argv
+                                          std::bit_cast<char* const*>(arg_3)));  // envp
 }
 
 inline long RunGuestSyscall___NR_faccessat(long arg_1, long arg_2, long arg_3) {
@@ -103,7 +103,7 @@ inline long RunGuestSyscall___NR_fstat(long arg_1, long arg_2) {
     result = syscall(__NR_fstat, arg_1, &host_stat);
   }
   if (result != -1) {
-    ConvertHostStatToGuestArch(host_stat, bit_cast<GuestAddr>(arg_2));
+    ConvertHostStatToGuestArch(host_stat, std::bit_cast<GuestAddr>(arg_2));
   }
   return result;
 #endif
@@ -140,10 +140,10 @@ inline long RunGuestSyscall___NR_openat(long arg_1, long arg_2, long arg_3, long
   errno = ENOSYS;
   return -1;
 #else
-  return static_cast<long>(OpenatForGuest(static_cast<int>(arg_1),       // dirfd
-                                          bit_cast<const char*>(arg_2),  // path
-                                          static_cast<int>(arg_3),       // flags
-                                          static_cast<mode_t>(arg_4)));  // mode
+  return static_cast<long>(OpenatForGuest(static_cast<int>(arg_1),            // dirfd
+                                          std::bit_cast<const char*>(arg_2),  // path
+                                          static_cast<int>(arg_3),            // flags
+                                          static_cast<mode_t>(arg_4)));       // mode
 #endif
 }
 
@@ -160,17 +160,17 @@ inline long RunGuestSyscall___NR_prctl(long arg_1, long arg_2, long arg_3, long 
 }
 
 inline long RunGuestSyscall___NR_ptrace(long arg_1, long arg_2, long arg_3, long arg_4) {
-  return static_cast<long>(PtraceForGuest(static_cast<int>(arg_1),    // request
-                                          static_cast<pid_t>(arg_2),  // pid
-                                          bit_cast<void*>(arg_3),     // addr
-                                          bit_cast<void*>(arg_4)));   // data
+  return static_cast<long>(PtraceForGuest(static_cast<int>(arg_1),        // request
+                                          static_cast<pid_t>(arg_2),      // pid
+                                          std::bit_cast<void*>(arg_3),    // addr
+                                          std::bit_cast<void*>(arg_4)));  // data
 }
 
 inline long RunGuestSyscall___NR_readlinkat(long arg_1, long arg_2, long arg_3, long arg_4) {
-  return static_cast<long>(ReadLinkAtForGuest(static_cast<int>(arg_1),       // dirfd
-                                              bit_cast<const char*>(arg_2),  // path
-                                              bit_cast<char*>(arg_3),        // buf
-                                              bit_cast<size_t>(arg_4)));     // buf_size
+  return static_cast<long>(ReadLinkAtForGuest(static_cast<int>(arg_1),            // dirfd
+                                              std::bit_cast<const char*>(arg_2),  // path
+                                              std::bit_cast<char*>(arg_3),        // buf
+                                              std::bit_cast<size_t>(arg_4)));     // buf_size
 }
 
 inline long RunGuestSyscall___NR_rt_sigreturn(long) {
