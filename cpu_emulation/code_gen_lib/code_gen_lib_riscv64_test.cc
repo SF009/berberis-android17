@@ -16,6 +16,9 @@
 
 #include "gtest/gtest.h"
 
+#include <bit>
+#include <cstdint>
+
 #include "berberis/assembler/x86_64.h"
 
 #include "berberis/assembler/machine_code.h"
@@ -332,32 +335,32 @@ void Run18Fp(GuestAddr pc, GuestArgumentBuffer* buf) {
   // 32-bit parameters passed in floating-point registers are 1-extended.
   // 32-bit parameters passed in general-purpose registers and on the stack are 0-extended.
   ASSERT_EQ(kNanBoxFloat32, buf->fp_argv[0] & kNanBoxFloat32);
-  ASSERT_FLOAT_EQ(0.0f, bit_cast<float>(static_cast<uint32_t>(buf->fp_argv[0])));
+  ASSERT_FLOAT_EQ(0.0f, std::bit_cast<float>(static_cast<uint32_t>(buf->fp_argv[0])));
   ASSERT_EQ(kNanBoxFloat32, buf->fp_argv[1] & kNanBoxFloat32);
-  ASSERT_FLOAT_EQ(1.1f, bit_cast<float>(static_cast<uint32_t>(buf->fp_argv[1])));
+  ASSERT_FLOAT_EQ(1.1f, std::bit_cast<float>(static_cast<uint32_t>(buf->fp_argv[1])));
   ASSERT_EQ(kNanBoxFloat32, buf->fp_argv[2] & kNanBoxFloat32);
-  ASSERT_FLOAT_EQ(2.2f, bit_cast<float>(static_cast<uint32_t>(buf->fp_argv[2])));
+  ASSERT_FLOAT_EQ(2.2f, std::bit_cast<float>(static_cast<uint32_t>(buf->fp_argv[2])));
   ASSERT_EQ(kNanBoxFloat32, buf->fp_argv[3] & kNanBoxFloat32);
-  ASSERT_FLOAT_EQ(3.3f, bit_cast<float>(static_cast<uint32_t>(buf->fp_argv[3])));
+  ASSERT_FLOAT_EQ(3.3f, std::bit_cast<float>(static_cast<uint32_t>(buf->fp_argv[3])));
   ASSERT_EQ(kNanBoxFloat32, buf->fp_argv[4] & kNanBoxFloat32);
-  ASSERT_FLOAT_EQ(4.4f, bit_cast<float>(static_cast<uint32_t>(buf->fp_argv[4])));
+  ASSERT_FLOAT_EQ(4.4f, std::bit_cast<float>(static_cast<uint32_t>(buf->fp_argv[4])));
   ASSERT_EQ(kNanBoxFloat32, buf->fp_argv[5] & kNanBoxFloat32);
-  ASSERT_FLOAT_EQ(5.5f, bit_cast<float>(static_cast<uint32_t>(buf->fp_argv[5])));
+  ASSERT_FLOAT_EQ(5.5f, std::bit_cast<float>(static_cast<uint32_t>(buf->fp_argv[5])));
   ASSERT_EQ(kNanBoxFloat32, buf->fp_argv[6] & kNanBoxFloat32);
-  ASSERT_FLOAT_EQ(6.6f, bit_cast<float>(static_cast<uint32_t>(buf->fp_argv[6])));
+  ASSERT_FLOAT_EQ(6.6f, std::bit_cast<float>(static_cast<uint32_t>(buf->fp_argv[6])));
   ASSERT_EQ(kNanBoxFloat32, buf->fp_argv[7] & kNanBoxFloat32);
-  ASSERT_FLOAT_EQ(7.7f, bit_cast<float>(static_cast<uint32_t>(buf->fp_argv[7])));
-  ASSERT_FLOAT_EQ(8.8f, bit_cast<float>(static_cast<uint32_t>(buf->argv[0])));
-  ASSERT_FLOAT_EQ(9.9f, bit_cast<float>(static_cast<uint32_t>(buf->argv[1])));
-  ASSERT_FLOAT_EQ(10.01f, bit_cast<float>(static_cast<uint32_t>(buf->argv[2])));
-  ASSERT_FLOAT_EQ(20.02f, bit_cast<float>(static_cast<uint32_t>(buf->argv[3])));
-  ASSERT_FLOAT_EQ(30.03f, bit_cast<float>(static_cast<uint32_t>(buf->argv[4])));
-  ASSERT_FLOAT_EQ(40.04f, bit_cast<float>(static_cast<uint32_t>(buf->argv[5])));
-  ASSERT_FLOAT_EQ(50.05f, bit_cast<float>(static_cast<uint32_t>(buf->argv[6])));
-  ASSERT_FLOAT_EQ(60.06f, bit_cast<float>(static_cast<uint32_t>(buf->argv[7])));
-  ASSERT_FLOAT_EQ(70.07f, bit_cast<float>(static_cast<uint32_t>(buf->stack_argv[0])));
-  ASSERT_FLOAT_EQ(80.08f, bit_cast<float>(static_cast<uint32_t>(buf->stack_argv[1])));
-  buf->fp_argv[0] = static_cast<uint64_t>(bit_cast<uint32_t>(45.45f)) | kNanBoxFloat32;
+  ASSERT_FLOAT_EQ(7.7f, std::bit_cast<float>(static_cast<uint32_t>(buf->fp_argv[7])));
+  ASSERT_FLOAT_EQ(8.8f, std::bit_cast<float>(static_cast<uint32_t>(buf->argv[0])));
+  ASSERT_FLOAT_EQ(9.9f, std::bit_cast<float>(static_cast<uint32_t>(buf->argv[1])));
+  ASSERT_FLOAT_EQ(10.01f, std::bit_cast<float>(static_cast<uint32_t>(buf->argv[2])));
+  ASSERT_FLOAT_EQ(20.02f, std::bit_cast<float>(static_cast<uint32_t>(buf->argv[3])));
+  ASSERT_FLOAT_EQ(30.03f, std::bit_cast<float>(static_cast<uint32_t>(buf->argv[4])));
+  ASSERT_FLOAT_EQ(40.04f, std::bit_cast<float>(static_cast<uint32_t>(buf->argv[5])));
+  ASSERT_FLOAT_EQ(50.05f, std::bit_cast<float>(static_cast<uint32_t>(buf->argv[6])));
+  ASSERT_FLOAT_EQ(60.06f, std::bit_cast<float>(static_cast<uint32_t>(buf->argv[7])));
+  ASSERT_FLOAT_EQ(70.07f, std::bit_cast<float>(static_cast<uint32_t>(buf->stack_argv[0])));
+  ASSERT_FLOAT_EQ(80.08f, std::bit_cast<float>(static_cast<uint32_t>(buf->stack_argv[1])));
+  buf->fp_argv[0] = static_cast<uint64_t>(std::bit_cast<uint32_t>(45.45f)) | kNanBoxFloat32;
 }
 
 TEST(CodeGenLib, GenWrapGuestFunction_Run10Fp) {

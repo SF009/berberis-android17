@@ -4407,8 +4407,8 @@ TEST(TESTSUITE, FpConditionalCompare) {
   };
 
   TestHarness test(code, sizeof(code));
-  test.state()->cpu.v[0] = berberis::bit_cast<uint64_t>(2.0);
-  test.state()->cpu.v[1] = berberis::bit_cast<uint64_t>(1.0);
+  test.state()->cpu.v[0] = std::bit_cast<uint64_t>(2.0);
+  test.state()->cpu.v[1] = std::bit_cast<uint64_t>(1.0);
   // 'eq' is true.
   test.SetNZCV(0b0100);
   EXPECT_TRUE(test.Run());

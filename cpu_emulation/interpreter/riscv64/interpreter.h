@@ -17,12 +17,12 @@
 #include "berberis/interpreter/riscv64/interpreter.h"
 
 #include <atomic>
+#include <bit>
 #include <cfenv>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
 #include "berberis/base/float.h"
 #include "berberis/base/int.h"
@@ -359,9 +359,9 @@ class Interpreter {
       case Decoder::OpImmOpcode::kAddi:
         return arg + int64_t{imm};
       case Decoder::OpImmOpcode::kSlti:
-        return bit_cast<int64_t>(arg) < int64_t{imm} ? 1 : 0;
+        return std::bit_cast<int64_t>(arg) < int64_t{imm} ? 1 : 0;
       case Decoder::OpImmOpcode::kSltiu:
-        return arg < bit_cast<uint64_t>(int64_t{imm}) ? 1 : 0;
+        return arg < std::bit_cast<uint64_t>(int64_t{imm}) ? 1 : 0;
       case Decoder::OpImmOpcode::kXori:
         return arg ^ int64_t { imm };
       case Decoder::OpImmOpcode::kOri:
@@ -414,7 +414,7 @@ class Interpreter {
 
   Register Srli(Register arg, int8_t imm) { return arg >> imm; }
 
-  Register Srai(Register arg, int8_t imm) { return bit_cast<int64_t>(arg) >> imm; }
+  Register Srai(Register arg, int8_t imm) { return std::bit_cast<int64_t>(arg) >> imm; }
 
   Register ShiftImm32(Decoder::ShiftImm32Opcode opcode, Register arg, uint16_t imm) {
 #if defined(__aarch64__)
@@ -426,7 +426,7 @@ class Interpreter {
       case Decoder::ShiftImm32Opcode::kSlliw:
         return int32_t(arg) << int32_t{imm};
       case Decoder::ShiftImm32Opcode::kSrliw:
-        return bit_cast<int32_t>(uint32_t(arg) >> uint32_t{imm});
+        return std::bit_cast<int32_t>(uint32_t(arg) >> uint32_t{imm});
       case Decoder::ShiftImm32Opcode::kSraiw:
         return int32_t(arg) >> int32_t{imm};
       default:
@@ -507,10 +507,10 @@ class Interpreter {
         cond_value = arg1 >= arg2;
         break;
       case Decoder::BranchOpcode::kBlt:
-        cond_value = bit_cast<int64_t>(arg1) < bit_cast<int64_t>(arg2);
+        cond_value = std::bit_cast<int64_t>(arg1) < std::bit_cast<int64_t>(arg2);
         break;
       case Decoder::BranchOpcode::kBge:
-        cond_value = bit_cast<int64_t>(arg1) >= bit_cast<int64_t>(arg2);
+        cond_value = std::bit_cast<int64_t>(arg1) >= std::bit_cast<int64_t>(arg2);
         break;
       default:
         return Undefined();
@@ -619,7 +619,7 @@ class Interpreter {
           return Undefined();
         }
         auto [src] = std::tuple{extra_args...};
-        __uint128_t* ptr = bit_cast<__uint128_t*>(src);
+        __uint128_t* ptr = std::bit_cast<__uint128_t*>(src);
         for (size_t index = 0; index <= args.nf; index++) {
           state_->cpu.v[args.dst + index] = ptr[index];
         }
@@ -639,7 +639,7 @@ class Interpreter {
           return Undefined();
         }
         auto [src] = std::tuple{extra_args...};
-        __uint128_t* ptr = bit_cast<__uint128_t*>(src);
+        __uint128_t* ptr = std::bit_cast<__uint128_t*>(src);
         for (size_t index = 0; index <= args.nf; index++) {
           ptr[index] = state_->cpu.v[args.data + index];
         }
@@ -698,11 +698,11 @@ class Interpreter {
                 vlmul,
                 vtype,
                 kType<Float32>,
-                std::get<0>(intrinsics::UnboxNan<Float32>(bit_cast<Float64>(extra_args)))...);
+                std::get<0>(intrinsics::UnboxNan<Float32>(std::bit_cast<Float64>(extra_args)))...);
           case VectorSelectElementWidth::k64bit:
             // Note: if arguments are 64bit floats then we don't need to do any unboxing.
             return OpVectorWithElementType(
-                args, vlmul, vtype, kType<Float64>, bit_cast<Float64>(extra_args)...);
+                args, vlmul, vtype, kType<Float64>, std::bit_cast<Float64>(extra_args)...);
           default:
             return Undefined();
         }

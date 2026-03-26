@@ -15,6 +15,7 @@
  */
 #include "berberis/lite_translator/lite_translate_region.h"
 
+#include <bit>
 #include <cstdint>
 #include <limits>
 #include <tuple>
@@ -49,7 +50,7 @@ void GenIncrementProfileCounter(x86_64::Assembler* as, const LiteTranslateParams
   // value a few increments before, which we consider acceptable.
   // WARNING: do not clobber rax, since insn_addr held in it is used in case of
   // the reached threshold.
-  as->Movq(as->rcx, bit_cast<int64_t>(params.counter_location));
+  as->Movq(as->rcx, std::bit_cast<int64_t>(params.counter_location));
   static_assert(sizeof(*params.counter_location) == 4);
   as->Addl({.base = as->rcx}, 1);
   as->Cmpl({.base = as->rcx}, params.counter_threshold);

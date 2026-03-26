@@ -17,6 +17,7 @@
 #include "gtest/gtest.h"
 
 #include <setjmp.h>
+#include <bit>
 #include <cstdint>
 
 #include "berberis/assembler/machine_code.h"
@@ -42,7 +43,7 @@ class Riscv64LiteTranslateRegionTest : public ::testing::Test {
   template <typename T>
   bool Run(T& code, GuestAddr expected_stop_addr) {
     Reset(code);
-    GuestAddr code_end = ToGuestAddr(bit_cast<char*>(&code[0]) + sizeof(code));
+    GuestAddr code_end = ToGuestAddr(std::bit_cast<char*>(&code[0]) + sizeof(code));
     MachineCode machine_code;
     auto [success, stop_pc] = TryLiteTranslateRegion(state_.cpu.insn_addr,
                                                      &machine_code,
@@ -76,7 +77,7 @@ TEST_F(Riscv64LiteTranslateRegionTest, AddTwice) {
   SetXReg<1>(state_.cpu, 0);
   SetXReg<2>(state_.cpu, 1);
   SetXReg<3>(state_.cpu, 1);
-  EXPECT_TRUE(Run(code, ToGuestAddr(bit_cast<char*>(&code[0]) + sizeof(code))));
+  EXPECT_TRUE(Run(code, ToGuestAddr(std::bit_cast<char*>(&code[0]) + sizeof(code))));
   EXPECT_EQ(GetXReg<3>(state_.cpu), 3ULL);
 }
 

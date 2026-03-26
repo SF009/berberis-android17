@@ -26,7 +26,6 @@
 
 #include "berberis/base/arena_alloc.h"
 #include "berberis/base/arena_vector.h"
-#include "berberis/base/bit_util.h"
 #include "berberis/base/forever_map.h"
 #include "berberis/base/macros.h"  // DISALLOW_COPY_AND_ASSIGN
 
@@ -73,12 +72,12 @@ class MachineCode {
 
   template <typename T>
   [[nodiscard]] T* AddrAs(uint32_t offset) {
-    return bit_cast<T*>(AddrOf(offset));
+    return std::bit_cast<T*>(AddrOf(offset));
   }
 
   template <typename T>
   [[nodiscard]] const T* AddrAs(uint32_t offset) const {
-    return bit_cast<const T*>(AddrOf(offset));
+    return std::bit_cast<const T*>(AddrOf(offset));
   }
 
   template <typename T>
