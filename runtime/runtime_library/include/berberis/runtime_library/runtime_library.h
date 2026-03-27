@@ -63,7 +63,29 @@ void InvalidateGuestRange(GuestAddr start, GuestAddr end);
 // used strictly in opaque manner here.
 struct GuestArgumentBuffer;
 
+GuestAddr InitKernelArgs(GuestAddr guest_sp,
+                         size_t argc,
+                         const char* argv[],
+                         char* envp[],
+                         GuestAddr linker_base_addr,
+                         GuestAddr main_executable_entry_point,
+                         GuestAddr phdr,
+                         size_t phdr_count,
+                         GuestAddr ehdr_vdso,
+                         const uint8_t (*random_bytes)[16]);
+
+void RunMain(GuestAddr entry_point,
+             size_t argc,
+             const char* argv[],
+             char* envp[],
+             GuestAddr linker_base_addr,
+             GuestAddr main_executable_entry_point,
+             GuestAddr phdr_table,
+             size_t phdr_count,
+             GuestAddr vdso_base_addr);
+
 void RunGuestCall(GuestAddr pc, GuestArgumentBuffer* buf);
+
 void ExecuteGuestCall(ThreadState* state);
 
 }  // namespace berberis
