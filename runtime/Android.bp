@@ -33,6 +33,7 @@ filegroup {
         "berberis.cc",
         "execute_guest.cc",
         "execute_guest_call.cc",
+        "run_main.cc",
     ],
 }
 
@@ -48,6 +49,7 @@ cc_defaults {
         "libberberis_guest_os_primitives_headers",
         "libberberis_guest_state_headers",
         "libberberis_instrument_headers",
+        "libberberis_kernel_api_headers",
         "libberberis_runtime_headers",
         "libberberis_runtime_library_headers",
         "libberberis_runtime_primitives_headers",
@@ -71,23 +73,23 @@ cc_library_static {
     ],
     arch: {
         x86: {
-            header_libs: [
-                "libberberis_kernel_api_headers",
-            ],
             srcs: [
                 "arm32/init_guest_arch.cc",
+                "arm32/init_kernel_args.cc",
                 "arm32/run_guest_call.cc",
             ],
         },
         x86_64: {
             srcs: [
                 "arm64/init_guest_arch.cc",
+                "arm64/init_kernel_args.cc",
                 "arm64/run_guest_call.cc",
             ],
         },
         riscv64: {
             srcs: [
                 "arm64/init_guest_arch.cc",
+                "arm64/init_kernel_args.cc",
                 "arm64/run_guest_call.cc",
             ],
         },
