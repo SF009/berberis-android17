@@ -22,7 +22,6 @@
 #include <type_traits>
 
 #include "berberis/assembler/x86_64.h"
-#include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
 #include "berberis/base/dependent_false.h"
 #include "berberis/base/tuple_processing.h"

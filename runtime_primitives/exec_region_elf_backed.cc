@@ -23,7 +23,6 @@
 
 #include <bit>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/fd.h"
 #include "berberis/base/mmap.h"
 

@@ -19,7 +19,6 @@
 
 #include <climits>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/intrinsics/macro_assembler.h"
 
 namespace berberis {

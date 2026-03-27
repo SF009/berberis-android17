@@ -22,7 +22,6 @@
 #include <type_traits>  // std::enable_if, std::is_integral
 
 #include "berberis/assembler/common.h"
-#include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
 
 namespace berberis {

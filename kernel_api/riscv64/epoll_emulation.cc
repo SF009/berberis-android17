@@ -24,7 +24,6 @@
 #include <cerrno>
 #include <cstddef>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/tracing.h"
 
 #include "guest_types.h"

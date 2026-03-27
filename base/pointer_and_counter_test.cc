@@ -16,7 +16,6 @@
 
 #include "gtest/gtest.h"
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/pointer_and_counter.h"
 
 namespace berberis {

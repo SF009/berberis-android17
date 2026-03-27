@@ -21,7 +21,6 @@
 #include <cstddef>
 #include <string_view>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/runtime_primitives/code_pool.h"
 
 namespace berberis {

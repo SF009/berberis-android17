@@ -27,7 +27,6 @@
 #include <platform/bionic/reserved_signals.h>
 #endif
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
 #include "berberis/base/config_globals.h"
 #include "berberis/base/forever_alloc.h"

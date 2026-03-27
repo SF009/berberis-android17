@@ -20,7 +20,6 @@
 #include <bit>
 #include <cstdint>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
 #include "dwarf_constants.h"
 

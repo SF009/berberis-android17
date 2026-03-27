@@ -20,7 +20,6 @@
 #include <bit>
 #include <cstddef>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/forever_alloc.h"
 #include "berberis/base/lock_free_stack.h"
 

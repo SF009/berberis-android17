@@ -21,6 +21,7 @@
 
 #include "berberis/assembler/machine_code.h"
 #include "berberis/assembler/x86_32.h"
+#include "berberis/base/bit_util.h"
 #include "berberis/base/config.h"
 #include "berberis/base/config_globals.h"
 #include "berberis/calling_conventions/calling_conventions_x86_32.h"

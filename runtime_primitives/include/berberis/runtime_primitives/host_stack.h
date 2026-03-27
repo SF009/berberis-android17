@@ -20,7 +20,6 @@
 #include <bit>
 #include <cstddef>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/mmap.h"
 
 namespace berberis {

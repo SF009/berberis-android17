@@ -22,7 +22,6 @@
 #include <cstdint>
 #include <cstring>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/int.h"
 #include "berberis/base/type_traits.h"
 

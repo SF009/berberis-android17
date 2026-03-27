@@ -21,7 +21,6 @@
 #include <csignal>
 #include <cstddef>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
 #include "berberis/base/host_signal.h"
 #include "berberis/base/scoped_errno.h"

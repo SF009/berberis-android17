@@ -21,6 +21,7 @@
 #include <bit>
 #include <cstdint>
 
+#include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
 #include "berberis/base/macros.h"
 #include "berberis/base/mmap.h"

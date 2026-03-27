@@ -25,7 +25,6 @@
 
 #include <bit>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
 #include "berberis/base/raw_syscall.h"
 

@@ -19,6 +19,7 @@
 #include <bit>
 #include <string>
 
+#include "berberis/base/bit_util.h"
 #include "berberis/base/tracing.h"
 
 namespace berberis {

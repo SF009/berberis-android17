@@ -23,6 +23,7 @@
 
 #include "berberis/assembler/machine_code.h"
 #include "berberis/base/arena_alloc.h"
+#include "berberis/base/bit_util.h"
 #include "berberis/base/config_globals.h"
 #include "berberis/base/exec_region.h"
 #include "berberis/base/tracing.h"

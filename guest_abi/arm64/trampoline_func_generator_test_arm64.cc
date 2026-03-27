@@ -19,7 +19,6 @@
 #include <bit>
 #include <cstddef>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/guest_abi/function_wrappers.h"
 #include "berberis/guest_state/guest_state.h"
 #include "berberis/runtime_primitives/host_function_wrapper_impl.h"

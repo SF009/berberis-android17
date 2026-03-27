@@ -23,12 +23,12 @@
 //
 // #include "gtest/gtest.h"
 //
+// #include <bit>
 // #include <cstdint>
 // #include <initializer_list>
 // #include <tuple>
 // #include <vector>
 //
-// #include "berberis/base/bit_util.h"
 // #include "berberis/guest_state/guest_addr.h"
 // #include "berberis/guest_state/guest_state_riscv64.h"
 //

@@ -26,7 +26,6 @@
 #include <string>
 #include <tuple>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/maps_snapshot.h"
 
 namespace berberis {

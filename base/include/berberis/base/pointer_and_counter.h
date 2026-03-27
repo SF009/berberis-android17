@@ -20,7 +20,9 @@
 #include <bit>
 #include <cstdint>
 
-#include "berberis/base/bit_util.h"
+#if defined(__LP64__)
+#include "berberis/base/bit_util.h"  // BitUtilLog2
+#endif
 #include "berberis/base/checks.h"
 
 namespace berberis {

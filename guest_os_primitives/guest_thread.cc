@@ -23,6 +23,7 @@
 #include "private/bionic_tls.h"
 #endif
 
+#include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
 #include "berberis/base/mmap.h"
 #include "berberis/base/tracing.h"

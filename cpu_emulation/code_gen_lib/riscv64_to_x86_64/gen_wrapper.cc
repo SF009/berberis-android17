@@ -17,6 +17,7 @@
 
 #include "berberis/assembler/machine_code.h"
 #include "berberis/assembler/x86_64.h"
+#include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
 #include "berberis/guest_abi/guest_arguments.h"
 #include "berberis/guest_state/guest_addr.h"
