@@ -65,7 +65,7 @@ class Assembler : public riscv::Assembler<Assembler> {
 };
 
 constexpr inline void Assembler::Ld(Register arg0, const Label& label) {
-  jumps_.push_back(Jump{&label, pc(), false});
+  jumps_.push_back(Jump{&label, pc()});
   // First issue auipc to load top 20 bits of difference between pc and target address
   EmitUTypeInstruction<uint32_t{0x0000'0017}>(arg0, UImmediate{0});
   // The low 12 bite of difference will be encoded in the Ld instruction
@@ -103,7 +103,7 @@ constexpr inline void Assembler::Li(Register dest, int64_t imm64) {
 }
 
 constexpr inline void Assembler::Lwu(Register arg0, const Label& label) {
-  jumps_.push_back(Jump{&label, pc(), false});
+  jumps_.push_back(Jump{&label, pc()});
   // First issue auipc to load top 20 bits of difference between pc and target address
   EmitUTypeInstruction<uint32_t{0x0000'0017}>(arg0, UImmediate{0});
   // The low 12 bite of difference will be encoded in the Lwu instruction
@@ -111,7 +111,7 @@ constexpr inline void Assembler::Lwu(Register arg0, const Label& label) {
 }
 
 constexpr inline void Assembler::Sd(Register arg0, const Label& label, Register arg2) {
-  jumps_.push_back(Jump{&label, pc(), false});
+  jumps_.push_back(Jump{&label, pc()});
   // First issue auipc to load top 20 bits of difference between pc and target address
   EmitUTypeInstruction<uint32_t{0x0000'0017}>(arg2, UImmediate{0});
   // The low 12 bite of difference will be encoded in the Sd instruction

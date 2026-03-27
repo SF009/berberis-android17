@@ -1117,7 +1117,7 @@ constexpr inline void Assembler<DerivedAssemblerType>::Bcc(Condition cc,
     return;
   }
   CHECK_EQ(0, static_cast<uint8_t>(cc) & 0xf8);
-  jumps_.push_back(Jump{&label, pc(), false});
+  jumps_.push_back(Jump{&label, pc()});
   EmitInstruction<0x0000'0063, 0x0000'007f>(Cond(cc), Rs1(argument1), Rs2(argument2));
 }
 
@@ -1149,7 +1149,7 @@ constexpr inline void Assembler<DerivedAssemblerType>::Bcc(Condition cc,
   constexpr inline void Assembler<DerivedAssemblerType>::Name(                                   \
       TargetRegister arg0, const Label& label, Register arg2) {                                  \
     CHECK_NE(arg2, x0);                                                                          \
-    jumps_.push_back(Jump{&label, pc(), false});                                                 \
+    jumps_.push_back(Jump{&label, pc()});                                                        \
     /* First issue auipc to load top 20 bits of difference between pc and target address */      \
     EmitUTypeInstruction<uint32_t{0x0000'0017}>(arg2, UImmediate{0});                            \
     /* The low 12 bite of difference will be encoded in the memory accessing instruction */      \
@@ -1169,7 +1169,7 @@ BERBERIS_DEFINE_LOAD_OR_STORE_INSTRUCTION(Sw, Register, S, 0x0000'2023)
   template <typename DerivedAssemblerType>                                                         \
   constexpr inline void Assembler<DerivedAssemblerType>::Name(Register arg0, const Label& label) { \
     CHECK_NE(arg0, x0);                                                                            \
-    jumps_.push_back(Jump{&label, pc(), false});                                                   \
+    jumps_.push_back(Jump{&label, pc()});                                                          \
     /* First issue auipc to load top 20 bits of difference between pc and target address */        \
     EmitUTypeInstruction<uint32_t{0x0000'0017}>(arg0, UImmediate{0});                              \
     /* The low 12 bite of difference will be encoded in the memory accessing instruction */        \
@@ -1185,7 +1185,7 @@ BERBERIS_DEFINE_LOAD_INSTRUCTION(Lw, 0x0000'2003)
 template <typename DerivedAssemblerType>
 constexpr inline void Assembler<DerivedAssemblerType>::La(Register arg0, const Label& label) {
   CHECK_NE(arg0, x0);
-  jumps_.push_back(Jump{&label, pc(), false});
+  jumps_.push_back(Jump{&label, pc()});
   // First issue auipc to load top 20 bits of difference between pc and target address
   EmitUTypeInstruction<uint32_t{0x0000'0017}>(arg0, UImmediate{0});
   // The low 12 bite of difference will be added with addi instruction
@@ -1196,7 +1196,7 @@ constexpr inline void Assembler<DerivedAssemblerType>::La(Register arg0, const L
   template <typename DerivedAssemblerType>                             \
   constexpr inline void Assembler<DerivedAssemblerType>::Name(         \
       Register arg0, Register arg1, const Label& label) {              \
-    jumps_.push_back(Jump{&label, pc(), false});                       \
+    jumps_.push_back(Jump{&label, pc()});                              \
     EmitBTypeInstruction<uint32_t{Opcode}>(arg0, arg1, BImmediate{0}); \
   }
 BERBERIS_DEFINE_CONDITIONAL_INSTRUCTION(Beq, 0x0000'0063)
@@ -1209,7 +1209,7 @@ BERBERIS_DEFINE_CONDITIONAL_INSTRUCTION(Bne, 0x0000'1063)
 
 template <typename DerivedAssemblerType>
 constexpr inline void Assembler<DerivedAssemblerType>::Jal(Register argument0, const Label& label) {
-  jumps_.push_back(Jump{&label, pc(), false});
+  jumps_.push_back(Jump{&label, pc()});
   EmitInstruction<0x0000'006f, 0x0000'007f>(Rd(argument0));
 }
 
@@ -1219,7 +1219,7 @@ constexpr inline void Assembler<DerivedAssemblerType>::ResolveJumps() {
     const Label* label = jump.label;
     uint32_t pc = jump.pc;
     CHECK(label->IsBound());
-    if (jump.is_recovery) {
+    if (jump.label_type == Jump::kRecovery) {
       // Add pc -> label correspondence to recovery map.
       AddRelocation(0, RelocationType::RelocRecoveryPoint, pc, label->position());
     } else {
@@ -1306,7 +1306,7 @@ constexpr inline void Assembler<DerivedAssemblerType>::Ret() {
 
 template <typename DerivedAssemblerType>
 constexpr inline void Assembler<DerivedAssemblerType>::Call(const Label& label) {
-  jumps_.push_back(Jump{&label, pc(), false});
+  jumps_.push_back(Jump{&label, pc()});
   // First issue auipc to load top 20 bits of difference between pc and target address
   EmitUTypeInstruction<uint32_t{0x0000'0017}>(Assembler::x6, UImmediate{0});
   // The low 12 bite of difference will be added with jalr instruction
@@ -1315,7 +1315,7 @@ constexpr inline void Assembler<DerivedAssemblerType>::Call(const Label& label) 
 
 template <typename DerivedAssemblerType>
 constexpr inline void Assembler<DerivedAssemblerType>::Tail(const Label& label) {
-  jumps_.push_back(Jump{&label, pc(), false});
+  jumps_.push_back(Jump{&label, pc()});
   // First issue auipc to load top 20 bits of difference between pc and target address
   EmitUTypeInstruction<uint32_t{0x0000'0017}>(Assembler::x6, UImmediate{0});
   // The low 12 bite of difference will be added with jalr instruction
