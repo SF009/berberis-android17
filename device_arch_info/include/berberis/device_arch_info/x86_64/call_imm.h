@@ -18,6 +18,7 @@
 #define BERBERIS_DEVICE_ARCH_INFO_X86_64_CALL_IMM_H_
 
 #include <array>
+#include <bit>
 #include <cstdint>
 #include <tuple>
 #include <type_traits>
@@ -177,7 +178,7 @@ inline void Emit(MacroAssemblers& as) {
   // done by the callee unless the result in returned in full YMM register.
   // Since we don't support full YMM results here, we don't need extra
   // `vzeroupper`s here.
-  as.Call(bit_cast<const void*>(kFunction));
+  as.Call(std::bit_cast<const void*>(kFunction));
 }
 
 }  // namespace call_imm_impl

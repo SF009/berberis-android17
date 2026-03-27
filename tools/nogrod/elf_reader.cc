@@ -22,11 +22,12 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#include <bit>
 #include <cstddef>
 #include <memory>
 #include <optional>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
 #include "berberis/base/macros.h"
 #include "berberis/base/mapped_file_fragment.h"
@@ -39,7 +40,6 @@
 
 namespace nogrod {
 
-using berberis::bit_cast;
 using berberis::StringPrintf;
 
 namespace {
@@ -130,7 +130,7 @@ class ElfFileImpl : public ElfFile {
       return std::nullopt;
     }
 
-    const typename ElfT::Chrd* chrd = bit_cast<const typename ElfT::Chrd*>(section_data);
+    const typename ElfT::Chrd* chrd = std::bit_cast<const typename ElfT::Chrd*>(section_data);
     if (chrd->ch_type != ELFCOMPRESS_ZSTD) {
       *error_msg = StringPrintf("Unsupported compression type: %d, expected ELFCOMPRESS_ZSTD(2)",
                                 chrd->ch_type);
@@ -143,9 +143,9 @@ class ElfFileImpl : public ElfFile {
     size_t compressed_size = section_size - kChdrSize;
     std::vector<T> uncompressed_data(uncompressed_size);
 
-    size_t result = ZSTD_decompress(bit_cast<uint8_t*>(uncompressed_data.data()),
+    size_t result = ZSTD_decompress(std::bit_cast<uint8_t*>(uncompressed_data.data()),
                                     uncompressed_data.size(),
-                                    bit_cast<const uint8_t*>(compressed_data),
+                                    std::bit_cast<const uint8_t*>(compressed_data),
                                     compressed_size);
 
     if (ZSTD_isError(result)) {
@@ -235,8 +235,8 @@ bool ElfFileImpl<ElfT>::ValidateShdrTable(std::string* error_msg) {
 template <typename ElfT>
 template <typename T>
 T* ElfFileImpl<ElfT>::OffsetToAddr(typename ElfT::Off offset) const {
-  auto start = bit_cast<uintptr_t>(mapped_file_.data());
-  return bit_cast<T*>(start + offset);
+  auto start = std::bit_cast<uintptr_t>(mapped_file_.data());
+  return std::bit_cast<T*>(start + offset);
 }
 
 template <typename ElfT>

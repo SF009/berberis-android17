@@ -16,7 +16,9 @@
 
 #include "gtest/gtest.h"
 
-#include "berberis/base/bit_util.h"
+#include <bit>
+#include <cstddef>
+
 #include "berberis/base/memfd_backed_mmap.h"
 #include "berberis/base/mmap.h"
 
@@ -35,7 +37,7 @@ TEST(MemfdBackedMap, type_uintptr_t) {
 
   uintptr_t default_value = 42;
   int memfd = CreateAndFillMemfd("uintptr", kMemfdFileSize, default_value);
-  uintptr_t* ptr = bit_cast<uintptr_t*>(
+  uintptr_t* ptr = std::bit_cast<uintptr_t*>(
       CreateMemfdBackedMapOrDie(memfd, kTableSize * sizeof(default_value), kMemfdFileSize));
   close(memfd);
 

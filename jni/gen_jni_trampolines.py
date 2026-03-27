@@ -178,7 +178,7 @@ def main(argv):
   if is_jvmti:
     print("""
 void WrapJvmtiEnv(jvmtiEnv* env) {
-  HostCode* jvmti_vtable = bit_cast<HostCode*>(env->functions);""", file=out)
+  HostCode* jvmti_vtable = std::bit_cast<HostCode*>(env->functions);""", file=out)
     for decl in decls:
       if 'index' not in decl:
         sys.exit("missing index for {decl['name']}")
@@ -192,7 +192,7 @@ void WrapJvmtiEnv(jvmtiEnv* env) {
   else: # JNI
     print("""
 void WrapJNIEnv(JNIEnv* env) {
-  HostCode* jni_vtable = bit_cast<HostCode*>(env->functions);""", file=out)
+  HostCode* jni_vtable = std::bit_cast<HostCode*>(env->functions);""", file=out)
     print("""  // jni_vtable[0] is NULL
   // jni_vtable[1] is NULL
   // jni_vtable[2] is NULL

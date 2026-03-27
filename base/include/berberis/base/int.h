@@ -17,6 +17,7 @@
 #ifndef BERBERIS_BASE_INT_H_
 #define BERBERIS_BASE_INT_H_
 
+#include <bit>
 #include <climits>
 #include <cstdint>
 #include <cstring>
@@ -25,8 +26,6 @@
 #include <type_traits>
 
 namespace berberis {
-
-using std::bit_cast;
 
 template <typename BaseType>
 class Raw;
@@ -99,7 +98,7 @@ class Raw {
   friend auto constexpr BitCastToUnsigned(Raw src) { return src.Unsigned(); }
   friend auto constexpr BitCastToWrapping(Raw src) { return src.Wrapping(); }
   [[nodiscard]] constexpr auto Float() const {
-    return bit_cast<typename TypeTraits<BaseType>::Float>(value);
+    return std::bit_cast<typename TypeTraits<BaseType>::Float>(value);
   }
   template <typename ResultType>
   [[nodiscard]] auto constexpr MaybeTruncateTo() const
@@ -191,7 +190,7 @@ class Saturating {
   friend auto constexpr BitCastToUnsigned(Saturating src) { return src.Unsigned(); }
   friend auto constexpr BitCastToWrapping(Saturating src) { return src.Wrapping(); }
   [[nodiscard]] constexpr auto Float() const {
-    return bit_cast<typename TypeTraits<BaseType>::Float>(value);
+    return std::bit_cast<typename TypeTraits<BaseType>::Float>(value);
   }
   template <typename ResultType>
   [[nodiscard]] auto constexpr MaybeTruncateTo() const
@@ -426,7 +425,7 @@ class Wrapping {
   friend auto constexpr BitCastToUnsigned(Wrapping src) { return src.Unsigned(); }
   friend auto constexpr BitCastToWrapping(Wrapping src) { return src; }
   [[nodiscard]] constexpr auto Float() const {
-    return bit_cast<typename TypeTraits<BaseType>::Float>(value);
+    return std::bit_cast<typename TypeTraits<BaseType>::Float>(value);
   }
   template <typename ResultType>
   [[nodiscard]] auto constexpr MaybeTruncateTo() const

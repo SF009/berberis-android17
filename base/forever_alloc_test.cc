@@ -18,7 +18,9 @@
 
 #include <pthread.h>
 
-#include "berberis/base/bit_util.h"
+#include <bit>
+#include <cstddef>
+
 #include "berberis/base/forever_alloc.h"
 #include "berberis/base/mmap.h"  // kPageSize
 
@@ -41,7 +43,7 @@ void CheckBasicAllocations(size_t size, size_t align) {
 
   // Fill first memory page.
   for (size_t i = 0; i < num_allocations; ++i) {
-    uintptr_t curr = bit_cast<uintptr_t>(alloc.Allocate(size, align));
+    uintptr_t curr = std::bit_cast<uintptr_t>(alloc.Allocate(size, align));
     CheckOneAllocation(curr, size, align);
 
     if (prev) {
@@ -52,7 +54,7 @@ void CheckBasicAllocations(size_t size, size_t align) {
   }
 
   // Request second memory page.
-  uintptr_t curr = bit_cast<uintptr_t>(alloc.Allocate(size, align));
+  uintptr_t curr = std::bit_cast<uintptr_t>(alloc.Allocate(size, align));
   CheckOneAllocation(curr, size, align);
   ASSERT_NE(AlignDownPageSize(prev), AlignDownPageSize(curr));
 }
@@ -74,13 +76,13 @@ void CheckStressAllocations(size_t idx) {
   size_t align = 1 << (idx % 5);  // 1 - 16
 
   for (size_t i = 0; i < kNumAllocationsPerThread; ++i) {
-    uintptr_t curr = bit_cast<uintptr_t>(g_alloc.Allocate(size, align));
+    uintptr_t curr = std::bit_cast<uintptr_t>(g_alloc.Allocate(size, align));
     CheckOneAllocation(curr, size, align);
   }
 }
 
 void* StressFunc(void* arg) {
-  CheckStressAllocations(bit_cast<size_t>(arg));
+  CheckStressAllocations(std::bit_cast<size_t>(arg));
   return nullptr;
 }
 
@@ -88,7 +90,7 @@ TEST(ForeverAllocTest, Stress) {
   pthread_t threads[kNumThreads];
 
   for (size_t i = 0; i < kNumThreads; ++i) {
-    int res = pthread_create(&threads[i], nullptr, StressFunc, bit_cast<void*>(i));
+    int res = pthread_create(&threads[i], nullptr, StressFunc, std::bit_cast<void*>(i));
     ASSERT_EQ(res, 0);
   }
 

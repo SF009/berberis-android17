@@ -82,7 +82,7 @@ def _gen_trampoline(out, decl):
     print('  auto&& [ret] = GuestReturnReference<PFN>(state);', file=out)
 
     call_args_str = ', '.join(call_args)
-    print(f'  ret = bit_cast<PFN>(callee)({call_args_str});', file=out)
+    print(f'  ret = std::bit_cast<PFN>(callee)({call_args_str});', file=out)
     print('}', file=out)
     print('', file=out)
 
@@ -138,7 +138,7 @@ def main(argv):
                 print(f'    }} else if (strcmp(info.id, "{func_id}") == 0) {{', file=out)
 
             print('      WrapHostFunctionImpl(', file=out)
-            print('          bit_cast<HostCode>(info.func),', file=out)
+            print('          std::bit_cast<HostCode>(info.func),', file=out)
             print(f'          {trampoline_name},', file=out)
             print('          info.id);', file=out)
 

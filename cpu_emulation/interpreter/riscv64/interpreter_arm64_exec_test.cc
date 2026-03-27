@@ -21,6 +21,7 @@
 #include <initializer_list>
 #include <tuple>
 
+#include "berberis/base/checks.h"
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state.h"
 #include "berberis/interpreter/riscv64/interpreter.h"

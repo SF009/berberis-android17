@@ -21,6 +21,8 @@
 #include <stdio.h>
 #include <sys/system_properties.h>
 
+#include <bit>
+#include <cstdint>
 #include <deque>
 #include <map>
 #include <mutex>
@@ -31,7 +33,6 @@
 #include "procinfo/process_map.h"
 
 #include "berberis/base/algorithm.h"
-#include "berberis/base/bit_util.h"
 #include "berberis/base/config_globals.h"
 #include "berberis/base/file.h"
 #include "berberis/base/strings.h"
@@ -321,8 +322,8 @@ void ProtectMappingsFromGuest() {
         // not expected for libc.so.
         if (libname.find("libc.so") != std::string_view::npos) {
           berberis::GuestMapShadow::GetInstance()->AddProtectedMapping(
-              berberis::bit_cast<void*>(static_cast<uintptr_t>(start)),
-              berberis::bit_cast<void*>(static_cast<uintptr_t>(end)));
+              std::bit_cast<void*>(static_cast<uintptr_t>(start)),
+              std::bit_cast<void*>(static_cast<uintptr_t>(end)));
         }
       };
   android::procinfo::ReadMapFile("/proc/self/maps", callback);
