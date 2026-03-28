@@ -105,7 +105,7 @@ class AssemblerBase {
   Label* MakeLabel() { return NewInArena<Label>(code_->arena()); }
 
   void SetRecoveryPoint(Label* recovery_label) {
-    jumps_.push_back(Jump{recovery_label, pc(), true});
+    jumps_.push_back(Jump{recovery_label, pc(), Jump::kRecovery});
   }
 
  protected:
@@ -131,7 +131,12 @@ class AssemblerBase {
     // there is counted from the end of instruction (on x86) or, sometimes, from the end
     // of next instruction (ARM).
     uint32_t pc;
-    bool is_recovery;
+    // Note: descendant can add more label types. In C++ it's valid to assign them to enum
+    // with explicit base type.
+    enum LabelType : uint32_t {
+      kDefault = 0,
+      kRecovery = 1,
+    } label_type = Jump::kDefault;
   };
   using JumpList = ArenaVector<Jump>;
   JumpList jumps_;

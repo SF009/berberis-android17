@@ -852,8 +852,8 @@ constexpr inline void Assembler<DerivedAssemblerType>::Call(const Label& label) 
     CallRel(offset);
   } else {
     Emit8(0xe8);
+    jumps_.push_back(Jump{&label, pc()});
     Emit32(0xffff'fffc);
-    jumps_.push_back(Jump{&label, pc() - 4, false});
   }
 }
 
@@ -873,8 +873,8 @@ constexpr inline void Assembler<DerivedAssemblerType>::Jcc(Condition cc, const L
     JccRel(cc, offset);
   } else {
     Emit16(0x800f | (static_cast<uint8_t>(cc) << 8));
+    jumps_.push_back(Jump{&label, pc()});
     Emit32(0xffff'fffc);
-    jumps_.push_back(Jump{&label, pc() - 4, false});
   }
 }
 
@@ -887,8 +887,8 @@ constexpr inline void Assembler<DerivedAssemblerType>::Jmp(const Label& label) {
     JmpRel(offset);
   } else {
     Emit8(0xe9);
+    jumps_.push_back(Jump{&label, pc()});
     Emit32(0xffff'fffc);
-    jumps_.push_back(Jump{&label, pc() - 4, false});
   }
 }
 
@@ -898,7 +898,7 @@ constexpr inline void Assembler<DerivedAssemblerType>::ResolveJumps() {
     const Label* label = jump.label;
     uint32_t pc = jump.pc;
     CHECK(label->IsBound());
-    if (jump.is_recovery) {
+    if (jump.label_type == Jump::kRecovery) {
       // Add pc -> label correspondence to recovery map.
       AddRelocation(0, RelocationType::RelocRecoveryPoint, pc, label->position());
     } else {
