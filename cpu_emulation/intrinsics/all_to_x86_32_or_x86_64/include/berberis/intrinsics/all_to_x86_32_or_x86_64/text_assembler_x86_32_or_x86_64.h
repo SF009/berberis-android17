@@ -472,7 +472,7 @@ inline void TextAssembler<DerivedAssemblerType>::Instruction(const char* name,
   char name_with_condition[8] = {};
   if (strcmp(name, "Cmovw") == 0 || strcmp(name, "Cmovl") == 0 || strcmp(name, "Cmovq") == 0) {
     strcpy(name_with_condition, "Cmov");
-  } else if (strcmp(name, "Jcc") == 0) {
+  } else if (strcmp(name, "Jcc") == 0 || strcmp(name, "JccShort") == 0) {
     strcpy(name_with_condition, "J");
   } else {
     CHECK(strcmp(name, "Setcc") == 0);
@@ -551,11 +551,9 @@ template <typename DerivedAssemblerType>
 template <typename... Args>
 inline void TextAssembler<DerivedAssemblerType>::Instruction(const char* name,
                                                              const Args&... args) {
-  for (auto it : std::array<std::tuple<const char*, const char*>, 22>{
-           {// Note: SSE doesn't include simple register-to-register move instruction.
-            // You are supposed to use one of half-dozen variants depending on what you
-            // are doing.
-            //
+  for (auto it : std::array<std::tuple<const char*, const char*>, 23>{
+           {// GNU as doesn't have and doesn't need "jmp short", it automatically picks best size.
+            {"JmpShort", "Jmp"},
             // Pseudoinstructions with embedded "lock" prefix.
             {"Lock Xaddb", "Lock; Xaddb"},
             {"Lock Xaddw", "Lock; Xaddw"},
@@ -567,6 +565,10 @@ inline void TextAssembler<DerivedAssemblerType>::Instruction(const char* name,
             {"Lock CmpXchgl", "Lock; CmpXchgl"},
             {"Lock CmpXchgq", "Lock; CmpXchgq"},
             {"Lock CmpXchgw", "Lock; CmpXchgw"},
+            // Note: SSE doesn't include simple register-to-register move instruction.
+            // You are supposed to use one of half-dozen variants depending on what you
+            // are doing.
+            //
             // Our assembler has Pmov instruction which is supposed to pick the best
             // option - but currently we just map Pmov to Movaps.
             {"Pmov", "Movaps"},

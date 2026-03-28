@@ -316,8 +316,8 @@ def _gen_generic_functions_h(f, insns, arch, assembler_mode):
 
     else: # verifier_assembler
       print('constexpr void %s(%s) {' % (name, params), file=f)
-      if (name == "Jcc" or name == "Jmp") and 'x86' in arch:
-        jump_is_conditional = name == "Jcc"
+      if (name.startswith("Jcc") or name.startswith("Jmp")) and 'x86' in arch:
+        jump_is_conditional = name.startswith("Jcc")
         _handle_jump(insn, jump_is_conditional, f)
         print(' EndInstruction();', file=f)
         print('}', file=f)

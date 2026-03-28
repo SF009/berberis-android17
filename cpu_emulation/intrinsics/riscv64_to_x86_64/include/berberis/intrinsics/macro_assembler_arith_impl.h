@@ -32,14 +32,14 @@ constexpr void MacroAssembler<Assembler, AssemblerBase>::DivRiscV(Register src) 
   Label* zero = MakeLabel();
   Label* done = MakeLabel();
   Test<IntType>(src, src);
-  Jcc(Condition::kZero, *zero);
+  JccShort(Condition::kZero, *zero);
 
   if constexpr (std::is_signed_v<IntType>) {
     Label* do_idiv = MakeLabel();
     // If min int32_t/int64_t is divided by -1 then in risc-v the result is
     // the dividend, but x86 will raise an exception. Handle this case separately.
     Cmp<IntType>(src, int8_t{-1});
-    Jcc(Condition::kNotEqual, *do_idiv);
+    JccShort(Condition::kNotEqual, *do_idiv);
 
     if constexpr (std::is_same_v<IntType, int64_t>) {
       Cmp<IntType>(kAccumulatorRegister,
@@ -47,7 +47,7 @@ constexpr void MacroAssembler<Assembler, AssemblerBase>::DivRiscV(Register src) 
     } else {
       Cmp<IntType>(kAccumulatorRegister, std::numeric_limits<IntType>::min());
     }
-    Jcc(Condition::kEqual, *done);
+    JccShort(Condition::kEqual, *done);
 
     Bind(do_idiv);
     // If we are dealing with 8-bit signed case then we need to sign-extend %al into %ax.
@@ -75,7 +75,7 @@ constexpr void MacroAssembler<Assembler, AssemblerBase>::DivRiscV(Register src) 
   }
 
   Div<IntType>(src);
-  Jmp(*done);
+  JmpShort(*done);
 
   Bind(zero);
   Mov<IntType>(kAccumulatorRegister, int64_t{-1});
@@ -97,14 +97,14 @@ constexpr void MacroAssembler<Assembler, AssemblerBase>::RemRiscV(Register src) 
   Label* overflow = MakeLabel();
   Label* done = MakeLabel();
   Test<IntType>(src, src);
-  Jcc(Condition::kZero, *zero);
+  JccShort(Condition::kZero, *zero);
 
   if constexpr (std::is_signed_v<IntType>) {
     Label* do_idiv = MakeLabel();
     // If min int32_t/int64_t is divided by -1 then in risc-v the result is
     // the dividend, but x86 will raise an exception. Handle this case separately.
     Cmp<IntType>(src, int8_t{-1});
-    Jcc(Condition::kNotEqual, *do_idiv);
+    JccShort(Condition::kNotEqual, *do_idiv);
 
     if constexpr (std::is_same_v<IntType, int64_t>) {
       Cmp<IntType>(kAccumulatorRegister,
@@ -112,7 +112,7 @@ constexpr void MacroAssembler<Assembler, AssemblerBase>::RemRiscV(Register src) 
     } else {
       Cmp<IntType>(kAccumulatorRegister, std::numeric_limits<IntType>::min());
     }
-    Jcc(Condition::kEqual, *overflow);
+    JccShort(Condition::kEqual, *overflow);
 
     Bind(do_idiv);
     // If we are dealing with 8-bit signed case then we need to sign-extend %al into %ax.
@@ -145,13 +145,13 @@ constexpr void MacroAssembler<Assembler, AssemblerBase>::RemRiscV(Register src) 
     // %ah register. move %ah to %al
     TwoByte(uint16_t{0xe086});
   }
-  Jmp(*done);
+  JmpShort(*done);
 
   Bind(zero);
   if constexpr (!std::is_same_v<IntType, uint8_t> && !std::is_same_v<IntType, int8_t>) {
     Mov<IntType>(kDataRegister, kAccumulatorRegister);
   }
-  Jmp(*done);
+  JmpShort(*done);
 
   Bind(overflow);
   if constexpr (std::is_same_v<IntType, uint8_t> || std::is_same_v<IntType, int8_t>) {
