@@ -17,8 +17,9 @@
 #include <ucontext.h>
 
 #include <atomic>
+#include <bit>
 #include <csignal>
-#include <cstring>
+#include <cstddef>
 #include <memory>
 #include <mutex>
 
@@ -26,7 +27,6 @@
 #include <platform/bionic/reserved_signals.h>
 #endif
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
 #include "berberis/base/config_globals.h"
 #include "berberis/base/forever_alloc.h"
@@ -120,11 +120,11 @@ void SetHostRegIP(ucontext* ucontext, uintptr_t addr) {
 
 // Can be interrupted by another HandleHostSignal!
 void HandleHostSignal(int sig, siginfo_t* info, void* context) {
-  ucontext_t* ucontext = bit_cast<ucontext_t*>(context);
+  ucontext_t* ucontext = std::bit_cast<ucontext_t*>(context);
   TRACE("Handle host signal %s (%d) at pc=%p si_addr=%p",
         strsignal(sig),
         sig,
-        bit_cast<void*>(GetHostRegIP(ucontext)),
+        std::bit_cast<void*>(GetHostRegIP(ucontext)),
         info->si_addr);
 
   bool attached;
@@ -165,8 +165,8 @@ void HandleHostSignal(int sig, siginfo_t* info, void* context) {
       }
       SetHostRegIP(ucontext, recovery_addr);
       TRACE("guest signal handler suspended, run recovery for host pc %p at host pc %p",
-            bit_cast<void*>(addr),
-            bit_cast<void*>(recovery_addr));
+            std::bit_cast<void*>(addr),
+            std::bit_cast<void*>(recovery_addr));
     } else {
       // Failed to find recovery code.
       // Translated code should be arranged to continue till

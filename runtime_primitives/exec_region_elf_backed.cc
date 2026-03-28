@@ -21,7 +21,8 @@
 #include <dlfcn.h>
 #include <sys/mman.h>
 
-#include "berberis/base/bit_util.h"
+#include <bit>
+
 #include "berberis/base/fd.h"
 #include "berberis/base/mmap.h"
 
@@ -62,12 +63,12 @@ ExecRegion ExecRegionElfBackedFactory::Create(size_t size) {
   }
   void* region_start = dlsym(handle, kRegionStartSymbolName);
   CHECK(region_start != nullptr);
-  auto region_start_addr = bit_cast<uintptr_t>(region_start);
+  auto region_start_addr = std::bit_cast<uintptr_t>(region_start);
   CHECK(region_start_addr % kPageSize == 0);
 
   void* region_end = dlsym(handle, kRegionEndSymbolName);
   CHECK(region_end != nullptr);
-  auto region_end_addr = bit_cast<uintptr_t>(region_end);
+  auto region_end_addr = std::bit_cast<uintptr_t>(region_end);
   CHECK(region_end_addr % kPageSize == 0);
   size_t region_size = region_end_addr - region_start_addr;
   CHECK_GE(region_size, size);

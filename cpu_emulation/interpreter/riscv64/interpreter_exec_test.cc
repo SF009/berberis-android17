@@ -28,6 +28,7 @@
 #include <cstring>
 #include <memory>
 
+#include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
 #include "berberis/guest_os_primitives/guest_thread.h"
 #include "berberis/guest_state/guest_addr.h"

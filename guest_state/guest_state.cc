@@ -16,18 +16,19 @@
 
 #include "berberis/guest_state/guest_state_opaque.h"
 
+#include <atomic>   // std::memory_order_relaxed
+#include <cstddef>  // size_t
+#include <cstdint>  // uint32_t
+#include <cstring>  // memset
+#include <new>
+
+#include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
 #include "berberis/base/config_globals.h"
 #include "berberis/base/mmap.h"
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state.h"
 #include "native_bridge_support/guest_state_accessor/accessor.h"
-
-#include <atomic>   // std::memory_order_relaxed
-#include <cstddef>  // size_t
-#include <cstdint>  // uint_least8_t
-#include <cstring>  // memset
-#include <new>
 
 namespace berberis {
 

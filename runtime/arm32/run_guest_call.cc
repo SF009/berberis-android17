@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <cstring>
 
+#include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
 #include "berberis/calling_conventions/calling_conventions_arm.h"
 #include "berberis/guest_abi/guest_arguments.h"

@@ -17,6 +17,7 @@
 #ifndef BERBERIS_RUNTIME_PRIMITIVES_CODE_POOL_H_
 #define BERBERIS_RUNTIME_PRIMITIVES_CODE_POOL_H_
 
+#include <bit>
 #include <cstdint>
 #include <mutex>
 
@@ -118,7 +119,7 @@ class DataPool {
 
   template <typename T>
   T* Add(const T& v) {
-    return bit_cast<T*>(AddRaw(&v, sizeof(T)));
+    return std::bit_cast<T*>(AddRaw(&v, sizeof(T)));
   }
 
   void* AddRaw(const void* ptr, uint32_t size);

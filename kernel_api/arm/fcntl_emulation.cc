@@ -34,8 +34,7 @@
 #include <cstddef>
 #include <tuple>
 
-#include "berberis/base/bit_util.h"
-#include "berberis/base/logging.h"
+#include "berberis/base/checks.h"
 #include "berberis/base/struct_check.h"
 
 static_assert(F_GETLK64 == 12);

@@ -23,7 +23,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#include "berberis/base/bit_util.h"
+#include <bit>
+
 #include "berberis/base/checks.h"
 #include "berberis/base/raw_syscall.h"
 
@@ -31,7 +32,7 @@ namespace berberis {
 
 inline int CreateMemfdOrDie(const char* name) {
   // Use MFD_CLOEXEC to avoid leaking the file descriptor to child processes.
-  int fd = static_cast<int>(RawSyscall(__NR_memfd_create, bit_cast<long>(name), MFD_CLOEXEC));
+  int fd = static_cast<int>(RawSyscall(__NR_memfd_create, std::bit_cast<long>(name), MFD_CLOEXEC));
   CHECK(fd >= 0);
   return fd;
 }
@@ -43,10 +44,10 @@ inline void FtruncateOrDie(int fd, off64_t size) {
 }
 
 inline void WriteFullyOrDie(int fd, const void* data, size_t size) {
-  auto* curr = bit_cast<const uint8_t*>(data);
+  auto* curr = std::bit_cast<const uint8_t*>(data);
   auto* end = curr + size;
   while (curr < end) {
-    auto written = RawSyscall(__NR_write, fd, bit_cast<long>(curr), end - curr);
+    auto written = RawSyscall(__NR_write, fd, std::bit_cast<long>(curr), end - curr);
     // It is not clear if write syscall can return 0 when writing more than 0 bytes.
     if (written >= 0) {
       curr += written;

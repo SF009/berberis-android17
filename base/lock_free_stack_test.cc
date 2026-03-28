@@ -18,7 +18,9 @@
 
 #include <pthread.h>
 
-#include "berberis/base/bit_util.h"
+#include <bit>
+#include <cstddef>
+
 #include "berberis/base/lock_free_stack.h"
 
 namespace berberis {
@@ -122,7 +124,7 @@ void CheckStressPushPop(size_t idx) {
 }
 
 void* StressFunc(void* arg) {
-  CheckStressPushPop(bit_cast<size_t>(arg));
+  CheckStressPushPop(std::bit_cast<size_t>(arg));
   return nullptr;
 }
 
@@ -132,7 +134,7 @@ TEST(LockFreeStackTest, Stress) {
   pthread_t threads[kNumThreads];
 
   for (size_t i = 0; i < kNumThreads; ++i) {
-    int res = pthread_create(&threads[i], nullptr, StressFunc, bit_cast<void*>(i));
+    int res = pthread_create(&threads[i], nullptr, StressFunc, std::bit_cast<void*>(i));
     ASSERT_EQ(res, 0);
   }
 

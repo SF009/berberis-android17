@@ -19,6 +19,7 @@
 #include "berberis/base/arena_alloc.h"
 #include "berberis/base/arena_list.h"
 #include "berberis/base/arena_vector.h"
+#include "berberis/base/bit_util.h"
 #include "berberis/base/mmap.h"
 
 namespace berberis {

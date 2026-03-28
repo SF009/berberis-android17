@@ -23,6 +23,7 @@
 #include <type_traits>  // std::is_same
 
 #include "berberis/assembler/x86_32_or_x86_64.h"
+#include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
 
 namespace berberis {

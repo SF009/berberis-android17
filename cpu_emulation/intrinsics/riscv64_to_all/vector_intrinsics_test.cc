@@ -22,7 +22,6 @@
 #include <cstdint>
 #include <tuple>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/intrinsics/vector_intrinsics.h"
 
 namespace berberis::intrinsics {

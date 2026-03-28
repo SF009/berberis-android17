@@ -20,7 +20,6 @@
 #include <climits>
 #include <type_traits>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/intrinsics/macro_assembler.h"
 
 namespace berberis {

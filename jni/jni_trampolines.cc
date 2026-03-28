@@ -16,6 +16,7 @@
 
 #include "berberis/jni/jni_trampolines.h"
 
+#include <bit>
 #include <cstdint>
 #include <cstring>
 #include <deque>
@@ -240,7 +241,7 @@ void DoTrampoline_JNIEnv_GetJavaVM(HostCode /* callee */, ProcessState* state) {
   auto&& [ret] = GuestReturnReference<PFN_callee>(state);
   ret = (arg_env->functions)->GetJavaVM(arg_env, &host_vm);
   if (ret == 0) {
-    *bit_cast<GuestType<JavaVM*>*>(arg_vm) = ToGuestJavaVM(host_vm);
+    *std::bit_cast<GuestType<JavaVM*>*>(arg_vm) = ToGuestJavaVM(host_vm);
   }
 }
 

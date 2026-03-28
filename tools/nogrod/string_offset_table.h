@@ -17,17 +17,15 @@
 #ifndef NOGROD_STRING_OFFSET_TABLE_H_
 #define NOGROD_STRING_OFFSET_TABLE_H_
 
+#include <bit>
 #include <cstdint>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
 #include "dwarf_constants.h"
 
 #include "buffer.h"
 
 namespace nogrod {
-
-using berberis::bit_cast;
 
 // The class provides assess to .debug_str_offsets section of the elf-file
 class StringOffsetTable {
@@ -65,7 +63,7 @@ class StringOffsetTable {
  private:
   static DwarfFormat DetectDwarfFormat(const uint8_t* table, size_t size) {
     CHECK_GE(size, sizeof(uint32_t));
-    uint32_t size32 = *bit_cast<const uint32_t*>(table);
+    uint32_t size32 = *std::bit_cast<const uint32_t*>(table);
     if (size32 == uint32_t{0xffff'ffffU}) {
       return DwarfFormat::k64Bit;
     } else {
@@ -78,7 +76,7 @@ class StringOffsetTable {
     CHECK_EQ(offsets_base % sizeof(T), 0);
     uint64_t offset = offsets_base + index * sizeof(T);
     CHECK_LE(offset + sizeof(T), buffer_.size());
-    return *bit_cast<const T*>(buffer_.data() + offset);
+    return *std::bit_cast<const T*>(buffer_.data() + offset);
   }
 
   Buffer<uint8_t> buffer_;

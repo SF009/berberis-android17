@@ -25,7 +25,6 @@
 #include "berberis/intrinsics/common/intrinsics.h"
 
 #if !defined(__aarch64__)
-#include "berberis/base/bit_util.h"
 #include "berberis/base/type_traits.h"
 #include "berberis/intrinsics/intrinsics_float.h"  // Float32/Float64/ProcessNans
 #else

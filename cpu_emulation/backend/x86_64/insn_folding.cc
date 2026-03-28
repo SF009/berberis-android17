@@ -25,7 +25,6 @@
 
 #include "berberis/backend/code_emitter.h"  // for CodeEmitter::Condition
 #include "berberis/base/algorithm.h"
-#include "berberis/base/bit_util.h"
 #include "berberis/base/logging.h"
 
 namespace berberis::x86_64 {

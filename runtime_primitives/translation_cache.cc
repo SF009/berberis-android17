@@ -17,10 +17,10 @@
 #include "berberis/runtime_primitives/translation_cache.h"
 
 #include <atomic>
+#include <bit>
 #include <map>
 #include <mutex>  // std::lock_guard, std::mutex
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
 #include "berberis/base/config.h"
 #include "berberis/base/forever_alloc.h"
@@ -317,7 +317,7 @@ void TranslationCache::TriggerGearShift(GuestAddr target, size_t range) {
     if (entry.kind == GuestCodeEntry::Kind::kLiteTranslated) {
       // Lite translator may update the counter non-atomically for efficiency, but here
       // we can be more strict.
-      auto* counter = bit_cast<std::atomic<uint32_t>*>(&entry.invocation_counter);
+      auto* counter = std::bit_cast<std::atomic<uint32_t>*>(&entry.invocation_counter);
       *counter = config::kGearSwitchThreshold;
     }
   }

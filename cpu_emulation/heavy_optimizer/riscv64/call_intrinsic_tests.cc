@@ -23,7 +23,6 @@
 #include "berberis/backend/x86_64/code_gen.h"
 #include "berberis/backend/x86_64/machine_ir.h"
 #include "berberis/base/arena_alloc.h"
-#include "berberis/base/bit_util.h"
 #include "berberis/base/logging.h"
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state.h"

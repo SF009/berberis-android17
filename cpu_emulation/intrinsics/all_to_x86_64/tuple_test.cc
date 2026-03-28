@@ -20,7 +20,6 @@
 #include <optional>
 #include <tuple>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/intrinsics/simd_register.h"
 
 #pragma clang diagnostic push

@@ -19,7 +19,6 @@
 #include <bit>
 #include <cstddef>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/guest_abi/guest_params.h"
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state.h"

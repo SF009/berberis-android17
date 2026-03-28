@@ -17,9 +17,9 @@
 #ifndef BERBERIS_RUNTIME_PRIMITIVES_HOST_STACK_H_
 #define BERBERIS_RUNTIME_PRIMITIVES_HOST_STACK_H_
 
+#include <bit>
 #include <cstddef>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/mmap.h"
 
 namespace berberis {
@@ -33,9 +33,9 @@ constexpr size_t GetStackSizeForTranslation() {
 }
 
 inline void* GetStackTop(ScopedMmap* stack) {
-  uintptr_t stack_top = bit_cast<uintptr_t>(stack->data()) + stack->size() - 1;
+  uintptr_t stack_top = std::bit_cast<uintptr_t>(stack->data()) + stack->size() - 1;
   // We assume there is no ABI with stack alignment greater than 64.
-  return bit_cast<void*>(stack_top - (stack_top % 64));
+  return std::bit_cast<void*>(stack_top - (stack_top % 64));
 }
 
 }  // namespace berberis

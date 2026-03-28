@@ -29,7 +29,6 @@
 // #include "string.h"
 // #include <bit>  // std::bit_cast
 // #include <type_traits>  // std::is_same_v
-// #include "berberis/base/bit_util.h"
 // #include "berberis/guest_state/guest_addr.h"
 // #include "berberis/guest_state/guest_state.h"
 // #include "berberis/intrinsics/common/intrinsics_float.h"

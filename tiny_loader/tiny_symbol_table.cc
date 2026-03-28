@@ -17,12 +17,11 @@
 #include "berberis/tiny_loader/tiny_symbol_table.h"
 
 #include <elf.h>
-#include <inttypes.h>
 
-#include "berberis/base/bit_util.h"
+#include <bit>
+#include <cinttypes>
+
 #include "berberis/base/checks.h"
-
-using berberis::bit_cast;
 
 TinySymbolTable::TinySymbolTable()
     : load_bias_(0),
@@ -82,7 +81,7 @@ TinySymbolTable::TinySymbolTable(ElfAddr load_bias, ElfSym* symtab, const char* 
 
 uint32_t TinySymbolTable::GnuHash(const char* symbol_name) const {
   uint32_t h = 5381;
-  const uint8_t* name = bit_cast<const uint8_t*>(symbol_name);
+  const uint8_t* name = std::bit_cast<const uint8_t*>(symbol_name);
   while (*name != 0) {
     h += (h << 5) + *name++;  // h*33 + c = h + h * 32 + c = h + h << 5 + c
   }
@@ -91,7 +90,7 @@ uint32_t TinySymbolTable::GnuHash(const char* symbol_name) const {
 }
 
 uint32_t TinySymbolTable::SysvHash(const char* symbol_name) const {
-  const uint8_t* name = bit_cast<const uint8_t*>(symbol_name);
+  const uint8_t* name = std::bit_cast<const uint8_t*>(symbol_name);
   uint32_t h = 0;
   while (*name != 0) {
     h = (h << 4) + *name++;
@@ -143,7 +142,7 @@ void* TinySymbolTable::FindGnuSymbol(const char* name) const {
     ElfSym* s = symtab_ + n;
     if (((gnu_chain_[n] ^ hash) >> 1) == 0 && strcmp(GetString(s->st_name), name) == 0 &&
         is_symbol_global_and_defined(s)) {
-      return bit_cast<void*>(load_bias_ + s->st_value);
+      return std::bit_cast<void*>(load_bias_ + s->st_value);
     }
   } while ((gnu_chain_[n++] & 1) == 0);
 
@@ -160,7 +159,7 @@ void* TinySymbolTable::FindSysvSymbol(const char* name) const {
   for (uint32_t n = sysv_bucket_[hash % sysv_nbucket_]; n != 0; n = sysv_chain_[n]) {
     ElfSym* s = symtab_ + n;
     if (strcmp(GetString(s->st_name), name) == 0 && is_symbol_global_and_defined(s)) {
-      return bit_cast<void*>(load_bias_ + s->st_value);
+      return std::bit_cast<void*>(load_bias_ + s->st_value);
     }
   }
 
@@ -196,7 +195,7 @@ void TinySymbolTable::ForEachSysvSymbol(std::function<void(const ElfSym*)> symbo
 void TinySymbolTable::ForEachSymbol(
     std::function<void(const char*, void*, const ElfSym*)> symbol_handler) const {
   std::function<void(const ElfSym*)> handler = [&](const ElfSym* s) {
-    symbol_handler(GetString(s->st_name), bit_cast<void*>(load_bias_ + s->st_value), s);
+    symbol_handler(GetString(s->st_name), std::bit_cast<void*>(load_bias_ + s->st_value), s);
   };
 
   if (is_gnu_hash_) {

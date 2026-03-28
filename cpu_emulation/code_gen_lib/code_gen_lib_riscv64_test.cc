@@ -22,7 +22,6 @@
 #include "berberis/assembler/x86_64.h"
 
 #include "berberis/assembler/machine_code.h"
-#include "berberis/base/bit_util.h"
 #include "berberis/code_gen_lib/gen_adaptor.h"
 #include "berberis/code_gen_lib/gen_wrapper.h"
 #include "berberis/guest_abi/guest_arguments.h"
