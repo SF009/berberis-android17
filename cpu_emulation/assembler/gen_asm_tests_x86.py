@@ -209,6 +209,12 @@ sample_arc_arguments_x86_64 = {
 }
 
 MNEMO_TO_ASM = {
+    'CMOVW': 'CMOV',
+    'CMOVL': 'CMOV',
+    'CMOVQ': 'CMOV',
+    'JCC': 'J',
+    'JCCSHORT': 'J',
+    'JMPSHORT': 'JMP',
     'MOVDQ': 'MOVAPS',
     'MOVSXBL': 'MOVSBL',
     'MOVSXBQ': 'MOVSBQ',
@@ -219,6 +225,7 @@ MNEMO_TO_ASM = {
     'MOVZXBQ': 'MOVZBQ',
     'MOVZXWL': 'MOVZWL',
     'MOVZXWQ': 'MOVZWQ',
+    'SETCC': 'SET',
 }
 
 MNEMO_TO_ASM_MEM = {
@@ -298,12 +305,32 @@ def _gen_att_assembler(file, insns, fast_mode):
   for insn in insns:
     arc_name = insn['asm']
     insn_name = insn['mnemo']
+    if insn_name in MNEMO_TO_ASM:
+      insn_name = MNEMO_TO_ASM[insn_name]
+    if insn_name in MNEMO_TO_ASM_MEM and 'VecMem128' in str(insn['args']):
+      insn_name = MNEMO_TO_ASM_MEM[insn_name]
+    if arc_name.endswith('ByOne'):
+      assert insn_name.endswith('BYONE')
+      insn_name = insn_name[:-5]
+    elif arc_name.endswith('Imm2'):
+      assert insn_name.endswith('IMM2')
+      insn_name = insn_name[:-4]
+    elif arc_name.endswith('Imm8'):
+      assert insn_name.endswith('IMM8')
+      insn_name = insn_name[:-4]
+    elif arc_name.endswith('Accumulator'):
+      assert insn_name.endswith('ACCUMULATOR')
+      insn_name = insn_name[:-11]
+    elif arc_name.endswith('ByCl'):
+      assert insn_name.endswith('BYCL')
+      insn_name = insn_name[:-4]
+    elif arc_name.endswith('FromSt'):
+      assert insn_name.endswith('FROMST')
+      insn_name = insn_name[:-6]
+    elif arc_name.endswith('ToSt'):
+      assert insn_name.endswith('TOST')
+      insn_name = insn_name[:-4]
     if len(insn['args']) and insn['args'][0]['class'] == 'Cond':
-      if insn_name in ('CMOVW', 'CMOVL', 'CMOVQ'):
-        insn_name = 'CMOV'
-      else:
-        assert insn_name.endswith('CC')
-        insn_name = insn_name[:-2]
       for insn_suffix in ('O', 'NO', 'B', 'AE', 'E', 'NE', 'BE', 'A',
                           'S', 'NS', 'P', 'NP', 'L', 'GE', 'LE', 'G'):
         _gen_att_instruction_variants(
@@ -317,33 +344,8 @@ def _gen_att_assembler(file, insns, fast_mode):
 
 def _gen_att_instruction_variants(
     file, arc_name, insn_name, insn_args, fast_mode):
-  if insn_name in MNEMO_TO_ASM:
-    insn_name = MNEMO_TO_ASM[insn_name]
-  if insn_name in MNEMO_TO_ASM_MEM and 'VecMem128' in str(insn_args):
-    insn_name = MNEMO_TO_ASM_MEM[insn_name]
   insn_sample_args = []
   label_present = False
-  if arc_name.endswith('ByOne'):
-    assert insn_name.endswith('BYONE')
-    insn_name = insn_name[:-5]
-  elif arc_name.endswith('Imm2'):
-    assert insn_name.endswith('IMM2')
-    insn_name = insn_name[:-4]
-  elif arc_name.endswith('Imm8'):
-    assert insn_name.endswith('IMM8')
-    insn_name = insn_name[:-4]
-  elif arc_name.endswith('Accumulator'):
-    assert insn_name.endswith('ACCUMULATOR')
-    insn_name = insn_name[:-11]
-  elif arc_name.endswith('ByCl'):
-    assert insn_name.endswith('BYCL')
-    insn_name = insn_name[:-4]
-  elif arc_name.endswith('FromSt'):
-    assert insn_name.endswith('FROMST')
-    insn_name = insn_name[:-6]
-  elif arc_name.endswith('ToSt'):
-    assert insn_name.endswith('TOST')
-    insn_name = insn_name[:-4]
   for arg_nr, insn_arg in enumerate(insn_args):
     arg_class = insn_arg['class']
     if arg_class == 'Cond':
@@ -415,13 +417,15 @@ def _gen_att_instruction_variants(
     if label_present:
       print('.p2align 5, 0x90', file=file)
       print('0:', file=file)
-      for _ in range(256):
-        print('nop', file=file)
+      if not insn_name.endswith('SHORT'):
+        for _ in range(256):
+          print('nop', file=file)
       print('1:', file=file)
     print('%s %s' % (fixed_name, ', '.join(reversed(insn_args))), file=file)
     if label_present:
-      for _ in range(256):
-        print('nop', file=file)
+      if not insn_name.endswith('SHORT'):
+        for _ in range(256):
+          print('nop', file=file)
       print('2:', file=file)
 
 

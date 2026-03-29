@@ -336,6 +336,8 @@ class Assembler : public AssemblerBase {
   }
 
  protected:
+  // Short jump type.
+  static constexpr Jump::LabelType kShortJump = Jump::LabelType{2};
   // Helper types to distinguish argument types.
   struct Register8Bit {
     explicit constexpr Register8Bit(Register reg) : num_(reg.num_) {}
@@ -852,8 +854,8 @@ constexpr inline void Assembler<DerivedAssemblerType>::Call(const Label& label) 
     CallRel(offset);
   } else {
     Emit8(0xe8);
+    jumps_.push_back(Jump{&label, pc()});
     Emit32(0xffff'fffc);
-    jumps_.push_back(Jump{&label, pc() - 4, false});
   }
 }
 
@@ -873,8 +875,29 @@ constexpr inline void Assembler<DerivedAssemblerType>::Jcc(Condition cc, const L
     JccRel(cc, offset);
   } else {
     Emit16(0x800f | (static_cast<uint8_t>(cc) << 8));
+    jumps_.push_back(Jump{&label, pc()});
     Emit32(0xffff'fffc);
-    jumps_.push_back(Jump{&label, pc() - 4, false});
+  }
+}
+
+template <typename DerivedAssemblerType>
+constexpr inline void Assembler<DerivedAssemblerType>::JccShort(Condition cc, const Label& label) {
+  if (cc == Condition::kAlways) {
+    JmpShort(label);
+    return;
+  } else if (cc == Condition::kNever) {
+    return;
+  }
+  CHECK_EQ(0, static_cast<uint8_t>(cc) & 0xf0);
+  // TODO(eaeltsin): may be remove IsBound case?
+  // Then jcc by label will be of fixed size (5 bytes)
+  if (label.IsBound()) {
+    int32_t offset = label.position() - pc();
+    JccRel(cc, offset);
+  } else {
+    Emit8(0x70 | static_cast<uint8_t>(cc));
+    jumps_.push_back(Jump{&label, pc(), kShortJump});
+    Emit8(0xff);
   }
 }
 
@@ -887,8 +910,22 @@ constexpr inline void Assembler<DerivedAssemblerType>::Jmp(const Label& label) {
     JmpRel(offset);
   } else {
     Emit8(0xe9);
+    jumps_.push_back(Jump{&label, pc()});
     Emit32(0xffff'fffc);
-    jumps_.push_back(Jump{&label, pc() - 4, false});
+  }
+}
+
+template <typename DerivedAssemblerType>
+constexpr inline void Assembler<DerivedAssemblerType>::JmpShort(const Label& label) {
+  // TODO(eaeltsin): may be remove IsBound case?
+  // Then jmp by label will be of fixed size (5 bytes)
+  if (label.IsBound()) {
+    int32_t offset = label.position() - pc();
+    JmpRel(offset);
+  } else {
+    Emit8(0xeb);
+    jumps_.push_back(Jump{&label, pc(), kShortJump});
+    Emit8(0xff);
   }
 }
 
@@ -898,12 +935,23 @@ constexpr inline void Assembler<DerivedAssemblerType>::ResolveJumps() {
     const Label* label = jump.label;
     uint32_t pc = jump.pc;
     CHECK(label->IsBound());
-    if (jump.is_recovery) {
-      // Add pc -> label correspondence to recovery map.
-      AddRelocation(0, RelocationType::RelocRecoveryPoint, pc, label->position());
-    } else {
-      int32_t offset = label->position() - pc;
-      *AddrAs<int32_t>(pc) += offset;
+    switch (jump.label_type) {
+      case Jump::kRecovery:
+        // Add pc -> label correspondence to recovery map.
+        AddRelocation(0, RelocationType::RelocRecoveryPoint, pc, label->position());
+        break;
+      case kShortJump: {
+        int32_t offset = label->position() - pc;
+        int8_t adjusted_offset = *AddrAs<int8_t>(pc) + offset;
+        CHECK_EQ(*AddrAs<int8_t>(pc) + offset, adjusted_offset);
+        *AddrAs<int8_t>(pc) = adjusted_offset;
+        break;
+      }
+      default: {
+        int32_t offset = label->position() - pc;
+        *AddrAs<int32_t>(pc) += offset;
+        break;
+      }
     }
   }
 }

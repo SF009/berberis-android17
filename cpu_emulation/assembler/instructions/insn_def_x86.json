@@ -1668,7 +1668,7 @@
       ]
     },
     {
-      "stems": [ "Jcc" ],
+      "stems": [ "Jcc", "JccShort" ],
       "args": [
         { "class": "Cond" },
         { "class": "Label" },
@@ -1684,7 +1684,7 @@
       ]
     },
     {
-      "stems": [ "Jmp" ],
+      "stems": [ "Jmp", "JmpShort" ],
       "args": [
         { "class": "Label" }
       ]

@@ -95,7 +95,7 @@ class MacroAssembler : public Assembler {
     Label* l1 = MakeLabel();
     Movl(dst, src1);
     Bind(l1);
-    Jmp(*l1);
+    JmpShort(*l1);
   }
 
   // dst: DEF_EARLY_CLOBBER, src1: USE
@@ -104,7 +104,7 @@ class MacroAssembler : public Assembler {
     Cmpl(src1, src1);
     Bind(l1);
     Movl(dst, src1);
-    Jcc(Assembler::Condition::kZero, *l1);
+    JccShort(Assembler::Condition::kZero, *l1);
   }
 
   // dst: DEF, src1: USE, flags: DEF
@@ -115,19 +115,19 @@ class MacroAssembler : public Assembler {
 
     Movl(dst, src1);
 
-    Jcc(Assembler::Condition::kZero, *l1);
-    Jcc(Assembler::Condition::kZero, *l2);
+    JccShort(Assembler::Condition::kZero, *l1);
+    JccShort(Assembler::Condition::kZero, *l2);
 
     Addl(dst, dst);
-    Jmp(*done);
+    JmpShort(*done);
 
     Bind(l1);
     Addl(dst, dst);
-    Jmp(*done);
+    JmpShort(*done);
 
     Bind(l2);
     Addl(dst, dst);
-    Jmp(*done);
+    JmpShort(*done);
 
     Bind(done);
   }
@@ -140,20 +140,20 @@ class MacroAssembler : public Assembler {
 
     Movl(dst, src1);
 
-    Jcc(Assembler::Condition::kZero, *l1);
+    JccShort(Assembler::Condition::kZero, *l1);
     // Taking jump to l2 is the invalid path.
-    Jcc(Assembler::Condition::kZero, *l2);
+    JccShort(Assembler::Condition::kZero, *l2);
 
     Addl(dst, dst);
-    Jmp(*done);
+    JmpShort(*done);
 
     Bind(l1);
     Addl(dst, dst);
-    Jmp(*done);
+    JmpShort(*done);
 
     Bind(l2);
     Addl(dst, src1);
-    Jmp(*done);
+    JmpShort(*done);
 
     Bind(done);
   }
@@ -164,9 +164,9 @@ class MacroAssembler : public Assembler {
     Label* out = MakeLabel();
 
     Bind(l1);
-    Jcc(Assembler::Condition::kZero, *out);
+    JccShort(Assembler::Condition::kZero, *out);
     Pxor(dst, dst);
-    Jmp(*l1);
+    JmpShort(*l1);
 
     Bind(out);
     Pmov(dst, src1);
@@ -217,7 +217,7 @@ class MacroAssembler : public Assembler {
     Label* out = MakeLabel();
     Movl(dst1, src1);
     Movb(dst2, dst1);
-    Jcc(Assembler::Condition::kZero, *out);
+    JccShort(Assembler::Condition::kZero, *out);
     Addl(dst2, dst2);
     Bind(out);
   }
@@ -227,7 +227,7 @@ class MacroAssembler : public Assembler {
     Label* out = MakeLabel();
     Movl(dst, src1);
     Movb(kCounterRegister, src1);
-    Jcc(Assembler::Condition::kZero, *out);
+    JccShort(Assembler::Condition::kZero, *out);
     Addl(kCounterRegister, dst);
     Bind(out);
   }
