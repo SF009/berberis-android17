@@ -45,13 +45,6 @@ namespace berberis {
 
 void ConvertHostStatToGuestArch(const struct stat& host_stat, GuestAddr guest_stat);
 
-inline long RunGuestSyscall___NR_clone3(long arg_1, long arg_2) {
-  UNUSED(arg_1, arg_2);
-  TRACE("unimplemented syscall __NR_clone3");
-  errno = ENOSYS;
-  return -1;
-}
-
 inline long RunGuestSyscall___NR_close(long arg_1) {
   // TODO(b/346604197): Enable on arm64 once guest_os_primitives is ported.
 #ifdef __aarch64__

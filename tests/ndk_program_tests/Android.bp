@@ -74,6 +74,11 @@ cc_defaults {
         "-Wno-deprecated-declarations",
     ],
     srcs: [":berberis_ndk_program_tests_srcs"],
+    multilib: {
+        lib64: {
+            srcs: ["clone3_test.cc"],
+        },
+    },
     arch: {
         riscv64: {
             srcs: [":berberis_ndk_program_tests_riscv64_srcs"],
@@ -121,6 +126,11 @@ cc_defaults {
         "-Wno-deprecated-declarations",
     ],
     srcs: [":berberis_ndk_program_tests_srcs"],
+    multilib: {
+        lib64: {
+            srcs: ["clone3_test.cc"],
+        },
+    },
     arch: {
         arm: {
             srcs: [
