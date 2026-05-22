@@ -19,6 +19,9 @@
 #include <bit>
 #include <cerrno>
 #include <cstdlib>
+#include <cstring>
+
+#include <linux/sched.h>
 
 #include "berberis/base/config.h"
 #include "berberis/base/tracing.h"
@@ -30,6 +33,24 @@
 #include "sigevent_emulation.h"
 
 namespace berberis {
+
+namespace {
+
+struct Guest_clone_args {
+  uint64_t flags;
+  uint64_t pidfd;
+  uint64_t child_tid;
+  uint64_t parent_tid;
+  uint64_t exit_signal;
+  uint64_t stack;
+  uint64_t stack_size;
+  uint64_t tls;
+  uint64_t set_tid;
+  uint64_t set_tid_size;
+  uint64_t cgroup;
+};
+
+}  // namespace
 
 long RunGuestSyscall___NR_rt_sigaction(long sig_num_arg,
                                        long act_arg,
@@ -81,6 +102,94 @@ long RunGuestSyscall___NR_clone(long arg_1, long arg_2, long arg_3, long arg_4, 
   // NOTE: clone syscall argument ordering is architecture dependent.  This implementation assumes
   // CLONE_BACKWARDS is enabled (tls before child_tid), which is true for both x86 and RISC-V.
   return CloneGuestThread(GetCurrentGuestThread(), arg_1, arg_2, arg_3, arg_4, arg_5);
+}
+
+long RunGuestSyscall___NR_clone3(long arg_1, long arg_2) {
+  GuestAddr guest_args_addr = static_cast<GuestAddr>(arg_1);
+  size_t guest_args_size = static_cast<size_t>(arg_2);
+
+  if (guest_args_size == 0) {
+    errno = EINVAL;
+    return -1;
+  }
+
+  Guest_clone_args local_args = {};
+  size_t copy_size = std::min(guest_args_size, sizeof(Guest_clone_args));
+
+  if (guest_args_addr == 0) {
+    errno = EFAULT;
+    return -1;
+  }
+
+  // Copy to ensure that when copy_size is less than sizeof(Guest_clone_args)
+  // the rest of the struct is zero-initialized.
+  memcpy(&local_args, std::bit_cast<void*>(guest_args_addr), copy_size);
+
+  // If guest_args_size is larger than the size we know about, we must verify
+  // that all additional bytes are zero, following the extensible system call
+  // convention (copy_struct_from_user contract in the Linux kernel).
+  // If any extra byte is non-zero, it means the guest is trying to use a newer
+  // feature that we don't support, so we must fail with E2BIG.
+  if (guest_args_size > sizeof(Guest_clone_args)) {
+    const char* extra_bytes =
+        std::bit_cast<const char*>(guest_args_addr) + sizeof(Guest_clone_args);
+    size_t extra_size = guest_args_size - sizeof(Guest_clone_args);
+    for (size_t i = 0; i < extra_size; ++i) {
+      if (extra_bytes[i] != 0) {
+        errno = E2BIG;
+        return -1;
+      }
+    }
+  }
+
+  // Check for unsupported features.
+  if (local_args.set_tid != 0 || local_args.cgroup != 0) {
+    TRACE("clone3: set_tid or cgroup is not supported");
+    errno = ENOSYS;
+    return -1;
+  }
+
+  // Combine flags and exit_signal.
+  // CSIGNAL is 0xff on Linux.
+  int legacy_flags = (static_cast<int>(local_args.flags) & ~0xff) |
+                     (static_cast<int>(local_args.exit_signal) & 0xff);
+
+  // Calculate guest_stack_top.
+  GuestAddr guest_stack_top = 0;
+  if (local_args.stack != 0) {
+    guest_stack_top = local_args.stack + local_args.stack_size;
+  }
+
+  // Handle pidfd and parent_tid.
+  if ((local_args.flags & CLONE_PIDFD) && (local_args.flags & CLONE_PARENT_SETTID)) {
+    TRACE("clone3: both CLONE_PIDFD and CLONE_PARENT_SETTID are set, not supported");
+    errno = ENOSYS;
+    return -1;
+  }
+
+  GuestAddr parent_tid_arg = kNullGuestAddr;
+  if (local_args.flags & CLONE_PIDFD) {
+    parent_tid_arg = local_args.pidfd;
+  } else if (local_args.flags & CLONE_PARENT_SETTID) {
+    parent_tid_arg = local_args.parent_tid;
+  }
+
+  GuestAddr child_tid_arg = kNullGuestAddr;
+  if (local_args.flags & CLONE_CHILD_SETTID) {
+    child_tid_arg = local_args.child_tid;
+  }
+
+  GuestAddr tls_arg = kNullGuestAddr;
+  if (local_args.flags & CLONE_SETTLS) {
+    tls_arg = local_args.tls;
+  }
+
+  return CloneGuestThread(GetCurrentGuestThread(),
+                          legacy_flags,
+                          guest_stack_top,
+                          parent_tid_arg,
+                          tls_arg,
+                          child_tid_arg);
 }
 
 long RunGuestSyscall___NR_mmap(long arg_1,
