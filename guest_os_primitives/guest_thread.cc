@@ -17,6 +17,7 @@
 #include "berberis/guest_os_primitives/guest_thread.h"
 
 #include <sys/mman.h>  // mprotect
+#include <bit>
 
 #if defined(__BIONIC__)
 #include "private/bionic_constants.h"
@@ -93,14 +94,21 @@ GuestThread* GuestThread::CreateClone(const GuestThread* parent, bool share_sign
     return nullptr;
   }
 
-  // TODO(156271630): alloc host stack guard?
-  thread->host_stack_ = MmapOrDie(GetStackSizeForTranslation());
+  // Reserve 2 extra pages for bottom and top guard pages.
+  size_t host_stack_size = GetStackSizeForTranslation() + 2 * kPageSize;
+  thread->host_stack_ = MmapOrDie(host_stack_size);
   if (thread->host_stack_ == MAP_FAILED) {
     TRACE("failed to allocate host stack!");
     thread->host_stack_ = nullptr;
     Destroy(thread);
     return nullptr;
   }
+  // Bottom guard page.
+  MprotectOrDie(thread->host_stack_, kPageSize, PROT_NONE);
+  // Top guard page.
+  void* top_guard_addr =
+      std::bit_cast<char*>(thread->host_stack_) + kPageSize + GetStackSizeForTranslation();
+  MprotectOrDie(top_guard_addr, kPageSize, PROT_NONE);
 
   SetCPUState(*thread->state(), GetCPUState(*parent->state()));
   SetTlsAddr(*thread->state(), GetTlsAddr(*parent->state()));
@@ -170,7 +178,7 @@ void GuestThread::Destroy(GuestThread* thread) {
 
   if (thread->host_stack_) {
     // This happens only on cleanup after failed creation.
-    MunmapOrDie(thread->host_stack_, GetStackSizeForTranslation());
+    MunmapOrDie(thread->host_stack_, GetStackSizeForTranslation() + 2 * kPageSize);
   }
   if (thread->mmap_size_) {
     MunmapOrDie(thread->stack_, thread->mmap_size_);
@@ -197,7 +205,7 @@ void GuestThread::Exit(GuestThread* thread, int status) {
   Destroy(thread);
 
   if (host_stack) {
-    berberis_UnmapAndExit(host_stack, GetStackSizeForTranslation(), status);
+    berberis_UnmapAndExit(host_stack, GetStackSizeForTranslation() + 2 * kPageSize, status);
   } else {
     syscall(__NR_exit, status);
   }
@@ -348,8 +356,7 @@ void GuestThread::ConfigStaticTls(const NativeBridgeStaticTlsConfig* config) {
 
 void* GuestThread::GetHostStackTop() const {
   CHECK(host_stack_);
-  auto top = reinterpret_cast<uintptr_t>(host_stack_) + GetStackSizeForTranslation();
-  return reinterpret_cast<void*>(top);
+  return std::bit_cast<char*>(host_stack_) + kPageSize + GetStackSizeForTranslation();
 }
 
 }  // namespace berberis
