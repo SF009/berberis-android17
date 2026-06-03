@@ -26,10 +26,13 @@ namespace berberis {
 
 constexpr size_t GetStackSizeForTranslation() {
   // Ensure thread stack is big enough for translation.
+  // We use 1 MB which is the standard default stack size for Bionic threads
+  // (PTHREAD_STACK_SIZE_DEFAULT), ensuring we don't overflow even with large
+  // stack frames under unoptimized builds.
   // TODO(khim): review this when decoder gets refactored or when translation
   // goes to a separate thread.
   // TODO(levarum): Maybe better solution is required (b/30124680).
-  return AlignUpPageSize(16u * 1024u);
+  return AlignUpPageSize(1u * 1024u * 1024u);
 }
 
 inline void* GetStackTop(ScopedMmap* stack) {
