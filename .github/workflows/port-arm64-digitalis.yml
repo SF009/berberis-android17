@@ -10,9 +10,9 @@ permissions:
 
 jobs:
   build:
-    # Do not require a custom `aosp17` label; a persistent Linux x86_64
-    # self-hosted runner with an existing AOSP checkout is sufficient.
-    runs-on: [self-hosted, linux, x86_64]
+    # Only the generic self-hosted label is required. AOSP_TOP must be set on
+    # the runner environment and point to the existing Android 17 checkout.
+    runs-on: self-hosted
     timeout-minutes: 180
 
     steps:
@@ -29,9 +29,6 @@ jobs:
           DIGITALIS_REF: 6f199667f039ff5f33c1d80fe52b59300ec1b663
         run: |
           set -euo pipefail
-
-          # AOSP_TOP should already be exported by the persistent self-hosted
-          # runner. This avoids passing a path as a workflow input on every run.
           : "${AOSP_TOP:?AOSP_TOP must be configured in the runner environment}"
           test -f "$AOSP_TOP/build/envsetup.sh"
           test -d "$AOSP_TOP/.repo"
@@ -39,8 +36,6 @@ jobs:
           manifest_rev="$(git -C "$AOSP_TOP/.repo/manifests" show HEAD:default.xml | sed -n 's/.*default revision="\([^"]*\)".*/\1/p' | head -n1)"
           test "$manifest_rev" = android17-release
 
-          # Persistent local mirror: first run downloads it; later runs only
-          # perform a tiny fetch/checkout of the pinned revision.
           cache="${DIGITALIS_CACHE:-${RUNNER_TOOL_CACHE:-$HOME/.cache}/berberis/digitalis}"
           mkdir -p "$(dirname "$cache")"
           if [[ ! -d "$cache/.git" ]]; then
@@ -57,14 +52,9 @@ jobs:
 
           python3 tools/materialize_arm64_build.py "$imported"
 
-          test -f "$imported/Android.bp"
-          test -f "$imported/enable_arm64_to_x86_64.mk"
-          test -f "$imported/berberis_config.mk"
-          test -f "$imported/native_bridge/arm64/native_bridge.cc"
-          test -f "$imported/decoder/arm64_test/decoder_test.cc"
-          test -f "$imported/interpreter/arm64/interpreter-main.cc"
-          test -f "$imported/lite_translator/arm64_to_x86_64/lite_translator.cc"
-          test -f "$imported/code_gen_lib/arm64_to_x86_64/gen_wrapper.cc"
+          for f in Android.bp enable_arm64_to_x86_64.mk berberis_config.mk native_bridge/arm64/native_bridge.cc decoder/arm64_test/decoder_test.cc interpreter/arm64/interpreter-main.cc lite_translator/arm64_to_x86_64/lite_translator.cc code_gen_lib/arm64_to_x86_64/gen_wrapper.cc; do
+            test -e "$imported/$f"
+          done
 
           dst="$AOSP_TOP/frameworks/libs/binary_translation"
           rm -rf "$dst"
@@ -82,7 +72,6 @@ jobs:
           cd "$AOSP_TOP"
           source build/envsetup.sh
           lunch "${TARGET_PRODUCT}-${TARGET_BUILD_VARIANT}"
-
           export SOONG_CONFIG_berberis_translation_arch=arm64_to_x86_64
           export NINJA_STATUS='[%f/%t %e] '
 
@@ -96,10 +85,8 @@ jobs:
           out_dir="${OUT_DIR:-$AOSP_TOP/out}"
           so="$(find "$out_dir" -type f -name 'libberberis_arm64.so' -print -quit)"
           test -n "$so"
-
           file "$so"
           readelf -h "$so" | grep -q 'Machine:.*Advanced Micro Devices X86-64'
           ! nm -C "$so" 2>/dev/null | grep -Eiq 'riscv64|RISCV|RiscV'
-
           echo "ARM64 native translation build: PASS"
           echo "Output: $so"
