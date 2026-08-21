@@ -13,10 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     env:
-      AOSP_TOP: ${{ runner.temp }}/aosp
+      AOSP_TOP: ${{ runner.temp }}/digitalis
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      DIGITALIS_BT_REF: 6f199667f039ff5f33c1d80fe52b59300ec1b663
       TARGET_PRODUCT: sdk_phone64_x86_64_digitalis-trunk_staging
       TARGET_BUILD_VARIANT: userdebug
 
@@ -27,7 +26,7 @@ jobs:
           ref: arm64-native-translation
           fetch-depth: 1
 
-      - name: Bootstrap partial Digitalis Android tree
+      - name: Sync minimal Digitalis build tree
         shell: bash
         run: |
           set -euo pipefail
@@ -39,63 +38,56 @@ jobs:
           mkdir -p "$AOSP_TOP"
           cd "$AOSP_TOP"
 
-          if ! command -v repo >/dev/null 2>&1; then
-            mkdir -p "$HOME/bin"
-            curl -fsSL https://storage.googleapis.com/git-repo-downloads/repo -o "$HOME/bin/repo"
-            chmod +x "$HOME/bin/repo"
-            export PATH="$HOME/bin:$PATH"
-          else
-            export PATH="$(dirname "$(command -v repo)"):$PATH"
-          fi
+          mkdir -p "$HOME/bin"
+          curl -fsSL https://storage.googleapis.com/git-repo-downloads/repo -o "$HOME/bin/repo"
+          chmod +x "$HOME/bin/repo"
+          export PATH="$HOME/bin:$PATH"
 
           repo init \
             -u "$DIGITALIS_MANIFEST" \
             -b "$DIGITALIS_REF" \
             --partial-clone \
-            --clone-filter=blob:limit=10M \
+            --clone-filter=blob:limit=5M \
             --no-use-superproject
 
-          # This is a partial Digitalis Android checkout, not a full AOSP tree.
-          # Only projects declared by the Digitalis manifest are synced.
-          repo sync -c -j"$(nproc)" \
+          # Only the normal manifest projects and PDK/build dependencies.
+          # This deliberately avoids the full Android manifest.
+          repo sync \
+            -c \
+            -g default,pdk \
+            -j4 \
             --no-tags \
             --no-clone-bundle \
-            --force-sync
+            --optimized-fetch \
+            --prune
 
-          test -f "$AOSP_TOP/build/envsetup.sh"
-          test -d "$AOSP_TOP/build/soong"
-          test -d "$AOSP_TOP/prebuilts/clang"
+          test -f build/envsetup.sh
+          test -d build/soong
+          test -d prebuilts/clang
+          test -d frameworks/libs/binary_translation
 
-      - name: Overlay pinned ARM64 Berberis implementation
+      - name: Overlay ARM64 branch into Digitalis tree
         shell: bash
-        env:
-          DIGITALIS_REPO: https://github.com/DigitalisX64/platform_frameworks_libs_binary_translation.git
         run: |
           set -euo pipefail
-
-          cache="$RUNNER_TEMP/digitalis-bt"
-          git clone --filter=blob:none --no-checkout "$DIGITALIS_REPO" "$cache"
-          git -C "$cache" fetch --depth=1 origin "$DIGITALIS_BT_REF"
-          git -C "$cache" checkout --detach --force "$DIGITALIS_BT_REF"
-
-          python3 tools/materialize_arm64_build.py "$cache"
-
           dst="$AOSP_TOP/frameworks/libs/binary_translation"
-          rm -rf "$dst"
-          mkdir -p "$(dirname "$dst")"
-          rsync -a --delete --exclude='.git/' "$cache/" "$dst/"
+          src="$GITHUB_WORKSPACE"
 
-          for f in \
-            "$dst/Android.bp" \
-            "$dst/enable_arm64_to_x86_64.mk" \
-            "$dst/berberis_config.mk" \
-            "$dst/native_bridge/arm64/native_bridge.cc" \
-            "$dst/decoder/arm64_test/decoder_test.cc" \
-            "$dst/interpreter/arm64/interpreter-main.cc" \
-            "$dst/lite_translator/arm64_to_x86_64/lite_translator.cc" \
-            "$dst/code_gen_lib/arm64_to_x86_64/gen_wrapper.cc"; do
-            test -e "$f"
-          done
+          # Keep the Android build tree supplied by the Digitalis manifest, but
+          # replace only binary_translation with this branch.
+          rsync -a --delete \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            "$src/" "$dst/"
+
+          test -f "$dst/Android.bp"
+          test -f "$dst/enable_arm64_to_x86_64.mk"
+          test -f "$dst/berberis_config.mk"
+          test -f "$dst/native_bridge/arm64/native_bridge.cc"
+          test -f "$dst/decoder/arm64_test/decoder_test.cc"
+          test -f "$dst/interpreter/arm64/interpreter-main.cc"
+          test -f "$dst/lite_translator/arm64_to_x86_64/lite_translator.cc"
+          test -f "$dst/code_gen_lib/arm64_to_x86_64/gen_wrapper.cc"
 
       - name: Build once
         shell: bash
@@ -107,8 +99,8 @@ jobs:
           export SOONG_CONFIG_berberis_translation_arch=arm64_to_x86_64
           export NINJA_STATUS='[%f/%t %e] '
 
-          # The only compiler/build invocation in this workflow.
-          m -j"$(nproc)" \
+          # The only build invocation.
+          m -j4 \
             libberberis_arm64 \
             libberberis_decoder_arm64_unit_tests \
             libberberis_interpreter_arm64_unit_tests \
@@ -117,8 +109,10 @@ jobs:
           out_dir="${OUT_DIR:-$AOSP_TOP/out}"
           so="$(find "$out_dir" -type f -name 'libberberis_arm64.so' -print -quit)"
           test -n "$so"
+
           file "$so"
           readelf -h "$so" | grep -q 'Machine:.*Advanced Micro Devices X86-64'
           ! nm -C "$so" 2>/dev/null | grep -Eiq 'riscv64|RISCV|RiscV'
+
           echo "ARM64 native translation build: PASS"
           echo "Output: $so"
