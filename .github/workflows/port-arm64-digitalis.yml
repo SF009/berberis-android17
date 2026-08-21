@@ -30,6 +30,8 @@ jobs:
       AOSP_TOP: ${{ inputs.aosp_top }}
       TARGET_PRODUCT: ${{ inputs.product }}
       TARGET_BUILD_VARIANT: ${{ inputs.variant }}
+      DIGITALIS_REPO: https://github.com/DigitalisX64/platform_frameworks_libs_binary_translation.git
+      DIGITALIS_REF: 6f199667f039ff5f33c1d80fe52b59300ec1b663
 
     steps:
       - name: Checkout ARM64 native translation
@@ -38,7 +40,7 @@ jobs:
           ref: arm64-native-translation
           fetch-depth: 1
 
-      - name: Build ARM64 guest -> x86_64 host once
+      - name: Materialize the pinned ARM64 implementation
         shell: bash
         run: |
           set -euo pipefail
@@ -47,40 +49,45 @@ jobs:
           test -f "$AOSP_TOP/build/envsetup.sh"
           test -d "$AOSP_TOP/.repo"
 
-          # Require Android 17 release manifest.
           manifest_rev="$(git -C "$AOSP_TOP/.repo/manifests" show HEAD:default.xml | sed -n 's/.*default revision="\([^"]*\)".*/\1/p' | head -n1)"
           test "$manifest_rev" = android17-release
 
-          # Overlay exactly this checkout. No generated commits and no secondary
-          # workflow are created, so one push results in one build cycle.
+          imported="$RUNNER_TEMP/berberis-arm64"
+          rm -rf "$imported"
+          git clone --filter=blob:none --no-checkout "$DIGITALIS_REPO" "$imported"
+          git -C "$imported" fetch --depth=1 origin "$DIGITALIS_REF"
+          git -C "$imported" checkout --detach "$DIGITALIS_REF"
+
+          python3 tools/materialize_arm64_build.py "$imported"
+
+          test -f "$imported/Android.bp"
+          test -f "$imported/enable_arm64_to_x86_64.mk"
+          test -f "$imported/berberis_config.mk"
+          test -f "$imported/native_bridge/arm64/native_bridge.cc"
+          test -f "$imported/decoder/arm64_test/decoder_test.cc"
+          test -f "$imported/interpreter/arm64/interpreter-main.cc"
+          test -f "$imported/lite_translator/arm64_to_x86_64/lite_translator.cc"
+          test -f "$imported/code_gen_lib/arm64_to_x86_64/gen_wrapper.cc"
+
           dst="$AOSP_TOP/frameworks/libs/binary_translation"
           rm -rf "$dst"
           mkdir -p "$(dirname "$dst")"
-          rsync -a --delete --exclude='.git/' ./ "$dst/"
+          rsync -a --delete --exclude='.git/' "$imported/" "$dst/"
 
-          cd "$dst"
+      - name: Build ARM64 guest -> x86_64 host once
+        shell: bash
+        run: |
+          set -euo pipefail
 
-          test -f Android.bp
-          test -f berberis_config.mk
-          test -f enable_arm64_to_x86_64.mk
-          test -f native_bridge/arm64/native_bridge.cc
-          test -d decoder/arm64_test
-          test -d interpreter/arm64
-          test -d lite_translator/arm64_to_x86_64
-          test -d backend
-
-          grep -q 'libberberis_arm64.so' enable_arm64_to_x86_64.mk
-          grep -q 'ro.dalvik.vm.isa.arm64=x86_64' enable_arm64_to_x86_64.mk
-          ! grep -RInE '^[^#]*riscv64|^[^#]*RISCV64' --include='Android.bp' --include='*.mk' .
-
-          cd "$AOSP_TOP"
-          source build/envsetup.sh
+          cd "$AOSP_TOP/frameworks/libs/binary_translation"
+          source "$AOSP_TOP/build/envsetup.sh"
           lunch "${TARGET_PRODUCT}-${TARGET_BUILD_VARIANT}"
 
           export SOONG_CONFIG_berberis_translation_arch=arm64_to_x86_64
 
           # The only build invocation in this workflow.
-          m libberberis_arm64 \
+          m \
+            libberberis_arm64 \
             libberberis_decoder_arm64_unit_tests \
             libberberis_interpreter_arm64_unit_tests \
             libberberis_lite_translator_arm64_to_x86_64_unit_tests
