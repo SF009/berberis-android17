@@ -2,16 +2,18 @@ name: ARM64 Native Translation Build
 
 on:
   push:
-    branches: [arm64-native-translation]
+    branches:
+      - arm64-native-translation
   pull_request:
-    branches: [arm64-native-translation]
+    branches:
+      - arm64-native-translation
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: arm64-native-translation-build-${{ github.ref }}
+  group: arm64-native-translation-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -29,22 +31,21 @@ jobs:
       - name: Checkout ARM64 native translation
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
           fetch-depth: 1
 
-      - name: Sync minimal Digitalis build tree
+      - name: Build ARM64 translation
         shell: bash
         run: |
           set -euo pipefail
+
           sudo apt-get update -qq
           sudo apt-get install -y -qq git-lfs rsync python3
           git lfs install --skip-repo
 
           rm -rf "$AOSP_TOP"
-          mkdir -p "$AOSP_TOP"
+          mkdir -p "$AOSP_TOP" "$HOME/bin"
           cd "$AOSP_TOP"
 
-          mkdir -p "$HOME/bin"
           curl -fsSL https://storage.googleapis.com/git-repo-downloads/repo -o "$HOME/bin/repo"
           chmod +x "$HOME/bin/repo"
           export PATH="$HOME/bin:$PATH"
@@ -70,10 +71,6 @@ jobs:
           test -d prebuilts/clang
           test -d frameworks/libs/binary_translation
 
-      - name: Overlay ARM64 branch into Digitalis tree
-        shell: bash
-        run: |
-          set -euo pipefail
           dst="$AOSP_TOP/frameworks/libs/binary_translation"
           src="$GITHUB_WORKSPACE"
 
@@ -94,10 +91,6 @@ jobs:
             test -e "$f"
           done
 
-      - name: Build once
-        shell: bash
-        run: |
-          set -euo pipefail
           cd "$AOSP_TOP"
           source build/envsetup.sh
           lunch "${TARGET_PRODUCT}-${TARGET_BUILD_VARIANT}"
