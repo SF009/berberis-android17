@@ -1,0 +1,169 @@
+name: Port Digitalis ARM64 backend
+
+on:
+  push:
+    branches: [arm64-to-x86_64]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  port:
+    if: ${{ !contains(github.event.head_commit.message || '', '[digitalis-arm64-port]') }}
+    runs-on: ubuntu-24.04
+    env:
+      DIGITALIS_REPO: https://github.com/DigitalisX64/platform_frameworks_libs_binary_translation.git
+      DIGITALIS_REF: android-latest-release
+    steps:
+      - name: Checkout target
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: arm64-to-x86_64
+          persist-credentials: true
+
+      - name: Fetch Digitalis
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout "$DIGITALIS_REPO" "$RUNNER_TEMP/digitalis"
+          git -C "$RUNNER_TEMP/digitalis" fetch --depth=1 origin "$DIGITALIS_REF"
+          git -C "$RUNNER_TEMP/digitalis" checkout --detach FETCH_HEAD
+
+      - name: Port ARM64 guest backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          D="$RUNNER_TEMP/digitalis"
+
+          # Digitalis is based on the pre-reorg Berberis tree. Android 17 moved
+          # the CPU-emulation families under cpu_emulation/. Copy ARM64-only
+          # subtrees into their corresponding Android 17 locations and leave
+          # unrelated upstream code untouched.
+          copy_tree() {
+            local src="$1" dst="$2"
+            if [ -d "$D/$src" ]; then
+              mkdir -p "$dst"
+              rsync -a --delete "$D/$src/" "$dst/"
+            fi
+          }
+
+          copy_tree backend/arm64_to_x86_64 cpu_emulation/backend/arm64_to_x86_64
+          copy_tree code_gen_lib/arm64_to_x86_64 cpu_emulation/code_gen_lib/arm64_to_x86_64
+          copy_tree decoder/arm64 cpu_emulation/decoder/arm64
+          copy_tree heavy_optimizer/arm64 cpu_emulation/heavy_optimizer/arm64
+          copy_tree interpreter/arm64 cpu_emulation/interpreter/arm64
+          copy_tree lite_translator/arm64_to_x86_64 cpu_emulation/lite_translator/arm64_to_x86_64
+          copy_tree insn_tests/arm64 cpu_emulation/insn_tests/arm64
+          copy_tree intrinsics/arm64_to_all cpu_emulation/intrinsics/arm64_to_all
+
+          copy_tree guest_os_primitives/arm64 guest_os_primitives/arm64
+          copy_tree guest_state/arm64 guest_state/arm64
+          copy_tree kernel_api/arm64 kernel_api/arm64
+          copy_tree runtime/arm64 runtime/arm64
+
+          # Refresh ARM64-only loader/native-bridge helpers when Digitalis has
+          # newer versions; these are guest-specific and do not replace RISC-V.
+          copy_tree guest_loader/arm64 guest_loader/arm64
+          copy_tree native_bridge/arm64 native_bridge/arm64
+
+          # ARM64-specific prebuilt files and runner sources.
+          mkdir -p prebuilt/system/etc/binfmt_misc
+          for f in arm64_dyn arm64_exe; do
+            [ -f "$D/prebuilt/system/etc/binfmt_misc/$f" ] && cp "$D/prebuilt/system/etc/binfmt_misc/$f" prebuilt/system/etc/binfmt_misc/"$f"
+          done
+          if [ -f "$D/prebuilt/system/etc/ld.config.arm64.txt" ]; then
+            cp "$D/prebuilt/system/etc/ld.config.arm64.txt" prebuilt/system/etc/ld.config.arm64.txt
+          fi
+
+          # Bring over ARM64 product/enable file as a starting point. The
+          # Android 17 root config is merged separately below.
+          if [ -f "$D/enable_arm64_to_x86_64.mk" ]; then
+            cp "$D/enable_arm64_to_x86_64.mk" enable_arm64_to_x86_64.mk
+          fi
+
+          # Normalize old include/default spellings used by Digitalis into
+          # the Android 17 multiarch names already present in this fork.
+          find cpu_emulation guest_os_primitives guest_state kernel_api runtime guest_loader native_bridge prebuilt -type f \( -name 'Android.bp' -o -name '*.cc' -o -name '*.h' -o -name '*.inc' \) -print0 | \
+            xargs -0 -r sed -i \
+              -e 's/berberis_defaults_64/berberis_guest_agnostic_defaults_64/g' \
+              -e 's/berberis_defaults/berberis_guest_agnostic_defaults/g'
+
+      - name: Merge ARM64 product configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          D="$RUNNER_TEMP/digitalis"
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('.')
+          target = root / 'berberis_config.mk'
+          src = Path(__import__('os').environ['RUNNER_TEMP']) / 'digitalis' / 'berberis_config.mk'
+          t = target.read_text()
+          s = src.read_text()
+
+          def block(text, start, end=None):
+              i = text.find(start)
+              if i < 0:
+                  return ''
+              if end is None:
+                  return text[i:]
+              j = text.find(end, i)
+              return text[i:j if j >= 0 else len(text)]
+
+          arm = block(s, 'BERBERIS_PRODUCT_PACKAGES_ARM64_TO_X86_64 :=', 'BERBERIS_DISTRIBUTION_ARTIFACTS_RISCV64 :=')
+          dist = block(s, 'BERBERIS_DISTRIBUTION_ARTIFACTS_ARM64 :=', 'BERBERIS_DISTRIBUTION_ARTIFACTS_RISCV64 :=')
+
+          if arm and 'BERBERIS_PRODUCT_PACKAGES_ARM64_TO_X86_64 :=' not in t:
+              anchor = 'BERBERIS_PRODUCT_PACKAGES_RISCV64_TO_X86_64 += $(NATIVE_BRIDGE_PRODUCT_PACKAGES_RISCV64_READY)\n'
+              t = t.replace(anchor, anchor + '\n# Digitalis ARM64 guest -> x86_64 host\n' + arm + '\n' + dist + '\n', 1)
+
+          target.write_text(t)
+          PY
+
+      - name: Merge ARM64 Soong configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Add the ARM64 translation architecture switch and the Android-17
+          # native-bridge product target without replacing the current RISC-V path.
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('Android.bp')
+          t = p.read_text()
+          if '"arm64_to_x86_64"' not in t:
+              t = t.replace('"riscv64_to_x86_64", // BUILD_BERBERIS_RISCV64_TO_X86_64',
+                            '"riscv64_to_x86_64", // BUILD_BERBERIS_RISCV64_TO_X86_64\n        "arm64_to_x86_64", // BUILD_BERBERIS_ARM64_TO_X86_64')
+          p.write_text(t)
+          PY
+
+      - name: Validate patch structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f enable_arm64_to_x86_64.mk
+          test -d cpu_emulation/lite_translator/arm64_to_x86_64
+          test -d cpu_emulation/interpreter/arm64
+          test -d cpu_emulation/decoder/arm64
+          test -d cpu_emulation/backend/arm64_to_x86_64
+          test -d cpu_emulation/heavy_optimizer/arm64
+          test -f berberis_config.mk
+          grep -q 'arm64_to_x86_64' enable_arm64_to_x86_64.mk || true
+          git diff --check
+
+      - name: Commit port
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .
+          if git diff --cached --quiet; then
+            echo 'No changes produced.'
+            exit 0
+          fi
+          git commit -m 'Digitalis: port ARM64 guest -> x86_64 host backend [digitalis-arm64-port]'
+          git push origin HEAD:arm64-to-x86_64
