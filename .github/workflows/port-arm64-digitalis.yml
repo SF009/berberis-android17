@@ -21,25 +21,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     env:
+      AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
       TARGET_PRODUCT: sdk_phone64_x86_64_digitalis-trunk_staging
       TARGET_BUILD_VARIANT: userdebug
 
     steps:
-      - name: Checkout ARM64 native translation
+      - name: Checkout port configuration
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: Set build paths
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "AOSP_TOP=$RUNNER_TEMP/digitalis" >> "$GITHUB_ENV"
-          echo "REPO_BIN=$RUNNER_TEMP/bin" >> "$GITHUB_ENV"
-
-      - name: Build ARM64 translation
+      - name: Build pinned Digitalis ARM64 translation
         shell: bash
         run: |
           set -euo pipefail
@@ -48,18 +42,18 @@ jobs:
           sudo apt-get install -y -qq git-lfs rsync python3
           git lfs install --skip-repo
 
-          rm -rf "$AOSP_TOP"
-          mkdir -p "$AOSP_TOP" "$REPO_BIN"
-          cd "$AOSP_TOP"
-
-          # Digitalis manifest declares GitHub projects with SSH-style remotes.
-          # ubuntu-latest has no GitHub SSH key, so rewrite them to HTTPS.
+          # Digitalis manifest uses git@github.com URLs for its GitHub remotes.
+          # Hosted runners do not have SSH keys, so force HTTPS for all GitHub remotes.
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
 
-          curl -fsSL https://storage.googleapis.com/git-repo-downloads/repo -o "$REPO_BIN/repo"
-          chmod +x "$REPO_BIN/repo"
-          export PATH="$REPO_BIN:$PATH"
+          rm -rf "$AOSP_TOP"
+          mkdir -p "$AOSP_TOP" "$RUNNER_TEMP/bin"
+          cd "$AOSP_TOP"
+
+          curl -fsSL https://storage.googleapis.com/git-repo-downloads/repo -o "$RUNNER_TEMP/bin/repo"
+          chmod +x "$RUNNER_TEMP/bin/repo"
+          export PATH="$RUNNER_TEMP/bin:$PATH"
 
           repo init \
             -u "$DIGITALIS_MANIFEST" \
@@ -68,6 +62,8 @@ jobs:
             --clone-filter=blob:limit=5M \
             --no-use-superproject
 
+          # Sync the Digitalis build environment and its declared dependencies.
+          # This is intentionally not a checkout of the user's old RISC-V tree.
           repo sync \
             -c \
             -g default,pdk \
@@ -80,27 +76,16 @@ jobs:
           test -f build/envsetup.sh
           test -d build/soong
           test -d prebuilts/clang
-          test -d frameworks/libs/binary_translation
+          test -d frameworks/libs/binary_translation/Android.bp
 
-          dst="$AOSP_TOP/frameworks/libs/binary_translation"
-          src="$GITHUB_WORKSPACE"
-
-          rsync -a --delete \
-            --exclude='.git/' \
-            --exclude='.github/' \
-            "$src/" "$dst/"
-
-          for f in \
-            "$dst/Android.bp" \
-            "$dst/enable_arm64_to_x86_64.mk" \
-            "$dst/berberis_config.mk" \
-            "$dst/native_bridge/arm64/native_bridge.cc" \
-            "$dst/decoder/arm64_test/decoder_test.cc" \
-            "$dst/interpreter/arm64/interpreter-main.cc" \
-            "$dst/lite_translator/arm64_to_x86_64/lite_translator.cc" \
-            "$dst/code_gen_lib/arm64_to_x86_64/gen_wrapper.cc"; do
-            test -e "$f"
-          done
+          bt="$AOSP_TOP/frameworks/libs/binary_translation"
+          test -f "$bt/enable_arm64_to_x86_64.mk"
+          test -f "$bt/Android.bp"
+          test -f "$bt/native_bridge/arm64/native_bridge.cc"
+          test -f "$bt/decoder/arm64_test/decoder_test.cc"
+          test -f "$bt/interpreter/arm64/interpreter-main.cc"
+          test -f "$bt/lite_translator/arm64_to_x86_64/lite_translator.cc"
+          test -f "$bt/code_gen_lib/arm64_to_x86_64/gen_wrapper.cc"
 
           cd "$AOSP_TOP"
           source build/envsetup.sh
@@ -108,7 +93,7 @@ jobs:
           export SOONG_CONFIG_berberis_translation_arch=arm64_to_x86_64
           export NINJA_STATUS='[%f/%t %e] '
 
-          # Single build invocation.
+          # The only build invocation.
           m -j4 \
             libberberis_arm64 \
             libberberis_decoder_arm64_unit_tests \
@@ -121,5 +106,6 @@ jobs:
           file "$so"
           readelf -h "$so" | grep -q 'Machine:.*Advanced Micro Devices X86-64'
           ! nm -C "$so" 2>/dev/null | grep -Eiq 'riscv64|RISCV|RiscV'
+
           echo "ARM64 native translation build: PASS"
           echo "Output: $so"
