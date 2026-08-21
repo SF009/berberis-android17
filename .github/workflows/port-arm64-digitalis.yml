@@ -52,6 +52,11 @@ jobs:
           mkdir -p "$AOSP_TOP" "$REPO_BIN"
           cd "$AOSP_TOP"
 
+          # Digitalis manifest declares GitHub projects with SSH-style remotes.
+          # ubuntu-latest has no GitHub SSH key, so rewrite them to HTTPS.
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+
           curl -fsSL https://storage.googleapis.com/git-repo-downloads/repo -o "$REPO_BIN/repo"
           chmod +x "$REPO_BIN/repo"
           export PATH="$REPO_BIN:$PATH"
