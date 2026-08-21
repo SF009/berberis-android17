@@ -1,0 +1,36 @@
+name: Materialize ARM64 port
+
+on:
+  push:
+    branches: [arm64-native-translation]
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: arm64-native-translation
+          fetch-depth: 0
+
+      - name: Materialize ARM64 implementation
+        run: |
+          chmod +x tools/import_arm64_port.sh
+          ./tools/import_arm64_port.sh
+
+      - name: Commit materialized tree
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/run-arm64-import.yml
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes produced by importer"
+            exit 0
+          fi
+          git commit -m "Materialize ARM64 guest to x86_64 translation tree"
+          git push origin HEAD:arm64-native-translation
