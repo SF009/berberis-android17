@@ -19,7 +19,7 @@ package {
 
 cc_library_headers {
     name: "libberberis_guest_loader_headers",
-    defaults: ["berberis_guest_agnostic_defaults"],
+    defaults: ["berberis_defaults"],
     host_supported: true,
     export_include_dirs: ["include"],
     header_libs: [
@@ -36,7 +36,7 @@ cc_library_headers {
 // Don't depend on these headers in other modules.
 cc_library_headers {
     name: "_libberberis_guest_loader_private_headers",
-    defaults: ["berberis_guest_agnostic_defaults"],
+    defaults: ["berberis_defaults"],
     host_supported: true,
     export_include_dirs: ["."],
     header_libs: ["libberberis_guest_loader_headers"],
@@ -64,8 +64,8 @@ cc_defaults {
     host_supported: true,
     srcs: [":_libberberis_guest_loader_srcs"],
     header_libs: [
-        "//frameworks/libs/native_bridge_support:native_bridge_guest_linker_headers",
         "_libberberis_guest_loader_private_headers",
+        "//frameworks/libs/native_bridge_support:native_bridge_guest_linker_headers",
         "libberberis_base_headers",
         "libberberis_guest_abi_headers",
         "libberberis_guest_loader_headers",
@@ -86,7 +86,7 @@ cc_defaults {
 cc_library_static {
     name: "libberberis_guest_loader_riscv64",
     defaults: [
-        "berberis_riscv64_defaults",
+        "berberis_defaults_64",
         "libberberis_guest_loader_defaults",
     ],
     srcs: [
@@ -98,42 +98,22 @@ cc_library_static {
     ],
 }
 
+// region digitalis
 cc_library_static {
-    name: "libberberis_guest_loader_arm_or_arm64",
+    name: "libberberis_guest_loader_arm64",
     defaults: [
-        "berberis_arm_or_arm64_defaults",
+        "berberis_arm64_defaults",
         "libberberis_guest_loader_defaults",
     ],
-    arch: {
-        x86: {
-            srcs: [
-                "arm/guest_loader_arch.cc",
-                "arm/linker_callbacks_arch.cc",
-            ],
-            header_libs: [
-                "libberberis_guest_abi_arm_headers",
-            ],
-        },
-        x86_64: {
-            srcs: [
-                "arm64/guest_loader_arch.cc",
-                "arm64/linker_callbacks_arch.cc",
-            ],
-            header_libs: [
-                "libberberis_guest_abi_arm64_headers",
-            ],
-        },
-        riscv64: {
-            srcs: [
-                "arm64/guest_loader_arch.cc",
-                "arm64/linker_callbacks_arch.cc",
-            ],
-            header_libs: [
-                "libberberis_guest_abi_arm64_headers",
-            ],
-        },
-    },
+    srcs: [
+        "arm64/guest_loader_arch.cc",
+        "arm64/linker_callbacks_arch.cc",
+    ],
+    header_libs: [
+        "libberberis_guest_abi_arm64_headers",
+    ],
 }
+// endregion
 
 cc_defaults {
     name: "libberberis_guest_loader_tests_defaults",
@@ -154,11 +134,12 @@ cc_defaults {
 cc_test {
     name: "berberis_guest_loader_riscv64_tests",
     defaults: [
-        "berberis_riscv64_defaults",
+        "berberis_defaults_64",
         "libberberis_guest_loader_tests_defaults",
     ],
     static_libs: [
         "libberberis_guest_loader_riscv64",
+        "libberberis_runtime_riscv64",
     ],
     shared_libs: [
         "libberberis_riscv64",

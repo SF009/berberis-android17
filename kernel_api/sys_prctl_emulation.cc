@@ -23,8 +23,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
-#include <bit>
-
+#include "berberis/base/bit_util.h"
 #include "berberis/base/tracing.h"
 #include "berberis/guest_os_primitives/syscall_numbers.h"
 
@@ -36,7 +35,7 @@ int PrctlForGuest(int option,
                   unsigned long arg4,
                   unsigned long arg5) {
   if (option == PR_SET_SECCOMP && arg2 == SECCOMP_MODE_FILTER) {
-    auto prog = std::bit_cast<struct sock_fprog*>(arg3);
+    auto prog = bit_cast<struct sock_fprog*>(arg3);
     for (int i = 0; i < prog->len; i++) {
       struct sock_filter& filter = prog->filter[i];
       if (BPF_CLASS(filter.code) != BPF_JMP) {

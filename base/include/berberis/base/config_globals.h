@@ -68,18 +68,13 @@ enum ConfigFlag {
   kLocalExperiment,
   // A convenience flag which enables a custom platform capability.
   kPlatformCustomCPUCapability,
-  kOptimizedInterRegionABI,
-  // Setting this flag enables instrumentation of every executed region in the
-  // main translation loop (ExecuteGuest).
-  kAllJumpsExitGeneratedCode,
-  // Disables translation cache search when jumping to the next region. Instead
-  // we exit generated code to the main translation loop.
-  kDisableLinkJumpsBetweenRegions,
-  // Disables linking local jumps with target address within the
-  // current region. Instead we dispatch to another region. Also
-  // disables loops (back jumps).
-  kDisableLinkJumpsWithinRegion,
-  kGlobalContextOptimization,
+  // region digitalis
+  // Skip the MachineIR validation passes in GenCode. The checks stay on by
+  // default (host tests and any product that does not opt out); a product can
+  // ship ro.berberis.flags=disable-ir-check to drop the per-translation
+  // validation cost in production.
+  kDisableIrCheck,
+  // endregion
   kNumConfigFlags
 };
 

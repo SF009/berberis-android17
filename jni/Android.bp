@@ -24,12 +24,6 @@ python_binary_host {
     srcs: ["gen_jni_trampolines.py"],
 }
 
-python_binary_host {
-    name: "gen_jvmti_ext_trampolines",
-    main: "gen_jvmti_ext_trampolines.py",
-    srcs: ["gen_jvmti_ext_trampolines.py"],
-}
-
 genrule {
     name: "libberberis_jni_gen_headers",
     out: ["jni_trampolines-inl.h"],
@@ -38,25 +32,9 @@ genrule {
     cmd: "$(location gen_jni_trampolines) $(out) $(in)",
 }
 
-genrule {
-    name: "libberberis_jvmti_gen_headers",
-    out: ["jvmti_trampolines-inl.h"],
-    srcs: ["jvmti_api.json"],
-    tools: ["gen_jni_trampolines"],
-    cmd: "$(location gen_jni_trampolines) $(out) $(in)",
-}
-
-genrule {
-    name: "libberberis_jvmti_ext_gen_headers",
-    out: ["jvmti_ext_trampolines-inl.h"],
-    srcs: ["jvmti_ext_api.json"],
-    tools: ["gen_jvmti_ext_trampolines"],
-    cmd: "$(location gen_jvmti_ext_trampolines) $(out) $(in)",
-}
-
 cc_library_headers {
     name: "libberberis_jni_headers",
-    defaults: ["berberis_guest_agnostic_defaults"],
+    defaults: ["berberis_defaults"],
     host_supported: true,
     export_include_dirs: ["include"],
 }
@@ -77,22 +55,17 @@ cc_defaults {
     name: "libberberis_jni_defaults",
     host_supported: false,
     srcs: [":_libberberis_jni_srcs"],
-    generated_headers: [
-        "libberberis_jni_gen_headers",
-        "libberberis_jvmti_gen_headers",
-        "libberberis_jvmti_ext_gen_headers",
-    ],
+    generated_headers: ["libberberis_jni_gen_headers"],
     header_libs: [
         "jni_headers",
         "libberberis_base_headers",
         "libberberis_guest_abi_headers",
         "libberberis_guest_loader_headers",
-        "libberberis_guest_os_primitives_headers",
-        "libberberis_guest_state_headers",
         "libberberis_jni_headers",
         "libberberis_native_bridge_headers",
+        "libberberis_guest_os_primitives_headers",
+        "libberberis_guest_state_headers",
         "libberberis_runtime_primitives_headers",
-        "libopenjdkjvmti_headers",
     ],
     export_header_lib_headers: [
         "libberberis_guest_abi_headers",
@@ -105,7 +78,7 @@ cc_defaults {
 cc_library_static {
     name: "libberberis_jni_riscv64",
     defaults: [
-        "berberis_riscv64_defaults",
+        "berberis_defaults_64",
         "libberberis_jni_defaults",
     ],
     header_libs: [
@@ -116,17 +89,18 @@ cc_library_static {
     ],
 }
 
+// region digitalis
 cc_library_static {
-    name: "libberberis_jni_arm_or_arm64",
+    name: "libberberis_jni_arm64",
     defaults: [
-        "berberis_arm_or_arm64_defaults",
+        "berberis_arm64_defaults",
         "libberberis_jni_defaults",
     ],
-    host_supported: false,
     header_libs: [
-        "libberberis_guest_abi_arm_or_arm64_headers",
+        "libberberis_guest_abi_arm64_headers",
     ],
     export_header_lib_headers: [
-        "libberberis_guest_abi_arm_or_arm64_headers",
+        "libberberis_guest_abi_arm64_headers",
     ],
 }
+// endregion

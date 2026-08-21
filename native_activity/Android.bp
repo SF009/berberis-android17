@@ -20,7 +20,7 @@ package {
 
 cc_library_headers {
     name: "libberberis_native_activity_headers",
-    defaults: ["berberis_guest_agnostic_defaults"],
+    defaults: ["berberis_defaults"],
     host_supported: true,
     export_include_dirs: ["include"],
 }
@@ -42,8 +42,8 @@ cc_defaults {
         "libberberis_base_headers",
         "libberberis_guest_abi_headers",
         "libberberis_guest_state_headers",
-        "libberberis_native_activity_headers",
         "libberberis_runtime_primitives_headers",
+        "libberberis_native_activity_headers",
     ],
     export_header_lib_headers: [
         "libberberis_guest_state_headers",
@@ -62,7 +62,7 @@ cc_defaults {
 cc_library_static {
     name: "libberberis_native_activity_riscv64",
     defaults: [
-        "berberis_riscv64_defaults",
+        "berberis_defaults_64",
         "libberberis_native_activity_defaults",
     ],
     header_libs: [
@@ -70,13 +70,16 @@ cc_library_static {
     ],
 }
 
+// region digitalis
+// Digitalis: ARM64 native activity wrapper.
 cc_library_static {
-    name: "libberberis_native_activity_arm_or_arm64",
+    name: "libberberis_native_activity_arm64",
     defaults: [
-        "berberis_arm_or_arm64_defaults",
+        "berberis_arm64_defaults",
         "libberberis_native_activity_defaults",
     ],
     header_libs: [
-        "libberberis_guest_abi_arm_or_arm64_headers",
+        "libberberis_guest_abi_arm64_headers",
     ],
 }
+// endregion

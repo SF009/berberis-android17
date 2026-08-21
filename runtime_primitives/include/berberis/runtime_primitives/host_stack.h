@@ -17,28 +17,25 @@
 #ifndef BERBERIS_RUNTIME_PRIMITIVES_HOST_STACK_H_
 #define BERBERIS_RUNTIME_PRIMITIVES_HOST_STACK_H_
 
-#include <bit>
 #include <cstddef>
 
+#include "berberis/base/bit_util.h"
 #include "berberis/base/mmap.h"
 
 namespace berberis {
 
 constexpr size_t GetStackSizeForTranslation() {
   // Ensure thread stack is big enough for translation.
-  // We use 1 MB which is the standard default stack size for Bionic threads
-  // (PTHREAD_STACK_SIZE_DEFAULT), ensuring we don't overflow even with large
-  // stack frames under unoptimized builds.
   // TODO(khim): review this when decoder gets refactored or when translation
   // goes to a separate thread.
   // TODO(levarum): Maybe better solution is required (b/30124680).
-  return AlignUpPageSize(1u * 1024u * 1024u);
+  return AlignUpPageSize(16u * 1024u);
 }
 
 inline void* GetStackTop(ScopedMmap* stack) {
-  uintptr_t stack_top = std::bit_cast<uintptr_t>(stack->data()) + stack->size() - 1;
+  uintptr_t stack_top = bit_cast<uintptr_t>(stack->data()) + stack->size() - 1;
   // We assume there is no ABI with stack alignment greater than 64.
-  return std::bit_cast<void*>(stack_top - (stack_top % 64));
+  return bit_cast<void*>(stack_top - (stack_top % 64));
 }
 
 }  // namespace berberis

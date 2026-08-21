@@ -20,14 +20,8 @@
 #include <cstdint>
 
 #include "berberis/base/string_literal.h"
-#include "berberis/base/tuple_processing.h"
 
 namespace berberis::device_arch_info {
-
-class Comment {
- public:
-  using Type = const char*;
-};
 
 class Mem8 {
  public:
@@ -54,118 +48,38 @@ class Mem64 {
 };
 
 template <typename OperandClass, typename = void>
-inline constexpr bool kIsComment = false;
-
-template <typename OperandClass>
-inline constexpr bool
-    kIsComment<OperandClass, std::enable_if_t<sizeof(typename OperandClass::Class) >= 1>> =
-        kIsComment<typename OperandClass::Class>;
-
-template <typename OperandClassesTuple>
-inline constexpr size_t kCountComments =
-    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
-      return kIsComment<OperandClass>;
-    }>>;
-
-template <typename OperandClass, typename = void>
 inline constexpr bool kIsCondition = false;
-
-template <typename OperandClassesTuple>
-inline constexpr size_t kCountConditions =
-    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
-      return kIsCondition<OperandClass>;
-    }>>;
 
 template <typename OperandClass, typename = void>
 inline constexpr bool kIsEAX = false;
 
-template <typename OperandClassesTuple>
-inline constexpr size_t kCountEAX =
-    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
-      return kIsEAX<OperandClass>;
-    }>>;
-
 template <typename OperandClass, typename = void>
 inline constexpr bool kIsEBX = false;
-
-template <typename OperandClassesTuple>
-inline constexpr size_t kCountEBX =
-    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
-      return kIsEBX<OperandClass>;
-    }>>;
 
 template <typename OperandClass, typename = void>
 inline constexpr bool kIsECX = false;
 
-template <typename OperandClassesTuple>
-inline constexpr size_t kCountECX =
-    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
-      return kIsECX<OperandClass>;
-    }>>;
-
 template <typename OperandClass, typename = void>
 inline constexpr bool kIsEDX = false;
-
-template <typename OperandClassesTuple>
-inline constexpr size_t kCountEDX =
-    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
-      return kIsEDX<OperandClass>;
-    }>>;
 
 template <typename OperandClass, typename = void>
 inline constexpr bool kIsFLAGS = false;
 
-template <typename OperandClassesTuple>
-inline constexpr size_t kCountFLAGS =
-    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
-      return kIsFLAGS<OperandClass>;
-    }>>;
-
 template <typename OperandClass, typename = void>
 inline constexpr bool kIsGeneralReg32 = false;
-
-template <typename OperandClassesTuple>
-inline constexpr size_t kCountGeneralReg32 =
-    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
-      return kIsGeneralReg32<OperandClass>;
-    }>>;
 
 template <typename OperandClass, typename = void>
 inline constexpr bool kIsImmediate = false;
 
-template <typename OperandClassesTuple>
-inline constexpr size_t kCountImmediates =
-    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
-      return kIsImmediate<OperandClass>;
-    }>>;
-
-template <typename OperandClass, typename = void>
-inline constexpr bool kIsImplicitReg = false;
-
-template <typename OperandClassesTuple>
-inline constexpr size_t kImplicitRegs =
-    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
-      return kIsImplicitReg<OperandClass>;
-    }>>;
-
 template <typename OperandClass, typename = void>
 inline constexpr bool kIsMemoryOperand = false;
 
-template <typename OperandClassesTuple>
-inline constexpr size_t kCountMemoryOperands =
-    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
-      return kIsMemoryOperand<OperandClass>;
-    }>>;
+template <typename OperandClass, typename = void>
+inline constexpr bool kIsRegister =
+    !kIsCondition<OperandClass> && !kIsImmediate<OperandClass> && !kIsMemoryOperand<OperandClass>;
 
 template <typename OperandClass, typename = void>
-inline constexpr bool kIsRegister = !kIsComment<OperandClass> && !kIsCondition<OperandClass> &&
-                                    !kIsImmediate<OperandClass> && !kIsMemoryOperand<OperandClass>;
-
-template <typename OperandClassesTuple>
-inline constexpr size_t kCountRegisters =
-    std::tuple_size_v<TypesToTypes::Filter<OperandClassesTuple, []<typename OperandClass>() {
-      return kIsRegister<OperandClass>;
-    }>>;
+inline constexpr bool kIsImplicitReg = false;
 
 template <typename OperandClass>
 inline constexpr bool
@@ -224,9 +138,6 @@ inline constexpr bool
         kIsMemoryOperand<typename OperandClass::Class>;
 
 template <>
-inline constexpr bool kIsComment<Comment> = true;
-
-template <>
 inline constexpr bool kIsMemoryOperand<Mem8> = true;
 
 template <>
@@ -239,16 +150,14 @@ template <>
 inline constexpr bool kIsMemoryOperand<Mem64> = true;
 
 // Note: value of RegBindingKind and MachineRegKind have to be the same since we convert one to
-// another with a static_cast in berberis/backend/x86_64/machine_insn_intrinsics.h. We have
-// static_assert in the aforemetioned header that ensures that an attempt to change these two enums
-// and make them different would lead to a compile-time error.
-enum RegBindingKind {
-    kNone = 0,
-    kUse,
-    kDef,
-    kUseDef,
-    kDefEarlyClobber,
-  };
+// another with a static_cast in berberis/backend/x86_64/machine_insn_intrinsics.h. We don't care
+// about these values in intrinsics module, but for optimizations it's important to have LSB set
+// when an instruction uses the value (which is true for kDefEarlyClobber: in that case the
+// instruction sets the value and then uses it), the next bit is set when register is output and MSB
+// bit is set when register is input. We have static_assert in the aforemetioned header that ensures
+// that an attempt to change these two enums and make them different would lead to a compile-time
+// error.
+enum RegBindingKind { kDef = 2, kDefEarlyClobber = 3, kUse = 5, kUseDef = 7 };
 
 template <typename OperandClass, RegBindingKind kUsageTemplateName>
 class OperandInfo {
@@ -270,13 +179,13 @@ template <auto kEmitInsnFunc,
 class DeviceInsnInfo;
 
 template <auto kEmitInsnFunc_,
-          StringLiteral kMnemo_,
+          StringLiteral kMnemo,
           bool kSideEffects_,
           auto GetOpcode,
           typename CPUIDRestriction_,
           typename... Operands_>
 class DeviceInsnInfo<kEmitInsnFunc_,
-                     kMnemo_,
+                     kMnemo,
                      kSideEffects_,
                      GetOpcode,
                      CPUIDRestriction_,
@@ -284,10 +193,7 @@ class DeviceInsnInfo<kEmitInsnFunc_,
     final {
  public:
   static constexpr auto kEmitInsnFunc = kEmitInsnFunc_;
-  static constexpr StringLiteral kMnemo = kMnemo_;
   static constexpr bool kSideEffects = kSideEffects_;
-  template <typename EnumType>
-  static constexpr EnumType kOpcode = GetOpcode.template operator()<EnumType>();
   using CPUIDRestriction = CPUIDRestriction_;
   template <typename Callback, typename... Args>
   constexpr static void ProcessOperands(Callback&& callback, Args&&... args) {

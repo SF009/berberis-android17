@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-#include "berberis/runtime_library/runtime_library.h"
+#include "berberis/runtime_primitives/runtime_library.h"
 
 #include <cstdint>
 #include <cstring>
 
-#include "berberis/base/bit_util.h"
 #include "berberis/calling_conventions/calling_conventions_riscv64.h"
 #include "berberis/guest_abi/guest_arguments.h"
 #include "berberis/guest_os_primitives/guest_thread_manager.h"

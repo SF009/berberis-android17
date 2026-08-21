@@ -16,7 +16,6 @@
 
 #include "gtest/gtest.h"
 
-#include <bit>
 #include <cstdint>
 #include <initializer_list>
 #include <limits>
@@ -59,66 +58,6 @@ TEST(Arm64InsnTest, Lsr) {
   asm("lsr %0, %1, #4" : "=r"(res) : "r"(arg));
 
   ASSERT_EQ(res, 0x0327'6561'8093'7734ULL);
-}
-
-TEST(Arm64InsnTest, SxtbI32) {
-  uint32_t arg = 0x0937'7344UL;
-  uint64_t res = 0x1234'1234'2657'9787ULL;
-
-  asm("sxtb %w0, %w1" : "=r"(res) : "r"(arg));
-  ASSERT_EQ(res, 0x0000'0000'0000'0044ULL);
-
-  arg = 0x8937'7384UL;
-  asm("sxtb %w0, %w1" : "=r"(res) : "r"(arg));
-  ASSERT_EQ(res, 0x0000'0000'ffff'ff84UL);
-}
-
-TEST(Arm64InsnTest, SxtbI64) {
-  uint64_t arg = 0x3276'5618'0937'7344ULL;
-  uint64_t res = 0x1668'0396'2657'9787ULL;
-
-  asm("sxtb %0, %1" : "=r"(res) : "r"(arg));
-  ASSERT_EQ(res, 0x0000'0000'0000'0044ULL);
-
-  arg = 0x3276'5618'8937'7384ULL;
-  asm("sxtb %0, %1" : "=r"(res) : "r"(arg));
-  ASSERT_EQ(res, 0xffff'ffff'ffff'ff84ULL);
-}
-
-TEST(Arm64InsnTest, SxthI32) {
-  uint32_t arg = 0x0937'7344UL;
-  uint64_t res = 0x1234'1234'2657'9787ULL;
-
-  asm("sxth %w0, %w1" : "=r"(res) : "r"(arg));
-  ASSERT_EQ(res, 0x0000'0000'0000'7344UL);
-
-  arg = 0x8937'9384UL;
-  asm("sxth %w0, %w1" : "=r"(res) : "r"(arg));
-  ASSERT_EQ(res, 0x0000'0000'ffff'9384UL);
-}
-
-TEST(Arm64InsnTest, SxthI64) {
-  uint64_t arg = 0x3276'5618'0937'7344ULL;
-  uint64_t res = 0x1668'0396'2657'9787ULL;
-
-  asm("sxth %0, %1" : "=r"(res) : "r"(arg));
-  ASSERT_EQ(res, 0x0000'0000'0000'7344ULL);
-
-  arg = 0x3276'5618'8937'9384ULL;
-  asm("sxth %0, %1" : "=r"(res) : "r"(arg));
-  ASSERT_EQ(res, 0xffff'ffff'ffff'9384ULL);
-}
-
-TEST(Arm64InsnTest, Sxtw) {
-  uint64_t arg = 0x3276'5618'0937'7344ULL;
-  uint64_t res = 0x1668'0396'2657'9787ULL;
-
-  asm("sxtw %0, %1" : "=r"(res) : "r"(arg));
-  ASSERT_EQ(res, 0x0000'0000'0937'7344ULL);
-
-  arg = 0x3276'5618'8937'7344ULL;
-  asm("sxtw %0, %1" : "=r"(res) : "r"(arg));
-  ASSERT_EQ(res, 0xffff'ffff'8937'7344ULL);
 }
 
 TEST(Arm64InsnTest, MoveImmToFp32) {
@@ -547,17 +486,6 @@ TEST(Arm64InsnTest, MoveFpRegToFpReg) {
   ASSERT_EQ(res, MakeUInt128(0x40e5'1eb8ULL, 0ULL));
 }
 
-TEST(Arm64InsnTest, MoveSimdRegToReg) {
-  __uint128_t arg = MakeUInt128(0x1111'aaaa'2222'bbbbULL, 0x3333'cccc'4444'ddddULL);
-  uint64_t res32;
-  asm("fmov %w0, %s1" : "=r"(res32) : "w"(arg));
-  ASSERT_EQ(res32, 0x2222'bbbbUL);
-
-  uint64_t res64;
-  asm("fmov %x0, %d1" : "=r"(res64) : "w"(arg));
-  ASSERT_EQ(res64, 0x1111'aaaa'2222'bbbbULL);
-}
-
 TEST(Arm64InsnTest, InsertRegPartIntoSimd128) {
   uint64_t arg = 0xffff'eeee'dddd'ccccULL;
   __uint128_t res = MakeUInt128(0x1111'aaaa'2222'bbbbULL, 0x3333'cccc'4444'ddddULL);
@@ -863,37 +791,38 @@ TEST(Arm64InsnTest, AsmConvertU64F64FromSimdReg) {
 TEST(Arm64InsnTest, AsmConvertLiterals) {
   // Verify that the compiler encodes the floating-point literals used in the
   // conversion tests below exactly as expected.
-  ASSERT_EQ(std::bit_cast<uint32_t>(-7.50f), 0xc0f0'0000U);
-  ASSERT_EQ(std::bit_cast<uint32_t>(-6.75f), 0xc0d8'0000U);
-  ASSERT_EQ(std::bit_cast<uint32_t>(-6.50f), 0xc0d0'0000U);
-  ASSERT_EQ(std::bit_cast<uint32_t>(-6.25f), 0xc0c8'0000U);
-  ASSERT_EQ(std::bit_cast<uint32_t>(6.25f), 0x40c8'0000U);
-  ASSERT_EQ(std::bit_cast<uint32_t>(6.50f), 0x40d0'0000U);
-  ASSERT_EQ(std::bit_cast<uint32_t>(6.75f), 0x40d8'0000U);
-  ASSERT_EQ(std::bit_cast<uint32_t>(7.50f), 0x40f0'0000U);
+  ASSERT_EQ(bit_cast<uint32_t>(-7.50f), 0xc0f0'0000U);
+  ASSERT_EQ(bit_cast<uint32_t>(-6.75f), 0xc0d8'0000U);
+  ASSERT_EQ(bit_cast<uint32_t>(-6.50f), 0xc0d0'0000U);
+  ASSERT_EQ(bit_cast<uint32_t>(-6.25f), 0xc0c8'0000U);
+  ASSERT_EQ(bit_cast<uint32_t>(6.25f), 0x40c8'0000U);
+  ASSERT_EQ(bit_cast<uint32_t>(6.50f), 0x40d0'0000U);
+  ASSERT_EQ(bit_cast<uint32_t>(6.75f), 0x40d8'0000U);
+  ASSERT_EQ(bit_cast<uint32_t>(7.50f), 0x40f0'0000U);
 
-  ASSERT_EQ(std::bit_cast<uint64_t>(-7.50), 0xc01e'0000'0000'0000ULL);
-  ASSERT_EQ(std::bit_cast<uint64_t>(-6.75), 0xc01b'0000'0000'0000ULL);
-  ASSERT_EQ(std::bit_cast<uint64_t>(-6.50), 0xc01a'0000'0000'0000ULL);
-  ASSERT_EQ(std::bit_cast<uint64_t>(-6.25), 0xc019'0000'0000'0000ULL);
-  ASSERT_EQ(std::bit_cast<uint64_t>(6.25), 0x4019'0000'0000'0000ULL);
-  ASSERT_EQ(std::bit_cast<uint64_t>(6.50), 0x401a'0000'0000'0000ULL);
-  ASSERT_EQ(std::bit_cast<uint64_t>(6.75), 0x401b'0000'0000'0000ULL);
-  ASSERT_EQ(std::bit_cast<uint64_t>(7.50), 0x401e'0000'0000'0000ULL);
+  ASSERT_EQ(bit_cast<uint64_t>(-7.50), 0xc01e'0000'0000'0000ULL);
+  ASSERT_EQ(bit_cast<uint64_t>(-6.75), 0xc01b'0000'0000'0000ULL);
+  ASSERT_EQ(bit_cast<uint64_t>(-6.50), 0xc01a'0000'0000'0000ULL);
+  ASSERT_EQ(bit_cast<uint64_t>(-6.25), 0xc019'0000'0000'0000ULL);
+  ASSERT_EQ(bit_cast<uint64_t>(6.25), 0x4019'0000'0000'0000ULL);
+  ASSERT_EQ(bit_cast<uint64_t>(6.50), 0x401a'0000'0000'0000ULL);
+  ASSERT_EQ(bit_cast<uint64_t>(6.75), 0x401b'0000'0000'0000ULL);
+  ASSERT_EQ(bit_cast<uint64_t>(7.50), 0x401e'0000'0000'0000ULL);
 }
 
 template <typename IntType, typename FuncType>
-void TestConvertF32ToInt(FuncType AsmFunc, std::initializer_list<int64_t> expected) {
-  static const uint32_t kConvertF32ToIntInputs[] = {std::bit_cast<uint32_t>(-7.50f),
-                                                    std::bit_cast<uint32_t>(-6.75f),
-                                                    std::bit_cast<uint32_t>(-6.50f),
-                                                    std::bit_cast<uint32_t>(-6.25f),
-                                                    std::bit_cast<uint32_t>(6.25f),
-                                                    std::bit_cast<uint32_t>(6.50f),
-                                                    std::bit_cast<uint32_t>(6.75f),
-                                                    std::bit_cast<uint32_t>(7.50f),
-                                                    kQuietNaN32AsInteger,
-                                                    kTwoToPow64F32AsInteger};
+void TestConvertF32ToInt(FuncType AsmFunc, std::initializer_list<int> expected) {
+  // Note that bit_cast isn't a constexpr.
+  static const uint32_t kConvertF32ToIntInputs[] = {
+      bit_cast<uint32_t>(-7.50f),
+      bit_cast<uint32_t>(-6.75f),
+      bit_cast<uint32_t>(-6.50f),
+      bit_cast<uint32_t>(-6.25f),
+      bit_cast<uint32_t>(6.25f),
+      bit_cast<uint32_t>(6.50f),
+      bit_cast<uint32_t>(6.75f),
+      bit_cast<uint32_t>(7.50f),
+  };
 
   const size_t kConvertF32ToIntInputsSize = sizeof(kConvertF32ToIntInputs) / sizeof(uint32_t);
   ASSERT_EQ(kConvertF32ToIntInputsSize, expected.size());
@@ -906,120 +835,116 @@ void TestConvertF32ToInt(FuncType AsmFunc, std::initializer_list<int64_t> expect
 
 TEST(Arm64InsnTest, AsmConvertF32I32TieAway) {
   constexpr auto AsmFcvtas = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtas %w0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtas, {-8, -7, -7, -6, 6U, 7U, 7U, 8U, 0, INT32_MAX});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtas, {-8, -7, -7, -6, 6U, 7U, 7U, 8U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U32TieAway) {
   constexpr auto AsmFcvtau = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtau %w0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtau, {0U, 0U, 0U, 0U, 6U, 7U, 7U, 8U, 0, UINT32_MAX});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtau, {0U, 0U, 0U, 0U, 6U, 7U, 7U, 8U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I32NegInf) {
   constexpr auto AsmFcvtms = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtms %w0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtms, {-8, -7, -7, -7, 6U, 6U, 6U, 7U, 0, INT32_MAX});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtms, {-8, -7, -7, -7, 6U, 6U, 6U, 7U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U32NegInf) {
   constexpr auto AsmFcvtmu = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtmu %w0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtmu, {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U, 0, UINT32_MAX});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtmu, {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I32TieEven) {
   constexpr auto AsmFcvtns = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtns %w0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtns, {-8, -7, -6, -6, 6U, 6U, 7U, 8U, 0, INT32_MAX});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtns, {-8, -7, -6, -6, 6U, 6U, 7U, 8U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U32TieEven) {
   constexpr auto AsmFcvtnu = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtnu %w0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtnu, {0U, 0U, 0U, 0U, 6U, 6U, 7U, 8U, 0, UINT32_MAX});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtnu, {0U, 0U, 0U, 0U, 6U, 6U, 7U, 8U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I32PosInf) {
   constexpr auto AsmFcvtps = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtps %w0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtps, {-7, -6, -6, -6, 7U, 7U, 7U, 8U, 0, INT32_MAX});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtps, {-7, -6, -6, -6, 7U, 7U, 7U, 8U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U32PosInf) {
   constexpr auto AsmFcvtpu = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtpu %w0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtpu, {0U, 0U, 0U, 0U, 7U, 7U, 7U, 8U, 0, UINT32_MAX});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtpu, {0U, 0U, 0U, 0U, 7U, 7U, 7U, 8U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I32Truncate) {
   constexpr auto AsmFcvtzs = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtzs %w0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtzs, {-7, -6, -6, -6, 6U, 6U, 6U, 7U, 0, INT32_MAX});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtzs, {-7, -6, -6, -6, 6U, 6U, 6U, 7U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U32Truncate) {
   constexpr auto AsmFcvtzu = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtzu %w0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtzu, {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U, 0, UINT32_MAX});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtzu, {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I64TieAway) {
   constexpr auto AsmFcvtas = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtas %x0, %s1");
-  TestConvertF32ToInt<uint64_t>(AsmFcvtas, {-8, -7, -7, -6, 6U, 7U, 7U, 8U, 0, INT64_MAX});
+  TestConvertF32ToInt<uint64_t>(AsmFcvtas, {-8, -7, -7, -6, 6U, 7U, 7U, 8U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U64TieAway) {
   constexpr auto AsmFcvtau = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtau %x0, %s1");
-  TestConvertF32ToInt<uint64_t>(
-      AsmFcvtau, {0U, 0U, 0U, 0U, 6U, 7U, 7U, 8U, 0, std::bit_cast<int64_t>(UINT64_MAX)});
+  TestConvertF32ToInt<uint64_t>(AsmFcvtau, {0U, 0U, 0U, 0U, 6U, 7U, 7U, 8U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I64NegInf) {
   constexpr auto AsmFcvtms = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtms %x0, %s1");
-  TestConvertF32ToInt<uint64_t>(AsmFcvtms, {-8, -7, -7, -7, 6U, 6U, 6U, 7U, 0, INT64_MAX});
+  TestConvertF32ToInt<uint64_t>(AsmFcvtms, {-8, -7, -7, -7, 6U, 6U, 6U, 7U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U64NegInf) {
   constexpr auto AsmFcvtmu = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtmu %x0, %s1");
-  TestConvertF32ToInt<uint64_t>(
-      AsmFcvtmu, {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U, 0, std::bit_cast<int64_t>(UINT64_MAX)});
+  TestConvertF32ToInt<uint64_t>(AsmFcvtmu, {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I64TieEven) {
   constexpr auto AsmFcvtns = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtns %x0, %s1");
-  TestConvertF32ToInt<uint64_t>(AsmFcvtns, {-8, -7, -6, -6, 6U, 6U, 7U, 8U, 0, INT64_MAX});
+  TestConvertF32ToInt<uint64_t>(AsmFcvtns, {-8, -7, -6, -6, 6U, 6U, 7U, 8U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U64TieEven) {
   constexpr auto AsmFcvtnu = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtnu %x0, %s1");
-  TestConvertF32ToInt<uint64_t>(
-      AsmFcvtnu, {0U, 0U, 0U, 0U, 6U, 6U, 7U, 8U, 0, std::bit_cast<int64_t>(UINT64_MAX)});
+  TestConvertF32ToInt<uint64_t>(AsmFcvtnu, {0U, 0U, 0U, 0U, 6U, 6U, 7U, 8U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I64PosInf) {
   constexpr auto AsmFcvtps = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtps %x0, %s1");
-  TestConvertF32ToInt<uint64_t>(AsmFcvtps, {-7, -6, -6, -6, 7U, 7U, 7U, 8U, 0, INT64_MAX});
+  TestConvertF32ToInt<uint64_t>(AsmFcvtps, {-7, -6, -6, -6, 7U, 7U, 7U, 8U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U64PosInf) {
   constexpr auto AsmFcvtpu = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtpu %x0, %s1");
-  TestConvertF32ToInt<uint64_t>(
-      AsmFcvtpu, {0U, 0U, 0U, 0U, 7U, 7U, 7U, 8U, 0, std::bit_cast<int64_t>(UINT64_MAX)});
+  TestConvertF32ToInt<uint64_t>(AsmFcvtpu, {0U, 0U, 0U, 0U, 7U, 7U, 7U, 8U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I64Truncate) {
   constexpr auto AsmFcvtzs = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtzs %x0, %s1");
-  TestConvertF32ToInt<uint64_t>(AsmFcvtzs, {-7, -6, -6, -6, 6U, 6U, 6U, 7U, 0, INT64_MAX});
+  TestConvertF32ToInt<uint64_t>(AsmFcvtzs, {-7, -6, -6, -6, 6U, 6U, 6U, 7U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U64Truncate) {
   constexpr auto AsmFcvtzu = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtzu %x0, %s1");
-  TestConvertF32ToInt<uint64_t>(
-      AsmFcvtzu, {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U, 0, std::bit_cast<int64_t>(UINT64_MAX)});
+  TestConvertF32ToInt<uint64_t>(AsmFcvtzu, {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U});
 }
 
 template <typename IntType, typename FuncType>
 void TestConvertF64ToInt(FuncType AsmFunc, std::initializer_list<int> expected) {
+  // Note that bit_cast isn't a constexpr.
   static const uint64_t kConvertF64ToIntInputs[] = {
-      std::bit_cast<uint64_t>(-7.50),
-      std::bit_cast<uint64_t>(-6.75),
-      std::bit_cast<uint64_t>(-6.50),
-      std::bit_cast<uint64_t>(-6.25),
-      std::bit_cast<uint64_t>(6.25),
-      std::bit_cast<uint64_t>(6.50),
-      std::bit_cast<uint64_t>(6.75),
-      std::bit_cast<uint64_t>(7.50),
+      bit_cast<uint64_t>(-7.50),
+      bit_cast<uint64_t>(-6.75),
+      bit_cast<uint64_t>(-6.50),
+      bit_cast<uint64_t>(-6.25),
+      bit_cast<uint64_t>(6.25),
+      bit_cast<uint64_t>(6.50),
+      bit_cast<uint64_t>(6.75),
+      bit_cast<uint64_t>(7.50),
   };
 
   const size_t kConvertF64ToIntInputsSize = sizeof(kConvertF64ToIntInputs) / sizeof(uint64_t);
@@ -1133,52 +1058,52 @@ TEST(Arm64InsnTest, AsmConvertF64U64Truncate) {
 
 TEST(Arm64InsnTest, AsmConvertF32I32ScalarTieAway) {
   constexpr auto AsmFcvtas = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvtas %s0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtas, {-8, -7, -7, -6, 6U, 7U, 7U, 8U, 0, INT32_MAX});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtas, {-8, -7, -7, -6, 6U, 7U, 7U, 8U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U32ScalarTieAway) {
   constexpr auto AsmFcvtau = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvtau %s0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtau, {0U, 0U, 0U, 0U, 6U, 7U, 7U, 8U, 0, UINT32_MAX});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtau, {0U, 0U, 0U, 0U, 6U, 7U, 7U, 8U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I32ScalarNegInf) {
   constexpr auto AsmFcvtms = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvtms %s0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtms, {-8, -7, -7, -7, 6U, 6U, 6U, 7U, 0, INT32_MAX});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtms, {-8, -7, -7, -7, 6U, 6U, 6U, 7U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U32ScalarNegInf) {
   constexpr auto AsmFcvtmu = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvtmu %s0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtmu, {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U, 0, UINT32_MAX});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtmu, {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I32ScalarTieEven) {
   constexpr auto AsmFcvtns = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvtns %s0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtns, {-8, -7, -6, -6, 6U, 6U, 7U, 8U, 0, INT32_MAX});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtns, {-8, -7, -6, -6, 6U, 6U, 7U, 8U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U32ScalarTieEven) {
   constexpr auto AsmFcvtnu = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvtnu %s0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtnu, {0U, 0U, 0U, 0U, 6U, 6U, 7U, 8U, 0, UINT32_MAX});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtnu, {0U, 0U, 0U, 0U, 6U, 6U, 7U, 8U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I32ScalarPosInf) {
   constexpr auto AsmFcvtps = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvtps %s0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtps, {-7, -6, -6, -6, 7U, 7U, 7U, 8U, 0, INT32_MAX});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtps, {-7, -6, -6, -6, 7U, 7U, 7U, 8U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U32ScalarPosInf) {
   constexpr auto AsmFcvtpu = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvtpu %s0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtpu, {0U, 0U, 0U, 0U, 7U, 7U, 7U, 8U, 0, UINT32_MAX});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtpu, {0U, 0U, 0U, 0U, 7U, 7U, 7U, 8U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32I32ScalarTruncate) {
   constexpr auto AsmFcvtzs = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvtzs %s0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtzs, {-7, -6, -6, -6, 6U, 6U, 6U, 7U, 0, INT32_MAX});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtzs, {-7, -6, -6, -6, 6U, 6U, 6U, 7U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF32U32ScalarTruncate) {
   constexpr auto AsmFcvtzu = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvtzu %s0, %s1");
-  TestConvertF32ToInt<uint32_t>(AsmFcvtzu, {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U, 0, UINT32_MAX});
+  TestConvertF32ToInt<uint32_t>(AsmFcvtzu, {0U, 0U, 0U, 0U, 6U, 6U, 6U, 7U});
 }
 
 TEST(Arm64InsnTest, AsmConvertF64I64ScalarTieAway) {
@@ -1572,8 +1497,7 @@ TEST(Arm64InsnTest, AsmConvertF32X32Scalar) {
   uint32_t arg2 = 0xc0d8'0000U;  // -6.75 in float
   ASSERT_EQ(AsmConvertF32X32(arg2), MakeUInt128(0xfff9'4000U, 0U));
 
-  ASSERT_EQ(AsmConvertF32X32(kDefaultNaN32AsInteger),
-            MakeUInt128(std::bit_cast<uint32_t>(0.0f), 0U));
+  ASSERT_EQ(AsmConvertF32X32(kDefaultNaN32AsInteger), MakeUInt128(bit_cast<uint32_t>(0.0f), 0U));
 }
 
 TEST(Arm64InsnTest, AsmConvertF32UX32Scalar) {
@@ -1584,13 +1508,12 @@ TEST(Arm64InsnTest, AsmConvertF32UX32Scalar) {
   uint32_t arg2 = 0xc154'0000U;  // -13.25 in float
   ASSERT_EQ(AsmConvertF32UX32(arg2), MakeUInt128(0xfff2'c000U, 0U));
 
-  ASSERT_EQ(AsmConvertF32UX32(kDefaultNaN32AsInteger),
-            MakeUInt128(std::bit_cast<uint32_t>(0.0f), 0U));
+  ASSERT_EQ(AsmConvertF32UX32(kDefaultNaN32AsInteger), MakeUInt128(bit_cast<uint32_t>(0.0f), 0U));
 }
 
 TEST(Arm64InsnTest, AsmConvertF32UX32With31FractionalBits) {
   constexpr auto AsmConvertF32UX32 = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtzs %w0, %s1, #31");
-  uint32_t arg1 = std::bit_cast<uint32_t>(0.25f);
+  uint32_t arg1 = bit_cast<uint32_t>(0.25f);
   ASSERT_EQ(AsmConvertF32UX32(arg1), MakeUInt128(0x2000'0000U, 0U));
 }
 
@@ -1605,25 +1528,25 @@ TEST(Arm64InsnTest, AsmConvertF64X32Scalar) {
 
 TEST(Arm64InsnTest, AsmConvertF32X64Scalar) {
   constexpr auto AsmFcvtzs = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtzs %x0, %s1, #16");
-  uint64_t arg1 = std::bit_cast<uint32_t>(7.50f);
+  uint64_t arg1 = bit_cast<uint32_t>(7.50f);
   ASSERT_EQ(AsmFcvtzs(arg1), MakeUInt128(0x0000'0000'0007'8000ULL, 0ULL));
 
-  uint64_t arg2 = std::bit_cast<uint32_t>(-6.50f);
+  uint64_t arg2 = bit_cast<uint32_t>(-6.50f);
   ASSERT_EQ(AsmFcvtzs(arg2), MakeUInt128(0xffff'ffff'fff9'8000ULL, 0ULL));
 }
 
 TEST(Arm64InsnTest, AsmConvertF32UX64With63FractionalBits) {
   constexpr auto AsmConvertF32UX64 = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtzs %x0, %s1, #63");
-  uint32_t arg1 = std::bit_cast<uint32_t>(0.25f);
+  uint32_t arg1 = bit_cast<uint32_t>(0.25f);
   ASSERT_EQ(AsmConvertF32UX64(arg1), MakeUInt128(0x2000'0000'0000'0000ULL, 0U));
 }
 
 TEST(Arm64InsnTest, AsmConvertF64X64Scalar) {
   constexpr auto AsmFcvtzs = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtzs %x0, %d1, #16");
-  uint64_t arg1 = std::bit_cast<uint64_t>(7.50);
+  uint64_t arg1 = bit_cast<uint64_t>(7.50);
   ASSERT_EQ(AsmFcvtzs(arg1), MakeUInt128(0x0000'0000'0007'8000ULL, 0ULL));
 
-  uint64_t arg2 = std::bit_cast<uint64_t>(-6.50);
+  uint64_t arg2 = bit_cast<uint64_t>(-6.50);
   ASSERT_EQ(AsmFcvtzs(arg2), MakeUInt128(0xffff'ffff'fff9'8000ULL, 0ULL));
 }
 
@@ -1644,24 +1567,24 @@ TEST(Arm64InsnTest, AsmConvertF64UX32Scalar) {
 
 TEST(Arm64InsnTest, AsmConvertF32UX64Scalar) {
   constexpr auto AsmFcvtzu = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtzu %x0, %s1, #16");
-  uint64_t arg1 = std::bit_cast<uint32_t>(7.50f);
+  uint64_t arg1 = bit_cast<uint32_t>(7.50f);
   ASSERT_EQ(AsmFcvtzu(arg1), MakeUInt128(0x0000'0000'0007'8000ULL, 0ULL));
-  uint64_t arg2 = std::bit_cast<uint32_t>(-6.50f);
+  uint64_t arg2 = bit_cast<uint32_t>(-6.50f);
   ASSERT_EQ(AsmFcvtzu(arg2), 0ULL);
 }
 
 TEST(Arm64InsnTest, AsmConvertF64UX64Scalar) {
   constexpr auto AsmFcvtzu = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtzu %x0, %d1, #16");
-  uint64_t arg1 = std::bit_cast<uint64_t>(7.50);
+  uint64_t arg1 = bit_cast<uint64_t>(7.50);
   ASSERT_EQ(AsmFcvtzu(arg1), MakeUInt128(0x0000'0000'0007'8000ULL, 0ULL));
 
-  uint64_t arg2 = std::bit_cast<uint64_t>(-6.50);
+  uint64_t arg2 = bit_cast<uint64_t>(-6.50);
   ASSERT_EQ(AsmFcvtzu(arg2), MakeUInt128(0ULL, 0ULL));
 }
 
 TEST(Arm64InsnTest, AsmConvertF64UX64ScalarWith64BitFraction) {
   constexpr auto AsmFcvtzu = ASM_INSN_WRAP_FUNC_R_RES_W_ARG("fcvtzu %x0, %d1, #64");
-  uint64_t arg = std::bit_cast<uint64_t>(0.625);
+  uint64_t arg = bit_cast<uint64_t>(0.625);
   ASSERT_EQ(AsmFcvtzu(arg), MakeUInt128(0xa000'0000'0000'0000ULL, 0ULL));
 }
 
@@ -1756,31 +1679,24 @@ TEST(Arm64InsnTest, RoundToIntNearestTiesAwayFp64) {
   ASSERT_EQ(AsmFrinta(0xbfdf'ffff'ffff'ffff), MakeUInt128(0x8000'0000'0000'0000U, 0U));
 
   // A number too large to have fractional precision, should not change upon rounding with tie-away
-  ASSERT_EQ(AsmFrinta(std::bit_cast<uint64_t>(0.5 / std::numeric_limits<double>::epsilon())),
-            MakeUInt128(std::bit_cast<uint64_t>(0.5 / std::numeric_limits<double>::epsilon()), 0U));
-  ASSERT_EQ(
-      AsmFrinta(std::bit_cast<uint64_t>(-0.5 / std::numeric_limits<double>::epsilon())),
-      MakeUInt128(std::bit_cast<uint64_t>(-0.5 / std::numeric_limits<double>::epsilon()), 0U));
-  ASSERT_EQ(
-      AsmFrinta(std::bit_cast<uint64_t>(0.75 / std::numeric_limits<double>::epsilon())),
-      MakeUInt128(std::bit_cast<uint64_t>(0.75 / std::numeric_limits<double>::epsilon()), 0U));
-  ASSERT_EQ(
-      AsmFrinta(std::bit_cast<uint64_t>(-0.75 / std::numeric_limits<double>::epsilon())),
-      MakeUInt128(std::bit_cast<uint64_t>(-0.75 / std::numeric_limits<double>::epsilon()), 0U));
-  ASSERT_EQ(AsmFrinta(std::bit_cast<uint64_t>(1.0 / std::numeric_limits<double>::epsilon())),
-            MakeUInt128(std::bit_cast<uint64_t>(1.0 / std::numeric_limits<double>::epsilon()), 0U));
-  ASSERT_EQ(
-      AsmFrinta(std::bit_cast<uint64_t>(-1.0 / std::numeric_limits<double>::epsilon())),
-      MakeUInt128(std::bit_cast<uint64_t>(-1.0 / std::numeric_limits<double>::epsilon()), 0U));
-  ASSERT_EQ(AsmFrinta(std::bit_cast<uint64_t>(2.0 / std::numeric_limits<double>::epsilon())),
-            MakeUInt128(std::bit_cast<uint64_t>(2.0 / std::numeric_limits<double>::epsilon()), 0U));
-  ASSERT_EQ(
-      AsmFrinta(std::bit_cast<uint64_t>(-2.0 / std::numeric_limits<double>::epsilon())),
-      MakeUInt128(std::bit_cast<uint64_t>(-2.0 / std::numeric_limits<double>::epsilon()), 0U));
-  ASSERT_EQ(AsmFrinta(std::bit_cast<uint64_t>(1.0e100)),
-            MakeUInt128(std::bit_cast<uint64_t>(1.0e100), 0U));
-  ASSERT_EQ(AsmFrinta(std::bit_cast<uint64_t>(-1.0e100)),
-            MakeUInt128(std::bit_cast<uint64_t>(-1.0e100), 0U));
+  ASSERT_EQ(AsmFrinta(bit_cast<uint64_t>(0.5 / std::numeric_limits<double>::epsilon())),
+            MakeUInt128(bit_cast<uint64_t>(0.5 / std::numeric_limits<double>::epsilon()), 0U));
+  ASSERT_EQ(AsmFrinta(bit_cast<uint64_t>(-0.5 / std::numeric_limits<double>::epsilon())),
+            MakeUInt128(bit_cast<uint64_t>(-0.5 / std::numeric_limits<double>::epsilon()), 0U));
+  ASSERT_EQ(AsmFrinta(bit_cast<uint64_t>(0.75 / std::numeric_limits<double>::epsilon())),
+            MakeUInt128(bit_cast<uint64_t>(0.75 / std::numeric_limits<double>::epsilon()), 0U));
+  ASSERT_EQ(AsmFrinta(bit_cast<uint64_t>(-0.75 / std::numeric_limits<double>::epsilon())),
+            MakeUInt128(bit_cast<uint64_t>(-0.75 / std::numeric_limits<double>::epsilon()), 0U));
+  ASSERT_EQ(AsmFrinta(bit_cast<uint64_t>(1.0 / std::numeric_limits<double>::epsilon())),
+            MakeUInt128(bit_cast<uint64_t>(1.0 / std::numeric_limits<double>::epsilon()), 0U));
+  ASSERT_EQ(AsmFrinta(bit_cast<uint64_t>(-1.0 / std::numeric_limits<double>::epsilon())),
+            MakeUInt128(bit_cast<uint64_t>(-1.0 / std::numeric_limits<double>::epsilon()), 0U));
+  ASSERT_EQ(AsmFrinta(bit_cast<uint64_t>(2.0 / std::numeric_limits<double>::epsilon())),
+            MakeUInt128(bit_cast<uint64_t>(2.0 / std::numeric_limits<double>::epsilon()), 0U));
+  ASSERT_EQ(AsmFrinta(bit_cast<uint64_t>(-2.0 / std::numeric_limits<double>::epsilon())),
+            MakeUInt128(bit_cast<uint64_t>(-2.0 / std::numeric_limits<double>::epsilon()), 0U));
+  ASSERT_EQ(AsmFrinta(bit_cast<uint64_t>(1.0e100)), MakeUInt128(bit_cast<uint64_t>(1.0e100), 0U));
+  ASSERT_EQ(AsmFrinta(bit_cast<uint64_t>(-1.0e100)), MakeUInt128(bit_cast<uint64_t>(-1.0e100), 0U));
 }
 
 TEST(Arm64InsnTest, RoundToIntNearestTiesAwayFp32) {
@@ -1815,34 +1731,31 @@ TEST(Arm64InsnTest, RoundToIntNearestTiesAwayFp32) {
 
   // A number too large to have fractional precision, should not change upon rounding with tie-away
   ASSERT_EQ(
-      AsmFrinta(std::bit_cast<uint32_t>(float{0.5 / std::numeric_limits<float>::epsilon()})),
-      MakeUInt128(std::bit_cast<uint32_t>(float{0.5 / std::numeric_limits<float>::epsilon()}), 0U));
-  ASSERT_EQ(AsmFrinta(std::bit_cast<uint32_t>(float{-0.5 / std::numeric_limits<float>::epsilon()})),
-            MakeUInt128(
-                std::bit_cast<uint32_t>(float{-0.5 / std::numeric_limits<float>::epsilon()}), 0U));
-  ASSERT_EQ(AsmFrinta(std::bit_cast<uint32_t>(float{0.75 / std::numeric_limits<float>::epsilon()})),
-            MakeUInt128(
-                std::bit_cast<uint32_t>(float{0.75 / std::numeric_limits<float>::epsilon()}), 0U));
+      AsmFrinta(bit_cast<uint32_t>(float{0.5 / std::numeric_limits<float>::epsilon()})),
+      MakeUInt128(bit_cast<uint32_t>(float{0.5 / std::numeric_limits<float>::epsilon()}), 0U));
   ASSERT_EQ(
-      AsmFrinta(std::bit_cast<uint32_t>(float{-0.75 / std::numeric_limits<float>::epsilon()})),
-      MakeUInt128(std::bit_cast<uint32_t>(float{-0.75 / std::numeric_limits<float>::epsilon()}),
-                  0U));
+      AsmFrinta(bit_cast<uint32_t>(float{-0.5 / std::numeric_limits<float>::epsilon()})),
+      MakeUInt128(bit_cast<uint32_t>(float{-0.5 / std::numeric_limits<float>::epsilon()}), 0U));
   ASSERT_EQ(
-      AsmFrinta(std::bit_cast<uint32_t>(float{1.0 / std::numeric_limits<float>::epsilon()})),
-      MakeUInt128(std::bit_cast<uint32_t>(float{1.0 / std::numeric_limits<float>::epsilon()}), 0U));
-  ASSERT_EQ(AsmFrinta(std::bit_cast<uint32_t>(float{-1.0 / std::numeric_limits<float>::epsilon()})),
-            MakeUInt128(
-                std::bit_cast<uint32_t>(float{-1.0 / std::numeric_limits<float>::epsilon()}), 0U));
+      AsmFrinta(bit_cast<uint32_t>(float{0.75 / std::numeric_limits<float>::epsilon()})),
+      MakeUInt128(bit_cast<uint32_t>(float{0.75 / std::numeric_limits<float>::epsilon()}), 0U));
   ASSERT_EQ(
-      AsmFrinta(std::bit_cast<uint32_t>(float{2.0 / std::numeric_limits<float>::epsilon()})),
-      MakeUInt128(std::bit_cast<uint32_t>(float{2.0 / std::numeric_limits<float>::epsilon()}), 0U));
-  ASSERT_EQ(AsmFrinta(std::bit_cast<uint32_t>(float{-2.0 / std::numeric_limits<float>::epsilon()})),
-            MakeUInt128(
-                std::bit_cast<uint32_t>(float{-2.0 / std::numeric_limits<float>::epsilon()}), 0U));
-  ASSERT_EQ(AsmFrinta(std::bit_cast<uint32_t>(1.0e38f)),
-            MakeUInt128(std::bit_cast<uint32_t>(1.0e38f), 0U));
-  ASSERT_EQ(AsmFrinta(std::bit_cast<uint32_t>(-1.0e38f)),
-            MakeUInt128(std::bit_cast<uint32_t>(-1.0e38f), 0U));
+      AsmFrinta(bit_cast<uint32_t>(float{-0.75 / std::numeric_limits<float>::epsilon()})),
+      MakeUInt128(bit_cast<uint32_t>(float{-0.75 / std::numeric_limits<float>::epsilon()}), 0U));
+  ASSERT_EQ(
+      AsmFrinta(bit_cast<uint32_t>(float{1.0 / std::numeric_limits<float>::epsilon()})),
+      MakeUInt128(bit_cast<uint32_t>(float{1.0 / std::numeric_limits<float>::epsilon()}), 0U));
+  ASSERT_EQ(
+      AsmFrinta(bit_cast<uint32_t>(float{-1.0 / std::numeric_limits<float>::epsilon()})),
+      MakeUInt128(bit_cast<uint32_t>(float{-1.0 / std::numeric_limits<float>::epsilon()}), 0U));
+  ASSERT_EQ(
+      AsmFrinta(bit_cast<uint32_t>(float{2.0 / std::numeric_limits<float>::epsilon()})),
+      MakeUInt128(bit_cast<uint32_t>(float{2.0 / std::numeric_limits<float>::epsilon()}), 0U));
+  ASSERT_EQ(
+      AsmFrinta(bit_cast<uint32_t>(float{-2.0 / std::numeric_limits<float>::epsilon()})),
+      MakeUInt128(bit_cast<uint32_t>(float{-2.0 / std::numeric_limits<float>::epsilon()}), 0U));
+  ASSERT_EQ(AsmFrinta(bit_cast<uint32_t>(1.0e38f)), MakeUInt128(bit_cast<uint32_t>(1.0e38f), 0U));
+  ASSERT_EQ(AsmFrinta(bit_cast<uint32_t>(-1.0e38f)), MakeUInt128(bit_cast<uint32_t>(-1.0e38f), 0U));
 }
 
 TEST(Arm64InsnTest, RoundToIntDownwardFp64) {
@@ -2103,138 +2016,74 @@ TEST(Arm64InsnTest, AsmConvertF64x4Truncate) {
 
 TEST(Arm64InsnTest, AsmRoundCurrentModeF32) {
   constexpr auto AsmFrinti = ASM_INSN_WRAP_FUNC_W_RES_WC_ARG("frinti %s0, %s1");
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(-7.50f), kFpcrRModeTieEven),
-            std::bit_cast<uint32_t>(-8.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(-6.75f), kFpcrRModeTieEven),
-            std::bit_cast<uint32_t>(-7.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(-6.50f), kFpcrRModeTieEven),
-            std::bit_cast<uint32_t>(-6.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(-6.25f), kFpcrRModeTieEven),
-            std::bit_cast<uint32_t>(-6.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(6.25f), kFpcrRModeTieEven),
-            std::bit_cast<uint32_t>(6.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(6.50f), kFpcrRModeTieEven),
-            std::bit_cast<uint32_t>(6.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(6.75f), kFpcrRModeTieEven),
-            std::bit_cast<uint32_t>(7.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(7.50f), kFpcrRModeTieEven),
-            std::bit_cast<uint32_t>(8.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(-7.50f), kFpcrRModeNegInf),
-            std::bit_cast<uint32_t>(-8.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(-6.75f), kFpcrRModeNegInf),
-            std::bit_cast<uint32_t>(-7.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(-6.50f), kFpcrRModeNegInf),
-            std::bit_cast<uint32_t>(-7.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(-6.25f), kFpcrRModeNegInf),
-            std::bit_cast<uint32_t>(-7.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(6.25f), kFpcrRModeNegInf),
-            std::bit_cast<uint32_t>(6.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(6.50f), kFpcrRModeNegInf),
-            std::bit_cast<uint32_t>(6.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(6.75f), kFpcrRModeNegInf),
-            std::bit_cast<uint32_t>(6.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(7.50f), kFpcrRModeNegInf),
-            std::bit_cast<uint32_t>(7.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(-7.50f), kFpcrRModePosInf),
-            std::bit_cast<uint32_t>(-7.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(-6.75f), kFpcrRModePosInf),
-            std::bit_cast<uint32_t>(-6.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(-6.50f), kFpcrRModePosInf),
-            std::bit_cast<uint32_t>(-6.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(-6.25f), kFpcrRModePosInf),
-            std::bit_cast<uint32_t>(-6.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(6.25f), kFpcrRModePosInf),
-            std::bit_cast<uint32_t>(7.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(6.50f), kFpcrRModePosInf),
-            std::bit_cast<uint32_t>(7.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(6.75f), kFpcrRModePosInf),
-            std::bit_cast<uint32_t>(7.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(7.50f), kFpcrRModePosInf),
-            std::bit_cast<uint32_t>(8.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(-7.50f), kFpcrRModeZero),
-            std::bit_cast<uint32_t>(-7.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(-6.75f), kFpcrRModeZero),
-            std::bit_cast<uint32_t>(-6.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(-6.50f), kFpcrRModeZero),
-            std::bit_cast<uint32_t>(-6.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(-6.25f), kFpcrRModeZero),
-            std::bit_cast<uint32_t>(-6.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(6.25f), kFpcrRModeZero),
-            std::bit_cast<uint32_t>(6.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(6.50f), kFpcrRModeZero),
-            std::bit_cast<uint32_t>(6.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(6.75f), kFpcrRModeZero),
-            std::bit_cast<uint32_t>(6.00f));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint32_t>(7.50f), kFpcrRModeZero),
-            std::bit_cast<uint32_t>(7.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(-7.50f), kFpcrRModeTieEven), bit_cast<uint32_t>(-8.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(-6.75f), kFpcrRModeTieEven), bit_cast<uint32_t>(-7.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(-6.50f), kFpcrRModeTieEven), bit_cast<uint32_t>(-6.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(-6.25f), kFpcrRModeTieEven), bit_cast<uint32_t>(-6.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(6.25f), kFpcrRModeTieEven), bit_cast<uint32_t>(6.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(6.50f), kFpcrRModeTieEven), bit_cast<uint32_t>(6.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(6.75f), kFpcrRModeTieEven), bit_cast<uint32_t>(7.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(7.50f), kFpcrRModeTieEven), bit_cast<uint32_t>(8.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(-7.50f), kFpcrRModeNegInf), bit_cast<uint32_t>(-8.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(-6.75f), kFpcrRModeNegInf), bit_cast<uint32_t>(-7.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(-6.50f), kFpcrRModeNegInf), bit_cast<uint32_t>(-7.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(-6.25f), kFpcrRModeNegInf), bit_cast<uint32_t>(-7.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(6.25f), kFpcrRModeNegInf), bit_cast<uint32_t>(6.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(6.50f), kFpcrRModeNegInf), bit_cast<uint32_t>(6.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(6.75f), kFpcrRModeNegInf), bit_cast<uint32_t>(6.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(7.50f), kFpcrRModeNegInf), bit_cast<uint32_t>(7.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(-7.50f), kFpcrRModePosInf), bit_cast<uint32_t>(-7.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(-6.75f), kFpcrRModePosInf), bit_cast<uint32_t>(-6.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(-6.50f), kFpcrRModePosInf), bit_cast<uint32_t>(-6.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(-6.25f), kFpcrRModePosInf), bit_cast<uint32_t>(-6.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(6.25f), kFpcrRModePosInf), bit_cast<uint32_t>(7.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(6.50f), kFpcrRModePosInf), bit_cast<uint32_t>(7.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(6.75f), kFpcrRModePosInf), bit_cast<uint32_t>(7.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(7.50f), kFpcrRModePosInf), bit_cast<uint32_t>(8.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(-7.50f), kFpcrRModeZero), bit_cast<uint32_t>(-7.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(-6.75f), kFpcrRModeZero), bit_cast<uint32_t>(-6.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(-6.50f), kFpcrRModeZero), bit_cast<uint32_t>(-6.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(-6.25f), kFpcrRModeZero), bit_cast<uint32_t>(-6.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(6.25f), kFpcrRModeZero), bit_cast<uint32_t>(6.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(6.50f), kFpcrRModeZero), bit_cast<uint32_t>(6.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(6.75f), kFpcrRModeZero), bit_cast<uint32_t>(6.00f));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint32_t>(7.50f), kFpcrRModeZero), bit_cast<uint32_t>(7.00f));
 }
 
 TEST(Arm64InsnTest, AsmRoundCurrentModeF64) {
   constexpr auto AsmFrinti = ASM_INSN_WRAP_FUNC_W_RES_WC_ARG("frinti %d0, %d1");
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(-7.50), kFpcrRModeTieEven),
-            std::bit_cast<uint64_t>(-8.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(-6.75), kFpcrRModeTieEven),
-            std::bit_cast<uint64_t>(-7.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(-6.50), kFpcrRModeTieEven),
-            std::bit_cast<uint64_t>(-6.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(-6.25), kFpcrRModeTieEven),
-            std::bit_cast<uint64_t>(-6.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(6.25), kFpcrRModeTieEven),
-            std::bit_cast<uint64_t>(6.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(6.50), kFpcrRModeTieEven),
-            std::bit_cast<uint64_t>(6.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(6.75), kFpcrRModeTieEven),
-            std::bit_cast<uint64_t>(7.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(7.50), kFpcrRModeTieEven),
-            std::bit_cast<uint64_t>(8.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(-7.50), kFpcrRModeNegInf),
-            std::bit_cast<uint64_t>(-8.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(-6.75), kFpcrRModeNegInf),
-            std::bit_cast<uint64_t>(-7.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(-6.50), kFpcrRModeNegInf),
-            std::bit_cast<uint64_t>(-7.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(-6.25), kFpcrRModeNegInf),
-            std::bit_cast<uint64_t>(-7.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(6.25), kFpcrRModeNegInf),
-            std::bit_cast<uint64_t>(6.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(6.50), kFpcrRModeNegInf),
-            std::bit_cast<uint64_t>(6.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(6.75), kFpcrRModeNegInf),
-            std::bit_cast<uint64_t>(6.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(7.50), kFpcrRModeNegInf),
-            std::bit_cast<uint64_t>(7.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(-7.50), kFpcrRModePosInf),
-            std::bit_cast<uint64_t>(-7.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(-6.75), kFpcrRModePosInf),
-            std::bit_cast<uint64_t>(-6.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(-6.50), kFpcrRModePosInf),
-            std::bit_cast<uint64_t>(-6.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(-6.25), kFpcrRModePosInf),
-            std::bit_cast<uint64_t>(-6.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(6.25), kFpcrRModePosInf),
-            std::bit_cast<uint64_t>(7.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(6.50), kFpcrRModePosInf),
-            std::bit_cast<uint64_t>(7.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(6.75), kFpcrRModePosInf),
-            std::bit_cast<uint64_t>(7.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(7.50), kFpcrRModePosInf),
-            std::bit_cast<uint64_t>(8.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(-7.50), kFpcrRModeZero),
-            std::bit_cast<uint64_t>(-7.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(-6.75), kFpcrRModeZero),
-            std::bit_cast<uint64_t>(-6.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(-6.50), kFpcrRModeZero),
-            std::bit_cast<uint64_t>(-6.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(-6.25), kFpcrRModeZero),
-            std::bit_cast<uint64_t>(-6.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(6.25), kFpcrRModeZero),
-            std::bit_cast<uint64_t>(6.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(6.50), kFpcrRModeZero),
-            std::bit_cast<uint64_t>(6.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(6.75), kFpcrRModeZero),
-            std::bit_cast<uint64_t>(6.00));
-  ASSERT_EQ(AsmFrinti(std::bit_cast<uint64_t>(7.50), kFpcrRModeZero),
-            std::bit_cast<uint64_t>(7.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(-7.50), kFpcrRModeTieEven), bit_cast<uint64_t>(-8.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(-6.75), kFpcrRModeTieEven), bit_cast<uint64_t>(-7.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(-6.50), kFpcrRModeTieEven), bit_cast<uint64_t>(-6.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(-6.25), kFpcrRModeTieEven), bit_cast<uint64_t>(-6.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(6.25), kFpcrRModeTieEven), bit_cast<uint64_t>(6.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(6.50), kFpcrRModeTieEven), bit_cast<uint64_t>(6.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(6.75), kFpcrRModeTieEven), bit_cast<uint64_t>(7.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(7.50), kFpcrRModeTieEven), bit_cast<uint64_t>(8.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(-7.50), kFpcrRModeNegInf), bit_cast<uint64_t>(-8.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(-6.75), kFpcrRModeNegInf), bit_cast<uint64_t>(-7.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(-6.50), kFpcrRModeNegInf), bit_cast<uint64_t>(-7.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(-6.25), kFpcrRModeNegInf), bit_cast<uint64_t>(-7.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(6.25), kFpcrRModeNegInf), bit_cast<uint64_t>(6.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(6.50), kFpcrRModeNegInf), bit_cast<uint64_t>(6.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(6.75), kFpcrRModeNegInf), bit_cast<uint64_t>(6.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(7.50), kFpcrRModeNegInf), bit_cast<uint64_t>(7.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(-7.50), kFpcrRModePosInf), bit_cast<uint64_t>(-7.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(-6.75), kFpcrRModePosInf), bit_cast<uint64_t>(-6.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(-6.50), kFpcrRModePosInf), bit_cast<uint64_t>(-6.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(-6.25), kFpcrRModePosInf), bit_cast<uint64_t>(-6.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(6.25), kFpcrRModePosInf), bit_cast<uint64_t>(7.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(6.50), kFpcrRModePosInf), bit_cast<uint64_t>(7.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(6.75), kFpcrRModePosInf), bit_cast<uint64_t>(7.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(7.50), kFpcrRModePosInf), bit_cast<uint64_t>(8.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(-7.50), kFpcrRModeZero), bit_cast<uint64_t>(-7.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(-6.75), kFpcrRModeZero), bit_cast<uint64_t>(-6.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(-6.50), kFpcrRModeZero), bit_cast<uint64_t>(-6.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(-6.25), kFpcrRModeZero), bit_cast<uint64_t>(-6.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(6.25), kFpcrRModeZero), bit_cast<uint64_t>(6.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(6.50), kFpcrRModeZero), bit_cast<uint64_t>(6.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(6.75), kFpcrRModeZero), bit_cast<uint64_t>(6.00));
+  ASSERT_EQ(AsmFrinti(bit_cast<uint64_t>(7.50), kFpcrRModeZero), bit_cast<uint64_t>(7.00));
 }
 
 TEST(Arm64InsnTest, AsmRoundCurrentModeF32x4) {
@@ -2295,138 +2144,74 @@ TEST(Arm64InsnTest, AsmRoundCurrentModeF64x2) {
 
 TEST(Arm64InsnTest, AsmRoundExactF32) {
   constexpr auto AsmFrintx = ASM_INSN_WRAP_FUNC_W_RES_WC_ARG("frintx %s0, %s1");
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(-7.50f), kFpcrRModeTieEven),
-            std::bit_cast<uint32_t>(-8.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(-6.75f), kFpcrRModeTieEven),
-            std::bit_cast<uint32_t>(-7.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(-6.50f), kFpcrRModeTieEven),
-            std::bit_cast<uint32_t>(-6.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(-6.25f), kFpcrRModeTieEven),
-            std::bit_cast<uint32_t>(-6.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(6.25f), kFpcrRModeTieEven),
-            std::bit_cast<uint32_t>(6.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(6.50f), kFpcrRModeTieEven),
-            std::bit_cast<uint32_t>(6.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(6.75f), kFpcrRModeTieEven),
-            std::bit_cast<uint32_t>(7.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(7.50f), kFpcrRModeTieEven),
-            std::bit_cast<uint32_t>(8.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(-7.50f), kFpcrRModeNegInf),
-            std::bit_cast<uint32_t>(-8.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(-6.75f), kFpcrRModeNegInf),
-            std::bit_cast<uint32_t>(-7.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(-6.50f), kFpcrRModeNegInf),
-            std::bit_cast<uint32_t>(-7.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(-6.25f), kFpcrRModeNegInf),
-            std::bit_cast<uint32_t>(-7.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(6.25f), kFpcrRModeNegInf),
-            std::bit_cast<uint32_t>(6.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(6.50f), kFpcrRModeNegInf),
-            std::bit_cast<uint32_t>(6.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(6.75f), kFpcrRModeNegInf),
-            std::bit_cast<uint32_t>(6.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(7.50f), kFpcrRModeNegInf),
-            std::bit_cast<uint32_t>(7.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(-7.50f), kFpcrRModePosInf),
-            std::bit_cast<uint32_t>(-7.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(-6.75f), kFpcrRModePosInf),
-            std::bit_cast<uint32_t>(-6.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(-6.50f), kFpcrRModePosInf),
-            std::bit_cast<uint32_t>(-6.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(-6.25f), kFpcrRModePosInf),
-            std::bit_cast<uint32_t>(-6.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(6.25f), kFpcrRModePosInf),
-            std::bit_cast<uint32_t>(7.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(6.50f), kFpcrRModePosInf),
-            std::bit_cast<uint32_t>(7.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(6.75f), kFpcrRModePosInf),
-            std::bit_cast<uint32_t>(7.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(7.50f), kFpcrRModePosInf),
-            std::bit_cast<uint32_t>(8.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(-7.50f), kFpcrRModeZero),
-            std::bit_cast<uint32_t>(-7.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(-6.75f), kFpcrRModeZero),
-            std::bit_cast<uint32_t>(-6.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(-6.50f), kFpcrRModeZero),
-            std::bit_cast<uint32_t>(-6.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(-6.25f), kFpcrRModeZero),
-            std::bit_cast<uint32_t>(-6.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(6.25f), kFpcrRModeZero),
-            std::bit_cast<uint32_t>(6.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(6.50f), kFpcrRModeZero),
-            std::bit_cast<uint32_t>(6.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(6.75f), kFpcrRModeZero),
-            std::bit_cast<uint32_t>(6.00f));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint32_t>(7.50f), kFpcrRModeZero),
-            std::bit_cast<uint32_t>(7.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(-7.50f), kFpcrRModeTieEven), bit_cast<uint32_t>(-8.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(-6.75f), kFpcrRModeTieEven), bit_cast<uint32_t>(-7.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(-6.50f), kFpcrRModeTieEven), bit_cast<uint32_t>(-6.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(-6.25f), kFpcrRModeTieEven), bit_cast<uint32_t>(-6.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(6.25f), kFpcrRModeTieEven), bit_cast<uint32_t>(6.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(6.50f), kFpcrRModeTieEven), bit_cast<uint32_t>(6.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(6.75f), kFpcrRModeTieEven), bit_cast<uint32_t>(7.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(7.50f), kFpcrRModeTieEven), bit_cast<uint32_t>(8.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(-7.50f), kFpcrRModeNegInf), bit_cast<uint32_t>(-8.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(-6.75f), kFpcrRModeNegInf), bit_cast<uint32_t>(-7.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(-6.50f), kFpcrRModeNegInf), bit_cast<uint32_t>(-7.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(-6.25f), kFpcrRModeNegInf), bit_cast<uint32_t>(-7.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(6.25f), kFpcrRModeNegInf), bit_cast<uint32_t>(6.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(6.50f), kFpcrRModeNegInf), bit_cast<uint32_t>(6.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(6.75f), kFpcrRModeNegInf), bit_cast<uint32_t>(6.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(7.50f), kFpcrRModeNegInf), bit_cast<uint32_t>(7.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(-7.50f), kFpcrRModePosInf), bit_cast<uint32_t>(-7.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(-6.75f), kFpcrRModePosInf), bit_cast<uint32_t>(-6.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(-6.50f), kFpcrRModePosInf), bit_cast<uint32_t>(-6.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(-6.25f), kFpcrRModePosInf), bit_cast<uint32_t>(-6.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(6.25f), kFpcrRModePosInf), bit_cast<uint32_t>(7.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(6.50f), kFpcrRModePosInf), bit_cast<uint32_t>(7.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(6.75f), kFpcrRModePosInf), bit_cast<uint32_t>(7.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(7.50f), kFpcrRModePosInf), bit_cast<uint32_t>(8.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(-7.50f), kFpcrRModeZero), bit_cast<uint32_t>(-7.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(-6.75f), kFpcrRModeZero), bit_cast<uint32_t>(-6.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(-6.50f), kFpcrRModeZero), bit_cast<uint32_t>(-6.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(-6.25f), kFpcrRModeZero), bit_cast<uint32_t>(-6.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(6.25f), kFpcrRModeZero), bit_cast<uint32_t>(6.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(6.50f), kFpcrRModeZero), bit_cast<uint32_t>(6.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(6.75f), kFpcrRModeZero), bit_cast<uint32_t>(6.00f));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint32_t>(7.50f), kFpcrRModeZero), bit_cast<uint32_t>(7.00f));
 }
 
 TEST(Arm64InsnTest, AsmRoundExactF64) {
   constexpr auto AsmFrintx = ASM_INSN_WRAP_FUNC_W_RES_WC_ARG("frintx %d0, %d1");
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(-7.50), kFpcrRModeTieEven),
-            std::bit_cast<uint64_t>(-8.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(-6.75), kFpcrRModeTieEven),
-            std::bit_cast<uint64_t>(-7.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(-6.50), kFpcrRModeTieEven),
-            std::bit_cast<uint64_t>(-6.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(-6.25), kFpcrRModeTieEven),
-            std::bit_cast<uint64_t>(-6.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(6.25), kFpcrRModeTieEven),
-            std::bit_cast<uint64_t>(6.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(6.50), kFpcrRModeTieEven),
-            std::bit_cast<uint64_t>(6.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(6.75), kFpcrRModeTieEven),
-            std::bit_cast<uint64_t>(7.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(7.50), kFpcrRModeTieEven),
-            std::bit_cast<uint64_t>(8.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(-7.50), kFpcrRModeNegInf),
-            std::bit_cast<uint64_t>(-8.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(-6.75), kFpcrRModeNegInf),
-            std::bit_cast<uint64_t>(-7.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(-6.50), kFpcrRModeNegInf),
-            std::bit_cast<uint64_t>(-7.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(-6.25), kFpcrRModeNegInf),
-            std::bit_cast<uint64_t>(-7.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(6.25), kFpcrRModeNegInf),
-            std::bit_cast<uint64_t>(6.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(6.50), kFpcrRModeNegInf),
-            std::bit_cast<uint64_t>(6.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(6.75), kFpcrRModeNegInf),
-            std::bit_cast<uint64_t>(6.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(7.50), kFpcrRModeNegInf),
-            std::bit_cast<uint64_t>(7.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(-7.50), kFpcrRModePosInf),
-            std::bit_cast<uint64_t>(-7.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(-6.75), kFpcrRModePosInf),
-            std::bit_cast<uint64_t>(-6.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(-6.50), kFpcrRModePosInf),
-            std::bit_cast<uint64_t>(-6.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(-6.25), kFpcrRModePosInf),
-            std::bit_cast<uint64_t>(-6.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(6.25), kFpcrRModePosInf),
-            std::bit_cast<uint64_t>(7.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(6.50), kFpcrRModePosInf),
-            std::bit_cast<uint64_t>(7.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(6.75), kFpcrRModePosInf),
-            std::bit_cast<uint64_t>(7.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(7.50), kFpcrRModePosInf),
-            std::bit_cast<uint64_t>(8.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(-7.50), kFpcrRModeZero),
-            std::bit_cast<uint64_t>(-7.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(-6.75), kFpcrRModeZero),
-            std::bit_cast<uint64_t>(-6.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(-6.50), kFpcrRModeZero),
-            std::bit_cast<uint64_t>(-6.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(-6.25), kFpcrRModeZero),
-            std::bit_cast<uint64_t>(-6.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(6.25), kFpcrRModeZero),
-            std::bit_cast<uint64_t>(6.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(6.50), kFpcrRModeZero),
-            std::bit_cast<uint64_t>(6.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(6.75), kFpcrRModeZero),
-            std::bit_cast<uint64_t>(6.00));
-  ASSERT_EQ(AsmFrintx(std::bit_cast<uint64_t>(7.50), kFpcrRModeZero),
-            std::bit_cast<uint64_t>(7.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(-7.50), kFpcrRModeTieEven), bit_cast<uint64_t>(-8.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(-6.75), kFpcrRModeTieEven), bit_cast<uint64_t>(-7.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(-6.50), kFpcrRModeTieEven), bit_cast<uint64_t>(-6.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(-6.25), kFpcrRModeTieEven), bit_cast<uint64_t>(-6.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(6.25), kFpcrRModeTieEven), bit_cast<uint64_t>(6.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(6.50), kFpcrRModeTieEven), bit_cast<uint64_t>(6.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(6.75), kFpcrRModeTieEven), bit_cast<uint64_t>(7.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(7.50), kFpcrRModeTieEven), bit_cast<uint64_t>(8.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(-7.50), kFpcrRModeNegInf), bit_cast<uint64_t>(-8.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(-6.75), kFpcrRModeNegInf), bit_cast<uint64_t>(-7.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(-6.50), kFpcrRModeNegInf), bit_cast<uint64_t>(-7.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(-6.25), kFpcrRModeNegInf), bit_cast<uint64_t>(-7.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(6.25), kFpcrRModeNegInf), bit_cast<uint64_t>(6.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(6.50), kFpcrRModeNegInf), bit_cast<uint64_t>(6.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(6.75), kFpcrRModeNegInf), bit_cast<uint64_t>(6.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(7.50), kFpcrRModeNegInf), bit_cast<uint64_t>(7.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(-7.50), kFpcrRModePosInf), bit_cast<uint64_t>(-7.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(-6.75), kFpcrRModePosInf), bit_cast<uint64_t>(-6.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(-6.50), kFpcrRModePosInf), bit_cast<uint64_t>(-6.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(-6.25), kFpcrRModePosInf), bit_cast<uint64_t>(-6.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(6.25), kFpcrRModePosInf), bit_cast<uint64_t>(7.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(6.50), kFpcrRModePosInf), bit_cast<uint64_t>(7.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(6.75), kFpcrRModePosInf), bit_cast<uint64_t>(7.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(7.50), kFpcrRModePosInf), bit_cast<uint64_t>(8.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(-7.50), kFpcrRModeZero), bit_cast<uint64_t>(-7.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(-6.75), kFpcrRModeZero), bit_cast<uint64_t>(-6.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(-6.50), kFpcrRModeZero), bit_cast<uint64_t>(-6.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(-6.25), kFpcrRModeZero), bit_cast<uint64_t>(-6.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(6.25), kFpcrRModeZero), bit_cast<uint64_t>(6.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(6.50), kFpcrRModeZero), bit_cast<uint64_t>(6.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(6.75), kFpcrRModeZero), bit_cast<uint64_t>(6.00));
+  ASSERT_EQ(AsmFrintx(bit_cast<uint64_t>(7.50), kFpcrRModeZero), bit_cast<uint64_t>(7.00));
 }
 
 TEST(Arm64InsnTest, AsmRoundExactF32x4) {
@@ -2635,20 +2420,20 @@ TEST(Arm64InsnTest, ConvertFp64ToFp32) {
 
 TEST(Arm64InsnTest, ConvertFp32ToFp16) {
   constexpr auto AsmFcvt = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvt %h0, %s1");
-  EXPECT_EQ(AsmFcvt(std::bit_cast<uint32_t>(2.5f)), MakeUInt128(0x4100U, 0U));
-  EXPECT_EQ(AsmFcvt(std::bit_cast<uint32_t>(4.5f)), MakeUInt128(0x4480U, 0U));
-  EXPECT_EQ(AsmFcvt(std::bit_cast<uint32_t>(8.5f)), MakeUInt128(0x4840U, 0U));
-  EXPECT_EQ(AsmFcvt(std::bit_cast<uint32_t>(16.5f)), MakeUInt128(0x4c20U, 0U));
+  EXPECT_EQ(AsmFcvt(bit_cast<uint32_t>(2.5f)), MakeUInt128(0x4100U, 0U));
+  EXPECT_EQ(AsmFcvt(bit_cast<uint32_t>(4.5f)), MakeUInt128(0x4480U, 0U));
+  EXPECT_EQ(AsmFcvt(bit_cast<uint32_t>(8.5f)), MakeUInt128(0x4840U, 0U));
+  EXPECT_EQ(AsmFcvt(bit_cast<uint32_t>(16.5f)), MakeUInt128(0x4c20U, 0U));
 }
 
 TEST(Arm64InsnTest, ConvertFp16ToFp32) {
   uint64_t arg = 0x4100U;
   __uint128_t res = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvt %s0, %h1")(arg);
-  ASSERT_EQ(res, std::bit_cast<uint32_t>(2.5f));
+  ASSERT_EQ(res, bit_cast<uint32_t>(2.5f));
 }
 
 TEST(Arm64InsnTest, ConvertFp64ToFp16) {
-  uint64_t arg = std::bit_cast<uint64_t>(2.5);
+  uint64_t arg = bit_cast<uint64_t>(2.5);
   __uint128_t res = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvt %h0, %d1")(arg);
   ASSERT_EQ(res, MakeUInt128(0x4100U, 0U));
 }
@@ -2656,7 +2441,7 @@ TEST(Arm64InsnTest, ConvertFp64ToFp16) {
 TEST(Arm64InsnTest, ConvertFp16ToFp64) {
   uint64_t arg = 0x4100U;
   __uint128_t res = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvt %d0, %h1")(arg);
-  ASSERT_EQ(res, std::bit_cast<uint64_t>(2.5));
+  ASSERT_EQ(res, bit_cast<uint64_t>(2.5));
 }
 
 TEST(Arm64InsnTest, ConvertToNarrowF64F32x2) {
@@ -2688,18 +2473,18 @@ TEST(Arm64InsnTest, ConvertToNarrowF64F32x2Upper) {
 
 TEST(Arm64InsnTest, ConvertToNarrowRoundToOddF64F32) {
   constexpr auto AsmFcvtxn = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcvtxn %s0, %d1");
-  ASSERT_EQ(AsmFcvtxn(std::bit_cast<uint64_t>(2.0)), std::bit_cast<uint32_t>(2.0f));
+  ASSERT_EQ(AsmFcvtxn(bit_cast<uint64_t>(2.0)), bit_cast<uint32_t>(2.0f));
   // Overflow is saturated.
-  ASSERT_EQ(AsmFcvtxn(std::bit_cast<uint64_t>(std::numeric_limits<double>::max())),
-            std::bit_cast<uint32_t>(std::numeric_limits<float>::max()));
-  ASSERT_EQ(AsmFcvtxn(std::bit_cast<uint64_t>(std::numeric_limits<double>::lowest())),
-            std::bit_cast<uint32_t>(std::numeric_limits<float>::lowest()));
+  ASSERT_EQ(AsmFcvtxn(bit_cast<uint64_t>(std::numeric_limits<double>::max())),
+            bit_cast<uint32_t>(std::numeric_limits<float>::max()));
+  ASSERT_EQ(AsmFcvtxn(bit_cast<uint64_t>(std::numeric_limits<double>::lowest())),
+            bit_cast<uint32_t>(std::numeric_limits<float>::lowest()));
   // inf is converted to inf.
-  ASSERT_EQ(AsmFcvtxn(std::bit_cast<uint64_t>(std::numeric_limits<double>::infinity())),
-            std::bit_cast<uint32_t>(std::numeric_limits<float>::infinity()));
+  ASSERT_EQ(AsmFcvtxn(bit_cast<uint64_t>(std::numeric_limits<double>::infinity())),
+            bit_cast<uint32_t>(std::numeric_limits<float>::infinity()));
   // -inf is converted to -inf.
-  ASSERT_EQ(AsmFcvtxn(std::bit_cast<uint64_t>(-std::numeric_limits<double>::infinity())),
-            std::bit_cast<uint32_t>(-std::numeric_limits<float>::infinity()));
+  ASSERT_EQ(AsmFcvtxn(bit_cast<uint64_t>(-std::numeric_limits<double>::infinity())),
+            bit_cast<uint32_t>(-std::numeric_limits<float>::infinity()));
 }
 
 TEST(Arm64InsnTest, ConvertToNarrowRoundToOddF64F32x2) {
@@ -2855,10 +2640,10 @@ TEST(Arm64InsnTest, SqrtF32x4) {
 
 TEST(Arm64InsnTest, RecipEstimateF32) {
   constexpr auto AsmFrecpe = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("frecpe %s0, %s1");
-  ASSERT_EQ(AsmFrecpe(std::bit_cast<uint32_t>(0.25f)), std::bit_cast<uint32_t>(3.9921875f));
-  ASSERT_EQ(AsmFrecpe(std::bit_cast<uint32_t>(0.50f)), std::bit_cast<uint32_t>(1.99609375f));
-  ASSERT_EQ(AsmFrecpe(std::bit_cast<uint32_t>(2.00f)), std::bit_cast<uint32_t>(0.4990234375f));
-  ASSERT_EQ(AsmFrecpe(std::bit_cast<uint32_t>(4.00f)), std::bit_cast<uint32_t>(0.24951171875f));
+  ASSERT_EQ(AsmFrecpe(bit_cast<uint32_t>(0.25f)), bit_cast<uint32_t>(3.9921875f));
+  ASSERT_EQ(AsmFrecpe(bit_cast<uint32_t>(0.50f)), bit_cast<uint32_t>(1.99609375f));
+  ASSERT_EQ(AsmFrecpe(bit_cast<uint32_t>(2.00f)), bit_cast<uint32_t>(0.4990234375f));
+  ASSERT_EQ(AsmFrecpe(bit_cast<uint32_t>(4.00f)), bit_cast<uint32_t>(0.24951171875f));
 }
 
 TEST(Arm64InsnTest, RecipEstimateF32x4) {
@@ -2869,26 +2654,26 @@ TEST(Arm64InsnTest, RecipEstimateF32x4) {
 
 TEST(Arm64InsnTest, RecipStepF32) {
   constexpr auto AsmFrecps = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("frecps %s0, %s1, %s2");
-  __uint128_t res1 = AsmFrecps(std::bit_cast<uint32_t>(1.50f), std::bit_cast<uint32_t>(0.50f));
-  ASSERT_EQ(res1, std::bit_cast<uint32_t>(1.25f));
-  __uint128_t res2 = AsmFrecps(std::bit_cast<uint32_t>(2.00f), std::bit_cast<uint32_t>(0.50f));
-  ASSERT_EQ(res2, std::bit_cast<uint32_t>(1.00f));
-  __uint128_t res3 = AsmFrecps(std::bit_cast<uint32_t>(3.00f), std::bit_cast<uint32_t>(0.25f));
-  ASSERT_EQ(res3, std::bit_cast<uint32_t>(1.25f));
-  __uint128_t res4 = AsmFrecps(std::bit_cast<uint32_t>(3.00f), std::bit_cast<uint32_t>(0.50f));
-  ASSERT_EQ(res4, std::bit_cast<uint32_t>(0.50f));
+  __uint128_t res1 = AsmFrecps(bit_cast<uint32_t>(1.50f), bit_cast<uint32_t>(0.50f));
+  ASSERT_EQ(res1, bit_cast<uint32_t>(1.25f));
+  __uint128_t res2 = AsmFrecps(bit_cast<uint32_t>(2.00f), bit_cast<uint32_t>(0.50f));
+  ASSERT_EQ(res2, bit_cast<uint32_t>(1.00f));
+  __uint128_t res3 = AsmFrecps(bit_cast<uint32_t>(3.00f), bit_cast<uint32_t>(0.25f));
+  ASSERT_EQ(res3, bit_cast<uint32_t>(1.25f));
+  __uint128_t res4 = AsmFrecps(bit_cast<uint32_t>(3.00f), bit_cast<uint32_t>(0.50f));
+  ASSERT_EQ(res4, bit_cast<uint32_t>(0.50f));
 }
 
 TEST(Arm64InsnTest, RecipStepF64) {
   constexpr auto AsmFrecps = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("frecps %d0, %d1, %d2");
-  __uint128_t res1 = AsmFrecps(std::bit_cast<uint64_t>(1.50), std::bit_cast<uint64_t>(0.50));
-  ASSERT_EQ(res1, std::bit_cast<uint64_t>(1.25));
-  __uint128_t res2 = AsmFrecps(std::bit_cast<uint64_t>(2.00), std::bit_cast<uint64_t>(0.50));
-  ASSERT_EQ(res2, std::bit_cast<uint64_t>(1.00));
-  __uint128_t res3 = AsmFrecps(std::bit_cast<uint64_t>(3.00), std::bit_cast<uint64_t>(0.25));
-  ASSERT_EQ(res3, std::bit_cast<uint64_t>(1.25));
-  __uint128_t res4 = AsmFrecps(std::bit_cast<uint64_t>(3.00), std::bit_cast<uint64_t>(0.50));
-  ASSERT_EQ(res4, std::bit_cast<uint64_t>(0.50));
+  __uint128_t res1 = AsmFrecps(bit_cast<uint64_t>(1.50), bit_cast<uint64_t>(0.50));
+  ASSERT_EQ(res1, bit_cast<uint64_t>(1.25));
+  __uint128_t res2 = AsmFrecps(bit_cast<uint64_t>(2.00), bit_cast<uint64_t>(0.50));
+  ASSERT_EQ(res2, bit_cast<uint64_t>(1.00));
+  __uint128_t res3 = AsmFrecps(bit_cast<uint64_t>(3.00), bit_cast<uint64_t>(0.25));
+  ASSERT_EQ(res3, bit_cast<uint64_t>(1.25));
+  __uint128_t res4 = AsmFrecps(bit_cast<uint64_t>(3.00), bit_cast<uint64_t>(0.50));
+  ASSERT_EQ(res4, bit_cast<uint64_t>(0.50));
 }
 
 TEST(Arm64InsnTest, RecipStepF32x4) {
@@ -2911,10 +2696,10 @@ TEST(Arm64InsnTest, RecipStepF64x2) {
 
 TEST(Arm64InsnTest, RecipSqrtEstimateF32) {
   constexpr auto AsmFrsqrte = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("frsqrte %s0, %s1");
-  ASSERT_EQ(AsmFrsqrte(std::bit_cast<uint32_t>(2.0f)), std::bit_cast<uint32_t>(0.705078125f));
-  ASSERT_EQ(AsmFrsqrte(std::bit_cast<uint32_t>(3.0f)), std::bit_cast<uint32_t>(0.576171875f));
-  ASSERT_EQ(AsmFrsqrte(std::bit_cast<uint32_t>(4.0f)), std::bit_cast<uint32_t>(0.4990234375f));
-  ASSERT_EQ(AsmFrsqrte(std::bit_cast<uint32_t>(5.0f)), std::bit_cast<uint32_t>(0.4462890625f));
+  ASSERT_EQ(AsmFrsqrte(bit_cast<uint32_t>(2.0f)), bit_cast<uint32_t>(0.705078125f));
+  ASSERT_EQ(AsmFrsqrte(bit_cast<uint32_t>(3.0f)), bit_cast<uint32_t>(0.576171875f));
+  ASSERT_EQ(AsmFrsqrte(bit_cast<uint32_t>(4.0f)), bit_cast<uint32_t>(0.4990234375f));
+  ASSERT_EQ(AsmFrsqrte(bit_cast<uint32_t>(5.0f)), bit_cast<uint32_t>(0.4462890625f));
 }
 
 TEST(Arm64InsnTest, RecipSqrtEstimateF32x2) {
@@ -2933,42 +2718,41 @@ TEST(Arm64InsnTest, RecipSqrtEstimateF32x4) {
 
 TEST(Arm64InsnTest, RecipSqrtEstimateF64) {
   constexpr auto AsmFrsqrte = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("frsqrte %d0, %d1");
-  ASSERT_EQ(AsmFrsqrte(std::bit_cast<uint64_t>(2.0)), std::bit_cast<uint64_t>(0.705078125));
-  ASSERT_EQ(AsmFrsqrte(std::bit_cast<uint64_t>(3.0)), std::bit_cast<uint64_t>(0.576171875));
-  ASSERT_EQ(AsmFrsqrte(std::bit_cast<uint64_t>(4.0)), std::bit_cast<uint64_t>(0.4990234375));
-  ASSERT_EQ(AsmFrsqrte(std::bit_cast<uint64_t>(5.0)), std::bit_cast<uint64_t>(0.4462890625));
+  ASSERT_EQ(AsmFrsqrte(bit_cast<uint64_t>(2.0)), bit_cast<uint64_t>(0.705078125));
+  ASSERT_EQ(AsmFrsqrte(bit_cast<uint64_t>(3.0)), bit_cast<uint64_t>(0.576171875));
+  ASSERT_EQ(AsmFrsqrte(bit_cast<uint64_t>(4.0)), bit_cast<uint64_t>(0.4990234375));
+  ASSERT_EQ(AsmFrsqrte(bit_cast<uint64_t>(5.0)), bit_cast<uint64_t>(0.4462890625));
 }
 
 TEST(Arm64InsnTest, RecipSqrtEstimateF64x2) {
   constexpr auto AsmFrsqrte = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("frsqrte %0.2d, %1.2d");
   __uint128_t arg = MakeF64x2(2.0, 3.0);
   __uint128_t res = AsmFrsqrte(arg);
-  ASSERT_EQ(
-      res, MakeUInt128(std::bit_cast<uint64_t>(0.705078125), std::bit_cast<uint64_t>(0.576171875)));
+  ASSERT_EQ(res, MakeUInt128(bit_cast<uint64_t>(0.705078125), bit_cast<uint64_t>(0.576171875)));
 }
 
 TEST(Arm64InsnTest, RecipSqrtStepF32) {
   constexpr auto AsmFrsqrts = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("frsqrts %s0, %s1, %s2");
-  __uint128_t res1 = AsmFrsqrts(std::bit_cast<uint32_t>(1.50f), std::bit_cast<uint32_t>(0.50f));
-  ASSERT_EQ(res1, std::bit_cast<uint32_t>(1.125f));
-  __uint128_t res2 = AsmFrsqrts(std::bit_cast<uint32_t>(2.00f), std::bit_cast<uint32_t>(0.50f));
-  ASSERT_EQ(res2, std::bit_cast<uint32_t>(1.000f));
-  __uint128_t res3 = AsmFrsqrts(std::bit_cast<uint32_t>(3.00f), std::bit_cast<uint32_t>(0.25f));
-  ASSERT_EQ(res3, std::bit_cast<uint32_t>(1.125f));
-  __uint128_t res4 = AsmFrsqrts(std::bit_cast<uint32_t>(3.00f), std::bit_cast<uint32_t>(0.50f));
-  ASSERT_EQ(res4, std::bit_cast<uint32_t>(0.750f));
+  __uint128_t res1 = AsmFrsqrts(bit_cast<uint32_t>(1.50f), bit_cast<uint32_t>(0.50f));
+  ASSERT_EQ(res1, bit_cast<uint32_t>(1.125f));
+  __uint128_t res2 = AsmFrsqrts(bit_cast<uint32_t>(2.00f), bit_cast<uint32_t>(0.50f));
+  ASSERT_EQ(res2, bit_cast<uint32_t>(1.000f));
+  __uint128_t res3 = AsmFrsqrts(bit_cast<uint32_t>(3.00f), bit_cast<uint32_t>(0.25f));
+  ASSERT_EQ(res3, bit_cast<uint32_t>(1.125f));
+  __uint128_t res4 = AsmFrsqrts(bit_cast<uint32_t>(3.00f), bit_cast<uint32_t>(0.50f));
+  ASSERT_EQ(res4, bit_cast<uint32_t>(0.750f));
 }
 
 TEST(Arm64InsnTest, RecipSqrtStepF64) {
   constexpr auto AsmFrsqrts = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("frsqrts %d0, %d1, %d2");
-  __uint128_t res1 = AsmFrsqrts(std::bit_cast<uint64_t>(1.50), std::bit_cast<uint64_t>(0.50));
-  ASSERT_EQ(res1, std::bit_cast<uint64_t>(1.125));
-  __uint128_t res2 = AsmFrsqrts(std::bit_cast<uint64_t>(2.00), std::bit_cast<uint64_t>(0.50));
-  ASSERT_EQ(res2, std::bit_cast<uint64_t>(1.000));
-  __uint128_t res3 = AsmFrsqrts(std::bit_cast<uint64_t>(3.00), std::bit_cast<uint64_t>(0.25));
-  ASSERT_EQ(res3, std::bit_cast<uint64_t>(1.125));
-  __uint128_t res4 = AsmFrsqrts(std::bit_cast<uint64_t>(3.00), std::bit_cast<uint64_t>(0.50));
-  ASSERT_EQ(res4, std::bit_cast<uint64_t>(0.750));
+  __uint128_t res1 = AsmFrsqrts(bit_cast<uint64_t>(1.50), bit_cast<uint64_t>(0.50));
+  ASSERT_EQ(res1, bit_cast<uint64_t>(1.125));
+  __uint128_t res2 = AsmFrsqrts(bit_cast<uint64_t>(2.00), bit_cast<uint64_t>(0.50));
+  ASSERT_EQ(res2, bit_cast<uint64_t>(1.000));
+  __uint128_t res3 = AsmFrsqrts(bit_cast<uint64_t>(3.00), bit_cast<uint64_t>(0.25));
+  ASSERT_EQ(res3, bit_cast<uint64_t>(1.125));
+  __uint128_t res4 = AsmFrsqrts(bit_cast<uint64_t>(3.00), bit_cast<uint64_t>(0.50));
+  ASSERT_EQ(res4, bit_cast<uint64_t>(0.750));
 }
 
 TEST(Arm64InsnTest, RecipSqrtStepF32x4) {
@@ -3020,7 +2804,7 @@ TEST(Arm64InsnTest, AddF64x2) {
 TEST(Arm64InsnTest, AddPairwiseF32x2) {
   constexpr auto AsmFaddp = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("faddp %s0, %1.2s");
   __uint128_t arg1 = MakeF32x4(1.0f, 2.0f, 4.0f, 8.0f);
-  ASSERT_EQ(AsmFaddp(arg1), std::bit_cast<uint32_t>(3.0f));
+  ASSERT_EQ(AsmFaddp(arg1), bit_cast<uint32_t>(3.0f));
 }
 
 TEST(Arm64InsnTest, AddPairwiseF32x4) {
@@ -3060,8 +2844,8 @@ TEST(Arm64InsnTest, SubF64x2) {
 
 TEST(Arm64InsnTest, MaxFp32) {
   constexpr auto AsmFmax = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fmax %s0, %s1, %s2");
-  uint32_t fp_arg_two = std::bit_cast<uint32_t>(2.0f);
-  uint32_t fp_arg_three = std::bit_cast<uint32_t>(3.0f);
+  uint32_t fp_arg_two = bit_cast<uint32_t>(2.0f);
+  uint32_t fp_arg_three = bit_cast<uint32_t>(3.0f);
 
   ASSERT_EQ(AsmFmax(fp_arg_two, fp_arg_three), MakeU32x4(fp_arg_three, 0, 0, 0));
   ASSERT_EQ(AsmFmax(kDefaultNaN32AsInteger, fp_arg_three), kDefaultNaN32AsInteger);
@@ -3070,8 +2854,8 @@ TEST(Arm64InsnTest, MaxFp32) {
 
 TEST(Arm64InsnTest, MaxFp64) {
   constexpr auto AsmFmax = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fmax %d0, %d1, %d2");
-  uint64_t fp_arg_two = std::bit_cast<uint64_t>(2.0);
-  uint64_t fp_arg_three = std::bit_cast<uint64_t>(3.0);
+  uint64_t fp_arg_two = bit_cast<uint64_t>(2.0);
+  uint64_t fp_arg_three = bit_cast<uint64_t>(3.0);
 
   ASSERT_EQ(AsmFmax(fp_arg_two, fp_arg_three), MakeUInt128(fp_arg_three, 0U));
   ASSERT_EQ(AsmFmax(kDefaultNaN64AsInteger, fp_arg_three), kDefaultNaN64AsInteger);
@@ -3084,13 +2868,13 @@ TEST(Arm64InsnTest, MaxF32x4) {
   __uint128_t arg2 = MakeF32x4(0.0f, 1.0f, -3.0f, -3.0f);
   ASSERT_EQ(AsmFmax(arg1, arg2), MakeF32x4(0.0f, 2.0f, 3.0f, -3.0f));
 
-  __uint128_t arg3 = MakeF32x4(-0.0f, std::bit_cast<float>(kDefaultNaN32AsInteger), 3.0f, -4.0f);
-  __uint128_t arg4 = MakeF32x4(0.0f, 1.0f, -3.0f, std::bit_cast<float>(kDefaultNaN32AsInteger));
+  __uint128_t arg3 = MakeF32x4(-0.0f, bit_cast<float>(kDefaultNaN32AsInteger), 3.0f, -4.0f);
+  __uint128_t arg4 = MakeF32x4(0.0f, 1.0f, -3.0f, bit_cast<float>(kDefaultNaN32AsInteger));
   ASSERT_EQ(AsmFmax(arg3, arg4),
             MakeF32x4(0.0f,
-                      std::bit_cast<float>(kDefaultNaN32AsInteger),
+                      bit_cast<float>(kDefaultNaN32AsInteger),
                       3.0f,
-                      std::bit_cast<float>(kDefaultNaN32AsInteger)));
+                      bit_cast<float>(kDefaultNaN32AsInteger)));
 }
 
 TEST(Arm64InsnTest, MaxF64x2) {
@@ -3099,18 +2883,18 @@ TEST(Arm64InsnTest, MaxF64x2) {
   __uint128_t arg2 = MakeF64x2(0.0, -3.0);
   ASSERT_EQ(AsmFmax(arg1, arg2), MakeF64x2(0.0, 3.0));
 
-  __uint128_t arg3 = MakeF64x2(std::bit_cast<double>(kDefaultNaN64AsInteger), 3.0);
-  __uint128_t arg4 = MakeF64x2(1.0, std::bit_cast<double>(kDefaultNaN64AsInteger));
+  __uint128_t arg3 = MakeF64x2(bit_cast<double>(kDefaultNaN64AsInteger), 3.0);
+  __uint128_t arg4 = MakeF64x2(1.0, bit_cast<double>(kDefaultNaN64AsInteger));
   ASSERT_EQ(AsmFmax(arg3, arg4),
-            MakeF64x2(std::bit_cast<double>(kDefaultNaN64AsInteger),
-                      std::bit_cast<double>(kDefaultNaN64AsInteger)));
+            MakeF64x2(bit_cast<double>(kDefaultNaN64AsInteger),
+                      bit_cast<double>(kDefaultNaN64AsInteger)));
 }
 
 TEST(Arm64InsnTest, MaxNumberFp32) {
   constexpr auto AsmFmaxnm = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fmaxnm %s0, %s1, %s2");
-  uint32_t fp_arg_two = std::bit_cast<uint32_t>(2.0f);
-  uint32_t fp_arg_three = std::bit_cast<uint32_t>(3.0f);
-  uint64_t fp_arg_minus_two = std::bit_cast<uint64_t>(-2.0);
+  uint32_t fp_arg_two = bit_cast<uint32_t>(2.0f);
+  uint32_t fp_arg_three = bit_cast<uint32_t>(3.0f);
+  uint64_t fp_arg_minus_two = bit_cast<uint64_t>(-2.0);
 
   ASSERT_EQ(AsmFmaxnm(fp_arg_two, fp_arg_three), MakeU32x4(fp_arg_three, 0, 0, 0));
 
@@ -3124,9 +2908,9 @@ TEST(Arm64InsnTest, MaxNumberFp32) {
 
 TEST(Arm64InsnTest, MaxNumberFp64) {
   constexpr auto AsmFmaxnm = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fmaxnm %d0, %d1, %d2");
-  uint64_t fp_arg_two = std::bit_cast<uint64_t>(2.0);
-  uint64_t fp_arg_three = std::bit_cast<uint64_t>(3.0);
-  uint64_t fp_arg_minus_two = std::bit_cast<uint64_t>(-2.0);
+  uint64_t fp_arg_two = bit_cast<uint64_t>(2.0);
+  uint64_t fp_arg_three = bit_cast<uint64_t>(3.0);
+  uint64_t fp_arg_minus_two = bit_cast<uint64_t>(-2.0);
 
   ASSERT_EQ(AsmFmaxnm(fp_arg_two, fp_arg_three), MakeUInt128(fp_arg_three, 0U));
 
@@ -3138,9 +2922,9 @@ TEST(Arm64InsnTest, MaxNumberFp64) {
 
 TEST(Arm64InsnTest, MinNumberFp32) {
   constexpr auto AsmFminnm = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fminnm %s0, %s1, %s2");
-  uint32_t fp_arg_two = std::bit_cast<uint32_t>(2.0f);
-  uint32_t fp_arg_three = std::bit_cast<uint32_t>(3.0f);
-  uint32_t fp_arg_minus_two = std::bit_cast<uint32_t>(-2.0f);
+  uint32_t fp_arg_two = bit_cast<uint32_t>(2.0f);
+  uint32_t fp_arg_three = bit_cast<uint32_t>(3.0f);
+  uint32_t fp_arg_minus_two = bit_cast<uint32_t>(-2.0f);
 
   ASSERT_EQ(AsmFminnm(fp_arg_two, fp_arg_three), MakeU32x4(fp_arg_two, 0, 0, 0));
 
@@ -3154,9 +2938,9 @@ TEST(Arm64InsnTest, MinNumberFp32) {
 
 TEST(Arm64InsnTest, MinNumberFp64) {
   constexpr auto AsmFminnm = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fminnm %d0, %d1, %d2");
-  uint64_t fp_arg_two = std::bit_cast<uint64_t>(2.0);
-  uint64_t fp_arg_three = std::bit_cast<uint64_t>(3.0);
-  uint64_t fp_arg_minus_two = std::bit_cast<uint64_t>(-2.0);
+  uint64_t fp_arg_two = bit_cast<uint64_t>(2.0);
+  uint64_t fp_arg_three = bit_cast<uint64_t>(3.0);
+  uint64_t fp_arg_minus_two = bit_cast<uint64_t>(-2.0);
 
   ASSERT_EQ(AsmFminnm(fp_arg_two, fp_arg_three), MakeUInt128(fp_arg_two, 0U));
 
@@ -3172,28 +2956,28 @@ TEST(Arm64InsnTest, MaxNumberF32x4) {
   __uint128_t arg2 = MakeF32x4(2.0f, 1.0f, -3.0f, -3.0f);
   ASSERT_EQ(AsmFmaxnm(arg1, arg2), MakeF32x4(2.0f, 2.0f, 3.0f, -3.0f));
 
-  __uint128_t arg3 = MakeU32x4(std::bit_cast<uint32_t>(1.0f),
-                               std::bit_cast<uint32_t>(-1.0f),
+  __uint128_t arg3 = MakeU32x4(bit_cast<uint32_t>(1.0f),
+                               bit_cast<uint32_t>(-1.0f),
                                kNegativeQuietNaN32AsInteger,
                                kQuietNaN32AsInteger);
   __uint128_t arg4 = MakeU32x4(kNegativeQuietNaN32AsInteger,
                                kQuietNaN32AsInteger,
-                               std::bit_cast<uint32_t>(1.0f),
-                               std::bit_cast<uint32_t>(-1.0f));
+                               bit_cast<uint32_t>(1.0f),
+                               bit_cast<uint32_t>(-1.0f));
   ASSERT_EQ(AsmFmaxnm(arg3, arg4), MakeF32x4(1.0f, -1.0f, 1.0f, -1.0f));
 
-  __uint128_t arg5 = MakeU32x4(std::bit_cast<uint32_t>(1.0f),
-                               std::bit_cast<uint32_t>(-1.0f),
+  __uint128_t arg5 = MakeU32x4(bit_cast<uint32_t>(1.0f),
+                               bit_cast<uint32_t>(-1.0f),
                                kSignalingNaN32AsInteger_1,
                                kQuietNaN32AsInteger);
   __uint128_t arg6 = MakeU32x4(kSignalingNaN32AsInteger_1,
                                kQuietNaN32AsInteger,
-                               std::bit_cast<uint32_t>(1.0f),
-                               std::bit_cast<uint32_t>(-1.0f));
+                               bit_cast<uint32_t>(1.0f),
+                               bit_cast<uint32_t>(-1.0f));
   ASSERT_EQ(AsmFmaxnm(arg5, arg6),
-            MakeF32x4(std::bit_cast<float>(kDefaultNaN32AsInteger),
+            MakeF32x4(bit_cast<float>(kDefaultNaN32AsInteger),
                       -1.0f,
-                      std::bit_cast<float>(kDefaultNaN32AsInteger),
+                      bit_cast<float>(kDefaultNaN32AsInteger),
                       -1.0f));
 
   __uint128_t arg7 = MakeU32x4(kSignalingNaN32AsInteger_1,
@@ -3205,10 +2989,10 @@ TEST(Arm64InsnTest, MaxNumberF32x4) {
                                kSignalingNaN32AsInteger_1,
                                kQuietNaN32AsInteger);
   ASSERT_EQ(AsmFmaxnm(arg7, arg8),
-            MakeF32x4(std::bit_cast<float>(kDefaultNaN32AsInteger),
-                      std::bit_cast<float>(kDefaultNaN32AsInteger),
-                      std::bit_cast<float>(kDefaultNaN32AsInteger),
-                      std::bit_cast<float>(kDefaultNaN32AsInteger)));
+            MakeF32x4(bit_cast<float>(kDefaultNaN32AsInteger),
+                      bit_cast<float>(kDefaultNaN32AsInteger),
+                      bit_cast<float>(kDefaultNaN32AsInteger),
+                      bit_cast<float>(kDefaultNaN32AsInteger)));
 
   __uint128_t arg9 = MakeF32x4(-0.0f, -0.0f, 0.0f, 0.0f);
   __uint128_t arg10 = MakeF32x4(-0.0f, 0.0f, -0.0f, 0.0f);
@@ -3221,8 +3005,8 @@ TEST(Arm64InsnTest, MaxNumberF64x2) {
   __uint128_t arg2 = MakeF64x2(2.0, -3.0);
   ASSERT_EQ(AsmFmaxnm(arg1, arg2), MakeF64x2(2.0, -3.0));
 
-  __uint128_t arg3 = MakeUInt128(std::bit_cast<uint64_t>(1.0), kQuietNaN64AsInteger);
-  __uint128_t arg4 = MakeUInt128(kQuietNaN64AsInteger, std::bit_cast<uint64_t>(-1.0));
+  __uint128_t arg3 = MakeUInt128(bit_cast<uint64_t>(1.0), kQuietNaN64AsInteger);
+  __uint128_t arg4 = MakeUInt128(kQuietNaN64AsInteger, bit_cast<uint64_t>(-1.0));
   ASSERT_EQ(AsmFmaxnm(arg3, arg4), MakeF64x2(1.0, -1.0));
 }
 
@@ -3232,28 +3016,28 @@ TEST(Arm64InsnTest, MinNumberF32x4) {
   __uint128_t arg2 = MakeF32x4(2.0f, 1.0f, -3.0f, -3.0f);
   ASSERT_EQ(AsmFminnm(arg1, arg2), MakeF32x4(-1.0f, 1.0f, -3.0f, -4.0f));
 
-  __uint128_t arg3 = MakeU32x4(std::bit_cast<uint32_t>(1.0f),
-                               std::bit_cast<uint32_t>(-1.0f),
+  __uint128_t arg3 = MakeU32x4(bit_cast<uint32_t>(1.0f),
+                               bit_cast<uint32_t>(-1.0f),
                                kNegativeQuietNaN32AsInteger,
                                kQuietNaN32AsInteger);
   __uint128_t arg4 = MakeU32x4(kNegativeQuietNaN32AsInteger,
                                kQuietNaN32AsInteger,
-                               std::bit_cast<uint32_t>(1.0f),
-                               std::bit_cast<uint32_t>(-1.0f));
+                               bit_cast<uint32_t>(1.0f),
+                               bit_cast<uint32_t>(-1.0f));
   ASSERT_EQ(AsmFminnm(arg3, arg4), MakeF32x4(1.0f, -1.0f, 1.0f, -1.0f));
 
-  __uint128_t arg5 = MakeU32x4(std::bit_cast<uint32_t>(1.0f),
-                               std::bit_cast<uint32_t>(-1.0f),
+  __uint128_t arg5 = MakeU32x4(bit_cast<uint32_t>(1.0f),
+                               bit_cast<uint32_t>(-1.0f),
                                kSignalingNaN32AsInteger_1,
                                kQuietNaN32AsInteger);
   __uint128_t arg6 = MakeU32x4(kSignalingNaN32AsInteger_1,
                                kQuietNaN32AsInteger,
-                               std::bit_cast<uint32_t>(1.0f),
-                               std::bit_cast<uint32_t>(-1.0f));
+                               bit_cast<uint32_t>(1.0f),
+                               bit_cast<uint32_t>(-1.0f));
   ASSERT_EQ(AsmFminnm(arg5, arg6),
-            MakeF32x4(std::bit_cast<float>(kDefaultNaN32AsInteger),
+            MakeF32x4(bit_cast<float>(kDefaultNaN32AsInteger),
                       -1.0f,
-                      std::bit_cast<float>(kDefaultNaN32AsInteger),
+                      bit_cast<float>(kDefaultNaN32AsInteger),
                       -1.0f));
 
   __uint128_t arg7 = MakeU32x4(kSignalingNaN32AsInteger_1,
@@ -3265,10 +3049,10 @@ TEST(Arm64InsnTest, MinNumberF32x4) {
                                kSignalingNaN32AsInteger_1,
                                kQuietNaN32AsInteger);
   ASSERT_EQ(AsmFminnm(arg7, arg8),
-            MakeF32x4(std::bit_cast<float>(kDefaultNaN32AsInteger),
-                      std::bit_cast<float>(kDefaultNaN32AsInteger),
-                      std::bit_cast<float>(kDefaultNaN32AsInteger),
-                      std::bit_cast<float>(kDefaultNaN32AsInteger)));
+            MakeF32x4(bit_cast<float>(kDefaultNaN32AsInteger),
+                      bit_cast<float>(kDefaultNaN32AsInteger),
+                      bit_cast<float>(kDefaultNaN32AsInteger),
+                      bit_cast<float>(kDefaultNaN32AsInteger)));
 
   __uint128_t arg9 = MakeF32x4(-0.0f, -0.0f, 0.0f, 0.0f);
   __uint128_t arg10 = MakeF32x4(-0.0f, 0.0f, -0.0f, 0.0f);
@@ -3281,16 +3065,16 @@ TEST(Arm64InsnTest, MinNumberF64x2) {
   __uint128_t arg2 = MakeF64x2(-0.0, -3.0);
   ASSERT_EQ(AsmFminnm(arg1, arg2), MakeF64x2(-0.0, -3.0));
 
-  __uint128_t arg3 = MakeUInt128(std::bit_cast<uint64_t>(1.0), kQuietNaN64AsInteger);
-  __uint128_t arg4 = MakeUInt128(kQuietNaN64AsInteger, std::bit_cast<uint64_t>(-1.0));
+  __uint128_t arg3 = MakeUInt128(bit_cast<uint64_t>(1.0), kQuietNaN64AsInteger);
+  __uint128_t arg4 = MakeUInt128(kQuietNaN64AsInteger, bit_cast<uint64_t>(-1.0));
   __uint128_t res = AsmFminnm(arg3, arg4);
   ASSERT_EQ(res, MakeF64x2(1.0, -1.0));
 }
 
 TEST(Arm64InsnTest, MinFp32) {
   constexpr auto AsmFmin = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fmin %s0, %s1, %s2");
-  uint32_t fp_arg_two = std::bit_cast<uint32_t>(2.0f);
-  uint32_t fp_arg_three = std::bit_cast<uint32_t>(3.0f);
+  uint32_t fp_arg_two = bit_cast<uint32_t>(2.0f);
+  uint32_t fp_arg_three = bit_cast<uint32_t>(3.0f);
 
   ASSERT_EQ(AsmFmin(fp_arg_two, fp_arg_three), MakeU32x4(fp_arg_two, 0, 0, 0));
   ASSERT_EQ(AsmFmin(kDefaultNaN32AsInteger, fp_arg_three), kDefaultNaN32AsInteger);
@@ -3299,8 +3083,8 @@ TEST(Arm64InsnTest, MinFp32) {
 
 TEST(Arm64InsnTest, MinFp64) {
   constexpr auto AsmFmin = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fmin %d0, %d1, %d2");
-  uint64_t fp_arg_two = std::bit_cast<uint64_t>(2.0);
-  uint64_t fp_arg_three = std::bit_cast<uint64_t>(3.0);
+  uint64_t fp_arg_two = bit_cast<uint64_t>(2.0);
+  uint64_t fp_arg_three = bit_cast<uint64_t>(3.0);
 
   ASSERT_EQ(AsmFmin(fp_arg_two, fp_arg_three), MakeUInt128(fp_arg_two, 0U));
   ASSERT_EQ(AsmFmin(kDefaultNaN64AsInteger, fp_arg_three), kDefaultNaN64AsInteger);
@@ -3313,13 +3097,13 @@ TEST(Arm64InsnTest, MinF32x4) {
   __uint128_t arg2 = MakeF32x4(-0.0f, 1.0f, -3.0f, -3.0f);
   ASSERT_EQ(AsmFmin(arg1, arg2), MakeF32x4(-0.0f, 1.0f, -3.0f, -4.0f));
 
-  __uint128_t arg3 = MakeF32x4(-0.0f, std::bit_cast<float>(kDefaultNaN32AsInteger), 3.0f, -4.0f);
-  __uint128_t arg4 = MakeF32x4(0.0f, 1.0f, -3.0f, std::bit_cast<float>(kDefaultNaN32AsInteger));
+  __uint128_t arg3 = MakeF32x4(-0.0f, bit_cast<float>(kDefaultNaN32AsInteger), 3.0f, -4.0f);
+  __uint128_t arg4 = MakeF32x4(0.0f, 1.0f, -3.0f, bit_cast<float>(kDefaultNaN32AsInteger));
   ASSERT_EQ(AsmFmin(arg3, arg4),
             MakeF32x4(-0.0f,
-                      std::bit_cast<float>(kDefaultNaN32AsInteger),
+                      bit_cast<float>(kDefaultNaN32AsInteger),
                       -3.0f,
-                      std::bit_cast<float>(kDefaultNaN32AsInteger)));
+                      bit_cast<float>(kDefaultNaN32AsInteger)));
 }
 
 TEST(Arm64InsnTest, MinF64x2) {
@@ -3328,19 +3112,19 @@ TEST(Arm64InsnTest, MinF64x2) {
   __uint128_t arg2 = MakeF64x2(-0.0, -3.0);
   ASSERT_EQ(AsmFmin(arg1, arg2), MakeF64x2(-0.0, -3.0));
 
-  __uint128_t arg3 = MakeF64x2(std::bit_cast<double>(kDefaultNaN64AsInteger), 3.0);
-  __uint128_t arg4 = MakeF64x2(1.0, std::bit_cast<double>(kDefaultNaN64AsInteger));
+  __uint128_t arg3 = MakeF64x2(bit_cast<double>(kDefaultNaN64AsInteger), 3.0);
+  __uint128_t arg4 = MakeF64x2(1.0, bit_cast<double>(kDefaultNaN64AsInteger));
   ASSERT_EQ(AsmFmin(arg3, arg4),
-            MakeF64x2(std::bit_cast<double>(kDefaultNaN64AsInteger),
-                      std::bit_cast<double>(kDefaultNaN64AsInteger)));
+            MakeF64x2(bit_cast<double>(kDefaultNaN64AsInteger),
+                      bit_cast<double>(kDefaultNaN64AsInteger)));
 }
 
 TEST(Arm64InsnTest, MaxPairwiseF32Scalar) {
   constexpr auto AsmFmaxp = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fmaxp %s0, %1.2s");
   __uint128_t arg1 = MakeF32x4(-3.0f, 2.0f, 7.0f, -0.0f);
-  ASSERT_EQ(AsmFmaxp(arg1), std::bit_cast<uint32_t>(2.0f));
+  ASSERT_EQ(AsmFmaxp(arg1), bit_cast<uint32_t>(2.0f));
 
-  __uint128_t arg2 = MakeF32x4(std::bit_cast<float>(kDefaultNaN32AsInteger), 2.0f, 7.0f, -0.0f);
+  __uint128_t arg2 = MakeF32x4(bit_cast<float>(kDefaultNaN32AsInteger), 2.0f, 7.0f, -0.0f);
   ASSERT_EQ(AsmFmaxp(arg2), kDefaultNaN32AsInteger);
 }
 
@@ -3350,14 +3134,12 @@ TEST(Arm64InsnTest, MaxPairwiseF32x4) {
   __uint128_t arg2 = MakeF32x4(6.0f, 1.0f, -8.0f, 5.0f);
   ASSERT_EQ(AsmFmaxp(arg1, arg2), MakeF32x4(2.0f, 7.0f, 6.0f, 5.0f));
 
-  __uint128_t arg3 = MakeF32x4(std::bit_cast<float>(kDefaultNaN32AsInteger),
-                               2.0f,
-                               7.0f,
-                               std::bit_cast<float>(kDefaultNaN32AsInteger));
+  __uint128_t arg3 = MakeF32x4(
+      bit_cast<float>(kDefaultNaN32AsInteger), 2.0f, 7.0f, bit_cast<float>(kDefaultNaN32AsInteger));
   __uint128_t arg4 = MakeF32x4(6.0f, 1.0f, -8.0f, 5.0f);
   ASSERT_EQ(AsmFmaxp(arg3, arg4),
-            MakeF32x4(std::bit_cast<float>(kDefaultNaN32AsInteger),
-                      std::bit_cast<float>(kDefaultNaN32AsInteger),
+            MakeF32x4(bit_cast<float>(kDefaultNaN32AsInteger),
+                      bit_cast<float>(kDefaultNaN32AsInteger),
                       6.0f,
                       5.0f));
 }
@@ -3365,9 +3147,9 @@ TEST(Arm64InsnTest, MaxPairwiseF32x4) {
 TEST(Arm64InsnTest, MinPairwiseF32Scalar) {
   constexpr auto AsmFminp = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fminp %s0, %1.2s");
   __uint128_t arg1 = MakeF32x4(-3.0f, 2.0f, 7.0f, -0.0f);
-  ASSERT_EQ(AsmFminp(arg1), std::bit_cast<uint32_t>(-3.0f));
+  ASSERT_EQ(AsmFminp(arg1), bit_cast<uint32_t>(-3.0f));
 
-  __uint128_t arg2 = MakeF32x4(std::bit_cast<float>(kDefaultNaN32AsInteger), 2.0f, 7.0f, -0.0f);
+  __uint128_t arg2 = MakeF32x4(bit_cast<float>(kDefaultNaN32AsInteger), 2.0f, 7.0f, -0.0f);
   ASSERT_EQ(AsmFminp(arg2), kDefaultNaN32AsInteger);
 }
 
@@ -3377,14 +3159,12 @@ TEST(Arm64InsnTest, MinPairwiseF32x4) {
   __uint128_t arg2 = MakeF32x4(6.0f, 1.0f, -8.0f, 5.0f);
   ASSERT_EQ(AsmFminp(arg1, arg2), MakeF32x4(-3.0f, -0.0f, 1.0f, -8.0f));
 
-  __uint128_t arg3 = MakeF32x4(std::bit_cast<float>(kDefaultNaN32AsInteger),
-                               2.0f,
-                               7.0f,
-                               std::bit_cast<float>(kDefaultNaN32AsInteger));
+  __uint128_t arg3 = MakeF32x4(
+      bit_cast<float>(kDefaultNaN32AsInteger), 2.0f, 7.0f, bit_cast<float>(kDefaultNaN32AsInteger));
   __uint128_t arg4 = MakeF32x4(6.0f, 1.0f, -8.0f, 5.0f);
   ASSERT_EQ(AsmFminp(arg3, arg4),
-            MakeF32x4(std::bit_cast<float>(kDefaultNaN32AsInteger),
-                      std::bit_cast<float>(kDefaultNaN32AsInteger),
+            MakeF32x4(bit_cast<float>(kDefaultNaN32AsInteger),
+                      bit_cast<float>(kDefaultNaN32AsInteger),
                       1.0f,
                       -8.0f));
 }
@@ -3392,10 +3172,10 @@ TEST(Arm64InsnTest, MinPairwiseF32x4) {
 TEST(Arm64InsnTest, MaxPairwiseNumberF32Scalar) {
   constexpr auto AsmFmaxnmp = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fmaxnmp %s0, %1.2s");
   __uint128_t arg1 = MakeF32x4(-3.0f, 2.0f, 7.0f, -0.0f);
-  ASSERT_EQ(AsmFmaxnmp(arg1), std::bit_cast<uint32_t>(2.0f));
+  ASSERT_EQ(AsmFmaxnmp(arg1), bit_cast<uint32_t>(2.0f));
 
-  __uint128_t arg2 = MakeF32x4(std::bit_cast<float>(kQuietNaN32AsInteger), 2.0f, 7.0f, -0.0f);
-  ASSERT_EQ(AsmFmaxnmp(arg2), std::bit_cast<uint32_t>(2.0f));
+  __uint128_t arg2 = MakeF32x4(bit_cast<float>(kQuietNaN32AsInteger), 2.0f, 7.0f, -0.0f);
+  ASSERT_EQ(AsmFmaxnmp(arg2), bit_cast<uint32_t>(2.0f));
 }
 
 TEST(Arm64InsnTest, MaxPairwiseNumberF32x4) {
@@ -3404,10 +3184,8 @@ TEST(Arm64InsnTest, MaxPairwiseNumberF32x4) {
   __uint128_t arg2 = MakeF32x4(6.0f, 1.0f, -8.0f, 5.0f);
   ASSERT_EQ(AsmFmaxnmp(arg1, arg2), MakeF32x4(2.0f, 7.0f, 6.0f, 5.0f));
 
-  __uint128_t arg3 = MakeF32x4(std::bit_cast<float>(kQuietNaN32AsInteger),
-                               2.0f,
-                               7.0f,
-                               std::bit_cast<float>(kQuietNaN32AsInteger));
+  __uint128_t arg3 = MakeF32x4(
+      bit_cast<float>(kQuietNaN32AsInteger), 2.0f, 7.0f, bit_cast<float>(kQuietNaN32AsInteger));
   __uint128_t arg4 = MakeF32x4(6.0f, 1.0f, -8.0f, 5.0f);
   ASSERT_EQ(AsmFmaxnmp(arg3, arg4), MakeF32x4(2.0f, 7.0f, 6.0f, 5.0f));
 }
@@ -3415,10 +3193,10 @@ TEST(Arm64InsnTest, MaxPairwiseNumberF32x4) {
 TEST(Arm64InsnTest, MinPairwiseNumberF32Scalar) {
   constexpr auto AsmFminnmp = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fminnmp %s0, %1.2s");
   __uint128_t arg1 = MakeF32x4(-3.0f, 2.0f, 7.0f, -0.0f);
-  ASSERT_EQ(AsmFminnmp(arg1), std::bit_cast<uint32_t>(-3.0f));
+  ASSERT_EQ(AsmFminnmp(arg1), bit_cast<uint32_t>(-3.0f));
 
-  __uint128_t arg2 = MakeF32x4(std::bit_cast<float>(kQuietNaN32AsInteger), 2.0f, 7.0f, -0.0f);
-  ASSERT_EQ(AsmFminnmp(arg2), std::bit_cast<uint32_t>(2.0f));
+  __uint128_t arg2 = MakeF32x4(bit_cast<float>(kQuietNaN32AsInteger), 2.0f, 7.0f, -0.0f);
+  ASSERT_EQ(AsmFminnmp(arg2), bit_cast<uint32_t>(2.0f));
 }
 
 TEST(Arm64InsnTest, MinPairwiseNumberF32x4) {
@@ -3427,10 +3205,8 @@ TEST(Arm64InsnTest, MinPairwiseNumberF32x4) {
   __uint128_t arg2 = MakeF32x4(6.0f, 1.0f, -8.0f, 5.0f);
   ASSERT_EQ(AsmFminnmp(arg1, arg2), MakeF32x4(-3.0f, -0.0f, 1.0f, -8.0f));
 
-  __uint128_t arg3 = MakeF32x4(std::bit_cast<float>(kQuietNaN32AsInteger),
-                               2.0f,
-                               7.0f,
-                               std::bit_cast<float>(kQuietNaN32AsInteger));
+  __uint128_t arg3 = MakeF32x4(
+      bit_cast<float>(kQuietNaN32AsInteger), 2.0f, 7.0f, bit_cast<float>(kQuietNaN32AsInteger));
   __uint128_t arg4 = MakeF32x4(6.0f, 1.0f, -8.0f, 5.0f);
   ASSERT_EQ(AsmFminnmp(arg3, arg4), MakeF32x4(2.0f, 7.0f, 1.0f, -8.0f));
 }
@@ -3438,37 +3214,37 @@ TEST(Arm64InsnTest, MinPairwiseNumberF32x4) {
 TEST(Arm64InsnTest, MaxAcrossF32x4) {
   constexpr auto AsmFmaxv = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fmaxv %s0, %1.4s");
   __uint128_t arg1 = MakeF32x4(0.0f, 2.0f, 3.0f, -4.0f);
-  ASSERT_EQ(AsmFmaxv(arg1), std::bit_cast<uint32_t>(3.0f));
+  ASSERT_EQ(AsmFmaxv(arg1), bit_cast<uint32_t>(3.0f));
 
-  __uint128_t arg2 = MakeF32x4(0.0f, 2.0f, std::bit_cast<float>(kDefaultNaN32AsInteger), -4.0f);
+  __uint128_t arg2 = MakeF32x4(0.0f, 2.0f, bit_cast<float>(kDefaultNaN32AsInteger), -4.0f);
   ASSERT_EQ(AsmFmaxv(arg2), kDefaultNaN32AsInteger);
 }
 
 TEST(Arm64InsnTest, MinAcrossF32x4) {
   constexpr auto AsmFminv = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fminv %s0, %1.4s");
   __uint128_t arg1 = MakeF32x4(0.0f, 2.0f, 3.0f, -4.0f);
-  ASSERT_EQ(AsmFminv(arg1), std::bit_cast<uint32_t>(-4.0f));
+  ASSERT_EQ(AsmFminv(arg1), bit_cast<uint32_t>(-4.0f));
 
-  __uint128_t arg2 = MakeF32x4(0.0f, 2.0f, std::bit_cast<float>(kDefaultNaN32AsInteger), -4.0f);
+  __uint128_t arg2 = MakeF32x4(0.0f, 2.0f, bit_cast<float>(kDefaultNaN32AsInteger), -4.0f);
   ASSERT_EQ(AsmFminv(arg2), kDefaultNaN32AsInteger);
 }
 
 TEST(Arm64InsnTest, MaxNumberAcrossF32x4) {
   constexpr auto AsmFmaxnmv = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fmaxnmv %s0, %1.4s");
   __uint128_t arg1 = MakeF32x4(0.0f, 2.0f, 3.0f, -4.0f);
-  ASSERT_EQ(AsmFmaxnmv(arg1), std::bit_cast<uint32_t>(3.0f));
+  ASSERT_EQ(AsmFmaxnmv(arg1), bit_cast<uint32_t>(3.0f));
 
-  __uint128_t arg2 = MakeF32x4(0.0f, std::bit_cast<float>(kQuietNaN32AsInteger), 3.0f, -4.0f);
-  ASSERT_EQ(AsmFmaxnmv(arg2), std::bit_cast<uint32_t>(3.0f));
+  __uint128_t arg2 = MakeF32x4(0.0f, bit_cast<float>(kQuietNaN32AsInteger), 3.0f, -4.0f);
+  ASSERT_EQ(AsmFmaxnmv(arg2), bit_cast<uint32_t>(3.0f));
 }
 
 TEST(Arm64InsnTest, MinNumberAcrossF32x4) {
   constexpr auto AsmFminnmv = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fminnmv %s0, %1.4s");
   __uint128_t arg1 = MakeF32x4(0.0f, 2.0f, 3.0f, -4.0f);
-  ASSERT_EQ(AsmFminnmv(arg1), std::bit_cast<uint32_t>(-4.0f));
+  ASSERT_EQ(AsmFminnmv(arg1), bit_cast<uint32_t>(-4.0f));
 
-  __uint128_t arg2 = MakeF32x4(0.0f, std::bit_cast<float>(kQuietNaN32AsInteger), 3.0f, -4.0f);
-  ASSERT_EQ(AsmFminnmv(arg2), std::bit_cast<uint32_t>(-4.0f));
+  __uint128_t arg2 = MakeF32x4(0.0f, bit_cast<float>(kQuietNaN32AsInteger), 3.0f, -4.0f);
+  ASSERT_EQ(AsmFminnmv(arg2), bit_cast<uint32_t>(-4.0f));
 }
 
 TEST(Arm64InsnTest, MulFp32) {
@@ -3517,21 +3293,21 @@ TEST(Arm64InsnTest, MulF32IndexedElem) {
   constexpr auto AsmFmul = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fmul %s0, %s1, %2.s[2]");
   __uint128_t arg1 = MakeF32x4(2.0f, 3.0f, 5.0f, 7.0f);
   __uint128_t arg2 = MakeF32x4(11.0f, 13.0f, 17.0f, 19.0f);
-  ASSERT_EQ(AsmFmul(arg1, arg2), std::bit_cast<uint32_t>(34.0f));
+  ASSERT_EQ(AsmFmul(arg1, arg2), bit_cast<uint32_t>(34.0f));
 }
 
 TEST(Arm64InsnTest, MulF64IndexedElem) {
   constexpr auto AsmFmul = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fmul %d0, %d1, %2.d[1]");
   __uint128_t arg1 = MakeF64x2(2.0, 3.0);
   __uint128_t arg2 = MakeF64x2(5.0, 4.0);
-  ASSERT_EQ(AsmFmul(arg1, arg2), std::bit_cast<uint64_t>(8.0));
+  ASSERT_EQ(AsmFmul(arg1, arg2), bit_cast<uint64_t>(8.0));
 }
 
 TEST(Arm64InsnTest, MulExtendedF32) {
   constexpr auto AsmFmulx = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fmulx %s0, %s1, %s2");
   __uint128_t arg1 = MakeF32x4(2.0f, 3.0f, 5.0f, 7.0f);
   __uint128_t arg2 = MakeF32x4(11.0f, 13.0f, 17.0f, 19.0f);
-  ASSERT_EQ(AsmFmulx(arg1, arg2), std::bit_cast<uint32_t>(22.0f));
+  ASSERT_EQ(AsmFmulx(arg1, arg2), bit_cast<uint32_t>(22.0f));
 }
 
 TEST(Arm64InsnTest, MulExtendedF32x4) {
@@ -3545,14 +3321,14 @@ TEST(Arm64InsnTest, MulExtendedF32IndexedElem) {
   constexpr auto AsmFmulx = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fmulx %s0, %s1, %2.s[2]");
   __uint128_t arg1 = MakeF32x4(2.0f, 3.0f, 5.0f, 7.0f);
   __uint128_t arg2 = MakeF32x4(11.0f, 13.0f, 17.0f, 19.0f);
-  ASSERT_EQ(AsmFmulx(arg1, arg2), std::bit_cast<uint32_t>(34.0f));
+  ASSERT_EQ(AsmFmulx(arg1, arg2), bit_cast<uint32_t>(34.0f));
 }
 
 TEST(Arm64InsnTest, MulExtendedF64IndexedElem) {
   constexpr auto AsmFmulx = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fmulx %d0, %d1, %2.d[1]");
   __uint128_t arg1 = MakeF64x2(2.0, 3.0);
   __uint128_t arg2 = MakeF64x2(5.0, 4.0);
-  ASSERT_EQ(AsmFmulx(arg1, arg2), std::bit_cast<uint64_t>(8.0));
+  ASSERT_EQ(AsmFmulx(arg1, arg2), bit_cast<uint64_t>(8.0));
 }
 
 TEST(Arm64InsnTest, MulExtendedF32x4IndexedElem) {
@@ -3563,17 +3339,17 @@ TEST(Arm64InsnTest, MulExtendedF32x4IndexedElem) {
 }
 
 TEST(Arm64InsnTest, MulNegFp32) {
-  uint64_t fp_arg1 = std::bit_cast<uint32_t>(2.0f);
-  uint64_t fp_arg2 = std::bit_cast<uint32_t>(3.0f);
+  uint64_t fp_arg1 = bit_cast<uint32_t>(2.0f);
+  uint64_t fp_arg2 = bit_cast<uint32_t>(3.0f);
   __uint128_t rd = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fnmul %s0, %s1, %s2")(fp_arg1, fp_arg2);
-  ASSERT_EQ(rd, MakeUInt128(std::bit_cast<uint32_t>(-6.0f), 0U));
+  ASSERT_EQ(rd, MakeUInt128(bit_cast<uint32_t>(-6.0f), 0U));
 }
 
 TEST(Arm64InsnTest, MulNegFp64) {
-  uint64_t fp_arg1 = std::bit_cast<uint64_t>(2.0);
-  uint64_t fp_arg2 = std::bit_cast<uint64_t>(3.0);
+  uint64_t fp_arg1 = bit_cast<uint64_t>(2.0);
+  uint64_t fp_arg2 = bit_cast<uint64_t>(3.0);
   __uint128_t rd = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fnmul %d0, %d1, %d2")(fp_arg1, fp_arg2);
-  ASSERT_EQ(rd, MakeUInt128(std::bit_cast<uint64_t>(-6.0), 0U));
+  ASSERT_EQ(rd, MakeUInt128(bit_cast<uint64_t>(-6.0), 0U));
 }
 
 TEST(Arm64InsnTest, DivFp32) {
@@ -3662,28 +3438,28 @@ TEST(Arm64InsnTest, DivFp64x2) {
 TEST(Arm64InsnTest, MulAddFp32) {
   constexpr auto AsmFmadd = ASM_INSN_WRAP_FUNC_W_RES_WWW_ARG("fmadd %s0, %s1, %s2, %s3");
 
-  __uint128_t res1 = AsmFmadd(
-      std::bit_cast<uint32_t>(2.0f), std::bit_cast<uint32_t>(3.0f), std::bit_cast<uint32_t>(5.0f));
+  __uint128_t res1 =
+      AsmFmadd(bit_cast<uint32_t>(2.0f), bit_cast<uint32_t>(3.0f), bit_cast<uint32_t>(5.0f));
   ASSERT_EQ(res1, MakeF32x4(11.0f, 0, 0, 0));
 
-  __uint128_t res2 = AsmFmadd(
-      std::bit_cast<uint32_t>(2.5f), std::bit_cast<uint32_t>(2.0f), std::bit_cast<uint32_t>(-5.0f));
+  __uint128_t res2 =
+      AsmFmadd(bit_cast<uint32_t>(2.5f), bit_cast<uint32_t>(2.0f), bit_cast<uint32_t>(-5.0f));
   ASSERT_EQ(res2, MakeF32x4(0, 0, 0, 0));
 
   // These tests verify that fmadd does not lose precision while doing the mult + add.
-  __uint128_t res3 = AsmFmadd(std::bit_cast<uint32_t>(0x1.fffffep22f),
-                              std::bit_cast<uint32_t>(0x1.000002p0f),
-                              std::bit_cast<uint32_t>(-0x1.p23f));
+  __uint128_t res3 = AsmFmadd(bit_cast<uint32_t>(0x1.fffffep22f),
+                              bit_cast<uint32_t>(0x1.000002p0f),
+                              bit_cast<uint32_t>(-0x1.p23f));
   ASSERT_EQ(res3, MakeF32x4(0x1.fffffcp-2f, 0, 0, 0));
 
-  __uint128_t res4 = AsmFmadd(std::bit_cast<uint32_t>(0x1.fffffep22f),
-                              std::bit_cast<uint32_t>(0x1.000002p0f),
-                              std::bit_cast<uint32_t>(-0x1.fffffep22f));
+  __uint128_t res4 = AsmFmadd(bit_cast<uint32_t>(0x1.fffffep22f),
+                              bit_cast<uint32_t>(0x1.000002p0f),
+                              bit_cast<uint32_t>(-0x1.fffffep22f));
   ASSERT_EQ(res4, MakeF32x4(0x1.fffffep-1f, 0, 0, 0));
 
-  __uint128_t res5 = AsmFmadd(std::bit_cast<uint32_t>(0x1.p23f),
-                              std::bit_cast<uint32_t>(0x1.fffffep-1f),
-                              std::bit_cast<uint32_t>(-0x1.000002p23f));
+  __uint128_t res5 = AsmFmadd(bit_cast<uint32_t>(0x1.p23f),
+                              bit_cast<uint32_t>(0x1.fffffep-1f),
+                              bit_cast<uint32_t>(-0x1.000002p23f));
   ASSERT_EQ(res5, MakeF32x4(-0x1.80p0f, 0, 0, 0));
 }
 
@@ -3699,11 +3475,11 @@ TEST(Arm64InsnTest, MulAddFp64) {
 }
 
 TEST(Arm64InsnTest, MulAddFp64Precision) {
-  uint64_t arg1 = std::bit_cast<uint64_t>(0x1.0p1023);
-  uint64_t arg2 = std::bit_cast<uint64_t>(0x1.0p-1);
-  uint64_t arg3 = std::bit_cast<uint64_t>(0x1.fffffffffffffp1022);
+  uint64_t arg1 = bit_cast<uint64_t>(0x1.0p1023);
+  uint64_t arg2 = bit_cast<uint64_t>(0x1.0p-1);
+  uint64_t arg3 = bit_cast<uint64_t>(0x1.fffffffffffffp1022);
   __uint128_t res = ASM_INSN_WRAP_FUNC_W_RES_WWW_ARG("fmadd %d0, %d1, %d2, %d3")(arg1, arg2, arg3);
-  ASSERT_EQ(res, std::bit_cast<uint64_t>(0x1.7ffffffffffff8p1023));
+  ASSERT_EQ(res, bit_cast<uint64_t>(0x1.7ffffffffffff8p1023));
 }
 
 TEST(Arm64InsnTest, MulAddI64) {
@@ -3722,50 +3498,50 @@ TEST(Arm64InsnTest, MulAddI64) {
 TEST(Arm64InsnTest, NegMulAddFp32) {
   constexpr auto AsmFnmadd = ASM_INSN_WRAP_FUNC_W_RES_WWW_ARG("fnmadd %s0, %s1, %s2, %s3");
 
-  __uint128_t res1 = AsmFnmadd(
-      std::bit_cast<uint32_t>(2.0f), std::bit_cast<uint32_t>(3.0f), std::bit_cast<uint32_t>(5.0f));
+  __uint128_t res1 =
+      AsmFnmadd(bit_cast<uint32_t>(2.0f), bit_cast<uint32_t>(3.0f), bit_cast<uint32_t>(5.0f));
   ASSERT_EQ(res1, MakeF32x4(-11.0f, 0, 0, 0));
 
   // No -0 (proper negation)
-  __uint128_t res2 = AsmFnmadd(
-      std::bit_cast<uint32_t>(2.5f), std::bit_cast<uint32_t>(2.0f), std::bit_cast<uint32_t>(-5.0f));
+  __uint128_t res2 =
+      AsmFnmadd(bit_cast<uint32_t>(2.5f), bit_cast<uint32_t>(2.0f), bit_cast<uint32_t>(-5.0f));
   ASSERT_EQ(res2, MakeF32x4(0.0f, 0, 0, 0));
 
   // These tests verify that fmadd does not lose precision while doing the mult + add.
-  __uint128_t res3 = AsmFnmadd(std::bit_cast<uint32_t>(0x1.fffffep22f),
-                               std::bit_cast<uint32_t>(0x1.000002p0f),
-                               std::bit_cast<uint32_t>(-0x1.p23f));
+  __uint128_t res3 = AsmFnmadd(bit_cast<uint32_t>(0x1.fffffep22f),
+                               bit_cast<uint32_t>(0x1.000002p0f),
+                               bit_cast<uint32_t>(-0x1.p23f));
   ASSERT_EQ(res3, MakeF32x4(-0x1.fffffcp-2f, 0, 0, 0));
 
-  __uint128_t res4 = AsmFnmadd(std::bit_cast<uint32_t>(0x1.fffffep22f),
-                               std::bit_cast<uint32_t>(0x1.000002p0f),
-                               std::bit_cast<uint32_t>(-0x1.fffffep22f));
+  __uint128_t res4 = AsmFnmadd(bit_cast<uint32_t>(0x1.fffffep22f),
+                               bit_cast<uint32_t>(0x1.000002p0f),
+                               bit_cast<uint32_t>(-0x1.fffffep22f));
   ASSERT_EQ(res4, MakeF32x4(-0x1.fffffep-1f, 0, 0, 0));
 
-  __uint128_t res5 = AsmFnmadd(std::bit_cast<uint32_t>(0x1.p23f),
-                               std::bit_cast<uint32_t>(0x1.fffffep-1f),
-                               std::bit_cast<uint32_t>(-0x1.000002p23f));
+  __uint128_t res5 = AsmFnmadd(bit_cast<uint32_t>(0x1.p23f),
+                               bit_cast<uint32_t>(0x1.fffffep-1f),
+                               bit_cast<uint32_t>(-0x1.000002p23f));
   ASSERT_EQ(res5, MakeF32x4(0x1.80p0f, 0, 0, 0));
 }
 
 TEST(Arm64InsnTest, NegMulAddFp64) {
   constexpr auto AsmFnmadd = ASM_INSN_WRAP_FUNC_W_RES_WWW_ARG("fnmadd %d0, %d1, %d2, %d3");
 
-  __uint128_t res1 = AsmFnmadd(
-      std::bit_cast<uint64_t>(2.0), std::bit_cast<uint64_t>(3.0), std::bit_cast<uint64_t>(5.0));
+  __uint128_t res1 =
+      AsmFnmadd(bit_cast<uint64_t>(2.0), bit_cast<uint64_t>(3.0), bit_cast<uint64_t>(5.0));
   ASSERT_EQ(res1, MakeF64x2(-11.0, 0));
 
   // Proper negation (no -0 in this case)
-  __uint128_t res2 = AsmFnmadd(
-      std::bit_cast<uint64_t>(2.5), std::bit_cast<uint64_t>(2.0), std::bit_cast<uint64_t>(-5.0));
+  __uint128_t res2 =
+      AsmFnmadd(bit_cast<uint64_t>(2.5), bit_cast<uint64_t>(2.0), bit_cast<uint64_t>(-5.0));
   ASSERT_EQ(res2, MakeF64x2(0.0, 0));
 }
 
 TEST(Arm64InsnTest, NegMulSubFp64) {
   constexpr auto AsmFnmsub = ASM_INSN_WRAP_FUNC_W_RES_WWW_ARG("fnmsub %d0, %d1, %d2, %d3");
 
-  __uint128_t res1 = AsmFnmsub(
-      std::bit_cast<uint64_t>(-2.0), std::bit_cast<uint64_t>(3.0), std::bit_cast<uint64_t>(5.0));
+  __uint128_t res1 =
+      AsmFnmsub(bit_cast<uint64_t>(-2.0), bit_cast<uint64_t>(3.0), bit_cast<uint64_t>(5.0));
   ASSERT_EQ(res1, MakeF64x2(-11.0, 0));
 
   uint64_t arg1 = 0x4035'7ae1'47ae'147bULL;  // 21.48
@@ -3775,18 +3551,18 @@ TEST(Arm64InsnTest, NegMulSubFp64) {
   ASSERT_EQ(res2, MakeUInt128(0x4091'81db'8bac'710dULL, 0U));  // 1120.4644
 
   // Assert no -0 in this case
-  __uint128_t res3 = AsmFnmsub(
-      std::bit_cast<uint64_t>(2.5), std::bit_cast<uint64_t>(2.0), std::bit_cast<uint64_t>(5.0));
+  __uint128_t res3 =
+      AsmFnmsub(bit_cast<uint64_t>(2.5), bit_cast<uint64_t>(2.0), bit_cast<uint64_t>(5.0));
   ASSERT_EQ(res3, MakeF64x2(0.0, 0));
 }
 
 TEST(Arm64InsnTest, NegMulSubFp64Precision) {
   constexpr auto AsmFnmsub = ASM_INSN_WRAP_FUNC_W_RES_WWW_ARG("fnmsub %d0, %d1, %d2, %d3");
 
-  __uint128_t res = AsmFnmsub(std::bit_cast<uint64_t>(0x1.0p1023),
-                              std::bit_cast<uint64_t>(0x1.0p-1),
-                              std::bit_cast<uint64_t>(-0x1.fffffffffffffp1022));
-  ASSERT_EQ(res, std::bit_cast<uint64_t>(0x1.7ffffffffffff8p1023));
+  __uint128_t res = AsmFnmsub(bit_cast<uint64_t>(0x1.0p1023),
+                              bit_cast<uint64_t>(0x1.0p-1),
+                              bit_cast<uint64_t>(-0x1.fffffffffffffp1022));
+  ASSERT_EQ(res, bit_cast<uint64_t>(0x1.7ffffffffffff8p1023));
 }
 
 TEST(Arm64InsnTest, MulAddF32x4) {
@@ -3803,7 +3579,7 @@ TEST(Arm64InsnTest, MulAddF32IndexedElem) {
   __uint128_t arg2 = MakeF32x4(3.0f, 1.0f, 2.0f, 4.0f);
   __uint128_t arg3 = MakeF32x4(2.0f, 3.0f, 1.0f, 2.0f);
   // 2 + (1 * 2)
-  ASSERT_EQ(AsmFmla(arg1, arg2, arg3), std::bit_cast<uint32_t>(4.0f));
+  ASSERT_EQ(AsmFmla(arg1, arg2, arg3), bit_cast<uint32_t>(4.0f));
 }
 
 TEST(Arm64InsnTest, MulAddF64IndexedElem) {
@@ -3812,7 +3588,7 @@ TEST(Arm64InsnTest, MulAddF64IndexedElem) {
   __uint128_t arg2 = MakeF64x2(4.0, 5.0);
   __uint128_t arg3 = MakeF64x2(6.0, 7.0);
   // 6 + (2 * 5)
-  ASSERT_EQ(AsmFmla(arg1, arg2, arg3), std::bit_cast<uint64_t>(16.0));
+  ASSERT_EQ(AsmFmla(arg1, arg2, arg3), bit_cast<uint64_t>(16.0));
 }
 
 TEST(Arm64InsnTest, MulAddF64x2) {
@@ -3832,14 +3608,14 @@ TEST(Arm64InsnTest, MulAddF32x4IndexedElem) {
 }
 
 TEST(Arm64InsnTest, MulSubFp32) {
-  uint32_t arg1 = std::bit_cast<uint32_t>(2.0f);
-  uint32_t arg2 = std::bit_cast<uint32_t>(5.0f);
-  uint32_t arg3 = std::bit_cast<uint32_t>(3.0f);
+  uint32_t arg1 = bit_cast<uint32_t>(2.0f);
+  uint32_t arg2 = bit_cast<uint32_t>(5.0f);
+  uint32_t arg3 = bit_cast<uint32_t>(3.0f);
   __uint128_t res1 = ASM_INSN_WRAP_FUNC_W_RES_WWW_ARG("fmsub %s0, %s1, %s2, %s3")(arg1, arg2, arg3);
-  ASSERT_EQ(res1, MakeUInt128(std::bit_cast<uint32_t>(-7.0f), 0U));
+  ASSERT_EQ(res1, MakeUInt128(bit_cast<uint32_t>(-7.0f), 0U));
   __uint128_t res2 =
       ASM_INSN_WRAP_FUNC_W_RES_WWW_ARG("fnmsub %s0, %s1, %s2, %s3")(arg1, arg2, arg3);
-  ASSERT_EQ(res2, MakeUInt128(std::bit_cast<uint32_t>(7.0f), 0U));
+  ASSERT_EQ(res2, MakeUInt128(bit_cast<uint32_t>(7.0f), 0U));
 }
 
 TEST(Arm64InsnTest, MulSubFp64) {
@@ -3852,22 +3628,22 @@ TEST(Arm64InsnTest, MulSubFp64) {
   ASSERT_EQ(res1, MakeUInt128(0xc091'81db'8bac'710dULL, 0U));  // -1120.4644
 
   // Basic case
-  __uint128_t res3 = AsmFmsub(
-      std::bit_cast<uint64_t>(2.0), std::bit_cast<uint64_t>(3.0), std::bit_cast<uint64_t>(-5.0));
+  __uint128_t res3 =
+      AsmFmsub(bit_cast<uint64_t>(2.0), bit_cast<uint64_t>(3.0), bit_cast<uint64_t>(-5.0));
   ASSERT_EQ(res3, MakeF64x2(-11.0, 0));
 
   // No -0 in this case (proper negation order)
-  __uint128_t res4 = AsmFmsub(
-      std::bit_cast<uint64_t>(2.5), std::bit_cast<uint64_t>(2.0), std::bit_cast<uint64_t>(5.0));
+  __uint128_t res4 =
+      AsmFmsub(bit_cast<uint64_t>(2.5), bit_cast<uint64_t>(2.0), bit_cast<uint64_t>(5.0));
   ASSERT_EQ(res4, MakeF64x2(0.0, 0));
 }
 
 TEST(Arm64InsnTest, MulSubFp64Precision) {
   constexpr auto AsmFmsub = ASM_INSN_WRAP_FUNC_W_RES_WWW_ARG("fmsub %d0, %d1, %d2, %d3");
-  __uint128_t res5 = AsmFmsub(std::bit_cast<uint64_t>(-0x1.0p1023),
-                              std::bit_cast<uint64_t>(0x1.0p-1),
-                              std::bit_cast<uint64_t>(0x1.fffffffffffffp1022));
-  ASSERT_EQ(res5, std::bit_cast<uint64_t>(0x1.7ffffffffffff8p1023));
+  __uint128_t res5 = AsmFmsub(bit_cast<uint64_t>(-0x1.0p1023),
+                              bit_cast<uint64_t>(0x1.0p-1),
+                              bit_cast<uint64_t>(0x1.fffffffffffffp1022));
+  ASSERT_EQ(res5, bit_cast<uint64_t>(0x1.7ffffffffffff8p1023));
 }
 
 TEST(Arm64InsnTest, MulSubF32x4) {
@@ -3884,7 +3660,7 @@ TEST(Arm64InsnTest, MulSubF32IndexedElem) {
   __uint128_t arg2 = MakeF32x4(4.0f, 3.0f, 2.0f, 1.0f);
   __uint128_t arg3 = MakeF32x4(8.0f, 3.0f, 1.0f, 2.0f);
   // 8 - (2 * 2)
-  ASSERT_EQ(AsmFmls(arg1, arg2, arg3), std::bit_cast<uint32_t>(4.0f));
+  ASSERT_EQ(AsmFmls(arg1, arg2, arg3), bit_cast<uint32_t>(4.0f));
 }
 
 TEST(Arm64InsnTest, MulSubF32x4IndexedElem) {
@@ -3909,7 +3685,7 @@ TEST(Arm64InsnTest, MulSubF64IndexedElem) {
   __uint128_t arg2 = MakeF64x2(4.0, 1.0);
   __uint128_t arg3 = MakeF64x2(6.0, 7.0f);
   // 6 - (2 * 1)
-  ASSERT_EQ(AsmFmls(arg1, arg2, arg3), std::bit_cast<uint64_t>(4.0));
+  ASSERT_EQ(AsmFmls(arg1, arg2, arg3), bit_cast<uint64_t>(4.0));
 }
 
 TEST(Arm64InsnTest, MulSubI64) {
@@ -3926,8 +3702,8 @@ TEST(Arm64InsnTest, MulSubI64) {
 
 TEST(Arm64InsnTest, CompareEqualF32) {
   constexpr auto AsmFcmeq = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fcmeq %s0, %s1, %s2");
-  uint32_t two = std::bit_cast<uint32_t>(2.0f);
-  uint32_t six = std::bit_cast<uint32_t>(6.0f);
+  uint32_t two = bit_cast<uint32_t>(2.0f);
+  uint32_t six = bit_cast<uint32_t>(6.0f);
   ASSERT_EQ(AsmFcmeq(two, six), 0x0000'0000ULL);
   ASSERT_EQ(AsmFcmeq(two, two), 0xffff'ffffULL);
   ASSERT_EQ(AsmFcmeq(kDefaultNaN32AsInteger, two), 0x0000'0000ULL);
@@ -3944,8 +3720,8 @@ TEST(Arm64InsnTest, CompareEqualF32x4) {
 
 TEST(Arm64InsnTest, CompareGreaterEqualF32) {
   constexpr auto AsmFcmge = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fcmge %s0, %s1, %s2");
-  uint32_t two = std::bit_cast<uint32_t>(2.0f);
-  uint32_t six = std::bit_cast<uint32_t>(6.0f);
+  uint32_t two = bit_cast<uint32_t>(2.0f);
+  uint32_t six = bit_cast<uint32_t>(6.0f);
   ASSERT_EQ(AsmFcmge(two, six), 0x0000'0000ULL);
   ASSERT_EQ(AsmFcmge(two, two), 0xffff'ffffULL);
   ASSERT_EQ(AsmFcmge(six, two), 0xffff'ffffULL);
@@ -3963,8 +3739,8 @@ TEST(Arm64InsnTest, CompareGreaterEqualF32x4) {
 
 TEST(Arm64InsnTest, CompareGreaterF32) {
   constexpr auto AsmFcmgt = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fcmgt %s0, %s1, %s2");
-  uint32_t two = std::bit_cast<uint32_t>(2.0f);
-  uint32_t six = std::bit_cast<uint32_t>(6.0f);
+  uint32_t two = bit_cast<uint32_t>(2.0f);
+  uint32_t six = bit_cast<uint32_t>(6.0f);
   ASSERT_EQ(AsmFcmgt(two, six), 0x0000'0000ULL);
   ASSERT_EQ(AsmFcmgt(two, two), 0x0000'0000ULL);
   ASSERT_EQ(AsmFcmgt(six, two), 0xffff'ffffULL);
@@ -3982,8 +3758,8 @@ TEST(Arm64InsnTest, CompareGreaterF32x4) {
 
 TEST(Arm64InsnTest, CompareEqualZeroF32) {
   constexpr auto AsmFcmeq = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcmeq %s0, %s1, #0");
-  ASSERT_EQ(AsmFcmeq(std::bit_cast<uint32_t>(0.0f)), 0xffff'ffffULL);
-  ASSERT_EQ(AsmFcmeq(std::bit_cast<uint32_t>(4.0f)), 0x0000'0000ULL);
+  ASSERT_EQ(AsmFcmeq(bit_cast<uint32_t>(0.0f)), 0xffff'ffffULL);
+  ASSERT_EQ(AsmFcmeq(bit_cast<uint32_t>(4.0f)), 0x0000'0000ULL);
 }
 
 TEST(Arm64InsnTest, CompareEqualZeroF32x4) {
@@ -3995,9 +3771,9 @@ TEST(Arm64InsnTest, CompareEqualZeroF32x4) {
 
 TEST(Arm64InsnTest, CompareGreaterThanZeroF32) {
   constexpr auto AsmFcmgt = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcmgt %s0, %s1, #0");
-  ASSERT_EQ(AsmFcmgt(std::bit_cast<uint32_t>(-1.0f)), 0x0000'0000ULL);
-  ASSERT_EQ(AsmFcmgt(std::bit_cast<uint32_t>(0.0f)), 0x0000'0000ULL);
-  ASSERT_EQ(AsmFcmgt(std::bit_cast<uint32_t>(1.0f)), 0xffff'ffffULL);
+  ASSERT_EQ(AsmFcmgt(bit_cast<uint32_t>(-1.0f)), 0x0000'0000ULL);
+  ASSERT_EQ(AsmFcmgt(bit_cast<uint32_t>(0.0f)), 0x0000'0000ULL);
+  ASSERT_EQ(AsmFcmgt(bit_cast<uint32_t>(1.0f)), 0xffff'ffffULL);
 }
 
 TEST(Arm64InsnTest, CompareGreaterThanZeroF32x4) {
@@ -4009,9 +3785,9 @@ TEST(Arm64InsnTest, CompareGreaterThanZeroF32x4) {
 
 TEST(Arm64InsnTest, CompareGreaterThanOrEqualZeroF32) {
   constexpr auto AsmFcmge = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcmge %s0, %s1, #0");
-  ASSERT_EQ(AsmFcmge(std::bit_cast<uint32_t>(-1.0f)), 0x0000'0000ULL);
-  ASSERT_EQ(AsmFcmge(std::bit_cast<uint32_t>(0.0f)), 0xffff'ffffULL);
-  ASSERT_EQ(AsmFcmge(std::bit_cast<uint32_t>(1.0f)), 0xffff'ffffULL);
+  ASSERT_EQ(AsmFcmge(bit_cast<uint32_t>(-1.0f)), 0x0000'0000ULL);
+  ASSERT_EQ(AsmFcmge(bit_cast<uint32_t>(0.0f)), 0xffff'ffffULL);
+  ASSERT_EQ(AsmFcmge(bit_cast<uint32_t>(1.0f)), 0xffff'ffffULL);
 }
 
 TEST(Arm64InsnTest, CompareGreaterThanOrEqualZeroF32x4) {
@@ -4023,9 +3799,9 @@ TEST(Arm64InsnTest, CompareGreaterThanOrEqualZeroF32x4) {
 
 TEST(Arm64InsnTest, CompareLessThanZeroF32) {
   constexpr auto AsmFcmlt = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcmlt %s0, %s1, #0");
-  ASSERT_EQ(AsmFcmlt(std::bit_cast<uint32_t>(-1.0f)), 0xffff'ffffULL);
-  ASSERT_EQ(AsmFcmlt(std::bit_cast<uint32_t>(0.0f)), 0x0000'0000ULL);
-  ASSERT_EQ(AsmFcmlt(std::bit_cast<uint32_t>(1.0f)), 0x0000'0000ULL);
+  ASSERT_EQ(AsmFcmlt(bit_cast<uint32_t>(-1.0f)), 0xffff'ffffULL);
+  ASSERT_EQ(AsmFcmlt(bit_cast<uint32_t>(0.0f)), 0x0000'0000ULL);
+  ASSERT_EQ(AsmFcmlt(bit_cast<uint32_t>(1.0f)), 0x0000'0000ULL);
 }
 
 TEST(Arm64InsnTest, CompareLessThanZeroF32x4) {
@@ -4037,9 +3813,9 @@ TEST(Arm64InsnTest, CompareLessThanZeroF32x4) {
 
 TEST(Arm64InsnTest, CompareLessThanOrEqualZeroF32) {
   constexpr auto AsmFcmle = ASM_INSN_WRAP_FUNC_W_RES_W_ARG("fcmle %s0, %s1, #0");
-  ASSERT_EQ(AsmFcmle(std::bit_cast<uint32_t>(-1.0f)), 0xffff'ffffULL);
-  ASSERT_EQ(AsmFcmle(std::bit_cast<uint32_t>(0.0f)), 0xffff'ffffULL);
-  ASSERT_EQ(AsmFcmle(std::bit_cast<uint32_t>(1.0f)), 0x0000'0000ULL);
+  ASSERT_EQ(AsmFcmle(bit_cast<uint32_t>(-1.0f)), 0xffff'ffffULL);
+  ASSERT_EQ(AsmFcmle(bit_cast<uint32_t>(0.0f)), 0xffff'ffffULL);
+  ASSERT_EQ(AsmFcmle(bit_cast<uint32_t>(1.0f)), 0x0000'0000ULL);
 }
 
 TEST(Arm64InsnTest, CompareLessThanOrEqualZeroF32x4) {
@@ -4051,22 +3827,16 @@ TEST(Arm64InsnTest, CompareLessThanOrEqualZeroF32x4) {
 
 TEST(Arm64InsnTest, AbsoluteCompareGreaterThanF32) {
   constexpr auto AsmFacgt = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("facgt %s0, %s1, %s2");
-  ASSERT_EQ(AsmFacgt(std::bit_cast<uint32_t>(-3.0f), std::bit_cast<uint32_t>(1.0f)),
-            0xffff'ffffULL);
-  ASSERT_EQ(AsmFacgt(std::bit_cast<uint32_t>(1.0f), std::bit_cast<uint32_t>(-1.0f)),
-            0x0000'0000ULL);
-  ASSERT_EQ(AsmFacgt(std::bit_cast<uint32_t>(3.0f), std::bit_cast<uint32_t>(-7.0f)),
-            0x0000'0000ULL);
+  ASSERT_EQ(AsmFacgt(bit_cast<uint32_t>(-3.0f), bit_cast<uint32_t>(1.0f)), 0xffff'ffffULL);
+  ASSERT_EQ(AsmFacgt(bit_cast<uint32_t>(1.0f), bit_cast<uint32_t>(-1.0f)), 0x0000'0000ULL);
+  ASSERT_EQ(AsmFacgt(bit_cast<uint32_t>(3.0f), bit_cast<uint32_t>(-7.0f)), 0x0000'0000ULL);
 }
 
 TEST(Arm64InsnTest, AbsoluteCompareGreaterThanOrEqualF32) {
   constexpr auto AsmFacge = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("facge %s0, %s1, %s2");
-  ASSERT_EQ(AsmFacge(std::bit_cast<uint32_t>(-3.0f), std::bit_cast<uint32_t>(1.0f)),
-            0xffff'ffffULL);
-  ASSERT_EQ(AsmFacge(std::bit_cast<uint32_t>(1.0f), std::bit_cast<uint32_t>(-1.0f)),
-            0xffff'ffffULL);
-  ASSERT_EQ(AsmFacge(std::bit_cast<uint32_t>(3.0f), std::bit_cast<uint32_t>(-7.0f)),
-            0x0000'0000ULL);
+  ASSERT_EQ(AsmFacge(bit_cast<uint32_t>(-3.0f), bit_cast<uint32_t>(1.0f)), 0xffff'ffffULL);
+  ASSERT_EQ(AsmFacge(bit_cast<uint32_t>(1.0f), bit_cast<uint32_t>(-1.0f)), 0xffff'ffffULL);
+  ASSERT_EQ(AsmFacge(bit_cast<uint32_t>(3.0f), bit_cast<uint32_t>(-7.0f)), 0x0000'0000ULL);
 }
 
 TEST(Arm64InsnTest, AbsoluteCompareGreaterThanF32x4) {
@@ -4085,8 +3855,8 @@ TEST(Arm64InsnTest, AbsoluteCompareGreaterThanEqualF32x4) {
 
 TEST(Arm64InsnTest, CompareEqualF64) {
   constexpr auto AsmFcmeq = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fcmeq %d0, %d1, %d2");
-  uint64_t two = std::bit_cast<uint64_t>(2.0);
-  uint64_t six = std::bit_cast<uint64_t>(6.0);
+  uint64_t two = bit_cast<uint64_t>(2.0);
+  uint64_t six = bit_cast<uint64_t>(6.0);
   ASSERT_EQ(AsmFcmeq(two, six), 0x0000'0000'0000'0000ULL);
   ASSERT_EQ(AsmFcmeq(two, two), 0xffff'ffff'ffff'ffffULL);
   ASSERT_EQ(AsmFcmeq(kDefaultNaN64AsInteger, two), 0x0000'0000'0000'0000ULL);
@@ -4107,8 +3877,8 @@ TEST(Arm64InsnTest, CompareEqualF64x2) {
 
 TEST(Arm64InsnTest, CompareGreaterEqualF64) {
   constexpr auto AsmFcmge = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fcmge %d0, %d1, %d2");
-  uint64_t two = std::bit_cast<uint64_t>(2.0);
-  uint64_t six = std::bit_cast<uint64_t>(6.0);
+  uint64_t two = bit_cast<uint64_t>(2.0);
+  uint64_t six = bit_cast<uint64_t>(6.0);
   ASSERT_EQ(AsmFcmge(two, six), 0x0000'0000'0000'0000ULL);
   ASSERT_EQ(AsmFcmge(two, two), 0xffff'ffff'ffff'ffffULL);
   ASSERT_EQ(AsmFcmge(six, two), 0xffff'ffff'ffff'ffffULL);
@@ -4130,8 +3900,8 @@ TEST(Arm64InsnTest, CompareGreaterEqualF64x2) {
 
 TEST(Arm64InsnTest, CompareGreaterF64) {
   constexpr auto AsmFcmgt = ASM_INSN_WRAP_FUNC_W_RES_WW_ARG("fcmgt %d0, %d1, %d2");
-  uint64_t two = std::bit_cast<uint64_t>(2.0);
-  uint64_t six = std::bit_cast<uint64_t>(6.0);
+  uint64_t two = bit_cast<uint64_t>(2.0);
+  uint64_t six = bit_cast<uint64_t>(6.0);
   ASSERT_EQ(AsmFcmgt(two, six), 0x0000'0000'0000'0000ULL);
   ASSERT_EQ(AsmFcmgt(two, two), 0x0000'0000'0000'0000ULL);
   ASSERT_EQ(AsmFcmgt(six, two), 0xffff'ffff'ffff'ffffULL);

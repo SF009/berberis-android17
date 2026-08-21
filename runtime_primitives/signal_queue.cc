@@ -17,8 +17,8 @@
 #include "berberis/runtime_primitives/signal_queue.h"
 
 #include <atomic>
-#include <bit>
 
+#include "berberis/base/bit_util.h"
 #include "berberis/base/forever_pool.h"
 
 namespace berberis {
@@ -28,19 +28,8 @@ siginfo_t* SignalQueue::AllocSignal() {
   return &node->info;
 }
 
-std::optional<ucontext_t>* SignalQueue::GetUcontext(siginfo_t* info) {
-  Node* node = std::bit_cast<Node*>(info);
-  return &(node->ucontext);
-}
-
-void SignalQueue::EnqueueSignal(siginfo_t* info, const ucontext_t* ucontext) {
-  Node* node = std::bit_cast<Node*>(info);
-  if (ucontext) {
-    node->ucontext = *ucontext;
-  } else {
-    // Nodes are reallocated from the pool, so we need to explicitly reset std::optional.
-    node->ucontext.reset();
-  }
+void SignalQueue::EnqueueSignal(siginfo_t* info) {
+  Node* node = bit_cast<Node*>(info);
   Node* produced = produced_.load(std::memory_order_relaxed);
   do {
     node->next = produced;
@@ -81,7 +70,7 @@ siginfo_t* SignalQueue::DequeueSignalUnsafe() {
 }
 
 void SignalQueue::FreeSignal(siginfo_t* info) {
-  ForeverPool<Node>::Free(std::bit_cast<Node*>(info));
+  ForeverPool<Node>::Free(bit_cast<Node*>(info));
 }
 
 }  // namespace berberis

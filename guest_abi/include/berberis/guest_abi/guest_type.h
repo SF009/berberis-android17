@@ -17,9 +17,9 @@
 #ifndef BERBERIS_GUEST_ABI_GUEST_TYPE_H_
 #define BERBERIS_GUEST_ABI_GUEST_TYPE_H_
 
-#include <bit>
 #include <type_traits>
 
+#include "berberis/base/bit_util.h"
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/runtime_primitives/host_code.h"
 
@@ -355,7 +355,7 @@ constexpr auto ConstCast(GuestType<TypeIn1, TypeIn2> value)
                             sizeof(const_cast<typename TypeOut::Type>(
                                 std::declval<typename GuestType<TypeIn1, TypeIn2>::Type>())),
                         TypeOut> {
-  return std::bit_cast<TypeOut>(value);
+  return bit_cast<TypeOut>(value);
 }
 
 // Static cast conversion routine for most GuestTypes. If a certain type is not compatible for some
@@ -366,7 +366,7 @@ constexpr auto StaticCast(GuestType<TypeIn1, TypeIn2> value)
                             sizeof(static_cast<typename TypeOut::Type>(
                                 std::declval<typename GuestType<TypeIn1, TypeIn2>::Type>())),
                         TypeOut> {
-  return std::bit_cast<TypeOut>(value);
+  return bit_cast<TypeOut>(value);
 }
 
 }  // namespace berberis

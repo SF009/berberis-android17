@@ -17,9 +17,9 @@
 #include "gtest/gtest.h"
 
 #include <array>
-#include <bit>
-#include <cstddef>
+#include <cstring>
 
+#include "berberis/base/bit_util.h"
 #include "berberis/guest_abi/guest_params.h"
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state.h"
@@ -148,8 +148,8 @@ TEST(GuestParams_riscv64_lp64d, IntFloatIntDoubleArgs) {
 
   SetXReg<A0>(state.cpu, 1234);
   SetXReg<A1>(state.cpu, static_cast<uint64_t>(-7));
-  SetFReg<FA0>(state.cpu, std::bit_cast<uint32_t>(2.71f));
-  SetFReg<FA1>(state.cpu, std::bit_cast<uint64_t>(3.14));
+  SetFReg<FA0>(state.cpu, bit_cast<uint32_t>(2.71f));
+  SetFReg<FA1>(state.cpu, bit_cast<uint64_t>(3.14));
 
   auto [param1, param2, param3, param4] =
       GuestParamsValues<void(unsigned int, float, int, double), GuestAbi::kLp64d>(&state);
@@ -190,16 +190,16 @@ TEST(GuestParams_riscv64_lp64d, DoubleRes) {
   auto&& [retfv] = GuestReturnReference<double (*)(...), GuestAbi::kLp64d>(&state);
 
   ret = 3.14;
-  EXPECT_DOUBLE_EQ(std::bit_cast<double>(GetFReg<FA0>(state.cpu)), 3.14);
+  EXPECT_DOUBLE_EQ(bit_cast<double>(GetFReg<FA0>(state.cpu)), 3.14);
 
   retf = 3.15;
-  EXPECT_DOUBLE_EQ(std::bit_cast<double>(GetFReg<FA0>(state.cpu)), 3.15);
+  EXPECT_DOUBLE_EQ(bit_cast<double>(GetFReg<FA0>(state.cpu)), 3.15);
 
   retv = 3.15;
-  EXPECT_DOUBLE_EQ(std::bit_cast<double>(GetFReg<FA0>(state.cpu)), 3.15);
+  EXPECT_DOUBLE_EQ(bit_cast<double>(GetFReg<FA0>(state.cpu)), 3.15);
 
   retfv = 3.16;
-  EXPECT_DOUBLE_EQ(std::bit_cast<double>(GetFReg<FA0>(state.cpu)), 3.16);
+  EXPECT_DOUBLE_EQ(bit_cast<double>(GetFReg<FA0>(state.cpu)), 3.16);
 }
 
 TEST(GuestParams_riscv64_lp64d, StackArgs) {
@@ -218,16 +218,16 @@ TEST(GuestParams_riscv64_lp64d, StackArgs) {
   stack[0] = 8;
   stack[1] = 9;
 
-  SetFReg<FA0>(state.cpu, std::bit_cast<uint64_t>(0.0));
-  SetFReg<FA1>(state.cpu, std::bit_cast<uint64_t>(1.1));
-  SetFReg<FA2>(state.cpu, std::bit_cast<uint64_t>(2.2));
-  SetFReg<FA3>(state.cpu, std::bit_cast<uint64_t>(3.3));
-  SetFReg<FA4>(state.cpu, std::bit_cast<uint64_t>(4.4));
-  SetFReg<FA5>(state.cpu, std::bit_cast<uint64_t>(5.5));
-  SetFReg<FA6>(state.cpu, std::bit_cast<uint64_t>(6.6));
-  SetFReg<FA7>(state.cpu, std::bit_cast<uint64_t>(7.7));
-  stack[2] = std::bit_cast<uint64_t>(8.8);
-  stack[3] = std::bit_cast<uint64_t>(9.9);
+  SetFReg<FA0>(state.cpu, bit_cast<uint64_t>(0.0));
+  SetFReg<FA1>(state.cpu, bit_cast<uint64_t>(1.1));
+  SetFReg<FA2>(state.cpu, bit_cast<uint64_t>(2.2));
+  SetFReg<FA3>(state.cpu, bit_cast<uint64_t>(3.3));
+  SetFReg<FA4>(state.cpu, bit_cast<uint64_t>(4.4));
+  SetFReg<FA5>(state.cpu, bit_cast<uint64_t>(5.5));
+  SetFReg<FA6>(state.cpu, bit_cast<uint64_t>(6.6));
+  SetFReg<FA7>(state.cpu, bit_cast<uint64_t>(7.7));
+  stack[2] = bit_cast<uint64_t>(8.8);
+  stack[3] = bit_cast<uint64_t>(9.9);
 
   auto [param1,
         param2,
@@ -531,9 +531,9 @@ TEST(GuestVAListParams_riscv64_lp64d, IntFloatIntDoubleArgs) {
   ThreadState state{};
 
   SetXReg<A0>(state.cpu, 1234);
-  SetXReg<A1>(state.cpu, std::bit_cast<uint32_t>(2.71f));
+  SetXReg<A1>(state.cpu, bit_cast<uint32_t>(2.71f));
   SetXReg<A2>(state.cpu, static_cast<uint64_t>(-7));
-  SetXReg<A3>(state.cpu, std::bit_cast<uint64_t>(3.14));
+  SetXReg<A3>(state.cpu, bit_cast<uint64_t>(3.14));
 
   GuestVAListParams params = GuestParamsValues<void(...), GuestAbi::kLp64d>(&state);
 
@@ -549,17 +549,17 @@ TEST(GuestVAListParams_riscv64_lp64d, StackArgs) {
   SetXReg<SP>(state.cpu, ToGuestAddr(stack.data()));
 
   SetXReg<A0>(state.cpu, 0);
-  SetXReg<A1>(state.cpu, std::bit_cast<uint64_t>(1.1));
+  SetXReg<A1>(state.cpu, bit_cast<uint64_t>(1.1));
   SetXReg<A2>(state.cpu, 2);
-  SetXReg<A3>(state.cpu, std::bit_cast<uint64_t>(3.3));
+  SetXReg<A3>(state.cpu, bit_cast<uint64_t>(3.3));
   SetXReg<A4>(state.cpu, 4);
-  SetXReg<A5>(state.cpu, std::bit_cast<uint64_t>(5.5));
+  SetXReg<A5>(state.cpu, bit_cast<uint64_t>(5.5));
   SetXReg<A6>(state.cpu, 6);
-  SetXReg<A7>(state.cpu, std::bit_cast<uint64_t>(7.7));
+  SetXReg<A7>(state.cpu, bit_cast<uint64_t>(7.7));
   stack[0] = 8;
-  stack[1] = std::bit_cast<uint64_t>(9.9);
+  stack[1] = bit_cast<uint64_t>(9.9);
   stack[2] = 10;
-  stack[3] = std::bit_cast<uint64_t>(11.11);
+  stack[3] = bit_cast<uint64_t>(11.11);
 
   GuestVAListParams params = GuestParamsValues<void(...), GuestAbi::kLp64d>(&state);
 

@@ -18,7 +18,7 @@
 #define BERBERIS_BASE_ARENA_ZEROED_ARRAY_H_
 
 #include "berberis/base/arena_alloc.h"
-#include "berberis/base/checks.h"
+#include "berberis/base/logging.h"
 
 #include <string.h>
 

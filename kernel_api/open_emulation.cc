@@ -24,6 +24,9 @@
 #include <cstdio>
 #include <cstring>
 #include <mutex>
+// region digitalis
+#include <string>
+// endregion
 #include <utility>
 
 #include "berberis/base/arena_alloc.h"
@@ -239,6 +242,31 @@ const char* TryTranslateProcCpuinfoPath(const char* path, int flags) {
   return nullptr;
 }
 
+// region digitalis
+#if defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
+// Serve a guest /proc/cpuinfo synthesized from the real online CPU count out of
+// a memfd, instead of opening the static kGuestCpuinfoPath file. This keeps the
+// guest-visible core count in sync with the actual emulator/host CPU config
+// rather than a hard-coded value. Mirrors OpenatProcSelfMapsForGuest's
+// synthesize-into-a-memfd approach.
+int OpenatProcCpuinfoForGuest(int dirfd, int flags, mode_t mode) {
+  long online = sysconf(_SC_NPROCESSORS_ONLN);
+  std::string content = FormatGuestCpuinfo(online > 0 ? static_cast<int>(online) : 1);
+  if (content.empty()) {
+    // Unreachable in practice (FormatGuestCpuinfo always emits >=1 block); fall
+    // back to the static file so behaviour degrades rather than breaks.
+    return openat(dirfd, kGuestCpuinfoPath, flags, mode);
+  }
+  int mem_fd = CreateMemfdOrDie("[guest /proc/cpuinfo]");
+  WriteFullyOrDie(mem_fd, content.c_str(), content.size());
+  lseek(mem_fd, 0, 0);
+  TRACE("Openat for /proc/cpuinfo: synthesized %zu bytes for %ld online cpu(s)",
+        content.size(), online);
+  return mem_fd;
+}
+#endif
+// endregion
+
 }  // namespace
 
 bool IsFileDescriptorEmulatedProcSelfMaps(int fd) {
@@ -248,6 +276,52 @@ bool IsFileDescriptorEmulatedProcSelfMaps(int fd) {
 void CloseEmulatedProcSelfMapsFileDescriptor(int fd) {
   EmulatedFileDescriptors::GetInstance()->Remove(fd);
 }
+
+// region digitalis
+#if defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
+inline constexpr char kSystemArm64LibcxxPath[] = "/system/lib64/arm64/libc++.so";
+
+// An app can ship the NDK's libc++.so, which is a GNU-ld linker script
+// ("INPUT(-landroid_support -lc++_shared)"), not an ELF. The guest linker cannot
+// parse it and aborts the dlopen ("too small to be an ELF executable"). Because
+// the arm64 system library paths are flattened into the app namespace's search
+// path with the app dir first (see native_bridge.cc CreateNamespace), this
+// app-bundled script shadows the real /system/lib64/arm64/libc++.so — e.g.
+// liblog.so (a transitive dependency of libmmkv.so) NEEDs libc++.so and resolves
+// the broken script, crashing QQInput's TinkerSimpleApplication at startup. When
+// the guest opens such a script, redirect to the real system libc++.so, which
+// provides the same C++ runtime symbols.
+const char* TryRedirectNdkLibcxxLinkerScript(const char* path) {
+  if (path == nullptr) {
+    return nullptr;
+  }
+  size_t len = strlen(path);
+  static constexpr char kSuffix[] = "/libc++.so";
+  constexpr size_t kSuffixLen = sizeof(kSuffix) - 1;
+  if (len < kSuffixLen || strcmp(path + len - kSuffixLen, kSuffix) != 0) {
+    return nullptr;
+  }
+  if (strcmp(path, kSystemArm64LibcxxPath) == 0) {
+    return nullptr;  // already the real system copy
+  }
+  int fd = open(path, O_RDONLY | O_CLOEXEC);
+  if (fd < 0) {
+    return nullptr;
+  }
+  char magic[4] = {};
+  ssize_t n = read(fd, magic, sizeof(magic));
+  close(fd);
+  // A real ELF starts with 0x7f 'E' 'L' 'F' — leave those alone.
+  if (n >= 4 && magic[0] == 0x7f && magic[1] == 'E' && magic[2] == 'L' && magic[3] == 'F') {
+    return nullptr;
+  }
+  // Non-ELF (the NDK GNU-ld linker script): redirect to the real system libc++.so.
+  TRACE("openat: redirecting NDK libc++.so linker script \"%s\" to %s", path,
+        kSystemArm64LibcxxPath);
+  return kSystemArm64LibcxxPath;
+}
+#endif  // NATIVE_BRIDGE_GUEST_ARCH_ARM64
+// endregion
 
 int OpenatForGuest(int dirfd, const char* path, int guest_flags, mode_t mode) {
   int host_flags = ToHostOpenFlags(guest_flags);
@@ -264,6 +338,23 @@ int OpenatForGuest(int dirfd, const char* path, int guest_flags, mode_t mode) {
   if (real_path == nullptr) {
     real_path = TryTranslateProcCpuinfoPath(path, host_flags);
   }
+
+  // region digitalis
+#if defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
+  if (real_path == nullptr) {
+    real_path = TryRedirectNdkLibcxxLinkerScript(path);
+  }
+#endif
+
+#if defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
+  // For the arm64 guest, synthesize /proc/cpuinfo from the real online CPU
+  // count instead of opening the static kGuestCpuinfoPath file. TryTranslate...
+  // returns exactly that sentinel pointer when it matched /proc/cpuinfo.
+  if (real_path == kGuestCpuinfoPath) {
+    return OpenatProcCpuinfoForGuest(dirfd, host_flags, mode);
+  }
+#endif
+  // endregion
 
   return openat(dirfd, real_path != nullptr ? real_path : path, host_flags, mode);
 }

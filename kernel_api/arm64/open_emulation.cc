@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 The Android Open Source Project
+ * Copyright (C) 2026 utzcoz
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,57 +16,38 @@
 
 #include "berberis/kernel_api/open_emulation.h"
 
-// Documentation says that to get access to the constants used below one
-// must include these three files.  In reality it looks as if all constants
-// are defined by <fcntl.h>, but we include all three as described in docs.
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "berberis/base/tracing.h"
+#include <cstdio>
+#include <string>
 
-#define GUEST_O_DIRECTORY 00040000
-#define GUEST_O_NOFOLLOW 00100000
-#define GUEST_O_DIRECT 00200000
-#define GUEST_O_LARGEFILE 00400000
+#include "berberis/base/tracing.h"
 
 namespace berberis {
 
-const char* kGuestCpuinfoPath = "/system/etc/berberis/cpuinfo.arm64.txt";
-
-#if !defined(__x86_64__) && !defined(__riscv)
-#error Currently open flags conversion are supported on x86_64 and riscv64
+#if !defined(__x86_64__)
+#error Currently open flags conversion is only supported on x86_64
 #endif
 
-// Glibc doesn't support O_LARGEFILE and defines it to 0. Here we need
-// kernel's definition which is the same for all architectures except ARM.
-// Since ARM is the guest here we can safely redefine it for all hosts.
-// Note, there is no such issue for 32-bit.
 #if (O_LARGEFILE == 0)
 #undef O_LARGEFILE
 #define O_LARGEFILE 00100000
 #endif
 
-// Glibc doesn't expose __O_SYNC
 #if !defined(__O_SYNC)
-
 #if defined(__BIONIC__)
 #error __O_SYNC undefined in bionic
 #endif
-
 #define __O_SYNC 04000000
-
 #endif
 
-// Musl defines an O_SEARCH flag an includes it in O_ACCMODE,
-// bionic and glibc don't.
 #ifndef O_SEARCH
 #define O_SEARCH 0
 #endif
 
 static_assert((O_ACCMODE & ~O_SEARCH) == 00000003);
-
-// These flags should have the same value on all architectures.
 static_assert(O_CREAT == 00000100);
 static_assert(O_EXCL == 00000200);
 static_assert(O_NOCTTY == 00000400);
@@ -76,74 +57,112 @@ static_assert(O_NONBLOCK == 00004000);
 static_assert(O_DSYNC == 00010000);
 static_assert(FASYNC == 00020000);
 static_assert(O_NOATIME == 01000000);
+static_assert(O_DIRECTORY == 0200000);
+static_assert(O_NOFOLLOW == 00400000);
 static_assert(O_CLOEXEC == 02000000);
+static_assert(O_DIRECT == 040000);
 static_assert(__O_SYNC == 04000000);
 static_assert(O_SYNC == (O_DSYNC | __O_SYNC));
 static_assert(O_PATH == 010000000);
+static_assert(O_LARGEFILE == 00100000);
 
 namespace {
 
-const int kCompatibleOpenFlags = O_ACCMODE | O_CREAT | O_EXCL | O_NOCTTY | O_TRUNC | O_APPEND |
-                                 O_NONBLOCK | O_DSYNC | FASYNC | O_NOATIME | O_CLOEXEC | __O_SYNC |
-                                 O_PATH;
+// ARM64 (arch/arm64/include/uapi/asm/fcntl.h) overrides a handful of the
+// asm-generic flag bits to the legacy ARM/Alpha layout, swapping O_DIRECTORY
+// with O_DIRECT and O_NOFOLLOW with O_LARGEFILE relative to the asm-generic
+// (x86_64) values. Translating these is mandatory: passing a guest
+// O_DIRECTORY (0o40000) to the host kernel verbatim looks like O_DIRECT,
+// which the host rejects with EINVAL when applied to a directory --
+// silently breaking opendir / QDirListing / any directory-iteration code.
+constexpr int kGuestODirectory = 040000;    // 0x4000  (host O_DIRECT bit position)
+constexpr int kGuestONofollow  = 0100000;   // 0x8000  (host O_LARGEFILE bit position)
+constexpr int kGuestODirect    = 0200000;   // 0x10000 (host O_DIRECTORY bit position)
+constexpr int kGuestOLargefile = 0400000;   // 0x20000 (host O_NOFOLLOW bit position)
+
+static_assert(O_DIRECTORY == 0200000);
+static_assert(O_NOFOLLOW  == 0400000);
+static_assert(O_DIRECT    == 040000);
+static_assert(O_LARGEFILE == 0100000);
+
+constexpr int kArchSpecificMask =
+    kGuestODirectory | kGuestONofollow | kGuestODirect | kGuestOLargefile;
+
+// Flags whose values match between guest (arm64) and host (x86_64). The
+// arch-specific bits are excluded; they are handled by the explicit swap below.
+const int kCompatibleOpenFlags =
+    O_ACCMODE | O_CREAT | O_EXCL | O_NOCTTY | O_TRUNC | O_APPEND | O_NONBLOCK | O_DSYNC | FASYNC |
+    O_NOATIME | O_CLOEXEC | __O_SYNC | O_PATH;
+
+// The swap pairs (O_DIRECTORY <-> O_DIRECT, O_NOFOLLOW <-> O_LARGEFILE) occupy
+// exactly the same four bit positions on both arches; swapping is self-inverse,
+// so the same helper translates in either direction.
+int SwapArchSpecificBits(int flags) {
+  int out = flags & ~kArchSpecificMask;
+  if (flags & kGuestODirectory) out |= O_DIRECTORY;   // 0x4000  -> 0x10000
+  if (flags & kGuestODirect)    out |= O_DIRECT;      // 0x10000 -> 0x4000
+  if (flags & kGuestONofollow)  out |= O_NOFOLLOW;    // 0x8000  -> 0x20000
+  if (flags & kGuestOLargefile) out |= O_LARGEFILE;   // 0x20000 -> 0x8000
+  return out;
+}
 
 }  // namespace
 
-int ToHostOpenFlags(int guest_flags) {
-  const int kIncompatibleGuestOpenFlags =
-      GUEST_O_DIRECTORY | GUEST_O_NOFOLLOW | GUEST_O_DIRECT | GUEST_O_LARGEFILE;
+const char* kGuestCpuinfoPath = "/system/etc/cpuinfo.arm64.txt";
 
-  int unknown_guest_flags = guest_flags & ~(kCompatibleOpenFlags | kIncompatibleGuestOpenFlags);
+std::string FormatGuestCpuinfo(int num_cpus) {
+  if (num_cpus < 1) {
+    num_cpus = 1;
+  }
+  // One block per online CPU, in the ARM64 /proc/cpuinfo field layout the
+  // guest cpuinfo library parses. The feature list is the ARM64 ISA surface
+  // Digitalis translates (matches the HWCAPs the guest sees: LSE 'atomics',
+  // FP16 'fphp'/'asimdhp', RDM 'asimdrdm', LRCPC 'lrcpc', DC CVAP 'dcpop',
+  // dotprod 'asimddp', AES/PMULL/SHA1/SHA2/CRC32). The implementer/part/variant
+  // describe a generic ARMv8 core (0x41 = 'ARM', 0xd05 = Cortex-A55); only the
+  // CPU count is taken from the real device, so a guest sees the emulator's
+  // actual online core count rather than a hard-coded value.
+  std::string out;
+  out.reserve(static_cast<size_t>(num_cpus) * 256);
+  for (int i = 0; i < num_cpus; ++i) {
+    char block[512];
+    int n = snprintf(block, sizeof(block),
+                     "processor\t: %d\n"
+                     "BogoMIPS\t: 38.40\n"
+                     "Features\t: fp asimd evtstrm aes pmull sha1 sha2 crc32 "
+                     "atomics fphp asimdhp cpuid asimdrdm lrcpc dcpop asimddp\n"
+                     "CPU implementer\t: 0x41\n"
+                     "CPU architecture: 8\n"
+                     "CPU variant\t: 0x1\n"
+                     "CPU part\t: 0xd05\n"
+                     "CPU revision\t: 0\n"
+                     "\n",
+                     i);
+    if (n > 0) {
+      out.append(block, static_cast<size_t>(n));
+    }
+  }
+  return out;
+}
+
+int ToHostOpenFlags(int guest_flags) {
+  int unknown_guest_flags = guest_flags & ~(kCompatibleOpenFlags | kArchSpecificMask);
   if (unknown_guest_flags) {
-    TRACE("Unsupported guest open flags: original=0x%x unsupported=0x%x",
+    TRACE("Unrecognized guest open flags: original=0x%x unsupported=0x%x. Passing to host as is.",
           guest_flags,
           unknown_guest_flags);
   }
-
-  int host_flags = guest_flags & ~kIncompatibleGuestOpenFlags;
-
-  if (guest_flags & GUEST_O_DIRECTORY) {
-    host_flags |= O_DIRECTORY;
-  }
-  if (guest_flags & GUEST_O_NOFOLLOW) {
-    host_flags |= O_NOFOLLOW;
-  }
-  if (guest_flags & GUEST_O_DIRECT) {
-    host_flags |= O_DIRECT;
-  }
-  if (guest_flags & GUEST_O_LARGEFILE) {
-    host_flags |= O_LARGEFILE;
-  }
-
-  return host_flags;
+  return SwapArchSpecificBits(guest_flags);
 }
 
 int ToGuestOpenFlags(int host_flags) {
-  const int kIncompatibleHostOpenFlags = O_DIRECTORY | O_NOFOLLOW | O_DIRECT | O_LARGEFILE;
-
-  int unknown_host_flags = host_flags & ~(kCompatibleOpenFlags | kIncompatibleHostOpenFlags);
+  int unknown_host_flags = host_flags & ~(kCompatibleOpenFlags | kArchSpecificMask);
   if (unknown_host_flags) {
-    TRACE("Unsupported host open flags: original=0x%x unsupported=0x%x",
+    TRACE("Unrecognized host open flags: original=0x%x unsupported=0x%x. Passing to guest as is.",
           host_flags,
           unknown_host_flags);
   }
-
-  int guest_flags = host_flags & ~kIncompatibleHostOpenFlags;
-
-  if (host_flags & O_DIRECTORY) {
-    guest_flags |= GUEST_O_DIRECTORY;
-  }
-  if (host_flags & O_NOFOLLOW) {
-    guest_flags |= GUEST_O_NOFOLLOW;
-  }
-  if (host_flags & O_DIRECT) {
-    guest_flags |= GUEST_O_DIRECT;
-  }
-  if (host_flags & O_LARGEFILE) {
-    guest_flags |= GUEST_O_LARGEFILE;
-  }
-
-  return guest_flags;
+  return SwapArchSpecificBits(host_flags);
 }
 
 }  // namespace berberis

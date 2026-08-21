@@ -16,7 +16,6 @@
 #ifndef BERBERIS_RUNTIME_PRIMITIVES_HOST_CODE_H_
 #define BERBERIS_RUNTIME_PRIMITIVES_HOST_CODE_H_
 
-#include <bit>
 #include <cstdint>
 
 #include "berberis/base/bit_util.h"
@@ -32,23 +31,23 @@ using HostCode = const void*;
 using HostCodeAddr = uint32_t;
 
 inline HostCodeAddr AsHostCodeAddr(HostCode host_code) {
-  CHECK(IsInRange<HostCodeAddr>(std::bit_cast<uintptr_t>(host_code)));
-  return static_cast<HostCodeAddr>(std::bit_cast<uintptr_t>(host_code));
+  CHECK(IsInRange<HostCodeAddr>(bit_cast<uintptr_t>(host_code)));
+  return static_cast<HostCodeAddr>(bit_cast<uintptr_t>(host_code));
 }
 
 inline HostCode AsHostCode(HostCodeAddr host_code_addr) {
-  return std::bit_cast<HostCode>(uintptr_t{host_code_addr});
+  return bit_cast<HostCode>(uintptr_t{host_code_addr});
 }
 #else
 // TODO(b/363611588): use uint32_t for other 64bit backends (arm64/riscv64)
 using HostCodeAddr = uintptr_t;
 
 inline HostCodeAddr AsHostCodeAddr(HostCode host_code) {
-  return std::bit_cast<HostCodeAddr>(host_code);
+  return bit_cast<HostCodeAddr>(host_code);
 }
 
 inline HostCode AsHostCode(HostCodeAddr host_code_addr) {
-  return std::bit_cast<HostCode>(host_code_addr);
+  return bit_cast<HostCode>(host_code_addr);
 }
 #endif  // defined(__x86_64__)
 
@@ -56,12 +55,12 @@ constexpr HostCodeAddr kNullHostCodeAddr = 0;
 
 template <typename T>
 inline HostCode AsHostCode(T ptr) {
-  return std::bit_cast<HostCode>(ptr);
+  return bit_cast<HostCode>(ptr);
 }
 
 template <typename T>
 inline T AsFuncPtr(HostCode ptr) {
-  return std::bit_cast<T>(const_cast<void*>(ptr));
+  return bit_cast<T>(const_cast<void*>(ptr));
 }
 
 // Note: ideally we would like the class to be a local class in the AsFuncPtr function below, but
@@ -77,7 +76,7 @@ class [[nodiscard]] AsFuncPtrAdaptor {
  public:
   template <typename Result, typename... Args>
   operator MakeFunctionType<Result, Args...>() {
-    return std::bit_cast<MakeFunctionType<Result, Args...>>(ptr_);
+    return bit_cast<MakeFunctionType<Result, Args...>>(ptr_);
   }
 
  private:

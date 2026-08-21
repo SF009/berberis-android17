@@ -18,8 +18,8 @@
 
 #include <cstring>
 
-#include "berberis/runtime_library/runtime_library.h"
 #include "berberis/runtime_primitives/guest_function_wrapper_impl.h"
+#include "berberis/runtime_primitives/runtime_library.h"
 
 namespace berberis {
 

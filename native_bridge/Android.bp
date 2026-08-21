@@ -20,7 +20,7 @@ package {
 
 cc_library_headers {
     name: "libberberis_native_bridge_headers",
-    defaults: ["berberis_guest_agnostic_defaults"],
+    defaults: ["berberis_defaults"],
     host_supported: true,
     export_include_dirs: ["include"],
 }
@@ -66,7 +66,7 @@ cc_defaults {
 cc_library_static {
     name: "libberberis_native_bridge_riscv64",
     defaults: [
-        "berberis_riscv64_defaults",
+        "berberis_defaults_64",
         "libberberis_native_bridge_defaults",
     ],
     header_libs: [
@@ -79,26 +79,36 @@ cc_library_static {
     },
 }
 
+// region digitalis
+// Digitalis: ARM64 native bridge entry point.
 cc_library_static {
-    name: "libberberis_native_bridge_arm_or_arm64",
+    name: "libberberis_native_bridge_arm64",
     defaults: [
-        "berberis_arm_or_arm64_defaults",
+        "berberis_arm64_defaults",
         "libberberis_native_bridge_defaults",
     ],
-    host_supported: true,
     header_libs: [
-        "libberberis_guest_abi_arm_or_arm64_headers",
+        "libberberis_guest_abi_arm64_headers",
     ],
-    arch: {
-        x86: {
-            srcs: [
-                "arm/native_bridge.cc",
-            ],
-        },
-        x86_64: {
+    target: {
+        android: {
             srcs: [
                 "arm64/native_bridge.cc",
+                // arm64-guest-only prebuilt-app support (in-APK guest-lib
+                // extract fallback + Qt plugin-path injection). Kept in a
+                // dedicated arm64-only TU so its libziparchive dependency never
+                // enters the shared native_bridge.cc / the riscv64 build.
+                "arm64/digitalis_app_support.cc",
+            ],
+            static_libs: [
+                // ExtractInApkLibToCache (arm64/digitalis_app_support.cc) uses
+                // libziparchive. libbase is already pulled in by
+                // libberberis_arm64, so only libziparchive (which header-uses
+                // libbase) and libz are needed here.
+                "libziparchive",
+                "libz",
             ],
         },
     },
 }
+// endregion

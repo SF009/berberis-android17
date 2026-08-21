@@ -61,13 +61,6 @@ long RunGuestSyscall___NR_clone(long arg_1, long arg_2, long arg_3, long arg_4, 
   return -1;
 }
 
-long RunGuestSyscall___NR_clone3(long arg_1, long arg_2) {
-  UNUSED(arg_1, arg_2);
-  TRACE("unimplemented syscall __NR_clone3");
-  errno = ENOSYS;
-  return -1;
-}
-
 long RunGuestSyscall___NR_mmap(long arg_1,
                                long arg_2,
                                long arg_3,

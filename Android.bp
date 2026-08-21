@@ -15,13 +15,10 @@
 
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
-    // TODO(b/232598137): This group is too wide. Figure out if we
-    // can have berberis-only team on trendy.
-    default_team: "trendy_team_arc_",
 }
 
 cc_defaults {
-    name: "berberis_cflags_defaults",
+    name: "berberis_guest_agnostic_defaults",
     cflags: [
         "-Wall",
         "-Werror",
@@ -29,17 +26,10 @@ cc_defaults {
         "-Wmost",
         "-Wover-aligned",
         "-Wunused",
-        "-Werror=deprecated-volatile",
-        "-Werror=unused-variable",
         "-Wimplicit-fallthrough",
         "-Werror=reorder-init-list",
         "-Wdefaulted-function-deleted",
     ],
-}
-
-cc_defaults {
-    name: "berberis_guest_agnostic_defaults",
-    defaults: ["berberis_cflags_defaults"],
     // It is tempting to disable builds by default and explicitly enable only x86.
     // Unfortunately that way disabling darwin has no effect. So instead
     // we disable unneeded targets individually.
@@ -51,20 +41,21 @@ cc_defaults {
     arch: {
         arm: {
             enabled: false,
-            cflags: ["-DBERBERIS_GUEST_ILP32=1"],
         },
         arm64: {
             enabled: false,
-            cflags: ["-DBERBERIS_GUEST_LP64=1"],
         },
         riscv64: {
-            cflags: ["-DBERBERIS_GUEST_LP64=1"],
-        },
-        x86: {
-            cflags: ["-DBERBERIS_GUEST_ILP32=1"],
+            // TODO(b/123294366): disconnect guest arch from host arch!
+            cflags: [
+                "-DBERBERIS_GUEST_LP64=1",
+            ],
         },
         x86_64: {
-            cflags: ["-DBERBERIS_GUEST_LP64=1"],
+            // TODO(b/123294366): disconnect guest arch from host arch!
+            cflags: [
+                "-DBERBERIS_GUEST_LP64=1",
+            ],
         },
     },
     compile_multilib: "both",
@@ -79,29 +70,9 @@ cc_defaults {
 }
 
 cc_defaults {
-    name: "berberis_guest_agnostic_defaults_64",
+    name: "berberis_defaults",
     defaults: ["berberis_guest_agnostic_defaults"],
-    compile_multilib: "64",
-}
-
-cc_defaults {
-    name: "berberis_enable_arm64_host_defaults",
     arch: {
-        arm64: {
-            enabled: true,
-        },
-    },
-}
-
-cc_defaults {
-    name: "berberis_riscv64_defaults",
-    defaults: ["berberis_guest_agnostic_defaults"],
-    compile_multilib: "64",
-    arch: {
-        arm64: {
-            // TODO(b/123294366): disconnect guest arch from host arch!
-            cflags: ["-DNATIVE_BRIDGE_GUEST_ARCH_RISCV64"],
-        },
         x86_64: {
             // TODO(b/123294366): disconnect guest arch from host arch!
             cflags: ["-DNATIVE_BRIDGE_GUEST_ARCH_RISCV64"],
@@ -110,12 +81,38 @@ cc_defaults {
 }
 
 cc_defaults {
-    name: "berberis_arm_or_arm64_defaults",
-    defaults: ["berberis_guest_agnostic_defaults"],
+    name: "berberis_all_hosts_defaults",
+    defaults: ["berberis_defaults"],
     arch: {
-        x86: {
-            cflags: ["-DNATIVE_BRIDGE_GUEST_ARCH_ARM"],
+        arm64: {
+            enabled: true,
+            // TODO(b/123294366): disconnect guest arch from host arch!
+            cflags: [
+                "-DNATIVE_BRIDGE_GUEST_ARCH_RISCV64",
+                "-DBERBERIS_GUEST_LP64=1",
+            ],
         },
+    },
+}
+
+cc_defaults {
+    name: "berberis_defaults_64",
+    defaults: ["berberis_defaults"],
+    compile_multilib: "64",
+}
+
+cc_defaults {
+    name: "berberis_all_hosts_defaults_64",
+    defaults: ["berberis_all_hosts_defaults"],
+    compile_multilib: "64",
+}
+
+cc_defaults {
+    name: "berberis_arm64_defaults",
+    defaults: ["berberis_guest_agnostic_defaults"],
+    compile_multilib: "64",
+    arch: {
+        // TODO(b/123294366): disconnect guest arch from host arch!
         x86_64: {
             cflags: ["-DNATIVE_BRIDGE_GUEST_ARCH_ARM64"],
         },
@@ -127,19 +124,19 @@ cc_defaults {
 
 cc_defaults {
     name: "berberis_arm_defaults",
-    defaults: ["berberis_arm_or_arm64_defaults"],
+    defaults: ["berberis_guest_agnostic_defaults"],
     compile_multilib: "32",
-}
-
-cc_defaults {
-    name: "berberis_arm64_defaults",
-    defaults: ["berberis_arm_or_arm64_defaults"],
-    compile_multilib: "64",
+    arch: {
+        x86: {
+            // TODO(b/123294366): disconnect guest arch from host arch!
+            cflags: ["-DNATIVE_BRIDGE_GUEST_ARCH_ARM"],
+        },
+    },
 }
 
 cc_defaults {
     name: "berberis_test_library_defaults",
-    defaults: ["berberis_guest_agnostic_defaults"],
+    defaults: ["berberis_defaults"],
     host_supported: true,
     shared: {
         enabled: false,
@@ -154,7 +151,7 @@ cc_defaults {
 
 cc_library_shared {
     name: "libberberis_riscv64",
-    defaults: ["berberis_guest_agnostic_defaults_64"],
+    defaults: ["berberis_defaults_64"],
     host_supported: true,
     static_libs: [
         "libbase",
@@ -162,6 +159,7 @@ cc_library_shared {
         "libberberis_base",
         "libberberis_elf_backed_exec_region",
         "libberberis_instrument",
+        "libberberis_intrinsics",
         "libberberis_kernel_api_riscv64",
         "libberberis_runtime_primitives",
         "libberberis_tinyloader",
@@ -183,12 +181,10 @@ cc_library_shared {
                 "libberberis_guest_abi_riscv64",
                 "libberberis_heavy_optimizer_riscv64",
                 "libberberis_interpreter_riscv64",
-                "libberberis_intrinsics_riscv64",
                 "libberberis_lite_translator_riscv64_to_x86_64",
                 "libberberis_macro_assembler_riscv64_to_x86_64",
-                "libberberis_runtime_library_riscv64",
+                "libberberis_intrinsics_riscv64",
                 "libberberis_runtime_primitives_riscv64",
-                "libberberis_translator_riscv64",
             ],
             whole_static_libs: [
                 "libberberis_guest_loader_riscv64",
@@ -212,6 +208,7 @@ cc_library_shared {
                 "libberberis_native_bridge_riscv64",
             ],
             shared_libs: [
+                "libandroid",
                 "libdl_android",
             ],
         },
@@ -220,11 +217,12 @@ cc_library_shared {
 
 cc_test_host {
     name: "berberis_host_tests",
-    defaults: ["berberis_guest_agnostic_defaults"],
+    defaults: ["berberis_defaults"],
     static_libs: [
         "libberberis_assembler",
         "libberberis_base",
         "libberberis_elf_backed_exec_region",
+        "libberberis_intrinsics",
         "libberberis_instrument",
         "libberberis_runtime_primitives",
         "libberberis_tinyloader",
@@ -237,18 +235,15 @@ cc_test_host {
     whole_static_libs: [
         "libberberis_assembler_unit_tests",
         "libberberis_base_unit_tests",
-        "libberberis_calling_conventions_unit_tests",
-        "libberberis_device_arch_info_tests",
         "libberberis_elf_backed_exec_region_unit_tests",
+        "libberberis_calling_conventions_unit_tests",
         "libberberis_intrinsics_unit_tests",
+        "libberberis_intrinsics_unit_tests_riscv64",
         "libberberis_tinyloader_unit_tests",
         "libberberis_runtime_primitives_unit_tests",
     ],
     arch: {
         arm64: {
-            whole_static_libs: [
-                "libberberis_intrinsics_unit_tests_riscv64",
-            ],
             srcs: [
                 "base/raw_syscall_tests.cc",
             ],
@@ -264,7 +259,6 @@ cc_test_host {
             ],
             static_libs: [
                 "libberberis_backend_riscv64_to_x86_64",
-                "libberberis_code_gen_lib_riscv64",
                 // Note: we don't even need to use anything from that library, just need to ensure it
                 // can be compiled successfully: all checks are done with static_asserts.
                 "libberberis_emulated_libvulkan_api_checker",
@@ -273,29 +267,27 @@ cc_test_host {
                 "libberberis_guest_state_riscv64",
                 "libberberis_heavy_optimizer_riscv64",
                 "libberberis_interpreter_riscv64",
-                "libberberis_intrinsics_riscv64",
                 "libberberis_kernel_api_riscv64",
                 "libberberis_lite_translator_riscv64_to_x86_64",
                 "libberberis_macro_assembler_riscv64_to_x86_64",
+                "libberberis_intrinsics_riscv64",
+                "libberberis_runtime",
                 "libberberis_runtime_riscv64",
-                "libberberis_runtime_library_riscv64",
                 "libberberis_runtime_primitives_riscv64",
-                "libberberis_translator_riscv64",
+                "libberberis_code_gen_lib_riscv64",
             ],
             whole_static_libs: [
+                "libberberis_tests_main",
                 "libberberis_backend_riscv64_to_x86_64_unit_tests",
                 "libberberis_code_gen_lib_riscv64_unit_tests",
-                "libberberis_cpu_state_riscv64_unit_test",
                 "libberberis_guest_abi_riscv64_unit_tests",
                 "libberberis_guest_os_primitives_unit_tests",
                 "libberberis_heavy_optimizer_riscv64_unit_tests",
                 "libberberis_interpreter_riscv64_unit_tests",
-                "libberberis_intrinsics_unit_tests_riscv64",
                 "libberberis_lite_translator_riscv64_to_x86_64_unit_tests",
                 "libberberis_runtime_riscv64_unit_tests",
                 "libberberis_runtime_primitives_riscv64_unit_tests",
-                "libberberis_tests_main",
-                "libberberis_translator_riscv64_unit_tests",
+                "libberberis_cpu_state_riscv64_unit_test",
             ],
         },
     },
@@ -327,7 +319,7 @@ filegroup {
 // We want to esnrue that possible fix of this bug wouldn't be unnoticed: b/382703210
 cc_test_host {
     name: "berberis_host_tests_avx",
-    defaults: ["berberis_guest_agnostic_defaults"],
+    defaults: ["berberis_defaults"],
     shared_libs: [
         "libbase",
         "liblog",
@@ -335,7 +327,7 @@ cc_test_host {
     arch: {
         x86_64: {
             cflags: ["-mavx"],
-            srcs: ["cpu_emulation/intrinsics/all_to_x86_64/tuple_test.cc"],
+            srcs: ["intrinsics/all_to_x86_64/tuple_test.cc"],
             // Note: we must NOT use any static or shared libraries with SIMDRegister type involved
             // here, only header_libs, because those may be compiled with no-avx.
             // Safest way is to only use libbase/loblog needed for gTest itself.
@@ -351,7 +343,7 @@ cc_test_host {
 // Ensure that everything works in no-AVX case too (there clang follows psABI correctly).
 cc_test_host {
     name: "berberis_host_tests_no_avx",
-    defaults: ["berberis_guest_agnostic_defaults"],
+    defaults: ["berberis_defaults"],
     shared_libs: [
         "libbase",
         "liblog",
@@ -359,7 +351,7 @@ cc_test_host {
     arch: {
         x86_64: {
             cflags: ["-mno-avx"],
-            srcs: ["cpu_emulation/intrinsics/all_to_x86_64/tuple_test.cc"],
+            srcs: ["intrinsics/all_to_x86_64/tuple_test.cc"],
             // Note: we must NOT use any static or shared libraries with SIMDRegister type involved
             // here, only header_libs, because those may be compiled with avx.
             // Safest way is to only use libbase/loblog needed for gTest itself.
@@ -385,6 +377,78 @@ ndk_translation_package {
     ],
     generate_build_files: false,
 }
+
+// region digitalis
+// Separate test binary for ARM64 lite translator to avoid symbol conflicts
+// with the RISC-V TryLiteTranslateRegion.
+cc_test_host {
+    name: "berberis_arm64_host_tests",
+    defaults: ["berberis_defaults"],
+    static_libs: [
+        "libberberis_assembler",
+        "libberberis_base",
+        "libberberis_elf_backed_exec_region",
+        "libberberis_instrument",
+        "libberberis_runtime_primitives",
+        "libgmock",
+    ],
+    shared_libs: [
+        "libbase",
+        "liblog",
+    ],
+    // Decoder differential corpus + its undefined-coverage baseline, resolved
+    // relative to the test binary at run time.
+    data: [
+        "decoder/arm64_test/arm64_decoder_encodings.txt",
+        "decoder/arm64_test/arm64_decoder_undefined_baseline.txt",
+        "heavy_optimizer/arm64/arm64_tier_coverage.txt",
+    ],
+    arch: {
+        x86_64: {
+            static_libs: [
+                "libberberis_backend_arm64_to_x86_64",
+                "libberberis_code_gen_lib_arm64",
+                "libberberis_runtime",
+                // Must use ARM64 runtime — it compiles runtime_library_x86_64.cc
+                // with ARM64 ThreadState layout for correct offsetof() in entry/exit code.
+                "libberberis_runtime_arm64",
+                "libberberis_runtime_primitives_arm64",
+                "libberberis_guest_os_primitives_arm64",
+                "libberberis_guest_state_arm64",
+                "libberberis_heavy_optimizer_arm64",
+                "libberberis_kernel_api_arm64",
+                "libberberis_interpreter_arm64",
+                "libberberis_intrinsics_arm64",
+                // Host x86_64 macro-assembler constant pool referenced by the
+                // optimizing backend's code emitter (guest-independent data).
+                "libberberis_macro_assembler_riscv64_to_x86_64",
+                "libberberis_guest_abi_arm64",
+                // arm64 proxy loader: defines DoGracefulBadTrampoline, exercised
+                // by libberberis_digitalis_extra_proxy_arm64_unit_tests.
+                "libberberis_proxy_loader_arm64",
+            ],
+            whole_static_libs: [
+                "libberberis_tests_main",
+                "libberberis_heavy_optimizer_arm64_unit_tests",
+                "libberberis_lite_translator_arm64_to_x86_64",
+                "libberberis_lite_translator_arm64_to_x86_64_unit_tests",
+                "libberberis_kernel_api_arm64_unit_tests",
+                "libberberis_guest_os_primitives_arm64_unit_tests",
+                "libberberis_digitalis_extra_proxy_arm64_unit_tests",
+                "libberberis_decoder_arm64_unit_tests",
+                "libberberis_interpreter_arm64_unit_tests",
+                "libberberis_runtime_arm64_unit_tests",
+                // Guest-ABI argument marshalling and trampoline generation:
+                // the riscv64 twin has always been in its host suite, the
+                // arm64 one was defined but linked into nothing, so these
+                // never ran.
+                "libberberis_guest_abi_arm64_unit_tests",
+                "libberberis_cpu_state_arm64_unit_test",
+            ],
+        },
+    },
+}
+// endregion
 
 phony_rule_defaults {
     name: "berberis_all_deps_defaults",
@@ -489,6 +553,21 @@ phony_rule_defaults {
     ],
 }
 
+// region digitalis - soong config module type for arch-conditional defaults
+soong_config_module_type {
+    name: "berberis_cc_defaults",
+    module_type: "cc_defaults",
+    config_namespace: "berberis",
+    variables: ["translation_arch"],
+    properties: [
+        "defaults",
+        "generated_headers",
+        "header_libs",
+        "shared_libs",
+    ],
+}
+// endregion
+
 soong_config_module_type {
     name: "berberis_phony_rule",
     module_type: "phony_rule",
@@ -505,6 +584,9 @@ soong_config_string_variable {
     name: "translation_arch",
     values: [
         "riscv64_to_x86_64", // BUILD_BERBERIS_RISCV64_TO_X86_64
+        // region digitalis
+        "arm64_to_x86_64", // BUILD_BERBERIS_ARM64_TO_X86_64 (Digitalis)
+        // endregion
     ],
 }
 
@@ -519,19 +601,140 @@ berberis_phony_rule {
                 ],
                 enabled: true,
             },
+            // region digitalis
+            arm64_to_x86_64: {
+                defaults: [
+                    "berberis_all_deps_defaults",
+                    "berberis_all_arm64_to_x86_64_defaults",
+                ],
+                enabled: true,
+            },
+            // endregion
             conditions_default: {
                 enabled: false,
             },
         },
     },
-    phony_deps: select(soong_config_variable("berberis", "target_native_bridge_abi"), {
-        "riscv64": [
-            "berberis_host_tests_result",
-        ],
-        default: [
-        ],
-    }),
 }
+
+// region digitalis - ARM64 to x86_64 translation defaults and library.
+phony_rule_defaults {
+    name: "berberis_all_arm64_to_x86_64_defaults",
+    phony_deps: [
+        "libberberis_exec_region",
+        "libberberis_proxy_libEGL",
+        "libberberis_proxy_libGLESv1_CM",
+        "libberberis_proxy_libGLESv2",
+        "libberberis_proxy_libGLESv3",
+        "libberberis_proxy_libOpenMAXAL",
+        "libberberis_proxy_libOpenSLES",
+        "libberberis_proxy_libaaudio",
+        "libberberis_proxy_libamidi",
+        "libberberis_proxy_libandroid",
+        "libberberis_proxy_libandroid_runtime",
+        "libberberis_proxy_libbinder_ndk",
+        "libberberis_proxy_libc",
+        "libberberis_proxy_libcamera2ndk",
+        "libberberis_proxy_libjnigraphics",
+        "libberberis_proxy_libm",
+        "libberberis_proxy_libmediandk",
+        "libberberis_proxy_libnativehelper",
+        "libberberis_proxy_libnativewindow",
+        "libberberis_proxy_libneuralnetworks",
+        "libberberis_proxy_libvulkan",
+        "libberberis_proxy_libwebviewchromium_plat_support",
+        "libberberis_arm64",
+    ],
+}
+
+cc_library_shared {
+    name: "libberberis_arm64",
+    defaults: ["berberis_defaults_64"],
+    host_supported: true,
+    static_libs: [
+        "libbase",
+        "libberberis_assembler",
+        "libberberis_base",
+        "libberberis_elf_backed_exec_region",
+        "libberberis_instrument",
+        "libberberis_intrinsics",
+        "libberberis_kernel_api_arm64",
+        "libberberis_runtime_primitives",
+        "libberberis_tinyloader",
+    ],
+    whole_static_libs: [
+        // region digitalis: arm64-translation variant of proxy_loader, defines
+        // -DNATIVE_BRIDGE_GUEST_ARCH_ARM64 so the Digitalis fast-path extras
+        // (RegisterExtraTrampolines + InterceptSymbol extras-search block)
+        // compile in. Upstream libberberis_proxy_loader stays in use by other
+        // (riscv64) translation builds — see proxy_loader/Android.bp for the
+        // shared-source rationale.
+        "libberberis_proxy_loader_arm64",
+        // endregion
+    ],
+    export_static_lib_headers: [
+        "libberberis_proxy_loader_arm64",
+    ],
+    shared_libs: [
+        "liblog",
+    ],
+    arch: {
+        x86_64: {
+            static_libs: [
+                "libberberis_backend_arm64_to_x86_64",
+                "libberberis_code_gen_lib_arm64",
+                "libberberis_guest_abi_arm64",
+                "libberberis_heavy_optimizer_arm64",
+                "libberberis_interpreter_arm64",
+                "libberberis_intrinsics_arm64",
+                "libberberis_lite_translator_arm64_to_x86_64",
+                // Host x86_64 macro-assembler constant pool referenced by the
+                // optimizing backend's code emitter (guest-independent data).
+                "libberberis_macro_assembler_riscv64_to_x86_64",
+                "libberberis_runtime_primitives_arm64",
+            ],
+            whole_static_libs: [
+                "libberberis_guest_loader_arm64",
+                // Proxy libraries reference symbols from guest_os_primitives,
+                // so we need to keep them all.
+                "libberberis_guest_os_primitives_arm64",
+                // Android debuggerd reference symbols from get_cpu_state.
+                "libberberis_guest_state_arm64",
+                "libberberis_runtime_arm64",
+            ],
+            export_static_lib_headers: [
+                "libberberis_guest_loader_arm64",
+            ],
+        },
+    },
+    target: {
+        android: {
+            whole_static_libs: [
+                "libberberis_jni_arm64",
+                "libberberis_native_activity_arm64",
+                "libberberis_native_bridge_arm64",
+                // region digitalis: companion static library carrying Digitalis-side
+                // fast-path trampolines (libc + libm) for symbols not covered by the
+                // upstream libberberis_proxy_libc / libberberis_proxy_libm. Pulled
+                // in whole so its __attribute__((constructor)) registers extras with
+                // ProxyLibraryBuilder at load time. Upstream proxy libs are untouched.
+                "libberberis_digitalis_extra_proxy_arm64",
+                // endregion
+            ],
+            static_libs: [
+                // region digitalis: APK extract fallback uses libziparchive in native_bridge_arm64.
+                "libziparchive",
+                "libz",
+                // endregion
+            ],
+            shared_libs: [
+                "libandroid",
+                "libdl_android",
+            ],
+        },
+    },
+}
+// endregion
 
 python_binary_host {
     name: "berberis_gen_gtest_failure_template",

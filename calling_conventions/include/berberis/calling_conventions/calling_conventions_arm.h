@@ -18,7 +18,7 @@
 #define BERBERIS_CALLING_CONVENTIONS_CALLING_CONVENTIONS_ARM_H_
 
 #include "berberis/base/bit_util.h"
-#include "berberis/base/checks.h"
+#include "berberis/base/logging.h"
 
 namespace berberis::arm {
 

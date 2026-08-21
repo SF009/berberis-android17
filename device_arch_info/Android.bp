@@ -114,10 +114,7 @@ genrule {
 
 cc_library_headers {
     name: "libberberis_device_arch_info_headers",
-    defaults: [
-        "berberis_enable_arm64_host_defaults",
-        "berberis_guest_agnostic_defaults",
-    ],
+    defaults: ["berberis_all_hosts_defaults"],
     host_supported: true,
     export_include_dirs: ["include"],
     header_libs: [
@@ -142,27 +139,4 @@ cc_library_headers {
         "libberberis_device_arch_info_reg_class_gen_headers_x86_32",
         "libberberis_device_arch_info_reg_class_gen_headers_x86_64",
     ],
-}
-
-cc_test_library {
-    name: "libberberis_device_arch_info_tests",
-    defaults: ["berberis_test_library_defaults"],
-    arch: {
-        arm64: {
-            srcs: [
-                "x86_64/call_imm_test.cc",
-            ],
-        },
-        riscv64: {
-            srcs: [
-                "x86_64/call_imm_test.cc",
-            ],
-        },
-        x86_64: {
-            srcs: [
-                "x86_64/call_imm_test.cc",
-            ],
-        },
-    },
-    header_libs: ["libberberis_device_arch_info_headers"],
 }

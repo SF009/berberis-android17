@@ -19,11 +19,17 @@
 #include <sys/mman.h>
 
 #include <atomic>
-#include <bit>
+// region digitalis
+#include <cerrno>
+// endregion
 #include <cstdint>
 #include <cstdlib>
+// region digitalis
+#include <cstring>
+// endregion
 #include <random>  // for old versions of GLIBC only (see below)
 
+#include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
 
 namespace berberis {
@@ -81,7 +87,7 @@ void* TryMmap32Bit(MmapImplArgs args) {
   for (size_t i = 0; i < kMaxMapAttempts; i++) {
     // PROT_NONE, MAP_NORESERVE to make it faster since this may take several attempts.
     // We'll do another mmap() with proper flags on top of this one below.
-    void* addr = mmap(std::bit_cast<void*>(hint),
+    void* addr = mmap(bit_cast<void*>(hint),
                       args.size,
                       PROT_NONE,
                       MAP_ANONYMOUS | MAP_PRIVATE | MAP_NORESERVE,
@@ -91,7 +97,7 @@ void* TryMmap32Bit(MmapImplArgs args) {
       return MAP_FAILED;
     }
 
-    uintptr_t start = std::bit_cast<uintptr_t>(addr);
+    uintptr_t start = bit_cast<uintptr_t>(addr);
     uintptr_t end = start + args.size;
 
     if (end <= kMaxAddress) {
@@ -125,7 +131,22 @@ void* MmapImpl(MmapImplArgs args) {
 
 void* MmapImplOrDie(MmapImplArgs args) {
   void* ptr = MmapImpl(args);
-  CHECK_NE(ptr, MAP_FAILED);
+  // region digitalis - the bare CHECK printed only "0xff..ff != 0xff..ff" on
+  // failure, hiding both errno and the arguments; name them so a field abort
+  // (EBADF from a swept fd, ENOMEM from a resource ceiling, ...) is
+  // self-diagnosing.
+  // CHECK_NE(ptr, MAP_FAILED);
+  if (ptr == MAP_FAILED) {
+    FATAL("mmap(addr=%p, size=%zu, prot=0x%x, flags=0x%x, fd=%d, offset=0x%llx) failed: %s",
+          args.addr,
+          args.size,
+          args.prot,
+          args.flags,
+          args.fd,
+          static_cast<unsigned long long>(args.offset),
+          strerror(errno));
+  }
+  // endregion
   return ptr;
 }
 

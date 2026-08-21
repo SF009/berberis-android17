@@ -16,9 +16,7 @@
 
 #include "gtest/gtest.h"
 
-#include <bit>
-#include <cstdint>
-
+#include "berberis/base/bit_util.h"
 #include "berberis/guest_abi/function_wrappers.h"
 #include "berberis/guest_state/guest_state.h"
 
@@ -54,8 +52,8 @@ TEST(TrampolineFuncGenerator, FloatArgs_lp64) {
   ThreadState state{};
 
   SetXReg<A0>(state.cpu, 0U);
-  SetXReg<A1>(state.cpu, std::bit_cast<uint32_t>(0.5f));
-  SetXReg<A2>(state.cpu, std::bit_cast<uint32_t>(0.75f));
+  SetXReg<A1>(state.cpu, bit_cast<uint32_t>(0.5f));
+  SetXReg<A2>(state.cpu, bit_cast<uint32_t>(0.75f));
 
   EXPECT_NO_FATAL_FAILURE(func(reinterpret_cast<void*>(Callee::foo), &state));
 }
@@ -74,8 +72,8 @@ TEST(TrampolineFuncGenerator, FloatArgs_lp64d) {
   ThreadState state{};
 
   SetXReg<A0>(state.cpu, 0U);
-  SetFReg<FA0>(state.cpu, std::bit_cast<uint32_t>(0.5f));
-  SetFReg<FA1>(state.cpu, std::bit_cast<uint32_t>(0.75f));
+  SetFReg<FA0>(state.cpu, bit_cast<uint32_t>(0.5f));
+  SetFReg<FA1>(state.cpu, bit_cast<uint32_t>(0.75f));
 
   EXPECT_NO_FATAL_FAILURE(func(reinterpret_cast<void*>(Callee::foo), &state));
 }

@@ -21,7 +21,7 @@ package {
 
 cc_library_shared {
     name: "libberberis_exec_region",
-    defaults: ["berberis_guest_agnostic_defaults"],
+    defaults: ["berberis_defaults"],
     srcs: ["exec_region.cc"],
     linker_scripts: ["sections.ld"],
 }

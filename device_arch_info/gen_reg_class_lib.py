@@ -16,14 +16,6 @@
 
 """Generate machine IR register class definitions from data file."""
 
-gcc_asm_name_to_full_name_map = {
-    'a': 'kAccumulatorRegister',
-    'b': 'kBaseRegister',
-    'c': 'kCounterRegister',
-    'd': 'kDataRegister',
-    's': 'kStackPointerRegister',
-}
-
 def gen_machine_reg_class_inc(f, reg_classes):
   for reg_class in reg_classes:
     print(f'class {reg_class.get('name')};', file=f)
@@ -49,17 +41,16 @@ def gen_machine_reg_class_inc(f, reg_classes):
         print('  using Type = uint%d_t;' % size, file=f)
       gcc_asm_name = reg_class.get('gcc_asm_name')
       print(f'  static constexpr char kAsRegister = \'{gcc_asm_name}\';', file=f)
-      if len(regs) == 1 and gcc_asm_name in gcc_asm_name_to_full_name_map:
-        full_register_name = gcc_asm_name_to_full_name_map[gcc_asm_name]
-        print('  template <typename Assembler>', file=f)
-        print('  static constexpr auto kAssemblerRegisterPointer = '
-              f'&Assembler::{full_register_name};', file=f)
     else:
       # std::conditional_t requires type even for branch that wouldn't be taken.
       # Use of `void` as type here means it would be compatible with that logic,
       # but would exclude most accidental uses of it because `void` can not be used
       # to declare arguments of functions, or local variables.
       print('  using Type = void;', file=f)
+    if len(regs) == 1:
+      print('  template <typename Assembler>', file=f)
+      print('  static constexpr auto kAssemblerRegisterPointer = '
+            f'&Assembler::gpr_{gcc_asm_name};', file=f)
     print('  template <typename MachineRegDefinitions>', file=f)
     print('  static constexpr auto kMachineRegId = '
           f'MachineRegDefinitions::k{name};', file=f)

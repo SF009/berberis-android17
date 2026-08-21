@@ -16,9 +16,9 @@
 
 #include "gtest/gtest.h"
 
-#include <bit>
-#include <cstddef>
+#include <cstring>
 
+#include "berberis/base/bit_util.h"
 #include "berberis/guest_abi/guest_params.h"
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state.h"
@@ -496,7 +496,7 @@ TEST(Params, LongArgHugeStructResult) {
   } result{};
 
   state.cpu.x[0] = 0xdead'0000'beef;
-  state.cpu.x[8] = std::bit_cast<uint64_t>(&result);
+  state.cpu.x[8] = bit_cast<uint64_t>(&result);
 
   auto [arg] = GuestParamsValues<Result(uint64_t)>(&state);
 

@@ -18,9 +18,8 @@
 #ifndef BERBERIS_TEST_UTILS_SCOPED_EXEC_REGION_H_
 #define BERBERIS_TEST_UTILS_SCOPED_EXEC_REGION_H_
 
-#include <bit>
-
 #include "berberis/assembler/machine_code.h"
+#include "berberis/base/bit_util.h"
 #include "berberis/runtime_primitives/exec_region_anonymous.h"
 #include "berberis/runtime_primitives/host_code.h"
 
@@ -47,7 +46,7 @@ class ScopedExecRegion {
 
   template <typename T = uint8_t>
   const T* get() const {
-    return std::bit_cast<const T*>(exec_.begin());
+    return bit_cast<const T*>(exec_.begin());
   }
 
   HostCodeAddr GetHostCodeAddr() const { return AsHostCodeAddr(AsHostCode(exec_.begin())); }

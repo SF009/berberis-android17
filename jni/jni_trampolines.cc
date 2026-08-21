@@ -16,7 +16,6 @@
 
 #include "berberis/jni/jni_trampolines.h"
 
-#include <bit>
 #include <cstdint>
 #include <cstring>
 #include <deque>
@@ -25,7 +24,6 @@
 #include <vector>
 
 #include <jni.h>  // NOLINT [build/include_order]
-#include <jvmti.h>
 
 #include "berberis/base/checks.h"
 #include "berberis/base/gettid.h"
@@ -38,9 +36,9 @@
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state.h"
 #include "berberis/native_bridge/jmethod_shorty.h"
-#include "berberis/runtime_library/runtime_library.h"
 #include "berberis/runtime_primitives/host_code.h"
 #include "berberis/runtime_primitives/known_guest_function_wrapper.h"
+#include "berberis/runtime_primitives/runtime_library.h"
 
 #include "guest_jni_trampolines.h"
 
@@ -50,10 +48,6 @@
 namespace berberis {
 
 namespace {
-
-constexpr const char* kAgentOnLoadFnName = "Agent_OnLoad";
-constexpr const char* kAgentOnAttachFnName = "Agent_OnAttach";
-constexpr const char* kAgentOnUnloadFnName = "Agent_OnUnload";
 
 char ConvertDalvikTypeCharToWrapperTypeChar(char c) {
   switch (c) {
@@ -113,30 +107,12 @@ void RunGuestJNIFunction(GuestAddr pc, GuestArgumentBuffer* buf) {
   RunGuestCall(pc, buf);
 }
 
-template <typename FnT>
-void ConvertJavaVMToGuest(GuestArgumentBuffer* buf) {
-  auto host_java_vm = HostArgumentsValues<FnT>(buf).template get<0>();
-  auto&& guest_java_vm = GuestArgumentsReferences<FnT>(buf).template get<0>();
-  guest_java_vm = ToGuestJavaVM(host_java_vm);
-}
-
 void RunGuestJNIOnLoad(GuestAddr pc, GuestArgumentBuffer* buf) {
-  ConvertJavaVMToGuest<decltype(JNI_OnLoad)>(buf);
-  RunGuestCall(pc, buf);
-}
-
-void RunGuestAgentOnLoad(GuestAddr pc, GuestArgumentBuffer* buf) {
-  ConvertJavaVMToGuest<decltype(Agent_OnLoad)>(buf);
-  RunGuestCall(pc, buf);
-}
-
-void RunGuestAgentOnAttach(GuestAddr pc, GuestArgumentBuffer* buf) {
-  ConvertJavaVMToGuest<decltype(Agent_OnAttach)>(buf);
-  RunGuestCall(pc, buf);
-}
-
-void RunGuestAgentOnUnload(GuestAddr pc, GuestArgumentBuffer* buf) {
-  ConvertJavaVMToGuest<decltype(Agent_OnUnload)>(buf);
+  auto [host_java_vm, reserved] = HostArgumentsValues<decltype(JNI_OnLoad)>(buf);
+  {
+    auto&& [guest_java_vm, reserved] = GuestArgumentsReferences<decltype(JNI_OnLoad)>(buf);
+    guest_java_vm = ToGuestJavaVM(host_java_vm);
+  }
   RunGuestCall(pc, buf);
 }
 
@@ -156,18 +132,6 @@ HostCode WrapGuestJNIFunction(GuestAddr pc,
 
 HostCode WrapGuestJNIOnLoad(GuestAddr pc) {
   return WrapGuestFunctionImpl(pc, "ipp", RunGuestJNIOnLoad, "JNI_OnLoad");
-}
-
-HostCode WrapGuestAgentOnLoad(GuestAddr pc) {
-  return WrapGuestFunctionImpl(pc, "ippp", RunGuestAgentOnLoad, kAgentOnLoadFnName);
-}
-
-HostCode WrapGuestAgentOnAttach(GuestAddr pc) {
-  return WrapGuestFunctionImpl(pc, "ippp", RunGuestAgentOnAttach, kAgentOnAttachFnName);
-}
-
-HostCode WrapGuestAgentOnUnload(GuestAddr pc) {
-  return WrapGuestFunctionImpl(pc, "ippp", RunGuestAgentOnUnload, kAgentOnUnloadFnName);
 }
 
 namespace {
@@ -241,7 +205,7 @@ void DoTrampoline_JNIEnv_GetJavaVM(HostCode /* callee */, ProcessState* state) {
   auto&& [ret] = GuestReturnReference<PFN_callee>(state);
   ret = (arg_env->functions)->GetJavaVM(arg_env, &host_vm);
   if (ret == 0) {
-    *std::bit_cast<GuestType<JavaVM*>*>(arg_vm) = ToGuestJavaVM(host_vm);
+    *bit_cast<GuestType<JavaVM*>*>(arg_vm) = ToGuestJavaVM(host_vm);
   }
 }
 
@@ -258,22 +222,45 @@ void DoTrampoline_JNIEnv_CallStaticVoidMethodV(HostCode /* callee */, ProcessSta
   (arg_0->functions)->CallStaticVoidMethodA(arg_0, arg_1, arg_2, arg_3);
 }
 
+// region digitalis
+// jfieldID GetStaticFieldID(JNIEnv*, jclass, const char* name, const char* sig);
+//
+// A guest jclass is an opaque JNI reference passed through unchanged. Heavily
+// obfuscated anti-tamper SDKs (Baidu Maps' sofire / libsofiresec) resolve a
+// custom-loaded class via FindClass from a host-spawned worker thread whose
+// managed class-loader context can't see that class, so FindClass returns null;
+// the SDK then feeds that null straight into GetStaticFieldID. Under the
+// emulator's host ART CheckJNI (enabled on userdebug builds; OFF on production
+// devices) a null jclass is a process-fatal abort ("java_class == null in call
+// to GetStaticFieldID"), which on Baidu Maps kills the :SandBoxProcess. Mirror
+// the production (CheckJNI-off) path: on a null jclass, return a null jfieldID
+// to the guest without entering host ART, so the abort can't fire and the SDK
+// takes its own (null-tolerant) failure branch. arm64-guest only; the riscv64
+// build reproduces the original auto-generated forwarding (byte-identical).
+void DoTrampoline_JNIEnv_GetStaticFieldID(HostCode /* callee */, ProcessState* state) {
+  using PFN_callee = decltype(std::declval<JNIEnv>().functions->GetStaticFieldID);
+  auto [guest_env, arg_clazz, arg_name, arg_sig] = GuestParamsValues<PFN_callee>(state);
+  JNIEnv* arg_env = ToHostJNIEnv(guest_env);
+
+  auto&& [ret] = GuestReturnReference<PFN_callee>(state);
+#if defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
+  if (arg_clazz == nullptr) {
+    TRACE("GetStaticFieldID: guest passed null jclass; returning null jfieldID "
+          "instead of aborting under host CheckJNI");
+    ret = nullptr;
+    return;
+  }
+#endif
+  ret = (arg_env->functions)->GetStaticFieldID(arg_env, arg_clazz, arg_name, arg_sig);
+}
+// endregion
+
 struct KnownMethodTrampoline {
   unsigned index;
   TrampolineFunc marshal_and_call;
 };
 
-jvmtiEnv* ToHostJvmtiEnv(GuestType<jvmtiEnv*> guest_jvmti_env) {
-  return ToHostAddr(guest_jvmti_env);
-}
-
-void WrapJvmtiExtensionFunctionInfosIfNeeded(int extension_count,
-                                             jvmtiExtensionFunctionInfo* extensions);
-
 #include "jni_trampolines-inl.h"  // NOLINT(build/include)
-#include "jvmti_custom_trampolines-inl.h"  // NOLINT(build/include)
-#include "jvmti_ext_trampolines-inl.h"     // NOLINT(build/include)
-#include "jvmti_trampolines-inl.h"         // NOLINT(build/include)
 
 // According to our observations there is only one instance of JavaVM
 // and there are 1 or sometimes more instances of JNIEnv per thread created
@@ -338,40 +325,22 @@ void DoJavaVMTrampoline_DetachCurrentThread(HostCode /* callee */, ProcessState*
   ret = (arg_java_vm->functions)->DetachCurrentThread(arg_java_vm);
 }
 
-static constexpr jint kArtTiVersion = JVMTI_VERSION_1_2 | 0x40000000;
-
-bool IsJvmtiVersion(int version) {
-  return version == JVMTI_VERSION_1 || version == JVMTI_VERSION_1_0 ||
-         version == JVMTI_VERSION_1_1 || version == JVMTI_VERSION_1_2 || version == JVMTI_VERSION ||
-         version == kArtTiVersion;
-}
-
-GuestType<jvmtiEnv*> ToGuestJvmtiEnv(jvmtiEnv* host_jvmti_env);
-
 // jint GetEnv(JavaVM*, void**, jint);
 void DoJavaVMTrampoline_GetEnv(HostCode /* callee */, ProcessState* state) {
   using PFN_callee = decltype(std::declval<JavaVM>().functions->GetEnv);
   auto [arg_vm, arg_env_ptr, arg_version] = GuestParamsValues<PFN_callee>(state);
   JavaVM* arg_java_vm = ToHostJavaVM(arg_vm);
 
-  LOG_JNI(
-      "JavaVM::GetEnv(%p, %p, %d)", arg_java_vm, static_cast<void*>(arg_env_ptr), int{arg_version});
+  LOG_JNI("JavaVM::GetEnv(%p, %p, %d)", arg_java_vm, arg_env_ptr, arg_version);
 
   void* env = nullptr;
   auto&& [ret] = GuestReturnReference<PFN_callee>(state);
   ret = (arg_java_vm->functions)->GetEnv(arg_java_vm, &env, arg_version);
 
-  if (IsJvmtiVersion(arg_version)) {
-    GuestType<jvmtiEnv*> guest_jvmti_env = ToGuestJvmtiEnv(static_cast<jvmtiEnv*>(env));
-    memcpy(arg_env_ptr, &guest_jvmti_env, sizeof(guest_jvmti_env));
-    LOG_JNI("JavaVM::GetEnv for jvmtiEnv=%p", env);
-  } else {
-    GuestType<JNIEnv*> guest_jni_env = ToGuestJNIEnv(static_cast<JNIEnv*>(env));
-    memcpy(arg_env_ptr, &guest_jni_env, sizeof(guest_jni_env));
-    LOG_JNI("JavaVM::GetEnv for JNIEnv=%p", env);
-  }
+  GuestType<JNIEnv*> guest_jni_env = ToGuestJNIEnv(static_cast<JNIEnv*>(env));
+  memcpy(arg_env_ptr, &guest_jni_env, sizeof(guest_jni_env));
 
-  LOG_JNI("= jint(%d)", int{ret});
+  LOG_JNI("= jint(%d)", ret);
 }
 
 // jint AttachCurrentThreadAsDaemon(JavaVM* vm, void** penv, void* args);
@@ -409,36 +378,35 @@ void WrapJavaVM(void* java_vm) {
                        "JavaVM::AttachCurrentThreadAsDaemon");
 }
 
-// We set this to 1 when host JNIEnv/jvmtiEnv/JavaVM functions are wrapped.
-std::atomic<uint32_t> g_jni_env_wrapped = {0};
-std::atomic<uint32_t> g_jvmti_env_wrapped = {0};
+// We set this to 1 when host JavaVM functions are wrapped.
 std::atomic<uint32_t> g_java_vm_wrapped = {0};
-std::atomic<uint32_t> g_jvmti_extensions_wrapped = {0};
 
-GuestType<jvmtiEnv*> ToGuestJvmtiEnv(jvmtiEnv* host_jvmti_env) {
-  if (host_jvmti_env == nullptr) {
-    return nullptr;
-  }
+// region digitalis
+// Wrap each distinct host JNIEnv function table exactly once, keyed by the
+// JNINativeInterface* the env points at. A single process-global "wrapped once"
+// flag is insufficient for a guest that hosts more than one Java runtime /
+// function table: Chromium's sandboxed renderer is forked from its own
+// app-zygote and runs with a FRESH host JNIEnv whose table was never registered
+// as guest trampolines, and an inherited global flag then suppresses wrapping.
+// The renderer's first JNI call (NewStringUTF) then branches straight into host
+// libart and trips berberis_HandleNoExec (SIGSEGV). Observed with Brave's
+// sandboxed renderer. WrapJNIEnv (-> MakeTrampolineCallable) is idempotent per
+// host function address, so wrapping additional tables only registers new
+// addresses.
+std::mutex g_jni_wrap_mutex;
 
-  if (std::atomic_load_explicit(&g_jvmti_env_wrapped, std::memory_order_acquire) == 0U) {
-    WrapJvmtiEnv(host_jvmti_env);
-    std::atomic_store_explicit(&g_jvmti_env_wrapped, 1U, std::memory_order_release);
-  }
-
-  return host_jvmti_env;
-}
-
-void WrapJvmtiExtensionFunctionInfosIfNeeded(int extension_count,
-                                             jvmtiExtensionFunctionInfo* extensions) {
-  if (extension_count <= 0) {
+void WrapJNIEnvTableOnce(JNIEnv* host_jni_env) {
+  if (host_jni_env == nullptr) {
     return;
   }
-
-  if (std::atomic_load_explicit(&g_jvmti_extensions_wrapped, std::memory_order_acquire) == 0U) {
-    WrapJvmtiExtensionFunctionInfos(extension_count, extensions);
-    std::atomic_store_explicit(&g_jvmti_extensions_wrapped, 1U, std::memory_order_release);
+  static auto* g_wrapped_jni_tables = new std::map<const void*, char>();
+  const void* table = *reinterpret_cast<const void* const*>(host_jni_env);
+  std::lock_guard<std::mutex> lock(g_jni_wrap_mutex);
+  if (g_wrapped_jni_tables->emplace(table, 0).second) {
+    WrapJNIEnv(host_jni_env);
   }
 }
+// endregion
 
 }  // namespace
 
@@ -446,17 +414,12 @@ GuestType<JNIEnv*> ToGuestJNIEnv(JNIEnv* host_jni_env) {
   if (!host_jni_env) {
     return 0;
   }
-  // We need to wrap host JNI functions only once. We use an atomic variable
-  // to guard this initialization. Since we use very simple logic without
-  // waiting here, multiple threads can wrap host JNI functions simultaneously.
-  // This is OK since wrapping is thread-safe and later wrappings override
-  // previous ones atomically.
-  // TODO(halyavin) Consider creating a general mechanism for thread-safe
-  // initialization with parameters, if we need it in more than one place.
-  if (std::atomic_load_explicit(&g_jni_env_wrapped, std::memory_order_acquire) == 0U) {
-    WrapJNIEnv(host_jni_env);
-    std::atomic_store_explicit(&g_jni_env_wrapped, 1U, std::memory_order_release);
-  }
+  // region digitalis
+  // Wrap this host env's JNINativeInterface table the first time we see it.
+  // Per-table (not a single process-global flag) so a second Java runtime's
+  // fresh table — e.g. Chromium's forked sandboxed renderer — is wrapped too.
+  WrapJNIEnvTableOnce(host_jni_env);
+  // endregion
 
   std::lock_guard<std::mutex> lock(g_jni_guard_mutex);
   pid_t thread_id = GettidSyscall();
@@ -497,6 +460,78 @@ JNIEnv* ToHostJNIEnv(GuestType<JNIEnv*> guest_jni_env) {
   return it->second;
 }
 
+// region digitalis
+#if defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64) && defined(__ANDROID__)
+// On a real device an app's own native code is implicitly exempt from non-SDK
+// (hidden) API restrictions. Under NativeBridge the guest app's native code is
+// translated guest code, which host ART classifies in a domain the app's
+// exemptions don't cover, so a JNI lookup of a hidden method from guest native
+// code is blocked. Gecko (Firefox) hits exactly this: AndroidBridge::GetMethodID
+// for android.os.MessageQueue.next() returns null and MOZ_CRASH()es the process.
+// Grant the process a blanket hidden-API exemption via host ART's VMRuntime as
+// soon as we have the host JavaVM, mirroring real-device behaviour. Best-effort:
+// any failure is traced and ignored. Called once, under g_jni_guard_mutex.
+void GrantHiddenApiExemptions(JavaVM* host_java_vm) {
+  JNIEnv* env = nullptr;
+  if (host_java_vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK ||
+      env == nullptr) {
+    TRACE("GrantHiddenApiExemptions: no host JNIEnv, skipping");
+    return;
+  }
+  // Clear any pending exception after EACH JNI lookup before making the next
+  // JNI call. On a target-SDK-35 app whose calling context host ART attributes
+  // to the app domain (e.g. bugsnag's NativeBridge on the stack), the
+  // GetMethodID for the core-platform method setHiddenApiExemptions is denied
+  // by hidden-API enforcement: it returns nullptr AND leaves a pending
+  // NoSuchMethodError. Making any further JNI call (the FindClass below, or a
+  // class resolution it triggers) while that exception is pending makes host
+  // ART abort with "No pending exception expected". Clearing after every lookup
+  // keeps this best-effort path able to bail cleanly instead of crashing the
+  // process.
+  jclass vmruntime_class = env->FindClass("dalvik/system/VMRuntime");
+  if (env->ExceptionCheck()) {
+    env->ExceptionClear();
+  }
+  jclass string_class = env->FindClass("java/lang/String");
+  if (env->ExceptionCheck()) {
+    env->ExceptionClear();
+  }
+  jmethodID get_runtime =
+      vmruntime_class ? env->GetStaticMethodID(
+                            vmruntime_class, "getRuntime", "()Ldalvik/system/VMRuntime;")
+                      : nullptr;
+  if (env->ExceptionCheck()) {
+    env->ExceptionClear();
+  }
+  jmethodID set_exemptions =
+      vmruntime_class ? env->GetMethodID(
+                            vmruntime_class, "setHiddenApiExemptions", "([Ljava/lang/String;)V")
+                      : nullptr;
+  if (env->ExceptionCheck()) {
+    env->ExceptionClear();
+  }
+  if (vmruntime_class == nullptr || get_runtime == nullptr || set_exemptions == nullptr ||
+      string_class == nullptr) {
+    TRACE("GrantHiddenApiExemptions: VMRuntime API not resolvable, skipping");
+    return;
+  }
+  jobject runtime = env->CallStaticObjectMethod(vmruntime_class, get_runtime);
+  // A single "L" entry matches the prefix of every signature, exempting all.
+  jstring all = env->NewStringUTF("L");
+  jobjectArray exemptions = env->NewObjectArray(1, string_class, all);
+  if (runtime != nullptr && exemptions != nullptr) {
+    env->CallVoidMethod(runtime, set_exemptions, exemptions);
+  }
+  if (env->ExceptionCheck()) {
+    env->ExceptionClear();
+    TRACE("GrantHiddenApiExemptions: setHiddenApiExemptions threw, ignoring");
+  } else {
+    TRACE("GrantHiddenApiExemptions: granted blanket hidden-API exemption");
+  }
+}
+#endif
+// endregion
+
 GuestType<JavaVM*> ToGuestJavaVM(JavaVM* host_java_vm) {
   CHECK(host_java_vm);
   if (std::atomic_load_explicit(&g_java_vm_wrapped, std::memory_order_acquire) == 0U) {
@@ -508,6 +543,11 @@ GuestType<JavaVM*> ToGuestJavaVM(JavaVM* host_java_vm) {
   if (g_host_java_vm == nullptr) {
     g_guest_java_vm = *host_java_vm;
     g_host_java_vm = host_java_vm;
+    // region digitalis
+#if defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64) && defined(__ANDROID__)
+    GrantHiddenApiExemptions(host_java_vm);
+#endif
+    // endregion
   }
 
   if (g_host_java_vm != host_java_vm) {
@@ -533,6 +573,12 @@ JavaVM* ToHostJavaVM(GuestType<JavaVM*> guest_java_vm) {
   return ToHostAddr(guest_java_vm);
 }
 
+// region digitalis
+JavaVM* GetHostJavaVM() {
+  return g_host_java_vm;
+}
+// endregion
+
 namespace {
 
 GuestThreadExitListenerFn g_next_guest_thread_exit_listener = nullptr;
@@ -547,12 +593,7 @@ void JNIGuestThreadListener(pid_t tid) {
 }  // namespace
 
 void InitializeJNI() {
-  // JNI OnLoad
   RegisterKnownGuestFunctionWrapper("JNI_OnLoad", WrapGuestJNIOnLoad);
-  // JVMTI initialization functions
-  RegisterKnownGuestFunctionWrapper(kAgentOnLoadFnName, WrapGuestAgentOnLoad);
-  RegisterKnownGuestFunctionWrapper(kAgentOnAttachFnName, WrapGuestAgentOnAttach);
-  RegisterKnownGuestFunctionWrapper(kAgentOnUnloadFnName, WrapGuestAgentOnUnload);
   CHECK(g_next_guest_thread_exit_listener == nullptr);
   g_next_guest_thread_exit_listener = RegisterGuestThreadExitListener(JNIGuestThreadListener);
 }

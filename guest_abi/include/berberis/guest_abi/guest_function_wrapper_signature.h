@@ -20,8 +20,6 @@
 #include <cstdint>
 #include <type_traits>
 
-#include <jni.h>
-
 namespace berberis {
 
 // Signature string:
@@ -120,11 +118,6 @@ class kGuestFunctionWrapperSignatureCharHelper {
       std::enable_if_t<std::is_same_v<Type, double> && sizeof(Type) == sizeof(int64_t), int> = 0>
   static constexpr char Value() {
     return 'd';
-  }
-
-  template <typename Type, std::enable_if_t<std::is_same_v<Type, jvalue>, int> = 0>
-  static constexpr char Value() {
-    return 'p';
   }
 };
 

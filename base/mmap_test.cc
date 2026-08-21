@@ -16,12 +16,12 @@
 
 #include "gtest/gtest.h"
 
+#include "berberis/base/bit_util.h"
+#include "berberis/base/mmap.h"
+
 #include <sys/mman.h>
 
-#include <bit>
-#include <cstddef>
-
-#include "berberis/base/mmap.h"
+#include <cstdint>
 
 namespace berberis {
 
@@ -36,8 +36,8 @@ TEST(MmapTest, kMmapImpl_MmapBerberis32Bit) {
                              .flags = MAP_PRIVATE | MAP_ANONYMOUS,
                              .berberis_flags = kMmapBerberis32Bit});
     ASSERT_NE(result, MAP_FAILED) << "iteration " << i;
-    *std::bit_cast<uint64_t*>(result) = 42;
-    ASSERT_EQ(*std::bit_cast<uint64_t*>(result), 42UL);
+    *bit_cast<uint64_t*>(result) = 42;
+    ASSERT_EQ(*bit_cast<uint64_t*>(result), 42UL);
   }
 }
 

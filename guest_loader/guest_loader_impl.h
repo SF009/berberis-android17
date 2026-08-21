@@ -18,11 +18,13 @@
 #define BERBERIS_GUEST_LOADER_GUEST_LOADER_IMPL_H_
 
 #include <cstddef>  // size_t
+#include <cstdint>  // uint8_t
 
 #include "berberis/base/stringprintf.h"
 #include "berberis/guest_abi/guest_function_wrapper.h"
 #include "berberis/guest_abi/guest_type.h"
 #include "berberis/guest_loader/guest_loader.h"
+#include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state_opaque.h"
 #include "berberis/runtime_primitives/host_code.h"
 #include "berberis/tiny_loader/loaded_elf_file.h"
@@ -35,6 +37,17 @@ extern const char* kAppProcessRelativePath;
 extern const char* kPtInterpRelativePath;
 extern const char* kVdsoRelativePath;
 extern const char* kProxyPrefix;
+
+GuestAddr InitKernelArgs(GuestAddr guest_sp,
+                         size_t argc,
+                         const char* argv[],
+                         char* envp[],
+                         GuestAddr linker_base_addr,
+                         GuestAddr main_executable_entry_point,
+                         GuestAddr phdr,
+                         size_t phdr_count,
+                         GuestAddr ehdr_vdso,
+                         const uint8_t (*random_bytes)[16]);
 
 bool MakeElfSymbolTrampolineCallable(const LoadedElfFile& elf_file,
                                      const char* elf_file_label,

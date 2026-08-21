@@ -17,12 +17,12 @@
 #ifndef BERBERIS_BASE_ARENA_ALLOC_H_
 #define BERBERIS_BASE_ARENA_ALLOC_H_
 
-#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <new>
 
 #include "berberis/base/bit_util.h"
+#include "berberis/base/logging.h"
 #include "berberis/base/mmap.h"
 #include "berberis/base/mmap_pool.h"
 #include "berberis/base/page_size.h"
@@ -42,8 +42,8 @@ struct ArenaBlock {
   const size_t size;
   ArenaBlock* next;
 
-  uint8_t* data() { return std::bit_cast<uint8_t*>(this) + sizeof(ArenaBlock); }
-  uint8_t* data_end() { return std::bit_cast<uint8_t*>(this) + size; }
+  uint8_t* data() { return bit_cast<uint8_t*>(this) + sizeof(ArenaBlock); }
+  uint8_t* data_end() { return bit_cast<uint8_t*>(this) + size; }
 };
 
 inline ArenaBlock* AllocArenaBlock(size_t size, size_t align, ArenaBlock* blocks) {
@@ -146,7 +146,7 @@ class ArenaAllocator {
 
   T* allocate(size_t n) {
     size_t size = n * sizeof(T);
-    return std::bit_cast<T*>(arena()->Alloc(size, alignof(T)));
+    return bit_cast<T*>(arena()->Alloc(size, alignof(T)));
   }
 
   void deallocate(T*, size_t) {}

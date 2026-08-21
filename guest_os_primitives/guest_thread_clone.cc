@@ -29,7 +29,7 @@
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state_opaque.h"
 #include "berberis/runtime/execute_guest.h"
-#include "berberis/runtime_library/runtime_library.h"
+#include "berberis/runtime_primitives/runtime_library.h"
 
 #include "guest_signal_action.h"
 #include "guest_thread_manager_impl.h"

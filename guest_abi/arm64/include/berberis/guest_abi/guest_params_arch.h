@@ -20,7 +20,6 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
-#include <tuple>
 #include <type_traits>
 
 #include "berberis/base/dependent_false.h"

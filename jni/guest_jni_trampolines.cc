@@ -18,12 +18,11 @@
 
 #include <dlfcn.h>
 #include <jni.h>
-
-#include <bit>
+#include <stdint.h>
 #include <cstddef>
-#include <cstdint>
 
-#include "berberis/base/checks.h"
+#include "berberis/base/bit_util.h"
+#include "berberis/base/logging.h"
 #include "berberis/base/stringprintf.h"
 #include "berberis/guest_abi/guest_call.h"
 #include "berberis/guest_loader/guest_loader.h"
@@ -61,11 +60,11 @@ void GuestCall_uloc_setDefault(GuestAddr addr, const char* tag) {
   berberis::GuestCall call;
   int err = 0;
 #if defined(BERBERIS_GUEST_ILP32)
-  call.AddArgInt32(std::bit_cast<uint32_t>(tag));
-  call.AddArgInt32(std::bit_cast<uint32_t>(&err));
+  call.AddArgInt32(bit_cast<uint32_t>(tag));
+  call.AddArgInt32(bit_cast<uint32_t>(&err));
 #elif defined(BERBERIS_GUEST_LP64)
-  call.AddArgInt64(std::bit_cast<uint64_t>(tag));
-  call.AddArgInt64(std::bit_cast<uint64_t>(&err));
+  call.AddArgInt64(bit_cast<uint64_t>(tag));
+  call.AddArgInt64(bit_cast<uint64_t>(&err));
 #else
 #error "Unsupported guest arch"
 #endif
@@ -80,9 +79,9 @@ void GuestCall_u_getVersion(GuestAddr addr, UVersionInfo version_info) {
   CHECK_NE(addr, berberis::kNullGuestAddr);
   berberis::GuestCall call;
 #if defined(BERBERIS_GUEST_ILP32)
-  call.AddArgInt32(std::bit_cast<uint32_t>(version_info));
+  call.AddArgInt32(bit_cast<uint32_t>(version_info));
 #elif defined(BERBERIS_GUEST_LP64)
-  call.AddArgInt64(std::bit_cast<uint64_t>(version_info));
+  call.AddArgInt64(bit_cast<uint64_t>(version_info));
 #else
 #error "Unsupported guest arch"
 #endif
@@ -97,15 +96,15 @@ bool GuestCall_uloc_canonicalize(GuestAddr addr,
   berberis::GuestCall call;
   int err = 0;
 #if defined(BERBERIS_GUEST_ILP32)
-  call.AddArgInt32(std::bit_cast<uint32_t>(tag));
-  call.AddArgInt32(std::bit_cast<uint32_t>(canonical_tag));
+  call.AddArgInt32(bit_cast<uint32_t>(tag));
+  call.AddArgInt32(bit_cast<uint32_t>(canonical_tag));
   call.AddArgInt32(size);
-  call.AddArgInt32(std::bit_cast<uint32_t>(&err));
+  call.AddArgInt32(bit_cast<uint32_t>(&err));
 #elif defined(BERBERIS_GUEST_LP64)
-  call.AddArgInt64(std::bit_cast<uint64_t>(tag));
-  call.AddArgInt64(std::bit_cast<uint64_t>(canonical_tag));
+  call.AddArgInt64(bit_cast<uint64_t>(tag));
+  call.AddArgInt64(bit_cast<uint64_t>(canonical_tag));
   call.AddArgInt64(size);
-  call.AddArgInt64(std::bit_cast<uint64_t>(&err));
+  call.AddArgInt64(bit_cast<uint64_t>(&err));
 #else
 #error "Unsupported guest arch"
 #endif

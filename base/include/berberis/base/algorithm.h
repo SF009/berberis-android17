@@ -26,14 +26,13 @@ namespace berberis {
 // Non-const container versions.
 //
 
-template <typename ContainerType>
-auto EraseFromReverseIterator(ContainerType& container,
-                              typename ContainerType::reverse_iterator rit) {
+template <class Container>
+auto EraseFromReverseIterator(Container& container, typename Container::reverse_iterator rit) {
   return std::reverse_iterator(container.erase(std::prev(rit.base())));
 }
 
-template <typename ContainerType, typename ValueType>
-auto Find(ContainerType& container, const ValueType& value) {
+template <class Container, class Value>
+auto Find(Container& container, const Value& value) {
   return std::find(container.begin(), container.end(), value);
 }
 
@@ -41,23 +40,23 @@ auto Find(ContainerType& container, const ValueType& value) {
 // Const container versions.
 //
 
-template <typename ContainerType, typename ValueType>
-auto Find(const ContainerType& container, const ValueType& value) {
+template <class Container, class Value>
+auto Find(const Container& container, const Value& value) {
   return std::find(container.begin(), container.end(), value);
 }
 
-template <typename ContainerType, typename ValueType>
-bool Contains(const ContainerType& container, const ValueType& value) {
+template <class Container, class Value>
+bool Contains(const Container& container, const Value& value) {
   return Find(container, value) != container.end();
 }
 
-template <typename ContainerType, typename Predicate>
-auto FindIf(const ContainerType& container, Predicate predicate) {
+template <class Container, class Predicate>
+auto FindIf(const Container& container, Predicate predicate) {
   return std::find_if(container.begin(), container.end(), predicate);
 }
 
-template <typename ContainerType, typename Predicate>
-bool ContainsIf(const ContainerType& container, Predicate predicate) {
+template <class Container, class Predicate>
+bool ContainsIf(const Container& container, Predicate predicate) {
   return FindIf(container, predicate) != container.end();
 }
 

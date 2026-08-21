@@ -16,9 +16,9 @@
 
 #include "gtest/gtest.h"
 
-#include <bit>
-#include <cstddef>
+#include "cstddef"
 
+#include "berberis/base/bit_util.h"
 #include "berberis/guest_abi/function_wrappers.h"
 #include "berberis/guest_state/guest_state.h"
 #include "berberis/runtime_primitives/host_function_wrapper_impl.h"
@@ -41,7 +41,7 @@ TEST(TrampolineFuncGenerator64, OutputIsTruncated) {
 
   ProcessState state{};
 
-  func(std::bit_cast<void*>(&Callee::foo), &state);
+  func(bit_cast<void*>(&Callee::foo), &state);
 
   EXPECT_EQ(kLargeNumber & kMask32Bit, state.cpu.x[0]);
 }
@@ -57,7 +57,7 @@ TEST(TrampolineFuncGenerator64, InputIsTruncated) {
 
   state.cpu.x[0] = kLargeNumber;
 
-  EXPECT_NO_FATAL_FAILURE(func(std::bit_cast<void*>(&Callee::foo), &state));
+  EXPECT_NO_FATAL_FAILURE(func(bit_cast<void*>(&Callee::foo), &state));
 }
 
 }  // namespace

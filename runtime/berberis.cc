@@ -18,11 +18,11 @@
 #include "berberis/base/macros.h"
 #include "berberis/base/tracing.h"
 #include "berberis/guest_os_primitives/guest_map_shadow.h"
-#include "berberis/guest_os_primitives/guest_signal.h"
 #include "berberis/guest_os_primitives/guest_thread_manager.h"
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/runtime/init_guest_arch.h"
-#include "berberis/translator/translator.h"
+#include "berberis/runtime/translator.h"
+#include "berberis/runtime_primitives/crash_reporter.h"
 #include "berberis/runtime_primitives/guest_function_wrapper_impl.h"
 #include "berberis/runtime_primitives/translation_cache.h"
 
@@ -41,7 +41,7 @@ bool InitBerberisUnsafe() {
   InitGuestThreadManager();
   InitGuestFunctionWrapper(&IsAddressGuestExecutable);
   InitTranslator();
-  InitGuestSignalHandling();
+  InitCrashReporter();
   InitGuestArch();
   return true;
 }

@@ -23,12 +23,12 @@
 //
 // #include "gtest/gtest.h"
 //
-// #include <bit>
 // #include <cstdint>
 // #include <initializer_list>
 // #include <tuple>
 // #include <vector>
 //
+// #include "berberis/base/bit_util.h"
 // #include "berberis/guest_state/guest_addr.h"
 // #include "berberis/guest_state/guest_state_riscv64.h"
 //
@@ -54,9 +54,9 @@ inline constexpr class FPValueToFPReg {
  public:
   uint64_t operator()(uint64_t value) const { return value; }
   uint64_t operator()(float value) const {
-    return std::bit_cast<uint32_t>(value) | 0xffff'ffff'0000'0000;
+    return bit_cast<uint32_t>(value) | 0xffff'ffff'0000'0000;
   }
-  uint64_t operator()(double value) const { return std::bit_cast<uint64_t>(value); }
+  uint64_t operator()(double value) const { return bit_cast<uint64_t>(value); }
 } kFPValueToFPReg;
 
 // Helper function for the unit tests. Can be used to normalize values before processing.
@@ -132,7 +132,7 @@ class TESTSUITE : public ::testing::Test {
   template <RegisterType register_type, uint64_t expected_result, uint8_t kTargetReg>
   void TestCompressedStore(uint16_t insn_bytes, uint64_t offset) {
     store_area_ = 0;
-    SetXReg<kTargetReg>(state_.cpu, ToGuestAddr(std::bit_cast<uint8_t*>(&store_area_) - offset));
+    SetXReg<kTargetReg>(state_.cpu, ToGuestAddr(bit_cast<uint8_t*>(&store_area_) - offset));
     SetReg<register_type, 9>(state_.cpu, kDataToLoad);
     RunInstruction<2>(insn_bytes);
     EXPECT_EQ(store_area_, expected_result);
@@ -140,7 +140,7 @@ class TESTSUITE : public ::testing::Test {
 
   template <RegisterType register_type, uint64_t expected_result, uint8_t kSourceReg>
   void TestCompressedLoad(uint16_t insn_bytes, uint64_t offset) {
-    SetXReg<kSourceReg>(state_.cpu, ToGuestAddr(std::bit_cast<uint8_t*>(&kDataToLoad) - offset));
+    SetXReg<kSourceReg>(state_.cpu, ToGuestAddr(bit_cast<uint8_t*>(&kDataToLoad) - offset));
     RunInstruction<2>(insn_bytes);
     EXPECT_EQ((GetReg<register_type, 9>(state_.cpu)), expected_result);
   }
@@ -324,7 +324,7 @@ class TESTSUITE : public ::testing::Test {
 
   void TestLoad(uint32_t insn_bytes, uint64_t expected_result) {
     // Offset is always 8.
-    SetXReg<2>(state_.cpu, ToGuestAddr(std::bit_cast<uint8_t*>(&kDataToLoad) - 8));
+    SetXReg<2>(state_.cpu, ToGuestAddr(bit_cast<uint8_t*>(&kDataToLoad) - 8));
     RunInstruction(insn_bytes);
     EXPECT_EQ(GetXReg<1>(state_.cpu), expected_result);
   }
@@ -347,7 +347,7 @@ class TESTSUITE : public ::testing::Test {
 
   void TestStore(uint32_t insn_bytes, uint64_t expected_result) {
     // Offset is always 8.
-    SetXReg<1>(state_.cpu, ToGuestAddr(std::bit_cast<uint8_t*>(&store_area_) - 8));
+    SetXReg<1>(state_.cpu, ToGuestAddr(bit_cast<uint8_t*>(&store_area_) - 8));
     SetXReg<2>(state_.cpu, kDataToStore);
     store_area_ = 0;
     RunInstruction(insn_bytes);
@@ -428,7 +428,7 @@ class TESTSUITE : public ::testing::Test {
                uint64_t expected_memory) {
     // Copy arg1 into store_area_
     store_area_ = arg1;
-    SetXReg<2>(state_.cpu, ToGuestAddr(std::bit_cast<uint8_t*>(&store_area_)));
+    SetXReg<2>(state_.cpu, ToGuestAddr(bit_cast<uint8_t*>(&store_area_)));
     SetXReg<3>(state_.cpu, arg2);
     RunInstruction(insn_bytes);
     EXPECT_EQ(GetXReg<1>(state_.cpu), expected_result);
@@ -510,14 +510,14 @@ class TESTSUITE : public ::testing::Test {
 
   void TestLoadFp(uint32_t insn_bytes, uint64_t expected_result) {
     // Offset is always 8.
-    SetXReg<2>(state_.cpu, ToGuestAddr(std::bit_cast<uint8_t*>(&kDataToLoad) - 8));
+    SetXReg<2>(state_.cpu, ToGuestAddr(bit_cast<uint8_t*>(&kDataToLoad) - 8));
     RunInstruction(insn_bytes);
     EXPECT_EQ(GetFReg<1>(state_.cpu), expected_result);
   }
 
   void TestStoreFp(uint32_t insn_bytes, uint64_t expected_result) {
     // Offset is always 8.
-    SetXReg<1>(state_.cpu, ToGuestAddr(std::bit_cast<uint8_t*>(&store_area_) - 8));
+    SetXReg<1>(state_.cpu, ToGuestAddr(bit_cast<uint8_t*>(&store_area_) - 8));
     SetFReg<2>(state_.cpu, kDataToStore);
     store_area_ = 0;
     RunInstruction(insn_bytes);
@@ -1400,20 +1400,19 @@ TEST_F(TESTSUITE, OpInstructions) {
   // Xnor
   TestOp(0x4031'40b3, {{0b0101, 0b0011, 0xffff'ffff'ffff'fff9}});
   // Max
-  TestOp(0x0a31'60b3, {{std::bit_cast<uint64_t>(int64_t{-5}), 4, 4}});
+  TestOp(0x0a31'60b3, {{bit_cast<uint64_t>(int64_t{-5}), 4, 4}});
   TestOp(0x0a31'60b3,
-         {{std::bit_cast<uint64_t>(int64_t{-5}),
-           std::bit_cast<uint64_t>(int64_t{-10}),
-           std::bit_cast<uint64_t>(int64_t{-5})}});
+         {{bit_cast<uint64_t>(int64_t{-5}),
+           bit_cast<uint64_t>(int64_t{-10}),
+           bit_cast<uint64_t>(int64_t{-5})}});
   // Maxu
   TestOp(0x0a31'70b3, {{50, 1, 50}});
   // Min
+  TestOp(0x0a31'40b3, {{bit_cast<uint64_t>(int64_t{-5}), 4, bit_cast<uint64_t>(int64_t{-5})}});
   TestOp(0x0a31'40b3,
-         {{std::bit_cast<uint64_t>(int64_t{-5}), 4, std::bit_cast<uint64_t>(int64_t{-5})}});
-  TestOp(0x0a31'40b3,
-         {{std::bit_cast<uint64_t>(int64_t{-5}),
-           std::bit_cast<uint64_t>(int64_t{-10}),
-           std::bit_cast<uint64_t>(int64_t{-10})}});
+         {{bit_cast<uint64_t>(int64_t{-5}),
+           bit_cast<uint64_t>(int64_t{-10}),
+           bit_cast<uint64_t>(int64_t{-10})}});
   // Minu
   TestOp(0x0a31'50b3, {{50, 1, 1}});
 
@@ -1934,26 +1933,23 @@ TEST_F(TESTSUITE, OpFpSingleInputInstructions) {
 TEST_F(TESTSUITE, Fmv) {
   // Fmv.X.W
   TestFmvFloatToInteger(0xe000'80d3,
-                        {std::tuple{1.0f, static_cast<uint64_t>(std::bit_cast<uint32_t>(1.0f))},
-                         {-1.0f, static_cast<int64_t>(std::bit_cast<int32_t>(-1.0f))}});
+                        {std::tuple{1.0f, static_cast<uint64_t>(bit_cast<uint32_t>(1.0f))},
+                         {-1.0f, static_cast<int64_t>(bit_cast<int32_t>(-1.0f))}});
   // Fmv.W.X
   TestFmvIntegerToFloat(
       0xf000'80d3,
-      {std::tuple{std::bit_cast<uint32_t>(1.0f), 1.0f}, {std::bit_cast<uint32_t>(-1.0f), -1.0f}});
+      {std::tuple{bit_cast<uint32_t>(1.0f), 1.0f}, {bit_cast<uint32_t>(-1.0f), -1.0f}});
   // Fmv.X.D
   TestFmvFloatToInteger(
-      0xe200'80d3,
-      {std::tuple{1.0, std::bit_cast<uint64_t>(1.0)}, {-1.0, std::bit_cast<uint64_t>(-1.0)}});
+      0xe200'80d3, {std::tuple{1.0, bit_cast<uint64_t>(1.0)}, {-1.0, bit_cast<uint64_t>(-1.0)}});
   // Fmv.D.X
   TestFmvIntegerToFloat(
-      0xf200'80d3,
-      {std::tuple{std::bit_cast<uint64_t>(1.0), 1.0}, {std::bit_cast<uint64_t>(-1.0), -1.0}});
+      0xf200'80d3, {std::tuple{bit_cast<uint64_t>(1.0), 1.0}, {bit_cast<uint64_t>(-1.0), -1.0}});
   // Fmv.S
   TestOpFpSingleInput(0x2021'00d3, {std::tuple{1.0f, 1.0f}, {-1.0f, -1.0f}});
   // Fmv.D
-  TestOpFpSingleInput(
-      0x2221'00d3,
-      {std::tuple{std::bit_cast<uint64_t>(1.0), 1.0}, {std::bit_cast<uint64_t>(-1.0), -1.0}});
+  TestOpFpSingleInput(0x2221'00d3,
+                      {std::tuple{bit_cast<uint64_t>(1.0), 1.0}, {bit_cast<uint64_t>(-1.0), -1.0}});
 }
 
 const uint32_t kPosNanFloat = kFPValueToFPReg(std::numeric_limits<float>::quiet_NaN());

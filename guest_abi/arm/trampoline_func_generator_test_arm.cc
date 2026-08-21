@@ -16,8 +16,7 @@
 
 #include "gtest/gtest.h"
 
-#include <bit>
-
+#include "berberis/base/bit_util.h"
 #include "berberis/guest_abi/function_wrappers.h"
 #include "berberis/guest_state/guest_state.h"
 #include "berberis/runtime_primitives/host_function_wrapper_impl.h"
@@ -35,7 +34,7 @@ TEST(TrampolineFuncGenerator, IntRes) {
 
   ProcessState state{};
 
-  func(std::bit_cast<void*>(&Callee::foo), &state);
+  func(bit_cast<void*>(&Callee::foo), &state);
 
   EXPECT_EQ(1u, state.cpu.r[0]);
 }
@@ -54,10 +53,10 @@ TEST(TrampolineFuncGenerator, FloatArgs) {
   ProcessState state{};
 
   state.cpu.r[0] = 0u;
-  state.cpu.r[1] = std::bit_cast<uint32_t>(0.5f);
-  state.cpu.r[2] = std::bit_cast<uint32_t>(0.75f);
+  state.cpu.r[1] = bit_cast<uint32_t>(0.5f);
+  state.cpu.r[2] = bit_cast<uint32_t>(0.75f);
 
-  EXPECT_NO_FATAL_FAILURE(func(std::bit_cast<void*>(&Callee::foo), &state));
+  EXPECT_NO_FATAL_FAILURE(func(bit_cast<void*>(&Callee::foo), &state));
 }
 
 }  // namespace

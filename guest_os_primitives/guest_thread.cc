@@ -17,14 +17,12 @@
 #include "berberis/guest_os_primitives/guest_thread.h"
 
 #include <sys/mman.h>  // mprotect
-#include <bit>
 
 #if defined(__BIONIC__)
 #include "private/bionic_constants.h"
 #include "private/bionic_tls.h"
 #endif
 
-#include "berberis/base/bit_util.h"
 #include "berberis/base/checks.h"
 #include "berberis/base/mmap.h"
 #include "berberis/base/tracing.h"
@@ -94,21 +92,14 @@ GuestThread* GuestThread::CreateClone(const GuestThread* parent, bool share_sign
     return nullptr;
   }
 
-  // Reserve 2 extra pages for bottom and top guard pages.
-  size_t host_stack_size = GetStackSizeForTranslation() + 2 * kPageSize;
-  thread->host_stack_ = MmapOrDie(host_stack_size);
+  // TODO(156271630): alloc host stack guard?
+  thread->host_stack_ = MmapOrDie(GetStackSizeForTranslation());
   if (thread->host_stack_ == MAP_FAILED) {
     TRACE("failed to allocate host stack!");
     thread->host_stack_ = nullptr;
     Destroy(thread);
     return nullptr;
   }
-  // Bottom guard page.
-  MprotectOrDie(thread->host_stack_, kPageSize, PROT_NONE);
-  // Top guard page.
-  void* top_guard_addr =
-      std::bit_cast<char*>(thread->host_stack_) + kPageSize + GetStackSizeForTranslation();
-  MprotectOrDie(top_guard_addr, kPageSize, PROT_NONE);
 
   SetCPUState(*thread->state(), GetCPUState(*parent->state()));
   SetTlsAddr(*thread->state(), GetTlsAddr(*parent->state()));
@@ -178,7 +169,7 @@ void GuestThread::Destroy(GuestThread* thread) {
 
   if (thread->host_stack_) {
     // This happens only on cleanup after failed creation.
-    MunmapOrDie(thread->host_stack_, GetStackSizeForTranslation() + 2 * kPageSize);
+    MunmapOrDie(thread->host_stack_, GetStackSizeForTranslation());
   }
   if (thread->mmap_size_) {
     MunmapOrDie(thread->stack_, thread->mmap_size_);
@@ -205,7 +196,7 @@ void GuestThread::Exit(GuestThread* thread, int status) {
   Destroy(thread);
 
   if (host_stack) {
-    berberis_UnmapAndExit(host_stack, GetStackSizeForTranslation() + 2 * kPageSize, status);
+    berberis_UnmapAndExit(host_stack, GetStackSizeForTranslation(), status);
   } else {
     syscall(__NR_exit, status);
   }
@@ -251,12 +242,43 @@ bool GuestThread::AllocStack(void* stack, size_t stack_size, size_t guard_size) 
     return false;
   }
 
+  // region digitalis
+#if defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
+  // Bionic lays a thread mapping out as
+  //   | guard | stack | pthread_internal_t | tls | GUARD |
+  // so there is a MAPPED pthread_internal_t + TLS region ABOVE stack_top. Guest
+  // code (notably hardened/anti-tamper libraries that poison or scan that region)
+  // legitimately touches memory a few KB above the initial SP. Berberis places
+  // its guest TLS in a separate mapping and, without this, ends the stack mapping
+  // right at stack_top — so those accesses fall into the guard/unmapped page and
+  // SIGSEGV (observed as a fatal SEGV_ACCERR at stack_base+stack_size while the
+  // thread had barely started). Reserve a bionic-equivalent mapped headroom above
+  // stack_top so the layout matches. It is extra address space only; it does not
+  // reduce the usable stack (stack_top is unchanged relative to the usable range).
+  constexpr size_t kGuestTlsHeadroom = 0x8000;  // 32 KiB, covers pthread_internal_t + tls
+  size_t mmap_size_with_headroom{};
+  if (__builtin_add_overflow(mmap_size_, kGuestTlsHeadroom, &mmap_size_with_headroom)) {
+    return false;
+  }
+  stack_ = Mmap(mmap_size_with_headroom);
+  if (stack_ == MAP_FAILED) {
+    TRACE("failed to allocate stack!");
+    stack_ = nullptr;  // Do not unmap in Destroy!
+    return false;
+  }
+  // Track the full mapping (incl. headroom) so Destroy unmaps all of it.
+  mmap_size_ = mmap_size_with_headroom;
+#else
+  // endregion
   stack_ = Mmap(mmap_size_);
   if (stack_ == MAP_FAILED) {
     TRACE("failed to allocate stack!");
     stack_ = nullptr;  // Do not unmap in Destroy!
     return false;
   }
+  // region digitalis
+#endif
+  // endregion
 
   if (mprotect(stack_, guard_size_, PROT_NONE) != 0) {
     TRACE("failed to protect stack!");
@@ -264,7 +286,8 @@ bool GuestThread::AllocStack(void* stack, size_t stack_size, size_t guard_size) 
   }
 
   // `stack_size_ - 16` is guaranteed to not overflow since it is not 0 and
-  // aligned to the page size.
+  // aligned to the page size. stack_top sits at the top of the USABLE stack
+  // (stack_size_), leaving the arm64 TLS headroom above it mapped (see above).
   if (__builtin_add_overflow(ToGuestAddr(stack_), stack_size_ - 16, &stack_top_)) {
     return false;
   }
@@ -356,7 +379,8 @@ void GuestThread::ConfigStaticTls(const NativeBridgeStaticTlsConfig* config) {
 
 void* GuestThread::GetHostStackTop() const {
   CHECK(host_stack_);
-  return std::bit_cast<char*>(host_stack_) + kPageSize + GetStackSizeForTranslation();
+  auto top = reinterpret_cast<uintptr_t>(host_stack_) + GetStackSizeForTranslation();
+  return reinterpret_cast<void*>(top);
 }
 
 }  // namespace berberis

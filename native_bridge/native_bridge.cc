@@ -21,8 +21,6 @@
 #include <stdio.h>
 #include <sys/system_properties.h>
 
-#include <bit>
-#include <cstdint>
 #include <deque>
 #include <map>
 #include <mutex>
@@ -32,7 +30,26 @@
 
 #include "procinfo/process_map.h"
 
+// region digitalis
+#include <android/log.h>
+#define DIGITALIS_LOG(...) __android_log_print(ANDROID_LOG_DEBUG, "berberis", __VA_ARGS__)
+
+#include <cstring>
+
+// arm64-guest-only prebuilt-app support (in-APK guest-lib extract fallback +
+// Qt plugin-path injection) lives in a dedicated arm64-only translation unit
+// (arm64/digitalis_app_support.cc) so its libziparchive dependency and code
+// never enter the riscv64 native bridge. fdsan demotion below is likewise
+// arm64-only.
+#if defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
+#include <android/fdsan.h>
+
+#include "arm64/digitalis_app_support.h"
+#endif
+// endregion
+
 #include "berberis/base/algorithm.h"
+#include "berberis/base/bit_util.h"
 #include "berberis/base/config_globals.h"
 #include "berberis/base/file.h"
 #include "berberis/base/strings.h"
@@ -100,10 +117,10 @@ using GuestAddr = berberis::GuestAddr;
 // Treble uses "sphal" name for the vendor namespace.
 constexpr const char* kVendorNamespaceName = "sphal";
 
-class BerberisNativeBridge {
+class NdktNativeBridge {
  public:
-  BerberisNativeBridge();
-  ~BerberisNativeBridge();
+  NdktNativeBridge();
+  ~NdktNativeBridge();
 
   bool Initialize(std::string* error_msg);
   void* LoadLibrary(const char* libpath, int flags, const native_bridge_namespace_t* ns = nullptr);
@@ -142,11 +159,11 @@ class BerberisNativeBridge {
   std::map<std::string, native_bridge_namespace_t> exported_namespaces_;
 };
 
-BerberisNativeBridge::BerberisNativeBridge() : guest_loader_(nullptr) {}
+NdktNativeBridge::NdktNativeBridge() : guest_loader_(nullptr) {}
 
-BerberisNativeBridge::~BerberisNativeBridge() {}
+NdktNativeBridge::~NdktNativeBridge() {}
 
-bool BerberisNativeBridge::Initialize(std::string* error_msg) {
+bool NdktNativeBridge::Initialize(std::string* error_msg) {
   guest_loader_ = berberis::GuestLoader::StartAppProcessInNewThread(error_msg);
   berberis::RegisterKnownGuestFunctionWrapper("ANativeActivity_onCreate",
                                               berberis::WrapGuestNativeActivityOnCreate);
@@ -154,7 +171,7 @@ bool BerberisNativeBridge::Initialize(std::string* error_msg) {
   return guest_loader_ != nullptr;
 }
 
-void* BerberisNativeBridge::LoadLibrary(const char* libpath,
+void* NdktNativeBridge::LoadLibrary(const char* libpath,
                                     int flags,
                                     const native_bridge_namespace_t* ns) {
   // We don't have a callback after all java initialization is finished. So we call the finalizing
@@ -162,10 +179,43 @@ void* BerberisNativeBridge::LoadLibrary(const char* libpath,
   static bool init_finalized = FinalizeInit();
   UNUSED(init_finalized);
 
+  // region digitalis
+  // In-APK path fast path: when libpath is "<apk>!/<entry>" (Qt 6 apps that
+  // ship native libs inside base.apk), the guest linker's own load of that
+  // path is known to either fail fast (sister Qt 6 libs) or hang for >30 s
+  // (observed with libQt6Widgets in VulkanCapsViewer 4.11 — first-launch
+  // extraction inside the guest linker). Either way, the eventual successful
+  // load is via our host-side ExtractInApkLibToCache + cache-path reload.
+  // Skip the broken guest-linker `!/` attempt entirely and extract first.
+  // This also turns the previously-hanging Widgets case into a one-time
+  // host-side ZIP extract + a normal cache-path dlopen.
+#if defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
+  if (libpath != nullptr && strstr(libpath, "!/") != nullptr) {
+    std::string extracted = berberis::ExtractInApkLibToCache(libpath);
+    if (!extracted.empty()) {
+      void* cached = LoadGuestLibrary(extracted.c_str(), flags, ns);
+      if (cached != nullptr) {
+        return cached;
+      }
+      const char* cache_err = guest_loader_->DlError();
+      DIGITALIS_LOG("LoadGuestLibrary for extracted %s failed: %s",
+                    extracted.c_str(), cache_err ? cache_err : "(no error)");
+    }
+  }
+#endif  // defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
+  // endregion
+
   void* handle = LoadGuestLibrary(libpath, flags, ns);
   if (handle != nullptr) {
     return handle;
   }
+
+  // region digitalis
+  {
+    const char* guest_err = guest_loader_->DlError();
+    DIGITALIS_LOG("LoadGuestLibrary FAILED for %s: %s", libpath, guest_err ? guest_err : "(no error)");
+  }
+  // endregion
 
   // http://b/206676167: Do not fallback to host for libRS.so
   if (berberis::Basename(libpath) == "libRS.so") {
@@ -191,7 +241,7 @@ void* BerberisNativeBridge::LoadLibrary(const char* libpath,
   return handle;
 }
 
-void* BerberisNativeBridge::LoadGuestLibrary(const char* libpath,
+void* NdktNativeBridge::LoadGuestLibrary(const char* libpath,
                                          int flags,
                                          const native_bridge_namespace_t* ns) {
   android_dlextinfo extinfo_holder;
@@ -206,22 +256,22 @@ void* BerberisNativeBridge::LoadGuestLibrary(const char* libpath,
   return guest_loader_->DlOpenExt(libpath, flags, extinfo);
 }
 
-void BerberisNativeBridge::AddHostLibrary(void* handle) {
+void NdktNativeBridge::AddHostLibrary(void* handle) {
   const std::lock_guard<std::mutex> guard(host_libraries_lock_);
   host_libraries_.insert(handle);
 }
 
-bool BerberisNativeBridge::IsHostHandle(void* handle) const {
+bool NdktNativeBridge::IsHostHandle(void* handle) const {
   const std::lock_guard<std::mutex> guard(host_libraries_lock_);
   return berberis::Contains(host_libraries_, handle);
 }
 
-GuestAddr BerberisNativeBridge::DlSym(void* handle, const char* name) {
+GuestAddr NdktNativeBridge::DlSym(void* handle, const char* name) {
   CHECK(!IsHostHandle(handle));
   return guest_loader_->DlSym(handle, name);
 }
 
-const char* BerberisNativeBridge::DlError() {
+const char* NdktNativeBridge::DlError() {
   // There is no good way of knowing where the error happened, - prioritize the guest loader.
   const char* error = guest_loader_->DlError();
   if (error != nullptr) {
@@ -231,7 +281,7 @@ const char* BerberisNativeBridge::DlError() {
   return dlerror();
 }
 
-native_bridge_namespace_t* BerberisNativeBridge::CreateNamespace(
+native_bridge_namespace_t* NdktNativeBridge::CreateNamespace(
     const char* name,
     const char* ld_library_path,
     const char* default_library_path,
@@ -258,17 +308,58 @@ native_bridge_namespace_t* BerberisNativeBridge::CreateNamespace(
                                                   permitted_when_isolated_path,
                                                   parent_ns->host_namespace);
 
+  // region digitalis
+  std::string guest_default_path;
+  std::string guest_permitted;
+#if defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
+  // Do NOT add /system/lib64/arm64 to an app's (isolated) namespace search or
+  // permitted paths. Real Android keeps app classloader namespaces isolated from
+  // the system namespace: the app can only load its own libs plus the NDK public
+  // libraries reached through the namespace *link* (shared instances that resolve
+  // their own symbols in the system namespace). Adding the system path let the app
+  // namespace load its own copies of non-public system libraries (libutils,
+  // libc++, libandroid_runtime, ...). Because those copies then live in the app's
+  // symbol scope, an app library's *strong* replaceable symbol — most importantly
+  // Unity's GLOBAL `operator new` in libunity.so — interposes for them. A system
+  // library calling `operator new` was thus routed into the app's not-yet-
+  // initialized allocator and crashed (Honkai: Star Rail SIGILL on libunity's
+  // encrypted lazy-init path). Proxy/public libraries the app legitimately needs
+  // (libandroid.so, libvulkan.so, libEGL.so, ...) still resolve via the framework's
+  // linkNamespaces() link to the guest "default" namespace, which has the ARM64
+  // system search path, so this only removes the incorrect direct-load fallback.
+  guest_default_path = (default_library_path != nullptr) ? default_library_path : "";
+  guest_permitted = (permitted_when_isolated_path != nullptr) ? permitted_when_isolated_path : "";
+#else
+  // Non-arm64 guests keep the original behaviour (append the guest system search
+  // path) — this fix is validated for the arm64 guest only.
+  if (default_library_path != nullptr) {
+    guest_default_path = default_library_path;
+    guest_default_path += ":/system/lib64/arm64/bootstrap:/system/lib64/arm64";
+  } else {
+    guest_default_path = "/system/lib64/arm64/bootstrap:/system/lib64/arm64";
+  }
+  if (permitted_when_isolated_path != nullptr) {
+    guest_permitted = permitted_when_isolated_path;
+    guest_permitted += ":/system/lib64/arm64/bootstrap:/system/lib64/arm64";
+  } else {
+    guest_permitted = "/system/lib64/arm64/bootstrap:/system/lib64/arm64";
+  }
+#endif
+  DIGITALIS_LOG("createNamespace guest: name=%s default_path=%s permitted=%s",
+                name, guest_default_path.c_str(), guest_permitted.c_str());
+  // endregion
+
   auto* guest_namespace = guest_loader_->CreateNamespace(name,
                                                          ld_library_path,
-                                                         default_library_path,
+                                                         guest_default_path.c_str(),
                                                          type,
-                                                         permitted_when_isolated_path,
+                                                         guest_permitted.c_str(),
                                                          parent_ns->guest_namespace);
 
   return CreateNativeBridgeNamespace(host_namespace, guest_namespace);
 }
 
-native_bridge_namespace_t* BerberisNativeBridge::GetExportedNamespace(const char* name) {
+native_bridge_namespace_t* NdktNativeBridge::GetExportedNamespace(const char* name) {
   const std::lock_guard<std::mutex> guard(namespaces_lock_);
   auto it = exported_namespaces_.find(name);
   if (it != exported_namespaces_.end()) {
@@ -277,6 +368,17 @@ native_bridge_namespace_t* BerberisNativeBridge::GetExportedNamespace(const char
 
   auto host_namespace = android_get_exported_namespace(name);
   auto guest_namespace = guest_loader_->GetExportedNamespace(name);
+
+  // region digitalis
+  // The guest linker config may not export all namespaces that the host config
+  // does (e.g. "system", "com_android_art"). When the guest doesn't have the
+  // requested namespace, fall back to the guest's "default" namespace which
+  // contains the ARM64 system library search paths.
+  if (guest_namespace == nullptr) {
+    guest_namespace = guest_loader_->GetExportedNamespace("default");
+    DIGITALIS_LOG("getExportedNamespace: guest fallback for '%s' -> default=%p", name, guest_namespace);
+  }
+  // endregion
 
   auto [insert_it, inserted] =
       exported_namespaces_.try_emplace(std::string(name),
@@ -287,21 +389,35 @@ native_bridge_namespace_t* BerberisNativeBridge::GetExportedNamespace(const char
   return &insert_it->second;
 }
 
-bool BerberisNativeBridge::InitAnonymousNamespace(const char* public_ns_sonames,
+bool NdktNativeBridge::InitAnonymousNamespace(const char* public_ns_sonames,
                                               const char* anon_ns_library_path) {
   return guest_loader_->InitAnonymousNamespace(public_ns_sonames, anon_ns_library_path) &&
          android_init_anonymous_namespace(public_ns_sonames, anon_ns_library_path);
 }
 
-bool BerberisNativeBridge::LinkNamespaces(native_bridge_namespace_t* from,
+bool NdktNativeBridge::LinkNamespaces(native_bridge_namespace_t* from,
                                       native_bridge_namespace_t* to,
                                       const char* shared_libs_sonames) {
+  // region digitalis
+  // Add linux-vdso.so.1 to the guest shared libs whitelist so the guest linker
+  // can find the TinyLoader-loaded vDSO across namespace boundaries. Without this,
+  // the guest linker loads a second copy from the filesystem which has no
+  // trampolines registered, causing a null function pointer crash (SIGSEGV at
+  // vDSO offset 0x800c — blr x3 with x3=0).
+  std::string guest_shared_libs;
+  if (shared_libs_sonames != nullptr) {
+    guest_shared_libs = shared_libs_sonames;
+    guest_shared_libs += ":linux-vdso.so.1";
+  } else {
+    guest_shared_libs = "linux-vdso.so.1";
+  }
+  // endregion
   return guest_loader_->LinkNamespaces(
-             from->guest_namespace, to->guest_namespace, shared_libs_sonames) &&
+             from->guest_namespace, to->guest_namespace, guest_shared_libs.c_str()) &&
          android_link_namespaces(from->host_namespace, to->host_namespace, shared_libs_sonames);
 }
 
-native_bridge_namespace_t* BerberisNativeBridge::CreateNativeBridgeNamespace(
+native_bridge_namespace_t* NdktNativeBridge::CreateNativeBridgeNamespace(
     android_namespace_t* host_namespace,
     android_namespace_t* guest_namespace) {
   const std::lock_guard<std::mutex> guard(namespaces_lock_);
@@ -322,8 +438,8 @@ void ProtectMappingsFromGuest() {
         // not expected for libc.so.
         if (libname.find("libc.so") != std::string_view::npos) {
           berberis::GuestMapShadow::GetInstance()->AddProtectedMapping(
-              std::bit_cast<void*>(static_cast<uintptr_t>(start)),
-              std::bit_cast<void*>(static_cast<uintptr_t>(end)));
+              berberis::bit_cast<void*>(static_cast<uintptr_t>(start)),
+              berberis::bit_cast<void*>(static_cast<uintptr_t>(end)));
         }
       };
   android::procinfo::ReadMapFile("/proc/self/maps", callback);
@@ -331,7 +447,7 @@ void ProtectMappingsFromGuest() {
 
 extern "C" const char* __progname;
 
-bool BerberisNativeBridge::FinalizeInit() {
+bool NdktNativeBridge::FinalizeInit() {
   // Guest-libc is expected to be loaded along with app-process during Initialize(). At that time
   // __progname isn't yet initialized in java. So now when it should be initialized we copy it over
   // from host to guest.
@@ -349,6 +465,13 @@ bool BerberisNativeBridge::FinalizeInit() {
   CHECK_NE(addr, berberis::kNullGuestAddr);
   memcpy(berberis::ToHostAddr<char*>(addr), &__progname, sizeof(__progname));
 
+  // region digitalis
+#if defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
+  berberis::DigitalisInjectQtPluginPath(
+      libc, [this](void* handle, const char* name) { return DlSym(handle, name); });
+#endif  // defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
+  // endregion
+
   // Now, when guest libc and proxy-libc are loaded,
   // remember mappings which guest code must not tamper with.
   ProtectMappingsFromGuest();
@@ -356,7 +479,7 @@ bool BerberisNativeBridge::FinalizeInit() {
   return true;
 }
 
-BerberisNativeBridge g_berberis_native_bridge;
+NdktNativeBridge g_ndkt_native_bridge;
 
 // Runtime values must be non-NULL, otherwise native bridge will be disabled.
 // Note, that 'supported_abis' and 'abi_count' are deprecated (b/18061712).
@@ -409,6 +532,27 @@ bool native_bridge_initialize(const android::NativeBridgeRuntimeCallbacks* runti
   SetAppPropertiesFromCodeCachePath(private_dir);
   berberis::InitBerberis();
 
+  // region digitalis
+#if defined(NATIVE_BRIDGE_GUEST_ARCH_ARM64)
+  // bionic's fdsan enforces, per host file descriptor, that the object holding
+  // it (a unique_fd, Parcel, Fence, DIR*, …) is the one that closes it. That
+  // invariant assumes a single party owns the fd table. Under translation the
+  // table is shared between host code and the guest, which issues raw close /
+  // close_range / dup3 syscalls (often aggressively, e.g. anti-tamper SDKs
+  // sweeping every fd) and so can close, replace, or reuse an fd a live host
+  // object still owns. The kernel-level syscall does not update the host
+  // fdsan owner table, so the host object's eventual close trips fdsan and a
+  // FATAL level aborts the whole process. The per-syscall emulation
+  // (RunGuestSyscall___NR_close / _close_range / _dup3) already avoids
+  // destroying live host-owned fds, but it cannot close every race or
+  // host-internal path. Demote fdsan to warn-once for the guest process so a
+  // genuine cross-boundary ownership mismatch logs instead of killing the app
+  // — matching the non-FATAL default real Android apps run with, while keeping
+  // the diagnostic. Host-only proxy bugs still surface as the logged warning.
+  android_fdsan_set_error_level(ANDROID_FDSAN_ERROR_LEVEL_WARN_ONCE);
+#endif
+  // endregion
+
   char version[PROP_VALUE_MAX];
   if (__system_property_get("ro.berberis.version", version)) {
     TRACE_AND_ALOGI("Initialized Berberis (%s), version %s", env->os_arch, version);
@@ -417,7 +561,7 @@ bool native_bridge_initialize(const android::NativeBridgeRuntimeCallbacks* runti
   }
 
   std::string error_msg;
-  if (!g_berberis_native_bridge.Initialize(&error_msg)) {
+  if (!g_ndkt_native_bridge.Initialize(&error_msg)) {
     LOG_ALWAYS_FATAL("native_bridge_initialize: %s", error_msg.c_str());
   }
   return true;
@@ -427,7 +571,7 @@ void* native_bridge_loadLibrary(const char* libpath, int flag) {
   // We should only get here if this library is not native.
   LOG_NB("native_bridge_loadLibrary(path='%s', flag=0x%x)", libpath ? libpath : "(null)", flag);
 
-  return g_berberis_native_bridge.LoadLibrary(libpath, flag);
+  return g_ndkt_native_bridge.LoadLibrary(libpath, flag);
 }
 
 void* native_bridge_getTrampolineWithJNICallType(void* handle,
@@ -444,11 +588,11 @@ void* native_bridge_getTrampolineWithJNICallType(void* handle,
       len,
       jni_call_type);
 
-  if (g_berberis_native_bridge.IsHostHandle(handle)) {
+  if (g_ndkt_native_bridge.IsHostHandle(handle)) {
     return dlsym(handle, name);
   }
 
-  GuestAddr guest_addr = g_berberis_native_bridge.DlSym(handle, name);
+  GuestAddr guest_addr = g_ndkt_native_bridge.DlSym(handle, name);
   if (!guest_addr) {
     return nullptr;
   }
@@ -547,7 +691,7 @@ int native_bridge_unloadLibrary(void* handle) {
 
 const char* native_bridge_getError() {
   LOG_NB("native_bridge_getError()");
-  return g_berberis_native_bridge.DlError();
+  return g_ndkt_native_bridge.DlError();
 }
 
 bool native_bridge_isPathSupported(const char* library_path) {
@@ -557,10 +701,19 @@ bool native_bridge_isPathSupported(const char* library_path) {
 
 bool native_bridge_initAnonymousNamespace(const char* public_ns_sonames,
                                           const char* anon_ns_library_path) {
+  // region digitalis
+  DIGITALIS_LOG("initAnonymousNamespace: sonames=%.200s path=%s",
+                public_ns_sonames ? public_ns_sonames : "(null)",
+                anon_ns_library_path ? anon_ns_library_path : "(null)");
+  // endregion
   LOG_NB("native_bridge_initAnonymousNamespace(public_ns_sonames=%s, anon_ns_library_path=%s)",
          public_ns_sonames,
          anon_ns_library_path);
-  return g_berberis_native_bridge.InitAnonymousNamespace(public_ns_sonames, anon_ns_library_path);
+  // region digitalis
+  bool result = g_ndkt_native_bridge.InitAnonymousNamespace(public_ns_sonames, anon_ns_library_path);
+  DIGITALIS_LOG("initAnonymousNamespace: result=%d", result);
+  return result;
+  // endregion
 }
 
 native_bridge_namespace_t* native_bridge_createNamespace(const char* name,
@@ -569,37 +722,77 @@ native_bridge_namespace_t* native_bridge_createNamespace(const char* name,
                                                          uint64_t type,
                                                          const char* permitted_when_isolated_path,
                                                          native_bridge_namespace_t* parent_ns) {
+  // region digitalis
+  DIGITALIS_LOG("createNamespace: name=%s ld_path=%s default_path=%s type=%llu permitted=%s parent=%p",
+                name ? name : "(null)",
+                ld_library_path ? ld_library_path : "(null)",
+                default_library_path ? default_library_path : "(null)",
+                (unsigned long long)type,
+                permitted_when_isolated_path ? permitted_when_isolated_path : "(null)",
+                parent_ns);
+  // endregion
   LOG_NB("native_bridge_createNamespace(name=%s, path=%s)", name, ld_library_path);
-  return g_berberis_native_bridge.CreateNamespace(
+  auto* result = g_ndkt_native_bridge.CreateNamespace(
       name, ld_library_path, default_library_path, type, permitted_when_isolated_path, parent_ns);
+  // region digitalis
+  DIGITALIS_LOG("createNamespace: result=%p guest=%p", result,
+                result ? result->guest_namespace : nullptr);
+  // endregion
+  return result;
 }
 
 bool native_bridge_linkNamespaces(native_bridge_namespace_t* from,
                                   native_bridge_namespace_t* to,
                                   const char* shared_libs_sonames) {
+  // region digitalis
+  DIGITALIS_LOG("linkNamespaces: from=%p(guest=%p) to=%p(guest=%p) shared_libs=%.300s",
+                from, from ? from->guest_namespace : nullptr,
+                to, to ? to->guest_namespace : nullptr,
+                shared_libs_sonames ? shared_libs_sonames : "(null)");
+  // endregion
   LOG_NB("native_bridge_linkNamespaces(from=%p, to=%p, shared_libs=%s)",
          from,
          to,
          shared_libs_sonames);
 
-  return g_berberis_native_bridge.LinkNamespaces(from, to, shared_libs_sonames);
+  // region digitalis
+  bool result = g_ndkt_native_bridge.LinkNamespaces(from, to, shared_libs_sonames);
+  DIGITALIS_LOG("linkNamespaces: result=%d", result);
+  return result;
+  // endregion
 }
 
 void* native_bridge_loadLibraryExt(const char* libpath, int flag, native_bridge_namespace_t* ns) {
+  // region digitalis
+  DIGITALIS_LOG("loadLibraryExt: path=%s ns=%p(guest=%p)",
+                libpath ? libpath : "(null)",
+                ns, ns ? ns->guest_namespace : nullptr);
+  // endregion
   LOG_NB("native_bridge_loadLibraryExt(path=%s)", libpath);
 
-  return g_berberis_native_bridge.LoadLibrary(libpath, flag, ns);
+  // region digitalis
+  void* result = g_ndkt_native_bridge.LoadLibrary(libpath, flag, ns);
+  DIGITALIS_LOG("loadLibraryExt: result=%p dlerror=%s", result,
+                result ? "ok" : (g_ndkt_native_bridge.DlError() ? g_ndkt_native_bridge.DlError() : "(null)"));
+  return result;
+  // endregion
 }
 
 native_bridge_namespace_t* native_bridge_getVendorNamespace() {
   LOG_NB("native_bridge_getVendorNamespace()");
   // This method is retained for backwards compatibility.
-  return g_berberis_native_bridge.GetExportedNamespace(kVendorNamespaceName);
+  return g_ndkt_native_bridge.GetExportedNamespace(kVendorNamespaceName);
 }
 
 native_bridge_namespace_t* native_bridge_getExportedNamespace(const char* name) {
   LOG_NB("native_bridge_getExportedNamespace(name=%s)", name);
-  return g_berberis_native_bridge.GetExportedNamespace(name);
+  // region digitalis
+  auto* result = g_ndkt_native_bridge.GetExportedNamespace(name);
+  DIGITALIS_LOG("getExportedNamespace: name=%s result=%p guest=%p",
+                name ? name : "(null)",
+                result, result ? result->guest_namespace : nullptr);
+  return result;
+  // endregion
 }
 
 void native_bridge_preZygoteFork() {
@@ -617,10 +810,10 @@ void native_bridge_preZygoteFork() {
   // after waitUntilAllThreadsStopped() in ART.
 
   // TODO(b/188923523): Consider moving to berberis::GuestPreZygoteFork().
-  void* liblog = g_berberis_native_bridge.LoadGuestLibrary("liblog.so", RTLD_NOLOAD);
+  void* liblog = g_ndkt_native_bridge.LoadGuestLibrary("liblog.so", RTLD_NOLOAD);
   // Nothing to close if the guest library hasn't been loaded.
   if (liblog) {
-    auto addr = g_berberis_native_bridge.DlSym(liblog, "__android_log_close");
+    auto addr = g_ndkt_native_bridge.DlSym(liblog, "__android_log_close");
     CHECK_NE(addr, berberis::kNullGuestAddr);
     berberis::GuestCall call;
     call.RunVoid(addr);

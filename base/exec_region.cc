@@ -18,8 +18,6 @@
 
 #include <sys/mman.h>
 
-#include <cstring>
-
 #include "berberis/base/mmap.h"
 
 namespace berberis {

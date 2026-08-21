@@ -22,9 +22,9 @@
 #include <atomic>
 #include <type_traits>
 
-#include "berberis/base/checks.h"
 #include "berberis/base/fd.h"
 #include "berberis/base/large_mmap.h"
+#include "berberis/base/logging.h"
 #include "berberis/base/mmap.h"
 
 namespace berberis {
@@ -48,6 +48,14 @@ int CreateAndFillMemfd(const char* name, size_t memfd_file_size, T value) {
   }
 
   int memfd = CreateMemfdOrDie(name);
+  // region digitalis
+  // These memfds back translator-internal tables (TableOfTables keeps the
+  // "child" one cached for the process lifetime). Tag them as host-owned so a
+  // guest fd sweep (a forked child's pre-exec CloseSuperfluousFds) can't close
+  // them out from under the translator; close them with
+  // CloseHostOwnedFdUnsafe.
+  TagHostOwnedFdUnsafe(memfd);
+  // endregion
 
   WriteFullyOrDie(memfd, memfd_file_content, memfd_file_size);
 

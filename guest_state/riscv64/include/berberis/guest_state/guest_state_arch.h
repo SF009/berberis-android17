@@ -152,9 +152,6 @@ struct ThreadState {
   // TODO(b/329463428): Consider removing this pointer and not having ThreadState and
   // NativeBridgeGuestStateHeader in the same mapping. The latter possibly managed by GuestThread.
   void* thread_state_storage;
-
-  // Is Optimized ABI currently enabled.
-  bool is_optimized_inter_region_abi_enabled;
 };
 
 template <CsrName>

@@ -1,0 +1,34 @@
+{
+  "insns": [
+    {
+      "name": "CountLeadingZerosU32",
+      "args": [
+        { "class": "GeneralReg32", "usage": "def" },
+        { "class": "GeneralReg32", "usage": "use" },
+        { "class": "FLAGS", "usage": "def" }
+      ],
+      "asm": "CountLeadingZeros<int32_t>",
+      "mnemo": "CLZ_I32"
+    },
+    {
+      "name": "CountTrailingZerosU32",
+      "args": [
+        { "class": "GeneralReg32", "usage": "def" },
+        { "class": "GeneralReg32", "usage": "use" },
+        { "class": "FLAGS", "usage": "def" }
+      ],
+      "asm": "CountTrailingZeros<int32_t>",
+      "mnemo": "CTZ_I32"
+    },
+    {
+      "name": "ReverseBitsU32",
+      "args": [
+        { "class": "GeneralReg32", "usage": "def" },
+        { "class": "GeneralReg32", "usage": "use_def" },
+        { "class": "FLAGS", "usage": "def" }
+      ],
+      "asm": "ReverseBits<uint32_t>",
+      "mnemo": "REVERSE_BITS_U32"
+    }
+  ]
+}

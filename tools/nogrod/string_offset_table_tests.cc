@@ -17,9 +17,8 @@
 #include "gtest/gtest.h"
 
 #include <array>
-#include <bit>
-#include <cstdint>
 
+#include "berberis/base/bit_util.h"
 #include "string_offset_table.h"
 
 namespace nogrod {
@@ -28,14 +27,14 @@ namespace {
 
 template <typename T>
 void RunSmokeTest() {
+  using berberis::bit_cast;
   std::array<T, 10> data = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
 
   if constexpr (sizeof(T) == 8) {
     data[0] = uint32_t{0xffff'ffffU};
   }
 
-  StringOffsetTable table(
-      Buffer{std::bit_cast<const uint8_t*>(data.data()), data.size() * sizeof(T)});
+  StringOffsetTable table(Buffer{bit_cast<const uint8_t*>(data.data()), data.size() * sizeof(T)});
 
   EXPECT_EQ(table.GetStringOffset(sizeof(T) * 2, 1), 3U);
   EXPECT_EQ(table.GetStringOffset(sizeof(T) * 2, 5), 7U);

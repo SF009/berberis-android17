@@ -23,7 +23,11 @@
 #include <cstdint>
 #include <mutex>
 
-#include "berberis/base/checks.h"
+// region digitalis
+#include "berberis/base/fd.h"
+#include "berberis/base/tracing.h"
+// endregion
+#include "berberis/base/logging.h"
 #include "berberis/base/memfd_backed_mmap.h"
 #include "berberis/base/mmap.h"
 
@@ -41,7 +45,11 @@ class TableOfTables {
     int main_memfd = CreateAndFillMemfd("main", kMemfdRegionSize, default_table_);
     main_table_ = static_cast<decltype(main_table_)>(
         CreateMemfdBackedMapOrDie(main_memfd, kTableSize * sizeof(T*), kMemfdRegionSize));
-    close(main_memfd);
+    // region digitalis - CreateAndFillMemfd tags its memfds as host-owned;
+    // close with the tag so the fdsan slot is left clean for reuse.
+    // close(main_memfd);
+    CloseHostOwnedFdUnsafe(main_memfd);
+    // endregion
 
     // The default table is read-only.
     MprotectOrDie(default_table_, kChildTableBytes, PROT_READ);
@@ -91,15 +99,31 @@ class TableOfTables {
     if (default_memfd_ == -1) {
       return;
     }
-    close(default_memfd_);
+    // region digitalis - CreateAndFillMemfd tags its memfds as host-owned;
+    // close with the tag so the fdsan slot is left clean for reuse.
+    // close(default_memfd_);
+    CloseHostOwnedFdUnsafe(default_memfd_);
+    // endregion
     default_memfd_ = -1;
   }
 
  private:
   struct SplitKey {
-    explicit SplitKey(Key key) : low(key & (kTableSize - 1)), high(key >> kTableBits) {
-      CHECK_EQ(high & ~(kTableSize - 1), 0);
+    // region digitalis - mask top bits before splitting so PAC (ARMv8.3
+    // pointer authentication) and TBI (top byte ignore) pointer tags
+    // carried in bits 48-63 of a guest PC don't trip the table-range
+    // check. With kTableBits = 24 on LP64, only the lower 48 bits index
+    // the two-level table; the masked bits are guaranteed to fit. On
+    // 32-bit Key types and on RISC-V (which doesn't use pointer tagging)
+    // the mask is a no-op.
+    explicit SplitKey(Key key)
+        : low(key & (kTableSize - 1)),
+          high((key >> kTableBits) & (kTableSize - 1)) {
+      // (No CHECK needed — the mask on 'high' makes the range invariant
+      // hold trivially. Without the mask, ARM64 PAC-signed PCs would
+      // fail the previous CHECK_EQ(high & ~(kTableSize-1), 0).)
     }
+    // endregion
 
     const uint32_t low;
     const uint32_t high;
@@ -107,8 +131,34 @@ class TableOfTables {
   };
 
   int GetOrAllocDefaultMemfdUnsafe() {
+    // region digitalis - self-validate the cached default memfd before reuse.
+    // Translator fds share the guest's fd table. The fdsan host-owner tag stops
+    // a guest close/close_range sweep from raw-closing this memfd, but a guest
+    // dup2/dup3(x, default_memfd_) is legal POSIX and the emulation only TRACEs
+    // and proceeds, so the kernel silently swaps our memfd for x's file
+    // description. Reusing the stolen slot would let CreateMemfdBackedMapOrDie
+    // below mmap x's unrelated contents as a child translation table -- silent
+    // corruption, worse than the EBADF abort the tagging already prevents. So
+    // stamp the memfd's identity (st_dev/st_ino) at creation and re-fstat on
+    // every use; if it no longer matches (replaced, or closed and reused), heal
+    // by recreating the default memfd. This is the last-resort net for the
+    // legal-dup path, and works on every host (fdsan is bionic-only).
+    if (default_memfd_ != -1 && !FdIdentityMatches(GetFdIdentityUnsafe(default_memfd_),
+                                                   default_memfd_id_)) {
+      TRACE("TableOfTables: default memfd fd=%d was replaced under us (guest "
+            "dup2/dup3 onto a translator fd); healing by recreating it",
+            default_memfd_);
+      // The slot now names someone else's open file description; abandon our
+      // reference without closing it (closing would destroy the guest's fd).
+      default_memfd_ = -1;
+    }
+    // endregion
     if (default_memfd_ == -1) {
       default_memfd_ = CreateAndFillMemfd("child", kMemfdRegionSize, default_value_);
+      // region digitalis - stamp the memfd identity so a later dup replacement
+      // is detectable above.
+      default_memfd_id_ = GetFdIdentityUnsafe(default_memfd_);
+      // endregion
     }
     return default_memfd_;
   }
@@ -140,7 +190,20 @@ class TableOfTables {
   // Use a 16Mb memfd region to fill the main/default table.
   // Linux has a limited number of maps (sysctl vm.max_map_count).
   // A larger region size allows us to stay within the limit.
-  static constexpr size_t kMemfdRegionSize = 1 << 24;
+  // region digitalis - use a 64Mb region rather than the upstream 16Mb (kept
+  // commented below). Each memfd chunk is mapped at file offset 0, so chunks
+  // never coalesce -- every chunk is its own VMA. With sizeof(T)==4 a child
+  // table is 64Mb, so a 64Mb region makes each child table a single VMA (was
+  // four) and the 128Mb main table two (was eight): ~4x fewer maps for this
+  // structure, which matters inside a VMA-heavy translated host near
+  // vm.max_map_count (e.g. a Chromium GPU/renderer process). Cost: the shared
+  // default memfd commits one region of tmpfs, ~48Mb more RAM per translation
+  // cache; use 1 << 25 (32Mb, two VMAs/child) if RAM is tighter than map
+  // headroom. Reserved address space is unchanged, so this does not help
+  // against an RLIMIT_AS ceiling.
+  // static constexpr size_t kMemfdRegionSize = 1 << 24;
+  static constexpr size_t kMemfdRegionSize = 1 << 26;
+  // endregion
   static_assert(sizeof(Key) == 8);
 #elif !defined(BERBERIS_GUEST_LP64)
   static constexpr size_t kTableBits = 16;
@@ -158,6 +221,11 @@ class TableOfTables {
   std::atomic<std::atomic<T>*>* main_table_;
   std::atomic<T>* default_table_;
   int default_memfd_{-1};
+  // region digitalis - identity of default_memfd_'s backing file, stamped at
+  // creation so GetOrAllocDefaultMemfdUnsafe can detect a guest dup2/dup3 that
+  // silently replaced the fd and heal instead of mmapping foreign contents.
+  FdIdentity default_memfd_id_{};
+  // endregion
   T default_value_;
 };
 

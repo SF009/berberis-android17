@@ -17,12 +17,9 @@
 #ifndef BERBERIS_RUNTIME_PRIMITIVES_SIGNAL_QUEUE_H_
 #define BERBERIS_RUNTIME_PRIMITIVES_SIGNAL_QUEUE_H_
 
-#include <ucontext.h>
-
 #include <csignal>
 
 #include <atomic>
-#include <optional>
 
 #include "berberis/base/macros.h"
 
@@ -56,7 +53,7 @@ class SignalQueue {
   // Add allocated signal to the queue.
   // Can be called from signal handlers.
   // Can be called concurrently from multiple threads.
-  void EnqueueSignal(siginfo_t* info, const ucontext_t* ucontext = nullptr);
+  void EnqueueSignal(siginfo_t* info);
 
   // Get next signal from the queue according to priorities.
   // ATTENTION: call from single thread only!
@@ -65,13 +62,10 @@ class SignalQueue {
   // Free dequeued signal.
   void FreeSignal(siginfo_t* info);
 
-  std::optional<ucontext_t>* GetUcontext(siginfo_t* info);
-
  private:
   // Node and siginfo_t are pointer-interconvertible
   struct Node {
     siginfo_t info;
-    std::optional<ucontext_t> ucontext;
     Node* next;
   };
 

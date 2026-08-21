@@ -22,7 +22,7 @@
 #include "berberis/guest_os_primitives/guest_thread.h"
 #include "berberis/guest_state/guest_addr.h"
 #include "berberis/guest_state/guest_state_opaque.h"
-#include "berberis/runtime_library/runtime_library.h"
+#include "berberis/runtime_primitives/runtime_library.h"
 #include "berberis/runtime_primitives/translation_cache.h"
 
 namespace berberis {
@@ -55,7 +55,7 @@ void ExecuteGuest(ThreadState* state) {
     }
 
     if (config::kTraceGeneratedCode) {
-      TRACE("RunGeneratedCode @ 0x%zx (code=0x%zx)", pc, static_cast<uintptr_t>(code));
+      TRACE("RunGeneratedCode @ 0x%zx", pc);
     }
 
     // ATTENTION: this should be the only place to run translated code!

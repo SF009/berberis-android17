@@ -63,21 +63,6 @@ class Imm64 {
   using Type = int64_t;
 };
 
-class ImmPCode {
- public:
-  using Type = const void*;
-};
-
-class Mem {
- public:
-  // Mem can only be used as fake, non-memory Leal/Leaq argument, but having type here simplifies
-  // metaprogramming: it can not be used as actual type of variable or parameter, but can be used
-  // with std::conditional_t to pick some other type.
-  using Type = void;
-  static constexpr bool kIsImmediate = false;
-  static constexpr char kAsRegister = 'm';
-};
-
 class MemX87 {
  public:
   // MemX87 can only be used as temporary argument, but having type here simplifies metaprogramming:
@@ -121,6 +106,7 @@ class VecMem256 {
 class CC;
 class GeneralReg;
 class Label;
+class Mem;
 class MemX8716;
 class MemX8732;
 class MemX8764;
@@ -215,12 +201,6 @@ inline constexpr bool kIsImmediate<x86_32_or_x86_64::device_arch_info::Imm32> = 
 
 template <>
 inline constexpr bool kIsImmediate<x86_32_or_x86_64::device_arch_info::Imm64> = true;
-
-template <>
-inline constexpr bool kIsImmediate<x86_32_or_x86_64::device_arch_info::ImmPCode> = true;
-
-template <>
-inline constexpr bool kIsMemoryOperand<x86_32_or_x86_64::device_arch_info::Mem> = true;
 
 template <>
 inline constexpr bool kIsMemoryOperand<x86_32_or_x86_64::device_arch_info::MemX87> = true;

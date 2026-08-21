@@ -27,7 +27,6 @@ long RunGuestSyscall___NR_sigaltstack(long stack, long old_stack);
 long RunGuestSyscall___NR_timer_create(long arg_1, long arg_2, long arg_3);
 long RunGuestSyscall___NR_exit(long arg);
 long RunGuestSyscall___NR_clone(long arg_1, long arg_2, long arg_3, long arg_4, long arg_5);
-long RunGuestSyscall___NR_clone3(long arg_1, long arg_2);
 long RunGuestSyscall___NR_mmap(long arg_1,
                                long arg_2,
                                long arg_3,

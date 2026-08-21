@@ -18,7 +18,7 @@
 #define BERBERIS_CALLING_CONVENTIONS_CALLING_CONVENTIONS_X86_64_H_
 
 #include "berberis/base/bit_util.h"
-#include "berberis/base/checks.h"
+#include "berberis/base/logging.h"
 
 namespace berberis::x86_64 {
 

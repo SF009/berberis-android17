@@ -17,21 +17,28 @@
 #ifndef BERBERIS_TESTS_INLINE_ASM_TESTS_UTILITY_H_
 #define BERBERIS_TESTS_INLINE_ASM_TESTS_UTILITY_H_
 
-#include <bit>
 #include <cstdint>
 #include <cstring>
 #include <tuple>
 
 extern "C" uint64_t get_fp64_literal();
 
+template <class Dest, class Source>
+inline Dest bit_cast(const Source& source) {
+  static_assert(sizeof(Dest) == sizeof(Source));
+  Dest dest;
+  memcpy(&dest, &source, sizeof(dest));
+  return dest;
+}
+
 inline __uint128_t MakeF32x4(float f1, float f2, float f3, float f4) {
   float array[] = {f1, f2, f3, f4};
-  return std::bit_cast<__uint128_t>(array);
+  return bit_cast<__uint128_t>(array);
 }
 
 inline __uint128_t MakeF64x2(double d1, double d2) {
   double array[] = {d1, d2};
-  return std::bit_cast<__uint128_t>(array);
+  return bit_cast<__uint128_t>(array);
 }
 
 constexpr __uint128_t MakeUInt128(uint64_t low, uint64_t high) {
@@ -48,7 +55,6 @@ constexpr uint32_t kOneF32AsInteger = 0x3f80'0000U;
 constexpr uint64_t kOneF64AsInteger = 0x3ff0'0000'0000'0000ULL;
 constexpr uint32_t kDefaultNaN32AsInteger = 0x7fc0'0000U;
 constexpr uint64_t kDefaultNaN64AsInteger = 0x7ff8'0000'0000'0000ULL;
-constexpr uint32_t kTwoToPow64F32AsInteger = 0x5f80'0000U;
 constexpr uint32_t kQuietNaN32AsInteger = kDefaultNaN32AsInteger;
 constexpr uint64_t kQuietNaN64AsInteger = kDefaultNaN64AsInteger;
 constexpr uint32_t kNegativeQuietNaN32AsInteger = kDefaultNaN32AsInteger ^ 0x8000'0000U;

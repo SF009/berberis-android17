@@ -17,9 +17,9 @@
 #ifndef BERBERIS_BASE_FOREVER_POOL_H_
 #define BERBERIS_BASE_FOREVER_POOL_H_
 
-#include <bit>
 #include <cstddef>
 
+#include "berberis/base/bit_util.h"
 #include "berberis/base/forever_alloc.h"
 #include "berberis/base/lock_free_stack.h"
 
@@ -35,12 +35,12 @@ class ForeverPool {
   static T* Alloc() {
     Node* p = g_free_list_.Pop();
     if (p) {
-      return std::bit_cast<T*>(p);
+      return bit_cast<T*>(p);
     }
-    return std::bit_cast<T*>(AllocateForever(sizeof(Node), alignof(Node)));
+    return bit_cast<T*>(AllocateForever(sizeof(Node), alignof(Node)));
   }
 
-  static void Free(T* p) { g_free_list_.Push(std::bit_cast<Node*>(p)); }
+  static void Free(T* p) { g_free_list_.Push(bit_cast<Node*>(p)); }
 
  private:
   // LockFreeStack requires 'next' data member.
