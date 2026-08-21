@@ -34,7 +34,6 @@ jobs:
           git clone --filter=blob:none "$DIGITALIS_REPO" "$RUNNER_TEMP/digitalis"
           git -C "$RUNNER_TEMP/digitalis" fetch origin "$DIGITALIS_REF"
           git -C "$RUNNER_TEMP/digitalis" checkout --detach FETCH_HEAD
-
           git remote add digitalis "$DIGITALIS_REPO"
           git fetch digitalis "$DIGITALIS_REF"
           BASE=$(git merge-base HEAD "digitalis/$DIGITALIS_REF")
@@ -46,10 +45,10 @@ jobs:
           set -e
 
           if [ "$rc" -ne 0 ]; then
-            echo 'Merge conflicts detected; preferring Digitalis for conflicting integration code.'
+            echo 'Resolving merge conflicts in favor of Digitalis for conflicting files.'
 
-            # Keep the Android17 RISC-V implementation where Digitalis' older
-            # tree collides with the post-reorg RISC-V paths.
+            # Keep the target branch's RISC-V implementation where conflicts
+            # happen specifically in its post-reorg RISC-V directories.
             for p in \
               cpu_emulation/backend/riscv64_to_x86_64 \
               cpu_emulation/code_gen_lib/riscv64_to_all \
@@ -66,38 +65,41 @@ jobs:
               git checkout --ours -- "$p" 2>/dev/null || true
             done
 
-            # The files were deliberately removed from Android17 during the
-            # backend reorganization. Do not resurrect their old locations.
-            for p in \
+            # The old optimizer files were removed by the Android17 reorg.
+            git rm -f --ignore-unmatch \
               backend/x86_64/local_guest_context_optimizer.cc \
-              backend/x86_64/local_guest_context_optimizer_test.cc; do
-              git rm -f --ignore-unmatch "$p" 2>/dev/null || true
-            done
+              backend/x86_64/local_guest_context_optimizer_test.cc \
+              2>/dev/null || true
 
-            # For every remaining content/add/add/delete conflict, Digitalis is
-            # the authoritative ARM64 implementation. This is safe because the
-            # conflict is only between the shared AOSP base and the ARM64 port;
-            # non-conflicting Android17 changes remain untouched by the merge.
-            conflicts=$(git diff --name-only --diff-filter=U || true)
-            if [ -n "$conflicts" ]; then
-              while IFS= read -r p; do
-                [ -z "$p" ] && continue
-                git checkout --theirs -- "$p" 2>/dev/null || true
-              done <<< "$conflicts"
+            # Resolve every remaining unmerged index entry from stage 3
+            # (Digitalis). This handles content, add/add, rename/add and
+            # modify/delete conflicts uniformly.
+            mapfile -t conflicts < <(git diff --name-only --diff-filter=U || true)
+            if [ "${#conflicts[@]}" -gt 0 ]; then
+              printf 'Unmerged entries before resolution: %s\n' "${#conflicts[@]}"
+              for p in "${conflicts[@]}"; do
+                git checkout --theirs -- "$p" 2>/dev/null || {
+                  echo "checkout-theirs failed for: $p" >&2
+                  # For a pure modify/delete conflict where stage 3 is absent,
+                  # remove the path and let git add record the deletion.
+                  git rm -f --ignore-unmatch -- "$p" 2>/dev/null || true
+                }
+              done
             fi
 
-            # Remove the legacy pre-reorg ARM64 source roots after conflict
-            # resolution. Their files are relocated below into cpu_emulation/.
-            true
+            git add -A
+            unresolved=$(git diff --name-only --diff-filter=U || true)
+            if [ -n "$unresolved" ]; then
+              echo 'Unresolved merge entries:' >&2
+              printf '%s\n' "$unresolved" >&2
+              git ls-files -u >&2 || true
+              exit 1
+            fi
           fi
 
-          # Android17 moved CPU emulation families below cpu_emulation/.
-          # Relocate only ARM64-specific Digitalis additions, keeping existing
-          # RISC-V and shared Android17 files in place.
-          mkdir -p cpu_emulation/decoder/include/berberis/decoder
-          mkdir -p cpu_emulation/interpreter/include/berberis/interpreter
-          mkdir -p cpu_emulation/intrinsics
-
+          # Android17 moved CPU-emulation families below cpu_emulation/.
+          # Relocate only ARM64-specific Digitalis additions from the old AOSP
+          # layout into the Android17 layout.
           move_dir() {
             local src="$1" dst="$2"
             if [ -d "$src" ]; then
@@ -122,33 +124,22 @@ jobs:
           move_dir intrinsics/arm64_to_x86_64 cpu_emulation/intrinsics/arm64_to_x86_64
           move_dir intrinsics/include/berberis/intrinsics/arm64_to_all cpu_emulation/intrinsics/include/berberis/intrinsics/arm64_to_all
 
-          # The ARM64 backend is host x86_64 codegen and already has its own
-          # Android17 location. Do not move that directory.
+          # Rename old relative source references used by Digitalis' pre-reorg
+          # tree. Logical include names remain untouched.
+          find cpu_emulation decoder interpreter heavy_optimizer lite_translator intrinsics -type f -print0 2>/dev/null | \
+            xargs -0 -r sed -i \
+              -e 's#"decoder/arm64/#"cpu_emulation/decoder/arm64/#g' \
+              -e 's#"interpreter/arm64/#"cpu_emulation/interpreter/arm64/#g' \
+              -e 's#"heavy_optimizer/arm64/#"cpu_emulation/heavy_optimizer/arm64/#g' \
+              -e 's#"lite_translator/arm64_to_x86_64/#"cpu_emulation/lite_translator/arm64_to_x86_64/#g' \
+              -e 's#"intrinsics/arm64_to_all/#"cpu_emulation/intrinsics/arm64_to_all/#g' \
+              -e 's#"intrinsics/arm64_to_x86_64/#"cpu_emulation/intrinsics/arm64_to_x86_64/#g'
+
+          # Ensure ARM64 build entry points survived the merge.
+          test -f enable_arm64_to_x86_64.mk
+          test -d cpu_emulation/lite_translator/arm64_to_x86_64
           test -d cpu_emulation/backend/arm64_to_x86_64
           test -d cpu_emulation/code_gen_lib/arm64_to_x86_64
-
-          # Remove empty legacy roots when relocation left nothing behind.
-          for d in decoder/arm64_test interpreter/arm64 heavy_optimizer/arm64 lite_translator/arm64_to_x86_64 insn_tests/arm64 intrinsics/arm64_to_all intrinsics/arm64_to_x86_64; do
-            rmdir "$d" 2>/dev/null || true
-          done
-
-          # Normalize include/source references left by the old AOSP layout.
-          grep -RIlZ --exclude-dir=.git \
-            -e '"decoder/arm64' -e '"interpreter/arm64' \
-            -e '"heavy_optimizer/arm64' -e '"lite_translator/arm64_to_x86_64' \
-            -e '"intrinsics/arm64_to_all' -e '"intrinsics/arm64_to_x86_64' \
-            cpu_emulation decoder interpreter heavy_optimizer lite_translator intrinsics 2>/dev/null | \
-            xargs -0 -r sed -i \
-              -e 's#"decoder/arm64#"cpu_emulation/decoder/arm64#g' \
-              -e 's#"interpreter/arm64#"cpu_emulation/interpreter/arm64#g' \
-              -e 's#"heavy_optimizer/arm64#"cpu_emulation/heavy_optimizer/arm64#g' \
-              -e 's#"lite_translator/arm64_to_x86_64#"cpu_emulation/lite_translator/arm64_to_x86_64#g' \
-              -e 's#"intrinsics/arm64_to_all#"cpu_emulation/intrinsics/arm64_to_all#g' \
-              -e 's#"intrinsics/arm64_to_x86_64#"cpu_emulation/intrinsics/arm64_to_x86_64#g'
-
-          # Keep only a single repository-local copy of the imported Digitalis
-          # ARM64 enable/product configuration.
-          test -f enable_arm64_to_x86_64.mk
 
           git add -A
           if git diff --cached --quiet; then
