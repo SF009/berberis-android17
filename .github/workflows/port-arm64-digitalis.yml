@@ -36,17 +36,27 @@ jobs:
       - name: Build pinned Digitalis ARM64 translation
         shell: bash
         run: |
-          set -euo pipefail
+          set -Eeuo pipefail
+          exec > >(tee -a "$RUNNER_TEMP/arm64-build.log") 2>&1
+          trap 'rc=$?; echo "BUILD_FAILED rc=$rc line=$LINENO cmd=$BASH_COMMAND"; exit $rc' EXIT
+          set -x
 
+          echo '=== BUILD START ==='
+          date -u
+          uname -a
+          nproc
+          df -h /
+
+          echo '=== INSTALL TOOLS ==='
           sudo apt-get update -qq
           sudo apt-get install -y -qq git-lfs rsync python3
           git lfs install --skip-repo
 
-          # Digitalis manifest uses git@github.com URLs for its GitHub remotes.
-          # Hosted runners do not have SSH keys, so force HTTPS for all GitHub remotes.
+          echo '=== CONFIGURE GIT HTTPS ==='
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
 
+          echo '=== INIT AOSP TREE ==='
           rm -rf "$AOSP_TOP"
           mkdir -p "$AOSP_TOP" "$RUNNER_TEMP/bin"
           cd "$AOSP_TOP"
@@ -62,8 +72,7 @@ jobs:
             --clone-filter=blob:limit=5M \
             --no-use-superproject
 
-          # Sync the Digitalis build environment and its declared dependencies.
-          # This is intentionally not a checkout of the user's old RISC-V tree.
+          echo '=== SYNC DIGITALIS ==='
           repo sync \
             -c \
             -g default,pdk \
@@ -73,6 +82,7 @@ jobs:
             --optimized-fetch \
             --prune
 
+          echo '=== VERIFY DIGITALIS ARM64 TREE ==='
           test -f build/envsetup.sh
           test -d build/soong
           test -d prebuilts/clang
@@ -87,19 +97,24 @@ jobs:
           test -f "$bt/lite_translator/arm64_to_x86_64/lite_translator.cc"
           test -f "$bt/code_gen_lib/arm64_to_x86_64/gen_wrapper.cc"
 
+          echo '=== ENVSETUP ==='
           cd "$AOSP_TOP"
           source build/envsetup.sh
+
+          echo '=== LUNCH ==='
           lunch "${TARGET_PRODUCT}-${TARGET_BUILD_VARIANT}"
+
           export SOONG_CONFIG_berberis_translation_arch=arm64_to_x86_64
           export NINJA_STATUS='[%f/%t %e] '
 
-          # The only build invocation.
+          echo '=== SINGLE BUILD ==='
           m -j4 \
             libberberis_arm64 \
             libberberis_decoder_arm64_unit_tests \
             libberberis_interpreter_arm64_unit_tests \
             libberberis_lite_translator_arm64_to_x86_64_unit_tests
 
+          echo '=== VERIFY OUTPUT ==='
           out_dir="${OUT_DIR:-$AOSP_TOP/out}"
           so="$(find "$out_dir" -type f -name 'libberberis_arm64.so' -print -quit)"
           test -n "$so"
@@ -107,5 +122,13 @@ jobs:
           readelf -h "$so" | grep -q 'Machine:.*Advanced Micro Devices X86-64'
           ! nm -C "$so" 2>/dev/null | grep -Eiq 'riscv64|RISCV|RiscV'
 
-          echo "ARM64 native translation build: PASS"
+          echo 'ARM64 native translation build: PASS'
           echo "Output: $so"
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arm64-build-log
+          path: ${{ runner.temp }}/arm64-build.log
+          if-no-files-found: warn
