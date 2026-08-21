@@ -3,10 +3,16 @@ name: ARM64 Native Translation Build
 on:
   push:
     branches: [arm64-native-translation]
+  pull_request:
+    branches: [arm64-native-translation]
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: arm64-native-translation-build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -23,7 +29,7 @@ jobs:
       - name: Checkout ARM64 native translation
         uses: actions/checkout@v4
         with:
-          ref: arm64-native-translation
+          ref: ${{ github.sha }}
           fetch-depth: 1
 
       - name: Sync minimal Digitalis build tree
@@ -50,8 +56,6 @@ jobs:
             --clone-filter=blob:limit=5M \
             --no-use-superproject
 
-          # Only the normal manifest projects and PDK/build dependencies.
-          # This deliberately avoids the full Android manifest.
           repo sync \
             -c \
             -g default,pdk \
@@ -73,21 +77,22 @@ jobs:
           dst="$AOSP_TOP/frameworks/libs/binary_translation"
           src="$GITHUB_WORKSPACE"
 
-          # Keep the Android build tree supplied by the Digitalis manifest, but
-          # replace only binary_translation with this branch.
           rsync -a --delete \
             --exclude='.git/' \
             --exclude='.github/' \
             "$src/" "$dst/"
 
-          test -f "$dst/Android.bp"
-          test -f "$dst/enable_arm64_to_x86_64.mk"
-          test -f "$dst/berberis_config.mk"
-          test -f "$dst/native_bridge/arm64/native_bridge.cc"
-          test -f "$dst/decoder/arm64_test/decoder_test.cc"
-          test -f "$dst/interpreter/arm64/interpreter-main.cc"
-          test -f "$dst/lite_translator/arm64_to_x86_64/lite_translator.cc"
-          test -f "$dst/code_gen_lib/arm64_to_x86_64/gen_wrapper.cc"
+          for f in \
+            "$dst/Android.bp" \
+            "$dst/enable_arm64_to_x86_64.mk" \
+            "$dst/berberis_config.mk" \
+            "$dst/native_bridge/arm64/native_bridge.cc" \
+            "$dst/decoder/arm64_test/decoder_test.cc" \
+            "$dst/interpreter/arm64/interpreter-main.cc" \
+            "$dst/lite_translator/arm64_to_x86_64/lite_translator.cc" \
+            "$dst/code_gen_lib/arm64_to_x86_64/gen_wrapper.cc"; do
+            test -e "$f"
+          done
 
       - name: Build once
         shell: bash
@@ -99,7 +104,6 @@ jobs:
           export SOONG_CONFIG_berberis_translation_arch=arm64_to_x86_64
           export NINJA_STATUS='[%f/%t %e] '
 
-          # The only build invocation.
           m -j4 \
             libberberis_arm64 \
             libberberis_decoder_arm64_unit_tests \
@@ -109,10 +113,8 @@ jobs:
           out_dir="${OUT_DIR:-$AOSP_TOP/out}"
           so="$(find "$out_dir" -type f -name 'libberberis_arm64.so' -print -quit)"
           test -n "$so"
-
           file "$so"
           readelf -h "$so" | grep -q 'Machine:.*Advanced Micro Devices X86-64'
           ! nm -C "$so" 2>/dev/null | grep -Eiq 'riscv64|RISCV|RiscV'
-
           echo "ARM64 native translation build: PASS"
           echo "Output: $so"
