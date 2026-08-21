@@ -76,7 +76,7 @@ jobs:
           test -f build/envsetup.sh
           test -d build/soong
           test -d prebuilts/clang
-          test -d frameworks/libs/binary_translation/Android.bp
+          test -f frameworks/libs/binary_translation/Android.bp
 
           bt="$AOSP_TOP/frameworks/libs/binary_translation"
           test -f "$bt/enable_arm64_to_x86_64.mk"
