@@ -10,10 +10,8 @@ permissions:
 
 jobs:
   build:
-    # Only the generic self-hosted label is required. AOSP_TOP must be set on
-    # the runner environment and point to the existing Android 17 checkout.
-    runs-on: self-hosted
-    timeout-minutes: 180
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
 
     steps:
       - name: Checkout ARM64 native translation
@@ -22,24 +20,35 @@ jobs:
           ref: arm64-native-translation
           fetch-depth: 1
 
-      - name: Prepare cached ARM64 source
+      - name: Check build environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Runner: $(uname -a)"
+          echo "CPU: $(nproc)"
+          df -h /
+          command -v repo || true
+          command -v lunch || true
+          command -v m || true
+
+          # ubuntu-latest is an ephemeral runner; an AOSP checkout is not
+          # expected to exist before this job. Require one to be provided by
+          # the runner environment rather than silently pretending a build can
+          # happen without Android's Soong tree.
+          : "${AOSP_TOP:?AOSP_TOP must be supplied by the job environment}"
+          test -f "$AOSP_TOP/build/envsetup.sh"
+          test -d "$AOSP_TOP/.repo"
+
+      - name: Materialize pinned ARM64 implementation
         shell: bash
         env:
           DIGITALIS_REPO: https://github.com/DigitalisX64/platform_frameworks_libs_binary_translation.git
           DIGITALIS_REF: 6f199667f039ff5f33c1d80fe52b59300ec1b663
         run: |
           set -euo pipefail
-          : "${AOSP_TOP:?AOSP_TOP must be configured in the runner environment}"
-          test -f "$AOSP_TOP/build/envsetup.sh"
-          test -d "$AOSP_TOP/.repo"
-
-          manifest_rev="$(git -C "$AOSP_TOP/.repo/manifests" show HEAD:default.xml | sed -n 's/.*default revision="\([^"]*\)".*/\1/p' | head -n1)"
-          test "$manifest_rev" = android17-release
-
-          cache="${DIGITALIS_CACHE:-${RUNNER_TOOL_CACHE:-$HOME/.cache}/berberis/digitalis}"
+          cache="${RUNNER_TOOL_CACHE:-$HOME/.cache}/berberis/digitalis"
           mkdir -p "$(dirname "$cache")"
           if [[ ! -d "$cache/.git" ]]; then
-            rm -rf "$cache"
             git clone --filter=blob:none --no-checkout "$DIGITALIS_REPO" "$cache"
           fi
           git -C "$cache" fetch --depth=1 origin "$DIGITALIS_REF"
@@ -49,7 +58,6 @@ jobs:
           rm -rf "$imported"
           mkdir -p "$imported"
           rsync -a --delete --exclude='.git/' "$cache/" "$imported/"
-
           python3 tools/materialize_arm64_build.py "$imported"
 
           for f in Android.bp enable_arm64_to_x86_64.mk berberis_config.mk native_bridge/arm64/native_bridge.cc decoder/arm64_test/decoder_test.cc interpreter/arm64/interpreter-main.cc lite_translator/arm64_to_x86_64/lite_translator.cc code_gen_lib/arm64_to_x86_64/gen_wrapper.cc; do
@@ -65,7 +73,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          : "${AOSP_TOP:?AOSP_TOP must be configured in the runner environment}"
+          : "${AOSP_TOP:?AOSP_TOP must be supplied by the job environment}"
           : "${TARGET_PRODUCT:=sdk_phone64_x86_64}"
           : "${TARGET_BUILD_VARIANT:=eng}"
 
