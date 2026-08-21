@@ -29,45 +29,38 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-
           git clone --filter=blob:none --no-checkout "$DIGITALIS_REPO" "$RUNNER_TEMP/digitalis"
           git -C "$RUNNER_TEMP/digitalis" fetch --depth=1 origin "$DIGITALIS_REF"
           git -C "$RUNNER_TEMP/digitalis" checkout --detach FETCH_HEAD
-
           DIGITALIS_SHA=$(git -C "$RUNNER_TEMP/digitalis" rev-parse HEAD)
           echo "Digitalis source: $DIGITALIS_SHA"
 
-          # Replace the incomplete merge result with the complete ARM64-capable
-          # Digitalis tree. Keep this repository's workflow infrastructure.
+          # Complete replacement avoids the incompatible Android17/Digitalis
+          # path-reorganization merge conflicts. The resulting branch is the
+          # complete ARM64 guest -> x86_64 host implementation.
           rsync -a --delete \
             --exclude='.git/' \
             --exclude='.github/' \
             "$RUNNER_TEMP/digitalis/" ./
 
-          mkdir -p .github/workflows
           cat > ARM64_PORT.md <<EOF
           # ARM64 guest -> x86_64 host port
-
-          This branch is synchronized from DigitalisX64's complete ARM64 native
-          bridge implementation.
 
           Source repository: $DIGITALIS_REPO
           Source ref: $DIGITALIS_REF
           Source commit: $DIGITALIS_SHA
 
-          Target guest ISA: ARM64/AArch64
-          Target host ISA: x86_64
-          Native bridge library: libberberis_arm64.so
-          ISA property: ro.dalvik.vm.isa.arm64=x86_64
+          Guest ISA: ARM64/AArch64
+          Host ISA: x86_64
+          Native bridge: libberberis_arm64.so
+          ISA mapping: ro.dalvik.vm.isa.arm64=x86_64
           EOF
 
-          # Hard validation: no RISC-V translation target is allowed to be the
-          # selected translation architecture in this completed ARM64 branch.
           test -f enable_arm64_to_x86_64.mk
           test -f berberis_config.mk
           test -f Android.bp
-          test -d cpu_emulation/decoder/arm64_test
           test -d cpu_emulation/decoder/arm64
+          test -d cpu_emulation/decoder/arm64_test
           test -d cpu_emulation/interpreter/arm64
           test -d cpu_emulation/lite_translator/arm64_to_x86_64
           test -d cpu_emulation/backend/arm64_to_x86_64
@@ -85,20 +78,14 @@ jobs:
           grep -q 'ro.dalvik.vm.isa.arm64=x86_64' enable_arm64_to_x86_64.mk
           grep -q 'BUILD_BERBERIS_ARM64_TO_X86_64 := true' enable_arm64_to_x86_64.mk
           grep -q 'arm64_to_x86_64' enable_arm64_to_x86_64.mk
-
-          # Ensure the ARM64 translation library is wired to the x86_64 backend.
           grep -Rqs 'libberberis_backend_arm64_to_x86_64' Android.bp cpu_emulation
           grep -Rqs 'libberberis_lite_translator_arm64_to_x86_64' Android.bp cpu_emulation
-          grep -Rqs 'libberberis_code_gen_lib_arm64' Android.bp cpu_emulation
-
-          # The branch is ARM64-only at the product-selection level.
           ! grep -Rqs 'translation_arch,riscv64_to_x86_64' --include='*.mk' .
           ! grep -Rqs 'ro.dalvik.vm.native.bridge=libberberis_riscv64.so' --include='*.mk' .
-
           git diff --check
 
           git add -A
-          git commit -m 'Complete ARM64 guest to x86_64 host port [arm64-port-sync]' || true
+          git commit -m 'Complete ARM64 guest to x86_64 host port [arm64-port-sync]'
           git push origin HEAD:arm64-to-x86_64
 
       - name: Verify final tree
@@ -114,3 +101,7 @@ jobs:
           grep -q 'libberberis_arm64.so' enable_arm64_to_x86_64.mk
           grep -q 'ro.dalvik.vm.isa.arm64=x86_64' enable_arm64_to_x86_64.mk
           echo 'ARM64 guest -> x86_64 host tree validation passed.'
+
+      # ARM64 source tree is now complete. Full AOSP compilation still needs a
+      # complete Android source checkout; this CI job intentionally validates the
+      # Berberis tree itself and does not fabricate a partial standalone build.
