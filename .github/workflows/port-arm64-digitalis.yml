@@ -24,8 +24,6 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      TARGET_PRODUCT: sdk_phone64_x86_64_digitalis-trunk_staging
-      TARGET_BUILD_VARIANT: userdebug
 
     steps:
       - name: Checkout port configuration
@@ -33,7 +31,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Build pinned Digitalis ARM64 translation
+      - name: Build ARM64 host translation
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -44,7 +42,7 @@ jobs:
           echo '=== BUILD START ==='
           date -u
           uname -a
-          nproc
+          echo "CPU=$(nproc)"
           df -h /
 
           echo '=== INSTALL TOOLS ==='
@@ -56,7 +54,7 @@ jobs:
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
 
-          echo '=== INIT AOSP TREE ==='
+          echo '=== INIT DIGITALIS TREE ==='
           rm -rf "$AOSP_TOP"
           mkdir -p "$AOSP_TOP" "$RUNNER_TEMP/bin"
           cd "$AOSP_TOP"
@@ -72,47 +70,46 @@ jobs:
             --clone-filter=blob:limit=5M \
             --no-use-superproject
 
-          echo '=== SYNC DIGITALIS ==='
+          echo '=== SYNC ONLY HOST BUILD DEPENDENCIES ==='
           repo sync \
             -c \
-            -g default,pdk \
-            -j4 \
+            -j2 \
+            --fail-fast \
             --no-tags \
             --no-clone-bundle \
             --optimized-fetch \
-            --prune
+            --prune \
+            build/make \
+            build/blueprint \
+            build/soong \
+            bionic \
+            system/core \
+            frameworks/libs/binary_translation \
+            prebuilts/build-tools \
+            prebuilts/clang/host/linux-x86 \
+            prebuilts/go/linux-x86
 
-          echo '=== VERIFY DIGITALIS ARM64 TREE ==='
+          echo '=== VERIFY SOURCE TREE ==='
           test -f build/envsetup.sh
-          test -d build/soong
-          test -d prebuilts/clang
+          test -f build/soong/soong_ui.bash
+          test -d bionic
+          test -d system/core
           test -f frameworks/libs/binary_translation/Android.bp
-
-          bt="$AOSP_TOP/frameworks/libs/binary_translation"
-          test -f "$bt/enable_arm64_to_x86_64.mk"
-          test -f "$bt/Android.bp"
-          test -f "$bt/native_bridge/arm64/native_bridge.cc"
-          test -f "$bt/decoder/arm64_test/decoder_test.cc"
-          test -f "$bt/interpreter/arm64/interpreter-main.cc"
-          test -f "$bt/lite_translator/arm64_to_x86_64/lite_translator.cc"
-          test -f "$bt/code_gen_lib/arm64_to_x86_64/gen_wrapper.cc"
+          test -f frameworks/libs/binary_translation/enable_arm64_to_x86_64.mk
+          test -f frameworks/libs/binary_translation/native_bridge/arm64/native_bridge.cc
+          test -f frameworks/libs/binary_translation/decoder/arm64_test/decoder_test.cc
+          test -f frameworks/libs/binary_translation/interpreter/arm64/interpreter-main.cc
+          test -f frameworks/libs/binary_translation/lite_translator/arm64_to_x86_64/lite_translator.cc
+          test -f frameworks/libs/binary_translation/code_gen_lib/arm64_to_x86_64/gen_wrapper.cc
 
           echo '=== ENVSETUP ==='
           cd "$AOSP_TOP"
           source build/envsetup.sh
-
-          echo '=== LUNCH ==='
-          lunch "${TARGET_PRODUCT}-${TARGET_BUILD_VARIANT}"
-
           export SOONG_CONFIG_berberis_translation_arch=arm64_to_x86_64
           export NINJA_STATUS='[%f/%t %e] '
 
-          echo '=== SINGLE BUILD ==='
-          m -j4 \
-            libberberis_arm64 \
-            libberberis_decoder_arm64_unit_tests \
-            libberberis_interpreter_arm64_unit_tests \
-            libberberis_lite_translator_arm64_to_x86_64_unit_tests
+          echo '=== SINGLE HOST BUILD ==='
+          m -j4 libberberis_arm64
 
           echo '=== VERIFY OUTPUT ==='
           out_dir="${OUT_DIR:-$AOSP_TOP/out}"
@@ -121,14 +118,15 @@ jobs:
           file "$so"
           readelf -h "$so" | grep -q 'Machine:.*Advanced Micro Devices X86-64'
           ! nm -C "$so" 2>/dev/null | grep -Eiq 'riscv64|RISCV|RiscV'
-
           echo 'ARM64 native translation build: PASS'
           echo "Output: $so"
 
-      - name: Upload build log
+      - name: Upload build logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: arm64-build-log
-          path: ${{ runner.temp }}/arm64-build.log
+          name: arm64-build-logs
+          path: |
+            ${{ runner.temp }}/arm64-build.log
+            ${{ runner.temp }}/repo-sync.log
           if-no-files-found: warn
