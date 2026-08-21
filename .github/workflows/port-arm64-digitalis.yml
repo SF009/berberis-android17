@@ -4,34 +4,16 @@ on:
   push:
     branches: [arm64-native-translation]
   workflow_dispatch:
-    inputs:
-      aosp_top:
-        description: Absolute path to an existing Android 17 AOSP checkout on the runner
-        required: true
-        type: string
-      product:
-        description: Android product
-        required: false
-        default: sdk_phone64_x86_64
-        type: string
-      variant:
-        description: Android build variant
-        required: false
-        default: eng
-        type: string
 
 permissions:
   contents: read
 
 jobs:
   build:
-    runs-on: [self-hosted, linux, x86_64, aosp17]
-    env:
-      AOSP_TOP: ${{ inputs.aosp_top }}
-      TARGET_PRODUCT: ${{ inputs.product }}
-      TARGET_BUILD_VARIANT: ${{ inputs.variant }}
-      DIGITALIS_REPO: https://github.com/DigitalisX64/platform_frameworks_libs_binary_translation.git
-      DIGITALIS_REF: 6f199667f039ff5f33c1d80fe52b59300ec1b663
+    # Do not require a custom `aosp17` label; a persistent Linux x86_64
+    # self-hosted runner with an existing AOSP checkout is sufficient.
+    runs-on: [self-hosted, linux, x86_64]
+    timeout-minutes: 180
 
     steps:
       - name: Checkout ARM64 native translation
@@ -40,23 +22,38 @@ jobs:
           ref: arm64-native-translation
           fetch-depth: 1
 
-      - name: Materialize the pinned ARM64 implementation
+      - name: Prepare cached ARM64 source
         shell: bash
+        env:
+          DIGITALIS_REPO: https://github.com/DigitalisX64/platform_frameworks_libs_binary_translation.git
+          DIGITALIS_REF: 6f199667f039ff5f33c1d80fe52b59300ec1b663
         run: |
           set -euo pipefail
 
-          test -n "$AOSP_TOP"
+          # AOSP_TOP should already be exported by the persistent self-hosted
+          # runner. This avoids passing a path as a workflow input on every run.
+          : "${AOSP_TOP:?AOSP_TOP must be configured in the runner environment}"
           test -f "$AOSP_TOP/build/envsetup.sh"
           test -d "$AOSP_TOP/.repo"
 
           manifest_rev="$(git -C "$AOSP_TOP/.repo/manifests" show HEAD:default.xml | sed -n 's/.*default revision="\([^"]*\)".*/\1/p' | head -n1)"
           test "$manifest_rev" = android17-release
 
+          # Persistent local mirror: first run downloads it; later runs only
+          # perform a tiny fetch/checkout of the pinned revision.
+          cache="${DIGITALIS_CACHE:-${RUNNER_TOOL_CACHE:-$HOME/.cache}/berberis/digitalis}"
+          mkdir -p "$(dirname "$cache")"
+          if [[ ! -d "$cache/.git" ]]; then
+            rm -rf "$cache"
+            git clone --filter=blob:none --no-checkout "$DIGITALIS_REPO" "$cache"
+          fi
+          git -C "$cache" fetch --depth=1 origin "$DIGITALIS_REF"
+          git -C "$cache" checkout --detach --force "$DIGITALIS_REF"
+
           imported="$RUNNER_TEMP/berberis-arm64"
           rm -rf "$imported"
-          git clone --filter=blob:none --no-checkout "$DIGITALIS_REPO" "$imported"
-          git -C "$imported" fetch --depth=1 origin "$DIGITALIS_REF"
-          git -C "$imported" checkout --detach "$DIGITALIS_REF"
+          mkdir -p "$imported"
+          rsync -a --delete --exclude='.git/' "$cache/" "$imported/"
 
           python3 tools/materialize_arm64_build.py "$imported"
 
@@ -74,19 +71,23 @@ jobs:
           mkdir -p "$(dirname "$dst")"
           rsync -a --delete --exclude='.git/' "$imported/" "$dst/"
 
-      - name: Build ARM64 guest -> x86_64 host once
+      - name: Build once
         shell: bash
         run: |
           set -euo pipefail
+          : "${AOSP_TOP:?AOSP_TOP must be configured in the runner environment}"
+          : "${TARGET_PRODUCT:=sdk_phone64_x86_64}"
+          : "${TARGET_BUILD_VARIANT:=eng}"
 
-          cd "$AOSP_TOP/frameworks/libs/binary_translation"
-          source "$AOSP_TOP/build/envsetup.sh"
+          cd "$AOSP_TOP"
+          source build/envsetup.sh
           lunch "${TARGET_PRODUCT}-${TARGET_BUILD_VARIANT}"
 
           export SOONG_CONFIG_berberis_translation_arch=arm64_to_x86_64
+          export NINJA_STATUS='[%f/%t %e] '
 
-          # The only build invocation in this workflow.
-          m \
+          # The only compiler/build invocation in this workflow.
+          m -j"$(nproc)" \
             libberberis_arm64 \
             libberberis_decoder_arm64_unit_tests \
             libberberis_interpreter_arm64_unit_tests \
@@ -102,4 +103,3 @@ jobs:
 
           echo "ARM64 native translation build: PASS"
           echo "Output: $so"
-
