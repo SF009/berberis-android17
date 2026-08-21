@@ -29,6 +29,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git clone --filter=blob:none "$DIGITALIS_REPO" "$RUNNER_TEMP/digitalis"
           git -C "$RUNNER_TEMP/digitalis" fetch origin "$DIGITALIS_REF"
           git -C "$RUNNER_TEMP/digitalis" checkout --detach FETCH_HEAD
