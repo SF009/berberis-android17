@@ -12,7 +12,9 @@ permissions:
 
 jobs:
   port:
-    if: ${{ !contains(github.event.head_commit.message || '', '[digitalis-arm64-port]') }}
+    if: >-
+      ${{ github.actor != 'github-actions[bot]' &&
+          !contains(github.event.head_commit.message || '', '[digitalis-arm64-port]') }}
     runs-on: ubuntu-24.04
     env:
       DIGITALIS_REPO: https://github.com/DigitalisX64/platform_frameworks_libs_binary_translation.git
@@ -45,10 +47,9 @@ jobs:
           set -e
 
           if [ "$rc" -ne 0 ]; then
-            echo 'Resolving merge conflicts in favor of Digitalis for conflicting files.'
+            echo 'Resolving merge conflicts.'
 
-            # Keep the target branch's RISC-V implementation where conflicts
-            # happen specifically in its post-reorg RISC-V directories.
+            # Preserve Android17's post-reorg RISC-V implementation.
             for p in \
               cpu_emulation/backend/riscv64_to_x86_64 \
               cpu_emulation/code_gen_lib/riscv64_to_all \
@@ -65,27 +66,36 @@ jobs:
               git checkout --ours -- "$p" 2>/dev/null || true
             done
 
-            # The old optimizer files were removed by the Android17 reorg.
+            # Android17 deliberately removed these legacy backend files during
+            # the cpu_emulation reorganization; do not resurrect them.
             git rm -f --ignore-unmatch \
               backend/x86_64/local_guest_context_optimizer.cc \
               backend/x86_64/local_guest_context_optimizer_test.cc \
-              2>/dev/null || true
+              >/dev/null 2>&1 || true
 
-            # Resolve every remaining unmerged index entry from stage 3
-            # (Digitalis). This handles content, add/add, rename/add and
-            # modify/delete conflicts uniformly.
-            mapfile -t conflicts < <(git diff --name-only --diff-filter=U || true)
-            if [ "${#conflicts[@]}" -gt 0 ]; then
-              printf 'Unmerged entries before resolution: %s\n' "${#conflicts[@]}"
-              for p in "${conflicts[@]}"; do
-                git checkout --theirs -- "$p" 2>/dev/null || {
-                  echo "checkout-theirs failed for: $p" >&2
-                  # For a pure modify/delete conflict where stage 3 is absent,
-                  # remove the path and let git add record the deletion.
-                  git rm -f --ignore-unmatch -- "$p" 2>/dev/null || true
-                }
-              done
-            fi
+            # Resolve every remaining unmerged path from Digitalis (stage 3)
+            # using index plumbing. This handles content, add/add,
+            # rename/add and modify/delete states without path ambiguity.
+            mapfile -d '' -t conflict_paths < <(git diff --name-only --diff-filter=U -z || true)
+            declare -A seen=()
+            for pz in "${conflict_paths[@]}"; do
+              p="${pz%$'\0'}"
+              [ -z "$p" ] && continue
+              [ "${seen[$p]+x}" = x ] && continue
+              seen[$p]=1
+              if git rev-parse --verify ":3:$p" >/dev/null 2>&1; then
+                if git checkout-index --stage=3 -- "$p" >/dev/null 2>&1; then
+                  :
+                elif git checkout --theirs -- "$p" >/dev/null 2>&1; then
+                  :
+                else
+                  echo "failed to materialize stage 3: $p" >&2
+                  exit 2
+                fi
+              else
+                git rm -f --ignore-unmatch -- "$p" >/dev/null 2>&1 || true
+              fi
+            done
 
             git add -A
             unresolved=$(git diff --name-only --diff-filter=U || true)
@@ -93,13 +103,11 @@ jobs:
               echo 'Unresolved merge entries:' >&2
               printf '%s\n' "$unresolved" >&2
               git ls-files -u >&2 || true
-              exit 1
+              exit 3
             fi
           fi
 
           # Android17 moved CPU-emulation families below cpu_emulation/.
-          # Relocate only ARM64-specific Digitalis additions from the old AOSP
-          # layout into the Android17 layout.
           move_dir() {
             local src="$1" dst="$2"
             if [ -d "$src" ]; then
@@ -124,8 +132,7 @@ jobs:
           move_dir intrinsics/arm64_to_x86_64 cpu_emulation/intrinsics/arm64_to_x86_64
           move_dir intrinsics/include/berberis/intrinsics/arm64_to_all cpu_emulation/intrinsics/include/berberis/intrinsics/arm64_to_all
 
-          # Rename old relative source references used by Digitalis' pre-reorg
-          # tree. Logical include names remain untouched.
+          # Relocated-source path fixups. Logical include names are not changed.
           find cpu_emulation decoder interpreter heavy_optimizer lite_translator intrinsics -type f -print0 2>/dev/null | \
             xargs -0 -r sed -i \
               -e 's#"decoder/arm64/#"cpu_emulation/decoder/arm64/#g' \
@@ -135,8 +142,11 @@ jobs:
               -e 's#"intrinsics/arm64_to_all/#"cpu_emulation/intrinsics/arm64_to_all/#g' \
               -e 's#"intrinsics/arm64_to_x86_64/#"cpu_emulation/intrinsics/arm64_to_x86_64/#g'
 
-          # Ensure ARM64 build entry points survived the merge.
           test -f enable_arm64_to_x86_64.mk
+          test -d cpu_emulation/decoder/arm64_test
+          test -d cpu_emulation/decoder/include/berberis/decoder/arm64
+          test -d cpu_emulation/interpreter/arm64
+          test -d cpu_emulation/interpreter/include/berberis/interpreter/arm64
           test -d cpu_emulation/lite_translator/arm64_to_x86_64
           test -d cpu_emulation/backend/arm64_to_x86_64
           test -d cpu_emulation/code_gen_lib/arm64_to_x86_64
@@ -174,7 +184,6 @@ jobs:
           for p in "${required[@]}"; do
             test -d "$p" || { echo "missing: $p" >&2; exit 1; }
           done
-          test -f enable_arm64_to_x86_64.mk
           grep -q 'arm64_to_x86_64' Android.bp
           grep -q 'BERBERIS_PRODUCT_PACKAGES_ARM64_TO_X86_64' berberis_config.mk
           git diff --check
