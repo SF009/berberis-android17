@@ -1,0 +1,189 @@
+name: Port Digitalis ARM64 backend
+
+on:
+  push:
+    branches: [arm64-to-x86_64]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  port:
+    if: >-
+      ${{ github.actor != 'github-actions[bot]' &&
+          !contains(github.event.head_commit.message || '', '[digitalis-arm64-port]') }}
+    runs-on: ubuntu-24.04
+    env:
+      DIGITALIS_REPO: https://github.com/DigitalisX64/platform_frameworks_libs_binary_translation.git
+      DIGITALIS_REF: android-latest-release
+    steps:
+      - name: Checkout target
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: arm64-to-x86_64
+          persist-credentials: true
+
+      - name: Merge Digitalis history
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git clone --filter=blob:none "$DIGITALIS_REPO" "$RUNNER_TEMP/digitalis"
+          git -C "$RUNNER_TEMP/digitalis" fetch origin "$DIGITALIS_REF"
+          git -C "$RUNNER_TEMP/digitalis" checkout --detach FETCH_HEAD
+          git remote add digitalis "$DIGITALIS_REPO"
+          git fetch digitalis "$DIGITALIS_REF"
+          BASE=$(git merge-base HEAD "digitalis/$DIGITALIS_REF")
+          echo "Common ancestor: $BASE"
+
+          set +e
+          git merge --no-commit --no-ff "digitalis/$DIGITALIS_REF"
+          rc=$?
+          set -e
+
+          if [ "$rc" -ne 0 ]; then
+            echo 'Resolving merge conflicts.'
+
+            # Preserve Android17's post-reorg RISC-V implementation.
+            for p in \
+              cpu_emulation/backend/riscv64_to_x86_64 \
+              cpu_emulation/code_gen_lib/riscv64_to_all \
+              cpu_emulation/decoder/riscv64 \
+              cpu_emulation/heavy_optimizer/riscv64 \
+              cpu_emulation/interpreter/riscv64 \
+              cpu_emulation/lite_translator/riscv64_to_x86_64 \
+              guest_os_primitives/riscv64 \
+              guest_state/riscv64 \
+              kernel_api/riscv64 \
+              runtime/riscv64 \
+              guest_loader/riscv64 \
+              native_bridge/riscv64; do
+              git checkout --ours -- "$p" 2>/dev/null || true
+            done
+
+            # Android17 deliberately removed these legacy backend files during
+            # the cpu_emulation reorganization; do not resurrect them.
+            git rm -f --ignore-unmatch \
+              backend/x86_64/local_guest_context_optimizer.cc \
+              backend/x86_64/local_guest_context_optimizer_test.cc \
+              >/dev/null 2>&1 || true
+
+            # Resolve every remaining unmerged path from Digitalis (stage 3)
+            # using index plumbing. This handles content, add/add,
+            # rename/add and modify/delete states without path ambiguity.
+            mapfile -d '' -t conflict_paths < <(git diff --name-only --diff-filter=U -z || true)
+            declare -A seen=()
+            for pz in "${conflict_paths[@]}"; do
+              p="${pz%$'\0'}"
+              [ -z "$p" ] && continue
+              [ "${seen[$p]+x}" = x ] && continue
+              seen[$p]=1
+              if git rev-parse --verify ":3:$p" >/dev/null 2>&1; then
+                if git checkout-index --stage=3 -- "$p" >/dev/null 2>&1; then
+                  :
+                elif git checkout --theirs -- "$p" >/dev/null 2>&1; then
+                  :
+                else
+                  echo "failed to materialize stage 3: $p" >&2
+                  exit 2
+                fi
+              else
+                git rm -f --ignore-unmatch -- "$p" >/dev/null 2>&1 || true
+              fi
+            done
+
+            git add -A
+            unresolved=$(git diff --name-only --diff-filter=U || true)
+            if [ -n "$unresolved" ]; then
+              echo 'Unresolved merge entries:' >&2
+              printf '%s\n' "$unresolved" >&2
+              git ls-files -u >&2 || true
+              exit 3
+            fi
+          fi
+
+          # Android17 moved CPU-emulation families below cpu_emulation/.
+          move_dir() {
+            local src="$1" dst="$2"
+            if [ -d "$src" ]; then
+              mkdir -p "$(dirname "$dst")"
+              if [ -d "$dst" ]; then
+                rsync -a "$src/" "$dst/"
+                rm -rf "$src"
+              else
+                mv "$src" "$dst"
+              fi
+            fi
+          }
+
+          move_dir decoder/arm64_test cpu_emulation/decoder/arm64_test
+          move_dir decoder/include/berberis/decoder/arm64 cpu_emulation/decoder/include/berberis/decoder/arm64
+          move_dir interpreter/arm64 cpu_emulation/interpreter/arm64
+          move_dir interpreter/include/berberis/interpreter/arm64 cpu_emulation/interpreter/include/berberis/interpreter/arm64
+          move_dir heavy_optimizer/arm64 cpu_emulation/heavy_optimizer/arm64
+          move_dir lite_translator/arm64_to_x86_64 cpu_emulation/lite_translator/arm64_to_x86_64
+          move_dir insn_tests/arm64 cpu_emulation/insn_tests/arm64
+          move_dir intrinsics/arm64_to_all cpu_emulation/intrinsics/arm64_to_all
+          move_dir intrinsics/arm64_to_x86_64 cpu_emulation/intrinsics/arm64_to_x86_64
+          move_dir intrinsics/include/berberis/intrinsics/arm64_to_all cpu_emulation/intrinsics/include/berberis/intrinsics/arm64_to_all
+
+          # Relocated-source path fixups. Logical include names are not changed.
+          find cpu_emulation decoder interpreter heavy_optimizer lite_translator intrinsics -type f -print0 2>/dev/null | \
+            xargs -0 -r sed -i \
+              -e 's#"decoder/arm64/#"cpu_emulation/decoder/arm64/#g' \
+              -e 's#"interpreter/arm64/#"cpu_emulation/interpreter/arm64/#g' \
+              -e 's#"heavy_optimizer/arm64/#"cpu_emulation/heavy_optimizer/arm64/#g' \
+              -e 's#"lite_translator/arm64_to_x86_64/#"cpu_emulation/lite_translator/arm64_to_x86_64/#g' \
+              -e 's#"intrinsics/arm64_to_all/#"cpu_emulation/intrinsics/arm64_to_all/#g' \
+              -e 's#"intrinsics/arm64_to_x86_64/#"cpu_emulation/intrinsics/arm64_to_x86_64/#g'
+
+          test -f enable_arm64_to_x86_64.mk
+          test -d cpu_emulation/decoder/arm64_test
+          test -d cpu_emulation/decoder/include/berberis/decoder/arm64
+          test -d cpu_emulation/interpreter/arm64
+          test -d cpu_emulation/interpreter/include/berberis/interpreter/arm64
+          test -d cpu_emulation/lite_translator/arm64_to_x86_64
+          test -d cpu_emulation/backend/arm64_to_x86_64
+          test -d cpu_emulation/code_gen_lib/arm64_to_x86_64
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'Nothing to commit after merge.'
+            exit 0
+          fi
+          git commit -m 'Digitalis: integrate ARM64 guest to x86_64 host support [digitalis-arm64-port]'
+          git push origin HEAD:arm64-to-x86_64
+
+      - name: Validate required ARM64 components
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            cpu_emulation/decoder/arm64_test
+            cpu_emulation/decoder/include/berberis/decoder/arm64
+            cpu_emulation/interpreter/arm64
+            cpu_emulation/interpreter/include/berberis/interpreter/arm64
+            cpu_emulation/lite_translator/arm64_to_x86_64
+            cpu_emulation/backend/arm64_to_x86_64
+            cpu_emulation/code_gen_lib/arm64_to_x86_64
+            cpu_emulation/heavy_optimizer/arm64
+            cpu_emulation/intrinsics/arm64_to_all
+            guest_abi/arm64
+            guest_loader/arm64
+            guest_os_primitives/arm64
+            guest_state/arm64
+            kernel_api/arm64
+            runtime/arm64
+            native_bridge/arm64
+          )
+          for p in "${required[@]}"; do
+            test -d "$p" || { echo "missing: $p" >&2; exit 1; }
+          done
+          grep -q 'arm64_to_x86_64' Android.bp
+          grep -q 'BERBERIS_PRODUCT_PACKAGES_ARM64_TO_X86_64' berberis_config.mk
+          git diff --check
