@@ -85,6 +85,7 @@ jobs:
             bionic \
             system/core \
             frameworks/libs/binary_translation \
+            external/golang-protobuf \
             prebuilts/build-tools \
             prebuilts/clang/host/linux-x86 \
             prebuilts/go/linux-x86
@@ -101,11 +102,10 @@ jobs:
           test -f frameworks/libs/binary_translation/interpreter/arm64/interpreter-main.cc
           test -f frameworks/libs/binary_translation/lite_translator/arm64_to_x86_64/lite_translator.cc
           test -f frameworks/libs/binary_translation/code_gen_lib/arm64_to_x86_64/gen_wrapper.cc
+          test -d external/golang-protobuf/proto
 
           echo '=== ENVSETUP ==='
           cd "$AOSP_TOP"
-          # AOSP envsetup.sh uses an unset TOP during top-of-tree discovery;
-          # temporarily disable nounset while sourcing it, then restore it.
           set +u
           source build/envsetup.sh
           set -u
