@@ -31,6 +31,18 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Restore Digitalis repo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ github.workspace }}/.build/aosp/.repo/manifests
+            ${{ github.workspace }}/.build/aosp/.repo/manifests.git
+            ${{ github.workspace }}/.build/aosp/.repo/project-objects
+            ${{ github.workspace }}/.build/aosp/.repo/repo
+          key: digitalis-repo-${{ runner.os }}-${{ hashFiles('.github/workflows/port-arm64-digitalis.yml') }}
+          restore-keys: |
+            digitalis-repo-${{ runner.os }}-
+
       - name: Build ARM64 host translation
         shell: bash
         run: |
@@ -90,6 +102,10 @@ jobs:
             prebuilts/build-tools \
             prebuilts/clang/host/linux-x86 \
             prebuilts/go/linux-x86
+
+          echo '=== SAVE DIGITALIS REPO CACHE ==='
+          # The cache step persists Git object databases and manifests. Working trees
+          # are intentionally not cached so each run checks out exactly the manifest refs.
 
           echo '=== VERIFY SOURCE TREE ==='
           test -f build/envsetup.sh
