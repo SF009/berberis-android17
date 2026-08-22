@@ -24,8 +24,8 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v5
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v5
+      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v6
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v6
 
     steps:
       - name: Checkout port configuration
@@ -41,13 +41,12 @@ jobs:
             ${{ github.workspace }}/.build/aosp/.repo/manifests
             ${{ github.workspace }}/.build/aosp/.repo/manifests.git
             ${{ github.workspace }}/.build/aosp/.repo/project-objects
-            ${{ github.workspace }}/.build/aosp/.repo/projects
             ${{ github.workspace }}/.build/aosp/.repo/repo
           key: ${{ env.REPO_CACHE_KEY }}
           restore-keys: |
+            digitalis-repo-Linux-android-latest-release-v5
             digitalis-repo-Linux-android-latest-release-v4
             digitalis-repo-Linux-android-latest-release-v3
-            digitalis-repo-Linux-android-latest-release-v2
 
       - name: Restore compiler cache
         id: compiler-cache
@@ -56,9 +55,9 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v5
             berberis-ccache-Linux-arm64-v4-
             berberis-ccache-Linux-arm64-v3-
-            berberis-ccache-Linux-arm64-v2-
 
       - name: Build ARM64 host translation
         id: build
@@ -189,7 +188,6 @@ jobs:
             ${{ github.workspace }}/.build/aosp/.repo/manifests
             ${{ github.workspace }}/.build/aosp/.repo/manifests.git
             ${{ github.workspace }}/.build/aosp/.repo/project-objects
-            ${{ github.workspace }}/.build/aosp/.repo/projects
             ${{ github.workspace }}/.build/aosp/.repo/repo
           key: ${{ env.REPO_CACHE_KEY }}
 
