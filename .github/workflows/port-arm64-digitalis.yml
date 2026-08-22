@@ -31,8 +31,6 @@ jobs:
         with:
           fetch-depth: 1
 
-      # Keep only repo's manifest/object databases. The Android worktrees are
-      # deliberately not cached; repo sync recreates them from these objects.
       - name: Restore Digitalis repo cache
         uses: actions/cache@v4
         with:
@@ -78,7 +76,6 @@ jobs:
           git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
 
           echo '=== INIT DIGITALIS TREE ==='
-          # Do NOT remove AOSP_TOP here: the .repo cache has been restored into it.
           mkdir -p "$AOSP_TOP" "$RUNNER_TEMP/bin" "$HOME/.cache/ccache"
           cd "$AOSP_TOP"
 
@@ -110,6 +107,7 @@ jobs:
             frameworks/libs/binary_translation \
             external/golang-protobuf \
             external/pogreb \
+            external/starlark-go/starlark \
             prebuilts/build-tools \
             prebuilts/clang/host/linux-x86 \
             prebuilts/go/linux-x86
@@ -128,6 +126,7 @@ jobs:
           test -f frameworks/libs/binary_translation/code_gen_lib/arm64_to_x86_64/gen_wrapper.cc
           test -d external/golang-protobuf/proto
           test -d external/pogreb
+          test -d external/starlark-go/starlark
 
           echo '=== ENVSETUP ==='
           cd "$AOSP_TOP"
@@ -162,7 +161,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: arm64-build-logs
-          path: |
-            ${{ runner.temp }}/arm64-build.log
-            ${{ runner.temp }}/repo-sync.log
+          path: ${{ runner.temp }}/arm64-build.log
           if-no-files-found: warn
