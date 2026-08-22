@@ -24,8 +24,8 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v4
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v4-${{ github.sha }}
+      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v5
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v5
 
     steps:
       - name: Checkout port configuration
@@ -34,6 +34,7 @@ jobs:
           fetch-depth: 1
 
       - name: Restore Digitalis repo cache
+        id: repo-cache
         uses: actions/cache/restore@v4
         with:
           path: |
@@ -44,10 +45,12 @@ jobs:
             ${{ github.workspace }}/.build/aosp/.repo/repo
           key: ${{ env.REPO_CACHE_KEY }}
           restore-keys: |
-            digitalis-repo-Linux-android-latest-release-v3-
-            digitalis-repo-Linux-android-latest-release-
+            digitalis-repo-Linux-android-latest-release-v4
+            digitalis-repo-Linux-android-latest-release-v3
+            digitalis-repo-Linux-android-latest-release-v2
 
       - name: Restore compiler cache
+        id: compiler-cache
         uses: actions/cache/restore@v4
         with:
           path: ~/.cache/ccache
@@ -175,7 +178,7 @@ jobs:
           echo "Output: $so"
 
       - name: Save Digitalis repo cache
-        if: always()
+        if: always() && steps.repo-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: |
@@ -187,7 +190,7 @@ jobs:
           key: ${{ env.REPO_CACHE_KEY }}
 
       - name: Save compiler cache
-        if: always()
+        if: always() && steps.compiler-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: ~/.cache/ccache
