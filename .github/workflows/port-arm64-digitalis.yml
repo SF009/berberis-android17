@@ -61,6 +61,7 @@ jobs:
             berberis-ccache-Linux-arm64-v2-
 
       - name: Build ARM64 host translation
+        id: build
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -103,6 +104,7 @@ jobs:
           repo sync \
             -c \
             -j4 \
+            --force-sync \
             --fail-fast \
             --no-tags \
             --no-clone-bundle \
@@ -124,6 +126,8 @@ jobs:
             prebuilts/build-tools \
             prebuilts/clang/host/linux-x86 \
             prebuilts/go/linux-x86
+
+          echo 'SYNC_OK' > "$RUNNER_TEMP/repo-sync-ok"
 
           echo '=== VERIFY SOURCE TREE ==='
           test -f build/envsetup.sh
@@ -178,7 +182,7 @@ jobs:
           echo "Output: $so"
 
       - name: Save Digitalis repo cache
-        if: always() && steps.repo-cache.outputs.cache-hit != 'true'
+        if: always() && steps.repo-cache.outputs.cache-hit != 'true' && steps.build.outcome == 'success'
         uses: actions/cache/save@v4
         with:
           path: |
