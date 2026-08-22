@@ -86,6 +86,7 @@ jobs:
             system/core \
             frameworks/libs/binary_translation \
             external/golang-protobuf \
+            external/pogreb \
             prebuilts/build-tools \
             prebuilts/clang/host/linux-x86 \
             prebuilts/go/linux-x86
@@ -103,6 +104,7 @@ jobs:
           test -f frameworks/libs/binary_translation/lite_translator/arm64_to_x86_64/lite_translator.cc
           test -f frameworks/libs/binary_translation/code_gen_lib/arm64_to_x86_64/gen_wrapper.cc
           test -d external/golang-protobuf/proto
+          test -d external/pogreb
 
           echo '=== ENVSETUP ==='
           cd "$AOSP_TOP"
