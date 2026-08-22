@@ -31,6 +31,8 @@ jobs:
         with:
           fetch-depth: 1
 
+      # Keep only repo's manifest/object databases. The Android worktrees are
+      # deliberately not cached; repo sync recreates them from these objects.
       - name: Restore Digitalis repo cache
         uses: actions/cache@v4
         with:
@@ -39,16 +41,24 @@ jobs:
             ${{ github.workspace }}/.build/aosp/.repo/manifests.git
             ${{ github.workspace }}/.build/aosp/.repo/project-objects
             ${{ github.workspace }}/.build/aosp/.repo/repo
-          key: digitalis-repo-${{ runner.os }}-${{ hashFiles('.github/workflows/port-arm64-digitalis.yml') }}
+          key: digitalis-repo-${{ runner.os }}-android-latest-release-v1
           restore-keys: |
-            digitalis-repo-${{ runner.os }}-
+            digitalis-repo-${{ runner.os }}-android-latest-release-
+
+      - name: Restore compiler cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: berberis-ccache-${{ runner.os }}-arm64-v1-${{ github.sha }}
+          restore-keys: |
+            berberis-ccache-${{ runner.os }}-arm64-v1-
 
       - name: Build ARM64 host translation
         shell: bash
         run: |
           set -Eeuo pipefail
           exec > >(tee -a "$RUNNER_TEMP/arm64-build.log") 2>&1
-          trap 'rc=$?; echo "BUILD_FAILED rc=$rc line=$LINENO cmd=$BASH_COMMAND"; exit $rc' EXIT
+          trap 'rc=$?; if [ "$rc" -ne 0 ]; then echo "BUILD_FAILED rc=$rc line=$LINENO cmd=$BASH_COMMAND"; fi; exit "$rc"' EXIT
           set -x
 
           echo '=== BUILD START ==='
@@ -59,16 +69,17 @@ jobs:
 
           echo '=== INSTALL TOOLS ==='
           sudo apt-get update -qq
-          sudo apt-get install -y -qq git-lfs rsync python3
+          sudo apt-get install -y -qq git-lfs rsync python3 ccache
           git lfs install --skip-repo
+          ccache --version
 
           echo '=== CONFIGURE GIT HTTPS ==='
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
 
           echo '=== INIT DIGITALIS TREE ==='
-          rm -rf "$AOSP_TOP"
-          mkdir -p "$AOSP_TOP" "$RUNNER_TEMP/bin"
+          # Do NOT remove AOSP_TOP here: the .repo cache has been restored into it.
+          mkdir -p "$AOSP_TOP" "$RUNNER_TEMP/bin" "$HOME/.cache/ccache"
           cd "$AOSP_TOP"
 
           curl -fsSL https://storage.googleapis.com/git-repo-downloads/repo -o "$RUNNER_TEMP/bin/repo"
@@ -85,7 +96,7 @@ jobs:
           echo '=== SYNC ONLY HOST BUILD DEPENDENCIES ==='
           repo sync \
             -c \
-            -j2 \
+            -j4 \
             --fail-fast \
             --no-tags \
             --no-clone-bundle \
@@ -102,10 +113,6 @@ jobs:
             prebuilts/build-tools \
             prebuilts/clang/host/linux-x86 \
             prebuilts/go/linux-x86
-
-          echo '=== SAVE DIGITALIS REPO CACHE ==='
-          # The cache step persists Git object databases and manifests. Working trees
-          # are intentionally not cached so each run checks out exactly the manifest refs.
 
           echo '=== VERIFY SOURCE TREE ==='
           test -f build/envsetup.sh
@@ -129,9 +136,16 @@ jobs:
           set -u
           export SOONG_CONFIG_berberis_translation_arch=arm64_to_x86_64
           export NINJA_STATUS='[%f/%t %e] '
+          export USE_CCACHE=1
+          export CCACHE_DIR="$HOME/.cache/ccache"
+          ccache -M 4G
+          ccache -z
 
           echo '=== SINGLE HOST BUILD ==='
           m -j4 libberberis_arm64
+
+          echo '=== CCACHE STATS ==='
+          ccache -s
 
           echo '=== VERIFY OUTPUT ==='
           out_dir="${OUT_DIR:-$AOSP_TOP/out}"
