@@ -107,7 +107,7 @@ jobs:
             frameworks/libs/binary_translation \
             external/golang-protobuf \
             external/pogreb \
-            external/starlark-go/starlark \
+            external/starlark-go \
             prebuilts/build-tools \
             prebuilts/clang/host/linux-x86 \
             prebuilts/go/linux-x86
