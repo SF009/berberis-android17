@@ -24,6 +24,8 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
+      REPO_CACHE_KEY: digitalis-repo-${{ runner.os }}-android-latest-release-v2
+      CCACHE_KEY: berberis-ccache-${{ runner.os }}-arm64-v2-${{ github.sha }}
 
     steps:
       - name: Checkout port configuration
@@ -32,23 +34,27 @@ jobs:
           fetch-depth: 1
 
       - name: Restore Digitalis repo cache
-        uses: actions/cache@v4
+        id: repo-cache
+        uses: actions/cache/restore@v4
         with:
           path: |
             ${{ github.workspace }}/.build/aosp/.repo/manifests
             ${{ github.workspace }}/.build/aosp/.repo/manifests.git
             ${{ github.workspace }}/.build/aosp/.repo/project-objects
+            ${{ github.workspace }}/.build/aosp/.repo/projects
             ${{ github.workspace }}/.build/aosp/.repo/repo
-          key: digitalis-repo-${{ runner.os }}-android-latest-release-v1
+          key: ${{ env.REPO_CACHE_KEY }}
           restore-keys: |
             digitalis-repo-${{ runner.os }}-android-latest-release-
 
       - name: Restore compiler cache
-        uses: actions/cache@v4
+        id: compiler-cache
+        uses: actions/cache/restore@v4
         with:
           path: ~/.cache/ccache
-          key: berberis-ccache-${{ runner.os }}-arm64-v1-${{ github.sha }}
+          key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-${{ runner.os }}-arm64-v2-
             berberis-ccache-${{ runner.os }}-arm64-v1-
 
       - name: Build ARM64 host translation
@@ -138,6 +144,7 @@ jobs:
           export USE_CCACHE=1
           export CCACHE_DIR="$HOME/.cache/ccache"
           ccache -M 4G
+          ccache -s
           ccache -z
 
           echo '=== SINGLE HOST BUILD ==='
@@ -155,6 +162,25 @@ jobs:
           ! nm -C "$so" 2>/dev/null | grep -Eiq 'riscv64|RISCV|RiscV'
           echo 'ARM64 native translation build: PASS'
           echo "Output: $so"
+
+      - name: Save Digitalis repo cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ github.workspace }}/.build/aosp/.repo/manifests
+            ${{ github.workspace }}/.build/aosp/.repo/manifests.git
+            ${{ github.workspace }}/.build/aosp/.repo/project-objects
+            ${{ github.workspace }}/.build/aosp/.repo/projects
+            ${{ github.workspace }}/.build/aosp/.repo/repo
+          key: ${{ env.REPO_CACHE_KEY }}
+
+      - name: Save compiler cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/ccache
+          key: ${{ env.CCACHE_KEY }}
 
       - name: Upload build logs
         if: always()
