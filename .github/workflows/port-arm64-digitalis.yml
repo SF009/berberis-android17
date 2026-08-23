@@ -24,8 +24,8 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v16
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v16
+      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v17
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v17
 
     steps:
       - name: Checkout port configuration
@@ -44,9 +44,9 @@ jobs:
             ${{ github.workspace }}/.build/aosp/.repo/repo
           key: ${{ env.REPO_CACHE_KEY }}
           restore-keys: |
+            digitalis-repo-Linux-android-latest-release-v16
             digitalis-repo-Linux-android-latest-release-v15
             digitalis-repo-Linux-android-latest-release-v14
-            digitalis-repo-Linux-android-latest-release-v13
 
       - name: Restore compiler cache
         id: compiler-cache
@@ -55,9 +55,9 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v16
             berberis-ccache-Linux-arm64-v15
             berberis-ccache-Linux-arm64-v14
-            berberis-ccache-Linux-arm64-v13
 
       - name: Build ARM64 host translation
         id: build
@@ -119,11 +119,15 @@ jobs:
             device/common \
             device/generic/common \
             device/generic/goldfish \
+            frameworks/av \
             frameworks/base \
             frameworks/native \
             frameworks/libs/native_bridge_support \
             hardware/interfaces \
             kernel/configs \
+            packages/modules/common \
+            system/core \
+            system/keymaster \
             system/core \
             system/sepolicy \
             system/tools/aidl \
@@ -152,6 +156,8 @@ jobs:
           test -f device/generic/goldfish/64bitonly/product/sdk_phone64_x86_64_digitalis.mk
           test -d art
           test -d bionic
+          test -d frameworks/av
+          test -f frameworks/av/media/codec2/vndk/Android.bp
           test -d frameworks/base
           test -f frameworks/base/data/sounds/AllAudio.mk
           test -d frameworks/native
@@ -164,6 +170,10 @@ jobs:
           test -f hardware/interfaces/security/keymint/aidl/Android.bp
           test -d kernel/configs
           test -f kernel/configs/build/Android.bp
+          test -d packages/modules/common
+          test -f packages/modules/common/sdk/ModuleDefaults.bp
+          test -d system/keymaster
+          test -f system/keymaster/Android.bp
           test -d system/sepolicy
           test -f system/sepolicy/build/soong/Android.bp
           test -d system/tools/hidl
