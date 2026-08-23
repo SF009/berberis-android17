@@ -24,8 +24,8 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v6
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v6
+      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v7
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v7
 
     steps:
       - name: Checkout port configuration
@@ -44,9 +44,9 @@ jobs:
             ${{ github.workspace }}/.build/aosp/.repo/repo
           key: ${{ env.REPO_CACHE_KEY }}
           restore-keys: |
+            digitalis-repo-Linux-android-latest-release-v6
             digitalis-repo-Linux-android-latest-release-v5
             digitalis-repo-Linux-android-latest-release-v4
-            digitalis-repo-Linux-android-latest-release-v3
 
       - name: Restore compiler cache
         id: compiler-cache
@@ -55,9 +55,9 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v6
             berberis-ccache-Linux-arm64-v5
-            berberis-ccache-Linux-arm64-v4-
-            berberis-ccache-Linux-arm64-v3-
+            berberis-ccache-Linux-arm64-v4
 
       - name: Build ARM64 host translation
         id: build
@@ -99,7 +99,7 @@ jobs:
             --clone-filter=blob:limit=5M \
             --no-use-superproject
 
-          echo '=== SYNC MINIMAL HOST BUILD DEPENDENCIES ==='
+          echo '=== SYNC MINIMAL DIGITALIS REFERENCE PRODUCT DEPENDENCIES ==='
           repo sync \
             -c \
             -j4 \
@@ -115,8 +115,7 @@ jobs:
             build/release \
             build/soong \
             bionic \
-            device/generic/common \
-            device/generic/x86_64 \
+            device/generic/goldfish \
             system/core \
             frameworks/libs/binary_translation \
             external/golang-protobuf \
@@ -124,18 +123,20 @@ jobs:
             external/starlark-go \
             prebuilts/build-tools \
             prebuilts/clang/host/linux-x86 \
-            prebuilts/go/linux-x86
+            prebuilts/go/linux-x86 \
+            digitalis
 
-          echo 'SYNC_OK' > "$RUNNER_TEMP/repo-sync-ok"
+          echo 'SYNC_OK'
 
           echo '=== VERIFY SOURCE TREE ==='
           test -f build/envsetup.sh
           test -f build/soong/soong_ui.bash
           test -d build/release
-          test -d device/generic/common
-          test -d device/generic/x86_64
+          test -d device/generic/goldfish
+          test -f device/generic/goldfish/64bitonly/product/sdk_phone64_x86_64_digitalis.mk
           test -d bionic
           test -d system/core
+          test -d digitalis
           test -f frameworks/libs/binary_translation/Android.bp
           test -f frameworks/libs/binary_translation/enable_arm64_to_x86_64.mk
           test -f frameworks/libs/binary_translation/native_bridge/arm64/native_bridge.cc
@@ -154,7 +155,7 @@ jobs:
           set -u
 
           echo '=== DIGITALIS LUNCH ==='
-          lunch sdk_phone64_x86_64_digitalis-trunk_staging-userdebug
+          source digitalis/scripts/lunch-digitalis.sh
 
           export SOONG_CONFIG_berberis_translation_arch=arm64_to_x86_64
           export NINJA_STATUS='[%f/%t %e] '
