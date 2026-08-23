@@ -24,8 +24,8 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v10
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v10
+      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v11
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v11
 
     steps:
       - name: Checkout port configuration
@@ -44,9 +44,9 @@ jobs:
             ${{ github.workspace }}/.build/aosp/.repo/repo
           key: ${{ env.REPO_CACHE_KEY }}
           restore-keys: |
+            digitalis-repo-Linux-android-latest-release-v10
             digitalis-repo-Linux-android-latest-release-v9
             digitalis-repo-Linux-android-latest-release-v8
-            digitalis-repo-Linux-android-latest-release-v7
 
       - name: Restore compiler cache
         id: compiler-cache
@@ -55,9 +55,9 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v10
             berberis-ccache-Linux-arm64-v9
             berberis-ccache-Linux-arm64-v8
-            berberis-ccache-Linux-arm64-v7
 
       - name: Build ARM64 host translation
         id: build
@@ -124,6 +124,7 @@ jobs:
             system/core \
             frameworks/libs/binary_translation \
             external/golang-protobuf \
+            external/go-cmp \
             external/pogreb \
             external/starlark-go \
             toolchain/pgo-profiles \
@@ -158,6 +159,7 @@ jobs:
           test -f frameworks/libs/binary_translation/lite_translator/arm64_to_x86_64/lite_translator.cc
           test -f frameworks/libs/binary_translation/code_gen_lib/arm64_to_x86_64/gen_wrapper.cc
           test -d external/golang-protobuf/proto
+          test -d external/go-cmp
           test -d external/pogreb
           test -d external/starlark-go/starlark
 
