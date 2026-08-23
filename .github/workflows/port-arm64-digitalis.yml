@@ -24,8 +24,8 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v9
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v9
+      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v10
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v10
 
     steps:
       - name: Checkout port configuration
@@ -44,9 +44,9 @@ jobs:
             ${{ github.workspace }}/.build/aosp/.repo/repo
           key: ${{ env.REPO_CACHE_KEY }}
           restore-keys: |
+            digitalis-repo-Linux-android-latest-release-v9
             digitalis-repo-Linux-android-latest-release-v8
             digitalis-repo-Linux-android-latest-release-v7
-            digitalis-repo-Linux-android-latest-release-v6
 
       - name: Restore compiler cache
         id: compiler-cache
@@ -55,9 +55,9 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v9
             berberis-ccache-Linux-arm64-v8
             berberis-ccache-Linux-arm64-v7
-            berberis-ccache-Linux-arm64-v6
 
       - name: Build ARM64 host translation
         id: build
@@ -126,6 +126,7 @@ jobs:
             external/golang-protobuf \
             external/pogreb \
             external/starlark-go \
+            toolchain/pgo-profiles \
             prebuilts/build-tools \
             prebuilts/clang/host/linux-x86 \
             prebuilts/go/linux-x86 \
@@ -139,6 +140,7 @@ jobs:
           test -d build/release
           test -d device/generic/goldfish
           test -f device/generic/goldfish/64bitonly/product/sdk_phone64_x86_64_digitalis.mk
+          test -d art
           test -d bionic
           test -d frameworks/base
           test -f frameworks/base/data/sounds/AllAudio.mk
@@ -146,6 +148,8 @@ jobs:
           test -f frameworks/libs/native_bridge_support/native_bridge_support.mk
           test -d system/core
           test -d digitalis
+          test -d toolchain/pgo-profiles
+          test -f toolchain/pgo-profiles/sampling/afdo_profiles.mk
           test -f frameworks/libs/binary_translation/Android.bp
           test -f frameworks/libs/binary_translation/enable_arm64_to_x86_64.mk
           test -f frameworks/libs/binary_translation/native_bridge/arm64/native_bridge.cc
