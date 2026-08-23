@@ -165,10 +165,9 @@ jobs:
           cd "$AOSP_TOP"
           set +u
           source build/envsetup.sh
-          set -u
-
           echo '=== DIGITALIS LUNCH ==='
           source digitalis/scripts/lunch-digitalis.sh
+          set -u
 
           export SOONG_CONFIG_berberis_translation_arch=arm64_to_x86_64
           export NINJA_STATUS='[%f/%t %e] '
