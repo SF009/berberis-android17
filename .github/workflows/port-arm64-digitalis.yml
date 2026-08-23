@@ -24,8 +24,8 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v15
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v15
+      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v16
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v16
 
     steps:
       - name: Checkout port configuration
@@ -44,9 +44,9 @@ jobs:
             ${{ github.workspace }}/.build/aosp/.repo/repo
           key: ${{ env.REPO_CACHE_KEY }}
           restore-keys: |
+            digitalis-repo-Linux-android-latest-release-v15
             digitalis-repo-Linux-android-latest-release-v14
             digitalis-repo-Linux-android-latest-release-v13
-            digitalis-repo-Linux-android-latest-release-v12
 
       - name: Restore compiler cache
         id: compiler-cache
@@ -55,9 +55,9 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v15
             berberis-ccache-Linux-arm64-v14
             berberis-ccache-Linux-arm64-v13
-            berberis-ccache-Linux-arm64-v12
 
       - name: Build ARM64 host translation
         id: build
@@ -127,6 +127,7 @@ jobs:
             system/core \
             system/sepolicy \
             system/tools/aidl \
+            system/tools/hidl \
             system/tools/xsdc \
             test/app_compat/csuite \
             frameworks/libs/binary_translation \
@@ -165,6 +166,9 @@ jobs:
           test -f kernel/configs/build/Android.bp
           test -d system/sepolicy
           test -f system/sepolicy/build/soong/Android.bp
+          test -d system/tools/hidl
+          test -f system/tools/hidl/build/hidl_interface.go
+          test -f system/tools/hidl/build/hidl_package_root.go
           test -d external/mesa3d
           test -d system/core
           test -d system/tools/aidl
