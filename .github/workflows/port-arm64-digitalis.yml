@@ -24,8 +24,8 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v7
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v7
+      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v8
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v8
 
     steps:
       - name: Checkout port configuration
@@ -44,9 +44,9 @@ jobs:
             ${{ github.workspace }}/.build/aosp/.repo/repo
           key: ${{ env.REPO_CACHE_KEY }}
           restore-keys: |
+            digitalis-repo-Linux-android-latest-release-v7
             digitalis-repo-Linux-android-latest-release-v6
             digitalis-repo-Linux-android-latest-release-v5
-            digitalis-repo-Linux-android-latest-release-v4
 
       - name: Restore compiler cache
         id: compiler-cache
@@ -55,9 +55,9 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v7
             berberis-ccache-Linux-arm64-v6
             berberis-ccache-Linux-arm64-v5
-            berberis-ccache-Linux-arm64-v4
 
       - name: Build ARM64 host translation
         id: build
@@ -99,7 +99,7 @@ jobs:
             --clone-filter=blob:limit=5M \
             --no-use-superproject
 
-          echo '=== SYNC MINIMAL DIGITALIS REFERENCE PRODUCT DEPENDENCIES ==='
+          echo '=== SYNC DIGITALIS PRODUCT AND ARM64 TRANSLATION DEPENDENCIES ==='
           repo sync \
             -c \
             -j4 \
@@ -114,8 +114,12 @@ jobs:
             build/pesto \
             build/release \
             build/soong \
+            art \
             bionic \
+            device/common \
+            device/generic/common \
             device/generic/goldfish \
+            frameworks/base \
             system/core \
             frameworks/libs/binary_translation \
             external/golang-protobuf \
@@ -135,6 +139,8 @@ jobs:
           test -d device/generic/goldfish
           test -f device/generic/goldfish/64bitonly/product/sdk_phone64_x86_64_digitalis.mk
           test -d bionic
+          test -d frameworks/base
+          test -f frameworks/base/data/sounds/AllAudio.mk
           test -d system/core
           test -d digitalis
           test -f frameworks/libs/binary_translation/Android.bp
