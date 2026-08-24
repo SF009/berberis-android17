@@ -24,8 +24,8 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v18
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v18
+      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v19
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v19
 
     steps:
       - name: Checkout port configuration
@@ -44,8 +44,8 @@ jobs:
             ${{ github.workspace }}/.build/aosp/.repo/repo
           key: ${{ env.REPO_CACHE_KEY }}
           restore-keys: |
+            digitalis-repo-Linux-android-latest-release-v18
             digitalis-repo-Linux-android-latest-release-v17
-            digitalis-repo-Linux-android-latest-release-v16
 
       - name: Restore compiler cache
         id: compiler-cache
@@ -54,8 +54,8 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v18
             berberis-ccache-Linux-arm64-v17
-            berberis-ccache-Linux-arm64-v16
 
       - name: Build ARM64 host translation
         id: build
@@ -124,6 +124,7 @@ jobs:
             hardware/interfaces \
             kernel/configs \
             packages/modules/common \
+            system/apex \
             system/core \
             system/keymaster \
             system/sepolicy \
@@ -168,6 +169,8 @@ jobs:
           test -d kernel/configs
           test -f kernel/configs/build/Android.bp
           test -d packages/modules/common
+          test -d system/apex
+          test -f system/apex/Android.bp
           test -d system/keymaster
           test -f system/keymaster/Android.bp
           test -d system/sepolicy
