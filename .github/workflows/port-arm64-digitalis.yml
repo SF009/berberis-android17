@@ -24,8 +24,8 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v22
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v22
+      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v23
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v23
 
     steps:
       - name: Checkout port configuration
@@ -44,8 +44,8 @@ jobs:
             ${{ github.workspace }}/.build/aosp/.repo/repo
           key: ${{ env.REPO_CACHE_KEY }}
           restore-keys: |
+            digitalis-repo-Linux-android-latest-release-v22
             digitalis-repo-Linux-android-latest-release-v21
-            digitalis-repo-Linux-android-latest-release-v20
 
       - name: Restore compiler cache
         id: compiler-cache
@@ -54,8 +54,8 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v22
             berberis-ccache-Linux-arm64-v21
-            berberis-ccache-Linux-arm64-v20
 
       - name: Build ARM64 host translation
         id: build
@@ -127,6 +127,7 @@ jobs:
             packages/modules/common \
             packages/modules/NeuralNetworks \
             packages/modules/Virtualization \
+            packages/services/Car \
             system/apex \
             system/core \
             system/keymaster \
@@ -143,6 +144,7 @@ jobs:
             external/pogreb \
             external/starlark-go \
             external/wpa_supplicant_8 \
+            platform_testing \
             toolchain/pgo-profiles \
             prebuilts/build-tools \
             prebuilts/clang/host/linux-x86 \
@@ -178,6 +180,10 @@ jobs:
           test -d packages/modules/common
           test -d packages/modules/NeuralNetworks
           test -d packages/modules/Virtualization
+          test -d packages/services/Car
+          test -f packages/services/Car/cpp/vhal/client/Android.bp
+          test -d platform_testing
+          test -f platform_testing/libraries/rdroidtest/Android.bp
           test -d system/apex
           test -f system/apex/Android.bp
           test -d system/keymaster
