@@ -22,7 +22,7 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v25
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v26
 
     steps:
       - name: Checkout
@@ -37,11 +37,11 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v25
             berberis-ccache-Linux-arm64-v24
             berberis-ccache-Linux-arm64-v23
-            berberis-ccache-Linux-arm64-v22
 
-      - name: Build from complete Digitalis manifest
+      - name: Build ARM64 native translation
         id: build
         shell: bash
         run: |
@@ -68,6 +68,7 @@ jobs:
           git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
 
           echo '=== DIGITALIS MANIFEST ==='
+          rm -rf "$AOSP_TOP"
           mkdir -p "$AOSP_TOP" "$RUNNER_TEMP/bin" "$HOME/.cache/ccache"
           cd "$AOSP_TOP"
           curl -fsSL https://storage.googleapis.com/git-repo-downloads/repo -o "$RUNNER_TEMP/bin/repo"
@@ -81,8 +82,14 @@ jobs:
             --clone-filter=blob:limit=5M \
             --no-use-superproject
 
-          echo '=== FULL DIGITALIS SYNC ==='
+          echo '=== PDK-SCOPE DIGITALIS SYNC ==='
+          # The full Digitalis manifest is too large for the 145GB GitHub runner.
+          # Sync only projects in the manifest's PDK build group, plus the product
+          # and Berberis translation projects needed by this host build. This avoids
+          # CTS/test-only projects and the huge prebuilt/test trees that are irrelevant
+          # to libberberis_arm64.
           repo sync \
+            -g pdk \
             -c \
             -j4 \
             --force-sync \
@@ -91,6 +98,18 @@ jobs:
             --no-clone-bundle \
             --optimized-fetch \
             --prune
+
+          repo sync \
+            -c \
+            -j4 \
+            --force-sync \
+            --fail-fast \
+            --no-tags \
+            --no-clone-bundle \
+            --optimized-fetch \
+            --prune \
+            frameworks/libs/binary_translation \
+            digitalis
 
           echo '=== SYNC COMPLETE ==='
           test -f build/envsetup.sh
