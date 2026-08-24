@@ -24,8 +24,8 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v20
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v20
+      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v21
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v21
 
     steps:
       - name: Checkout port configuration
@@ -44,8 +44,8 @@ jobs:
             ${{ github.workspace }}/.build/aosp/.repo/repo
           key: ${{ env.REPO_CACHE_KEY }}
           restore-keys: |
+            digitalis-repo-Linux-android-latest-release-v20
             digitalis-repo-Linux-android-latest-release-v19
-            digitalis-repo-Linux-android-latest-release-v18
 
       - name: Restore compiler cache
         id: compiler-cache
@@ -54,8 +54,8 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v20
             berberis-ccache-Linux-arm64-v19
-            berberis-ccache-Linux-arm64-v18
 
       - name: Build ARM64 host translation
         id: build
@@ -125,6 +125,8 @@ jobs:
             system/hardware/interfaces \
             kernel/configs \
             packages/modules/common \
+            packages/modules/NeuralNetworks \
+            packages/modules/Virtualization \
             system/apex \
             system/core \
             system/keymaster \
@@ -134,6 +136,7 @@ jobs:
             system/tools/hidl \
             system/tools/xsdc \
             test/app_compat/csuite \
+            test/framework \
             frameworks/libs/binary_translation \
             external/golang-protobuf \
             external/go-cmp \
@@ -174,6 +177,9 @@ jobs:
           test -d kernel/configs
           test -f kernel/configs/build/Android.bp
           test -d packages/modules/common
+          test -d packages/modules/NeuralNetworks
+          test -d packages/modules/Virtualization
+          test -d test/framework
           test -d system/apex
           test -f system/apex/Android.bp
           test -d system/keymaster
