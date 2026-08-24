@@ -22,28 +22,13 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v24
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v24
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v25
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-
-      - name: Restore repo cache
-        id: repo-cache
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ${{ github.workspace }}/.build/aosp/.repo/manifests
-            ${{ github.workspace }}/.build/aosp/.repo/manifests.git
-            ${{ github.workspace }}/.build/aosp/.repo/project-objects
-            ${{ github.workspace }}/.build/aosp/.repo/repo
-          key: ${{ env.REPO_CACHE_KEY }}
-          restore-keys: |
-            digitalis-repo-Linux-android-latest-release-v23
-            digitalis-repo-Linux-android-latest-release-v22
 
       - name: Restore ccache
         id: ccache
@@ -52,10 +37,11 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v24
             berberis-ccache-Linux-arm64-v23
             berberis-ccache-Linux-arm64-v22
 
-      - name: Build
+      - name: Build from complete Digitalis manifest
         id: build
         shell: bash
         run: |
@@ -64,12 +50,24 @@ jobs:
           trap 'rc=$?; if [ "$rc" -ne 0 ]; then echo "BUILD_FAILED rc=$rc cmd=$BASH_COMMAND"; fi; exit "$rc"' EXIT
           set -x
 
+          echo '=== HOST ==='
+          date -u
+          uname -a
+          echo "CPU=$(nproc)"
+          free -h
+          df -h /
+
+          echo '=== TOOLS ==='
           sudo apt-get update -qq
           sudo apt-get install -y -qq git-lfs rsync python3 ccache
           git lfs install --skip-repo
+          ccache --version
+
+          echo '=== GIT HTTPS ==='
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
 
+          echo '=== DIGITALIS MANIFEST ==='
           mkdir -p "$AOSP_TOP" "$RUNNER_TEMP/bin" "$HOME/.cache/ccache"
           cd "$AOSP_TOP"
           curl -fsSL https://storage.googleapis.com/git-repo-downloads/repo -o "$RUNNER_TEMP/bin/repo"
@@ -83,38 +81,36 @@ jobs:
             --clone-filter=blob:limit=5M \
             --no-use-superproject
 
-          repo sync -c -j4 --force-sync --fail-fast --no-tags --no-clone-bundle --optimized-fetch --prune \
-            build/make build/blueprint build/pesto build/release build/soong \
-            art bionic device/common device/generic/common device/generic/goldfish \
-            frameworks/av frameworks/base frameworks/native frameworks/libs/native_bridge_support \
-            frameworks/libs/modules-utils \
-            hardware/interfaces system/hardware/interfaces kernel/configs \
-            packages/modules/common packages/modules/NeuralNetworks packages/modules/Virtualization \
-            packages/services/Car packages/apps/DocumentsUI \
-            system/apex system/core system/keymaster system/libvintf system/sepolicy \
-            system/tools/aidl system/tools/hidl system/tools/xsdc \
-            cts test/app_compat/csuite \
-            frameworks/libs/binary_translation \
-            external/golang-protobuf external/go-cmp external/mesa3d external/pogreb \
-            external/starlark-go external/wpa_supplicant_8 platform_testing \
-            toolchain/pgo-profiles prebuilts/build-tools prebuilts/clang/host/linux-x86 \
-            prebuilts/go/linux-x86 digitalis
+          echo '=== FULL DIGITALIS SYNC ==='
+          repo sync \
+            -c \
+            -j4 \
+            --force-sync \
+            --fail-fast \
+            --no-tags \
+            --no-clone-bundle \
+            --optimized-fetch \
+            --prune
 
+          echo '=== SYNC COMPLETE ==='
           test -f build/envsetup.sh
           test -f build/soong/soong_ui.bash
-          test -d packages/apps/DocumentsUI
-          test -d frameworks/libs/modules-utils
-          test -d cts
-          test -f platform_testing/libraries/sts-common-util/apps/MainlineModuleDetector/Android.bp
-          test -f packages/services/Car/packages/CarDocumentsUI/Android.bp
-          test -f packages/services/Car/packages/CarDocumentsUI/tests/Android.bp
-          test -f packages/services/Car/libs/car-wm-shell-lib/tests/unittest/Android.bp
+          test -d frameworks/libs/binary_translation
+          test -f frameworks/libs/binary_translation/Android.bp
+          test -f frameworks/libs/binary_translation/enable_arm64_to_x86_64.mk
+          test -f frameworks/libs/binary_translation/native_bridge/arm64/native_bridge.cc
+          test -f frameworks/libs/binary_translation/decoder/arm64_test/decoder_test.cc
+          test -f frameworks/libs/binary_translation/interpreter/arm64/interpreter-main.cc
+          test -f frameworks/libs/binary_translation/lite_translator/arm64_to_x86_64/lite_translator.cc
+          test -f frameworks/libs/binary_translation/code_gen_lib/arm64_to_x86_64/gen_wrapper.cc
 
+          echo '=== ENVSETUP ==='
           set +u
           source build/envsetup.sh
           source digitalis/scripts/lunch-digitalis.sh
           set -u
 
+          echo '=== TRANSLATION CONFIG ==='
           export SOONG_CONFIG_berberis_translation_arch=arm64_to_x86_64
           export USE_CCACHE=1
           export CCACHE_DIR="$HOME/.cache/ccache"
@@ -122,28 +118,21 @@ jobs:
           ccache -s
           ccache -z
 
+          echo '=== HOST BUILD ==='
           m -j2 libberberis_arm64
 
+          echo '=== CCACHE ==='
           ccache -s
+
+          echo '=== VERIFY OUTPUT ==='
           out_dir="${OUT_DIR:-$AOSP_TOP/out}"
           so="$(find "$out_dir" -type f -name 'libberberis_arm64.so' -print -quit)"
           test -n "$so"
           file "$so"
           readelf -h "$so" | grep -q 'Machine:.*X86-64'
           ! nm -C "$so" 2>/dev/null | grep -Eiq 'riscv64|RISCV|RiscV'
-          echo "ARM64 native translation build: PASS"
+          echo 'ARM64 native translation build: PASS'
           echo "Output: $so"
-
-      - name: Save repo cache
-        if: steps.repo-cache.outputs.cache-hit != 'true' && steps.build.outcome == 'success'
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ${{ github.workspace }}/.build/aosp/.repo/manifests
-            ${{ github.workspace }}/.build/aosp/.repo/manifests.git
-            ${{ github.workspace }}/.build/aosp/.repo/project-objects
-            ${{ github.workspace }}/.build/aosp/.repo/repo
-          key: ${{ env.REPO_CACHE_KEY }}
 
       - name: Save ccache
         if: steps.ccache.outputs.cache-hit != 'true'
