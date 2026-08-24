@@ -24,8 +24,8 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v19
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v19
+      REPO_CACHE_KEY: digitalis-repo-Linux-android-latest-release-v20
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v20
 
     steps:
       - name: Checkout port configuration
@@ -44,8 +44,8 @@ jobs:
             ${{ github.workspace }}/.build/aosp/.repo/repo
           key: ${{ env.REPO_CACHE_KEY }}
           restore-keys: |
+            digitalis-repo-Linux-android-latest-release-v19
             digitalis-repo-Linux-android-latest-release-v18
-            digitalis-repo-Linux-android-latest-release-v17
 
       - name: Restore compiler cache
         id: compiler-cache
@@ -54,8 +54,8 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v19
             berberis-ccache-Linux-arm64-v18
-            berberis-ccache-Linux-arm64-v17
 
       - name: Build ARM64 host translation
         id: build
@@ -122,11 +122,13 @@ jobs:
             frameworks/native \
             frameworks/libs/native_bridge_support \
             hardware/interfaces \
+            system/hardware/interfaces \
             kernel/configs \
             packages/modules/common \
             system/apex \
             system/core \
             system/keymaster \
+            system/libvintf \
             system/sepolicy \
             system/tools/aidl \
             system/tools/hidl \
@@ -138,6 +140,7 @@ jobs:
             external/mesa3d \
             external/pogreb \
             external/starlark-go \
+            external/wpa_supplicant_8 \
             toolchain/pgo-profiles \
             prebuilts/build-tools \
             prebuilts/clang/host/linux-x86 \
@@ -166,6 +169,8 @@ jobs:
           test -f hardware/interfaces/power/aidl/Android.bp
           test -f hardware/interfaces/graphics/composer/aidl/Android.bp
           test -f hardware/interfaces/security/keymint/aidl/Android.bp
+          test -d system/hardware/interfaces
+          test -f system/hardware/interfaces/media/Android.bp
           test -d kernel/configs
           test -f kernel/configs/build/Android.bp
           test -d packages/modules/common
@@ -173,12 +178,15 @@ jobs:
           test -f system/apex/Android.bp
           test -d system/keymaster
           test -f system/keymaster/Android.bp
+          test -d system/libvintf
           test -d system/sepolicy
           test -f system/sepolicy/build/soong/Android.bp
           test -d system/tools/hidl
           test -f system/tools/hidl/build/hidl_interface.go
           test -f system/tools/hidl/build/hidl_package_root.go
           test -d external/mesa3d
+          test -d external/wpa_supplicant_8
+          test -f external/wpa_supplicant_8/wpa_supplicant/Android.bp
           test -d system/core
           test -d system/tools/aidl
           test -f system/tools/aidl/build/aidl_interface.go
