@@ -22,7 +22,7 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v27
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v28
       REPO_JOBS: 4
 
     steps:
@@ -38,9 +38,9 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v27
             berberis-ccache-Linux-arm64-v26
             berberis-ccache-Linux-arm64-v25
-            berberis-ccache-Linux-arm64-v24
 
       - name: Build ARM64 native translation
         id: build
@@ -84,11 +84,9 @@ jobs:
             --no-use-superproject
 
           echo '=== MINIMAL BUILD DEPENDENCIES ==='
-          # Never use `repo sync` without paths or `repo sync -g pdk` here.
-          # Both resolve to a very large fraction of the Android source tree.
-          # The list below covers the build system, host toolchain, product files,
-          # Android runtime libraries, and Berberis/Digitalis sources needed by
-          # `m libberberis_arm64` after selecting the Digitalis product.
+          # Never use `repo sync` without explicit paths or `repo sync -g pdk`.
+          # This build intentionally downloads only the projects required for
+          # the Digitalis product configuration and libberberis_arm64.
           repo sync \
             -c -j"$REPO_JOBS" \
             --force-sync \
@@ -106,6 +104,7 @@ jobs:
             prebuilts/clang/host/linux-x86 \
             prebuilts/go/linux-x86 \
             bionic \
+            external/golang-protobuf \
             external/zlib \
             system/core \
             system/libbase \
@@ -123,6 +122,7 @@ jobs:
           echo '=== SOURCE CHECK ==='
           test -f build/envsetup.sh
           test -f build/soong/soong_ui.bash
+          test -f external/golang-protobuf/proto/descriptor.proto
           test -f frameworks/libs/binary_translation/Android.bp
           test -f frameworks/libs/binary_translation/enable_arm64_to_x86_64.mk
           test -f frameworks/libs/binary_translation/native_bridge/arm64/native_bridge.cc
