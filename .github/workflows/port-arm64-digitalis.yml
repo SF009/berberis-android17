@@ -84,9 +84,11 @@ jobs:
             --no-use-superproject
 
           echo '=== MINIMAL BUILD DEPENDENCIES ==='
-          # Do NOT use repo sync -g pdk (or a bare repo sync): that pulls most of AOSP.
-          # This is the explicit source closure needed for the host libberberis_arm64 build.
-          # Keep this list narrow; add a project only when the build proves it is required.
+          # Never use `repo sync` without paths or `repo sync -g pdk` here.
+          # Both resolve to a very large fraction of the Android source tree.
+          # The list below covers the build system, host toolchain, product files,
+          # Android runtime libraries, and Berberis/Digitalis sources needed by
+          # `m libberberis_arm64` after selecting the Digitalis product.
           repo sync \
             -c -j"$REPO_JOBS" \
             --force-sync \
@@ -103,17 +105,19 @@ jobs:
             prebuilts/build-tools \
             prebuilts/clang/host/linux-x86 \
             prebuilts/go/linux-x86 \
-            external/clang \
-            external/compiler-rt \
-            external/libcxx \
-            external/zlib \
             bionic \
+            external/zlib \
             system/core \
             system/libbase \
             system/logging \
             frameworks/native \
             frameworks/libs/native_bridge_support \
             frameworks/libs/binary_translation \
+            device/generic/common \
+            device/generic/x86 \
+            device/generic/x86_64 \
+            device/generic/goldfish \
+            hardware/google/gfxstream \
             digitalis
 
           echo '=== SOURCE CHECK ==='
@@ -126,6 +130,8 @@ jobs:
           test -f frameworks/libs/binary_translation/interpreter/arm64/interpreter-main.cc
           test -f frameworks/libs/binary_translation/lite_translator/arm64_to_x86_64/lite_translator.cc
           test -f frameworks/libs/binary_translation/code_gen_lib/arm64_to_x86_64/gen_wrapper.cc
+          test -f digitalis/scripts/lunch-digitalis.sh
+          test -f device/generic/goldfish/64bitonly/product/sdk_phone64_x86_64_digitalis.mk
 
           echo '=== ENVSETUP ==='
           set +u
@@ -142,8 +148,7 @@ jobs:
           ccache -s
 
           echo '=== HOST BUILD ==='
-          # Only build the translator library. Do not invoke `m` with no target,
-          # which would turn this into a product/image build and force a much larger source closure.
+          # Build only the ARM64 guest translator. Do not invoke bare `m`.
           m -j2 libberberis_arm64
 
           echo '=== VERIFY OUTPUT ==='
