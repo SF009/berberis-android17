@@ -22,7 +22,7 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v29
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v30
       REPO_JOBS: 4
 
     steps:
@@ -38,9 +38,9 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v29
             berberis-ccache-Linux-arm64-v28
             berberis-ccache-Linux-arm64-v27
-            berberis-ccache-Linux-arm64-v26
 
       - name: Build ARM64 native translation
         id: build
@@ -83,180 +83,67 @@ jobs:
             --clone-filter=blob:limit=5M \
             --no-use-superproject
 
-          sync_common=(
-            -c -j"$REPO_JOBS"
-            --force-sync
-            --fail-fast
-            --no-tags
-            --no-clone-bundle
-            --optimized-fetch
-            --prune
-          )
-
-          echo '=== MINIMAL BOOTSTRAP PROJECTS ==='
-          # These are the projects needed to start Soong and load the Digitalis product.
-          # Do not use `repo sync -g pdk` or an unscoped `repo sync`.
-          repo sync "${sync_common[@]}" \
+          echo '=== FIXED LIBBERBERIS ARM64 HOST DEPENDENCY SET ==='
+          # Derived from:
+          #   * frameworks/libs/binary_translation/Android.bp (libberberis_arm64)
+          #   * proxy_loader/Android.bp
+          #   * base/Android.bp
+          #   * runtime/Android.bp
+          #   * code_gen_lib/Android.bp
+          #   * backend/Android.bp
+          #   * lite_translator/Android.bp
+          #   * build/soong/go.mod
+          #   * system/libbase/Android.bp
+          # This is one fixed sync. It deliberately excludes product/image-only
+          # projects and never uses repo sync -g pdk or an unscoped repo sync.
+          repo sync \
+            -c -j"$REPO_JOBS" \
+            --force-sync \
+            --fail-fast \
+            --no-tags \
+            --no-clone-bundle \
+            --optimized-fetch \
+            --prune \
             build/make \
             build/blueprint \
-            build/pesto \
-            build/release \
             build/soong \
             prebuilts/build-tools \
             prebuilts/clang/host/linux-x86 \
             prebuilts/go/linux-x86 \
             bionic \
-            external/zlib \
-            system/core \
+            external/golang-protobuf \
+            external/fmtlib \
             system/libbase \
             system/logging \
-            frameworks/native \
             frameworks/libs/native_bridge_support \
-            frameworks/libs/binary_translation \
-            device/generic/common \
-            device/generic/x86 \
-            device/generic/x86_64 \
-            device/generic/goldfish \
-            hardware/google/gfxstream \
-            digitalis
-
-          echo '=== AUTOMATIC SOONG DEPENDENCY CLOSURE ==='
-          # Soong itself is a graph of Go/Android.bp dependencies. Instead of manually
-          # adding one missing project per CI failure, repeatedly run the exact Soong
-          # bootstrap query, collect every missing source directory, map each directory
-          # to its manifest project, and sync all discovered projects in batches.
-          cat > "$RUNNER_TEMP/resolve_soong_deps.py" <<'PY'
-          import re
-          import subprocess
-          import sys
-          import xml.etree.ElementTree as ET
-          from pathlib import Path
-
-          top = Path(sys.argv[1]).resolve()
-          manifest = top / ".repo" / "manifest.xml"
-          if not manifest.is_file():
-              raise SystemExit(f"missing manifest: {manifest}")
-
-          root = ET.parse(manifest).getroot()
-          projects = sorted(
-              (p.get("path") for p in root.findall(".//project") if p.get("path")),
-              key=len,
-              reverse=True,
-          )
-          # Any existing project path is a usable sync target; choose the longest
-          # manifest prefix for nested paths such as external/foo/bar.
-          def project_for(path: str):
-              clean = path.strip("/")
-              for p in projects:
-                  if clean == p or clean.startswith(p + "/"):
-                      return p
-              return None
-
-          cmd = [
-              "build/soong/soong_ui.bash",
-              "--dumpvars-mode",
-              "--vars=COMMON_LUNCH_CHOICES HOST_PREBUILT_TAG TARGET_BUILD_VARIANT TARGET_PRODUCT print report_config",
-              "--abs-vars=ANDROID_CLANG_PREBUILTS ANDROID_JAVA_HOME ANDROID_JAVA_TOOLCHAIN HOST_OUT HOST_OUT_EXECUTABLES HOST_OUT_TESTCASES OUT_DIR PRODUCT_OUT SOONG_HOST_OUT SOONG_HOST_OUT_EXECUTABLES TARGET_OUT_TESTCASES print",
-              "--var-prefix=var_cache_",
-              "--abs-var-prefix=abs_var_cache_",
-          ]
-
-          proc = subprocess.run(cmd, cwd=top, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-          text = proc.stdout
-          if proc.returncode == 0:
-              print("SOONG_CLOSURE_COMPLETE")
-              sys.exit(0)
-
-          missing_dirs = set()
-          patterns = [
-              r'Error parsing directory "([^"]+)"',
-              r'open ([^:]+): no such file or directory',
-              r'no such file or directory: ([^\n]+)',
-          ]
-          for pat in patterns:
-              for m in re.finditer(pat, text, re.IGNORECASE):
-                  raw = m.group(1).strip()
-                  try:
-                      p = str(Path(raw).resolve().relative_to(top))
-                  except ValueError:
-                      continue
-                  if p and not p.startswith("../"):
-                      missing_dirs.add(p)
-
-          projects_to_sync = sorted({p for d in missing_dirs if (p := project_for(d))})
-          print("SOONG_MISSING_DIRS:")
-          for d in sorted(missing_dirs):
-              print(d)
-          print("SOONG_PROJECTS_TO_SYNC:")
-          for p in projects_to_sync:
-              print(p)
-
-          if not projects_to_sync:
-              print(text)
-              sys.exit(proc.returncode)
-
-          subprocess.run(
-              ["repo", "sync", "-c", "-j4", "--force-sync", "--fail-fast", "--no-tags", "--no-clone-bundle", "--optimized-fetch", "--prune", *projects_to_sync],
-              cwd=top,
-              check=True,
-          )
-          sys.exit(42)
-          PY
-
-          # Run closure resolution until Soong parses cleanly. Each pass may discover
-          # several projects; they are synced together. Guard against pathological loops.
-          for pass in $(seq 1 20); do
-            echo "=== SOONG CLOSURE PASS $pass ==="
-            set +e
-            python3 "$RUNNER_TEMP/resolve_soong_deps.py" "$AOSP_TOP"
-            rc=$?
-            set -e
-            if [ "$rc" -eq 0 ]; then
-              break
-            fi
-            if [ "$rc" -ne 42 ]; then
-              echo "Soong dependency resolution failed without discoverable project dependencies."
-              exit "$rc"
-            fi
-            if [ "$pass" -eq 20 ]; then
-              echo 'Soong dependency closure exceeded 20 passes.'
-              exit 1
-            fi
-          done
+            frameworks/libs/binary_translation
 
           echo '=== SOURCE CHECK ==='
-          test -f build/envsetup.sh
+          test -f build/make/core/envsetup.mk
           test -f build/soong/soong_ui.bash
+          test -f build/soong/go.mod
+          test -f external/golang-protobuf/proto/descriptor.proto
+          test -f external/fmtlib/include/fmt/format.h
+          test -f system/libbase/Android.bp
+          test -f frameworks/libs/native_bridge_support/Android.bp
           test -f frameworks/libs/binary_translation/Android.bp
-          test -f frameworks/libs/binary_translation/enable_arm64_to_x86_64.mk
-          test -f frameworks/libs/binary_translation/native_bridge/arm64/native_bridge.cc
-          test -f frameworks/libs/binary_translation/decoder/arm64_test/decoder_test.cc
-          test -f frameworks/libs/binary_translation/interpreter/arm64/interpreter-main.cc
-          test -f frameworks/libs/binary_translation/lite_translator/arm64_to_x86_64/lite_translator.cc
-          test -f frameworks/libs/binary_translation/code_gen_lib/arm64_to_x86_64/gen_wrapper.cc
-          test -f digitalis/scripts/lunch-digitalis.sh
-          test -f device/generic/goldfish/64bitonly/product/sdk_phone64_x86_64_digitalis.mk
 
-          echo '=== ENVSETUP ==='
-          set +u
-          source build/envsetup.sh
-          source digitalis/scripts/lunch-digitalis.sh
-          set -u
-
-          echo '=== TRANSLATION CONFIG ==='
+          echo '=== HOST TRANSLATION CONFIG ==='
           export SOONG_CONFIG_berberis_translation_arch=arm64_to_x86_64
+          export TARGET_ARCH=x86_64
+          export TARGET_2ND_ARCH=
+          export OUT_DIR="$AOSP_TOP/out"
           export USE_CCACHE=1
           export CCACHE_DIR="$HOME/.cache/ccache"
           ccache -M 4G
           ccache -z
           ccache -s
 
-          echo '=== HOST BUILD ==='
-          m -j2 libberberis_arm64
+          echo '=== HOST BUILD: ONLY libberberis_arm64 ==='
+          build/soong/soong_ui.bash --make-mode -j2 libberberis_arm64
 
           echo '=== VERIFY OUTPUT ==='
-          out_dir="${OUT_DIR:-$AOSP_TOP/out}"
-          so="$(find "$out_dir" -type f -name 'libberberis_arm64.so' -print -quit)"
+          so="$(find "$OUT_DIR" -type f -name 'libberberis_arm64.so' -print -quit)"
           test -n "$so"
           file "$so"
           readelf -h "$so" | grep -q 'Machine:.*X86-64'
