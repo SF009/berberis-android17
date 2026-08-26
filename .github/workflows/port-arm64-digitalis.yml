@@ -22,7 +22,8 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v26
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v27
+      REPO_JOBS: 4
 
     steps:
       - name: Checkout
@@ -37,9 +38,9 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v26
             berberis-ccache-Linux-arm64-v25
             berberis-ccache-Linux-arm64-v24
-            berberis-ccache-Linux-arm64-v23
 
       - name: Build ARM64 native translation
         id: build
@@ -59,7 +60,7 @@ jobs:
 
           echo '=== TOOLS ==='
           sudo apt-get update -qq
-          sudo apt-get install -y -qq git-lfs rsync python3 ccache
+          sudo apt-get install -y -qq git-lfs rsync python3 ccache curl unzip xz-utils bc bison flex build-essential
           git lfs install --skip-repo
           ccache --version
 
@@ -67,7 +68,7 @@ jobs:
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
 
-          echo '=== DIGITALIS MANIFEST ==='
+          echo '=== AOSP MANIFEST BOOTSTRAP ==='
           rm -rf "$AOSP_TOP"
           mkdir -p "$AOSP_TOP" "$RUNNER_TEMP/bin" "$HOME/.cache/ccache"
           cd "$AOSP_TOP"
@@ -82,39 +83,42 @@ jobs:
             --clone-filter=blob:limit=5M \
             --no-use-superproject
 
-          echo '=== PDK-SCOPE DIGITALIS SYNC ==='
-          # The full Digitalis manifest is too large for the 145GB GitHub runner.
-          # Sync only projects in the manifest's PDK build group, plus the product
-          # and Berberis translation projects needed by this host build. This avoids
-          # CTS/test-only projects and the huge prebuilt/test trees that are irrelevant
-          # to libberberis_arm64.
+          echo '=== MINIMAL BUILD DEPENDENCIES ==='
+          # Do NOT use repo sync -g pdk (or a bare repo sync): that pulls most of AOSP.
+          # This is the explicit source closure needed for the host libberberis_arm64 build.
+          # Keep this list narrow; add a project only when the build proves it is required.
           repo sync \
-            -g pdk \
-            -c \
-            -j4 \
-            --force-sync \
-            --fail-fast \
-            --no-tags \
-            --no-clone-bundle \
-            --optimized-fetch \
-            --prune
-
-          repo sync \
-            -c \
-            -j4 \
+            -c -j"$REPO_JOBS" \
             --force-sync \
             --fail-fast \
             --no-tags \
             --no-clone-bundle \
             --optimized-fetch \
             --prune \
+            build/make \
+            build/blueprint \
+            build/pesto \
+            build/release \
+            build/soong \
+            prebuilts/build-tools \
+            prebuilts/clang/host/linux-x86 \
+            prebuilts/go/linux-x86 \
+            external/clang \
+            external/compiler-rt \
+            external/libcxx \
+            external/zlib \
+            bionic \
+            system/core \
+            system/libbase \
+            system/logging \
+            frameworks/native \
+            frameworks/libs/native_bridge_support \
             frameworks/libs/binary_translation \
             digitalis
 
-          echo '=== SYNC COMPLETE ==='
+          echo '=== SOURCE CHECK ==='
           test -f build/envsetup.sh
           test -f build/soong/soong_ui.bash
-          test -d frameworks/libs/binary_translation
           test -f frameworks/libs/binary_translation/Android.bp
           test -f frameworks/libs/binary_translation/enable_arm64_to_x86_64.mk
           test -f frameworks/libs/binary_translation/native_bridge/arm64/native_bridge.cc
@@ -134,14 +138,13 @@ jobs:
           export USE_CCACHE=1
           export CCACHE_DIR="$HOME/.cache/ccache"
           ccache -M 4G
-          ccache -s
           ccache -z
+          ccache -s
 
           echo '=== HOST BUILD ==='
+          # Only build the translator library. Do not invoke `m` with no target,
+          # which would turn this into a product/image build and force a much larger source closure.
           m -j2 libberberis_arm64
-
-          echo '=== CCACHE ==='
-          ccache -s
 
           echo '=== VERIFY OUTPUT ==='
           out_dir="${OUT_DIR:-$AOSP_TOP/out}"
@@ -152,6 +155,9 @@ jobs:
           ! nm -C "$so" 2>/dev/null | grep -Eiq 'riscv64|RISCV|RiscV'
           echo 'ARM64 native translation build: PASS'
           echo "Output: $so"
+
+          echo '=== CCACHE ==='
+          ccache -s
 
       - name: Save ccache
         if: steps.ccache.outputs.cache-hit != 'true'
