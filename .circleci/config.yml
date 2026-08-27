@@ -1,0 +1,27 @@
+version: 2.1
+
+jobs:
+  probe:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - run:
+          name: Report available CircleCI resources
+          command: |
+            set -eux
+            echo '=== CPU ==='
+            nproc
+            echo '=== RAM ==='
+            free -h
+            echo '=== DISK ==='
+            df -h
+            echo '=== OS ==='
+            uname -a
+            echo '=== PROJECT ==='
+            git rev-parse --show-toplevel
+
+workflows:
+  probe:
+    jobs:
+      - probe
