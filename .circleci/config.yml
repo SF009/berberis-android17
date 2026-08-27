@@ -1,58 +1,174 @@
 version: 2.1
 
 jobs:
-  probe:
+  build-berberis:
     docker:
       - image: cimg/base:current
+
+    resource_class: large
+
+    environment:
+      AOSP_TOP: /home/circleci/aosp
+      DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
+      DIGITALIS_REF: android-latest-release
+      REPO_JOBS: "2"
 
     steps:
       - checkout
 
       - run:
-          name: Inspect CircleCI resources
+          name: Prepare host
           command: |
-            set -eux
+            set -Eeuo pipefail
 
-            echo '=== CPU ==='
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq \
+              git-lfs rsync python3 curl unzip xz-utils \
+              bc bison flex gperf build-essential ninja-build \
+              ccache
+            git lfs install --skip-repo
+
+            echo '=== RESOURCES ==='
             nproc
-
-            echo '=== RAM ==='
             free -h
+            df -h /
 
-            echo '=== DISK ==='
-            df -h
+      - run:
+          name: Prepare repo and HTTPS
+          command: |
+            set -Eeuo pipefail
 
-            echo '=== MOUNTS ==='
-            mount | grep -E 'nvme|ramdisk|overlay|shm' || true
+            mkdir -p "$HOME/bin" "$AOSP_TOP"
+            curl -fsSL \
+              https://storage.googleapis.com/git-repo-downloads/repo \
+              -o "$HOME/bin/repo"
+            chmod +x "$HOME/bin/repo"
+            echo 'export PATH="$HOME/bin:$PATH"' >> "$BASH_ENV"
+            source "$BASH_ENV"
 
-            echo '=== FILESYSTEM TARGETS ==='
-            findmnt -T / || true
-            findmnt -T /mnt/ramdisk || true
-            findmnt -T /dev/shm || true
-            findmnt /dev/nvme1n1 || true
+            git config --global url."https://github.com/".insteadOf "git@github.com:"
+            git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+            git config --global url."https://github.com/".insteadOf "git://github.com/"
 
-            echo '=== DEVICE ==='
-            lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINTS 2>/dev/null || true
+            rm -rf "$AOSP_TOP"
+            mkdir -p "$AOSP_TOP"
+            cd "$AOSP_TOP"
 
-            echo '=== WRITE TEST ==='
-            for d in /tmp /mnt/ramdisk /dev/shm /home/circleci/project; do
-              echo "Testing $d"
-              if touch "$d/.circleci_write_test" 2>/dev/null; then
-                rm -f "$d/.circleci_write_test"
-                echo "WRITE_OK $d"
-              else
-                echo "WRITE_FAIL $d"
+            repo init \
+              -u "$DIGITALIS_MANIFEST" \
+              -b "$DIGITALIS_REF" \
+              --partial-clone \
+              --clone-filter=blob:limit=5M \
+              --no-use-superproject
+
+            # Rewrite every GitHub URL used by the manifest itself.
+            find .repo -type f \( -name '*.xml' -o -name '*.manifest' -o -name 'config' \) -print0 \
+              | xargs -0r sed -i \
+                  -e 's#git@github.com:#https://github.com/#g' \
+                  -e 's#ssh://git@github.com/#https://github.com/#g' \
+                  -e 's#git://github.com/#https://github.com/#g'
+
+            echo '=== VERIFY GITHUB URLS ==='
+            if grep -R -nE 'git@github.com:|ssh://git@github.com/' .repo 2>/dev/null; then
+              echo 'ERROR: SSH GitHub URL remains in .repo'
+              exit 1
+            fi
+
+      - run:
+          name: Sync PDK source
+          command: |
+            set -Eeuo pipefail
+            source "$BASH_ENV"
+            cd "$AOSP_TOP"
+
+            # PDK is the broad dependency set defined by the Digitalis
+            # manifest. Keep the clone filtered to reduce network/storage use.
+            repo sync \
+              -g pdk \
+              -c \
+              -j"$REPO_JOBS" \
+              --force-sync \
+              --fail-fast \
+              --no-tags \
+              --no-clone-bundle \
+              --optimized-fetch \
+              --prune
+
+            echo '=== AFTER SYNC ==='
+            df -h /
+            du -sh "$AOSP_TOP" 2>/dev/null || true
+
+      - run:
+          name: Inject ARM64 port
+          command: |
+            set -Eeuo pipefail
+            cd "$AOSP_TOP"
+
+            test -d "$CIRCLE_WORKING_DIRECTORY/heavy_optimizer/arm64"
+            rm -rf "$AOSP_TOP/heavy_optimizer/arm64"
+            mkdir -p "$AOSP_TOP/heavy_optimizer"
+            cp -a "$CIRCLE_WORKING_DIRECTORY/heavy_optimizer/arm64" \
+              "$AOSP_TOP/heavy_optimizer/arm64"
+
+            # Add ARM64-specific module declarations only when they are not
+            # already provided by the base Android.bp.
+            if grep -q 'libberberis_heavy_optimizer_arm64' "$CIRCLE_WORKING_DIRECTORY/Android.bp"; then
+              if ! grep -q 'libberberis_heavy_optimizer_arm64' "$AOSP_TOP/Android.bp"; then
+                printf '\n// ARM64 Berberis port\n' >> "$AOSP_TOP/Android.bp"
+                cat "$CIRCLE_WORKING_DIRECTORY/Android.bp" >> "$AOSP_TOP/Android.bp"
               fi
-            done
+            fi
 
-            echo '=== SWAP ==='
-            swapon --show 2>/dev/null || true
+      - run:
+          name: Build ARM64 Berberis
+          command: |
+            set -Eeuo pipefail
+            cd "$AOSP_TOP"
 
-            echo '=== PROJECT ==='
-            git rev-parse --show-toplevel
-            git rev-parse HEAD
+            export SOONG_CONFIG_berberis_translation_arch=arm64_to_x86_64
+            export TARGET_ARCH=x86_64
+            export TARGET_2ND_ARCH=
+            export OUT_DIR="$AOSP_TOP/out"
+            export USE_CCACHE=1
+            export CCACHE_DIR="$HOME/.cache/ccache"
+
+            ccache -M 4G
+            ccache -z
+
+            # 8GB RAM is the observed CircleCI limit, so keep parallelism low.
+            build/soong/soong_ui.bash --make-mode -j1 \
+              libberberis_arm64 \
+              libberberis_heavy_optimizer_arm64 \
+              libberberis_heavy_optimizer_arm64_unit_tests
+
+      - run:
+          name: Verify output
+          command: |
+            set -Eeuo pipefail
+            cd "$AOSP_TOP"
+
+            SO="$(find "$OUT_DIR" -type f \
+              -name 'libberberis_arm64.so' -print -quit)"
+
+            test -n "$SO"
+            file "$SO"
+            readelf -h "$SO" | grep -q 'Machine:.*X86-64'
+
+            echo '========================================'
+            echo ' ARM64 -> x86_64 BUILD SUCCESS'
+            echo '========================================'
+            echo "Output: $SO"
+
+            echo '=== FINAL RESOURCES ==='
+            free -h
+            df -h /
+            ccache -s
+
+      - store_artifacts:
+          path: /home/circleci/aosp/out
+          destination: berberis-out
 
 workflows:
-  probe:
+  build:
     jobs:
-      - probe
+      - build-berberis
