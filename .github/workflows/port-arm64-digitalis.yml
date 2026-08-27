@@ -22,7 +22,7 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v33
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v34
       REPO_JOBS: 4
 
     steps:
@@ -38,9 +38,9 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v33
             berberis-ccache-Linux-arm64-v32
             berberis-ccache-Linux-arm64-v31
-            berberis-ccache-Linux-arm64-v30
 
       - name: Build ARM64 native translation
         id: build
@@ -83,12 +83,11 @@ jobs:
             --clone-filter=blob:limit=5M \
             --no-use-superproject
 
-          echo '=== COMPLETE SOONG_UI + ARM64 HOST DEPENDENCY SET ==='
-          # This is one fixed sync. It contains the build-tools/Soong bootstrap
-          # closure (including the projects used by the Soong bootstrap itself)
-          # plus the host-side Berberis/Digitalis translation sources.
-          # We intentionally do NOT use repo sync -g pdk, so the full Android
-          # platform/product tree is not downloaded.
+          echo '=== MANIFEST-VALID SOONG_UI + ARM64 HOST DEPENDENCIES ==='
+          # One fixed sync using only project paths that exist in the
+          # Digitalis manifest. In particular, external/pogreb is part of the
+          # Soong/build-tools bootstrap. We do not request projects that are
+          # absent from this manifest and therefore cannot be synced.
           repo sync \
             -c -j"$REPO_JOBS" \
             --force-sync \
@@ -103,25 +102,14 @@ jobs:
             build/release \
             build/soong \
             bionic \
-            external/bazel-skylib \
             external/fmtlib \
             external/go-cmp \
-            external/go-etree \
-            external/go-subcommands \
             external/golang-protobuf \
-            external/golang-x-sync \
-            external/golang-x-sys \
-            external/golang-x-tools \
-            external/googletest \
-            external/gson \
-            external/guava \
-            external/icu \
             external/pogreb \
             external/protobuf \
             external/starlark-go \
             external/zlib \
             packages/modules/common \
-            prebuilts/bazel/common \
             prebuilts/build-tools \
             prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8 \
             prebuilts/go/linux-x86 \
@@ -148,7 +136,6 @@ jobs:
           test -d prebuilts/build-tools
           test -d prebuilts/remoteexecution-client
           test -d prebuilts/siso
-          test -d prebuilts/bazel/common
           test -d prebuilts/clang/host/linux-x86
           test -d prebuilts/go/linux-x86
           test -f system/libbase/Android.bp
@@ -172,7 +159,7 @@ jobs:
             libberberis_heavy_optimizer_arm64 \
             libberberis_arm64
 
-          echo '=== VERIFY HEAVY OPTIMIZER TARGET EXISTS ==='
+          echo '=== BUILD ARM64 HEAVY OPTIMIZER TEST LIB ==='
           build/soong/soong_ui.bash --make-mode -j2 \
             libberberis_heavy_optimizer_arm64_unit_tests
 
