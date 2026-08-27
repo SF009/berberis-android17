@@ -5,7 +5,19 @@ jobs:
     docker:
       - image: cimg/base:current
     steps:
-      - checkout
+      - run:
+          name: Checkout repository over HTTPS
+          command: |
+            set -Eeuo pipefail
+
+            rm -rf "$CIRCLE_WORKING_DIRECTORY"
+            mkdir -p "$CIRCLE_WORKING_DIRECTORY"
+
+            git clone \
+              --depth 1 \
+              --branch "$CIRCLE_BRANCH" \
+              "https://github.com/SF009/berberis-android17.git" \
+              "$CIRCLE_WORKING_DIRECTORY"
       - run:
           name: Report available CircleCI resources
           command: |
