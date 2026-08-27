@@ -22,7 +22,7 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v39
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v40
       REPO_JOBS: 2
 
     steps:
@@ -38,29 +38,24 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v39
             berberis-ccache-Linux-arm64-v38
-            berberis-ccache-Linux-arm64-v37
-            berberis-ccache-Linux-arm64-v36
 
       - name: Prepare repo
         shell: bash
         run: |
           set -Eeuo pipefail
+          rm -rf "$AOSP_TOP"
           mkdir -p "$AOSP_TOP" "$RUNNER_TEMP/bin"
           cd "$AOSP_TOP"
 
-          curl -fsSL \
-            https://storage.googleapis.com/git-repo-downloads/repo \
-            -o "$RUNNER_TEMP/bin/repo"
+          curl -fsSL https://storage.googleapis.com/git-repo-downloads/repo -o "$RUNNER_TEMP/bin/repo"
           chmod +x "$RUNNER_TEMP/bin/repo"
           export PATH="$RUNNER_TEMP/bin:$PATH"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
-
-          echo '=== REPO VERSION ==='
-          repo version
 
           repo init \
             -u "$DIGITALIS_MANIFEST" \
@@ -69,119 +64,79 @@ jobs:
             --clone-filter=blob:limit=5M \
             --no-use-superproject
 
-      - name: Inspect PDK manifest before sync
+      - name: Sync manifest-defined build dependencies
         shell: bash
         run: |
           set -Eeuo pipefail
           cd "$AOSP_TOP"
 
-          echo '=== MANIFEST SOURCE ==='
-          MANIFEST_FILE="$(find .repo/manifests -type f -name '*.xml' -print -quit)"
-          if [ -z "$MANIFEST_FILE" ]; then
-            echo 'ERROR: manifest XML not found'
-            exit 1
-          fi
-          echo "Manifest: $MANIFEST_FILE"
-
-          echo '=== PDK PROJECT COUNT ==='
-          PROJECT_COUNT="$(python3 - "$MANIFEST_FILE" <<'PY'
-import sys
-import xml.etree.ElementTree as ET
-root = ET.parse(sys.argv[1]).getroot()
-count = 0
-for p in root.findall('.//project'):
-    groups = {x.strip() for x in p.get('groups', '').split(',') if x.strip()}
-    if 'pdk' in groups:
-        count += 1
-print(count)
-PY
-)"
-          echo "PDK projects: $PROJECT_COUNT"
-
-          echo '=== PDK MANIFEST SIZE ==='
-          wc -c "$MANIFEST_FILE"
-
-          echo '=== PDK PROJECT PATHS ==='
-          python3 - "$MANIFEST_FILE" <<'PY'
-import sys
-import xml.etree.ElementTree as ET
-root = ET.parse(sys.argv[1]).getroot()
-paths = []
-for p in root.findall('.//project'):
-    groups = {x.strip() for x in p.get('groups', '').split(',') if x.strip()}
-    if 'pdk' in groups:
-        path = p.get('path')
-        if path:
-            paths.append(path)
-for path in sorted(set(paths)):
-    print(path)
-PY
-
-          echo '=== REPO METADATA SIZE ==='
-          du -sh .repo
-
-          echo '=== DISK BEFORE SOURCE SYNC ==='
-          df -h /
-
-      - name: Sync PDK source
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          cd "$AOSP_TOP"
-
+          # These paths are present in Digitalis android-latest-release.
+          # Do not use -g pdk: that would fetch the whole PDK source set.
           repo sync \
-            -g pdk \
             -c -j"$REPO_JOBS" \
             --force-sync \
             --fail-fast \
             --no-tags \
             --no-clone-bundle \
             --optimized-fetch \
-            --prune
+            --prune \
+            build/make \
+            build/blueprint \
+            build/pesto \
+            build/release \
+            build/soong \
+            bionic \
+            external/fmtlib \
+            external/go-cmp \
+            external/golang-protobuf \
+            external/pogreb \
+            external/protobuf \
+            external/starlark-go \
+            external/zlib \
+            packages/modules/common \
+            prebuilts/build-tools \
+            prebuilts/remoteexecution-client \
+            prebuilts/clang/host/linux-x86 \
+            prebuilts/go/linux-x86 \
+            prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8 \
+            system/libbase \
+            system/logging \
+            frameworks/libs/native_bridge_support \
+            frameworks/libs/binary_translation
 
-      - name: Report synced size
+      - name: Inject ARM64 heavy optimizer without modifying Soong root
         shell: bash
         run: |
           set -Eeuo pipefail
           cd "$AOSP_TOP"
 
-          echo '=== DISK AFTER PDK SYNC ==='
-          df -h /
+          rm -rf heavy_optimizer/arm64
+          mkdir -p heavy_optimizer
+          cp -a "$GITHUB_WORKSPACE/heavy_optimizer/arm64" heavy_optimizer/arm64
 
-          echo '=== AOSP SOURCE SIZE ==='
-          du -sh . 2>/dev/null || true
+          # The repo-created Android.bp is a symlink to build/soong/root.bp.
+          # Never append the project Android.bp to that symlink. Instead use a
+          # dedicated namespace file that only contains the ARM64 optimizer.
+          cat > heavy_optimizer/Android.bp <<'EOF'
+subdirs = ["arm64"]
+EOF
 
-          echo '=== PDK PROJECT SIZES ==='
-          repo forall -g pdk -c 'printf "%10s  %s\\n" "$(du -sh . 2>/dev/null | cut -f1)" "$REPO_PATH"' \
-            | sort -h || true
+          # Expose the top-level Berberis definitions from this repository
+          # without mutating build/soong/root.bp.
+          cp "$GITHUB_WORKSPACE/Android.bp" heavy_optimizer/berberis_root.bp
 
-      - name: Verify build environment
+      - name: Verify environment
         shell: bash
         run: |
           set -Eeuo pipefail
           cd "$AOSP_TOP"
 
-          test -f build/envsetup.sh
-          test -f build/make/core/envsetup.mk
-          test -f build/soong/soong_ui.bash
+          test -x build/soong/soong_ui.bash
           test -f build/soong/root.bp
           test -f build/soong/go.mod
           test -f bionic/Android.bp
           test -f frameworks/libs/binary_translation/Android.bp
-
-      - name: Inject ARM64 port
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-
-          rm -rf "$AOSP_TOP/heavy_optimizer/arm64"
-          mkdir -p "$AOSP_TOP/heavy_optimizer"
-          cp -a "$GITHUB_WORKSPACE/heavy_optimizer/arm64" \
-                "$AOSP_TOP/heavy_optimizer/arm64"
-
-          if grep -q 'libberberis_heavy_optimizer_arm64' "$GITHUB_WORKSPACE/Android.bp"; then
-            cat "$GITHUB_WORKSPACE/Android.bp" >> "$AOSP_TOP/Android.bp"
-          fi
+          test -f heavy_optimizer/arm64/Android.bp
 
       - name: Build ARM64 native translation
         id: build
@@ -192,7 +147,6 @@ PY
           trap 'rc=$?; if [ "$rc" -ne 0 ]; then echo "BUILD_FAILED rc=$rc cmd=$BASH_COMMAND"; fi; exit "$rc"' EXIT
 
           cd "$AOSP_TOP"
-
           export SOONG_CONFIG_berberis_translation_arch=arm64_to_x86_64
           export TARGET_ARCH=x86_64
           export TARGET_2ND_ARCH=
@@ -203,9 +157,10 @@ PY
           ccache -M 4G
           ccache -z
 
+          echo '=== BUILD ==='
           build/soong/soong_ui.bash --make-mode -j2 \
-            libberberis_arm64 \
             libberberis_heavy_optimizer_arm64 \
+            libberberis_arm64 \
             libberberis_heavy_optimizer_arm64_unit_tests
 
           echo '=== VERIFY OUTPUT ==='
@@ -215,8 +170,6 @@ PY
           readelf -h "$so" | grep -q 'Machine:.*X86-64'
           echo 'ARM64 native translation build: PASS'
           echo "Output: $so"
-
-          echo '=== CCACHE ==='
           ccache -s
 
       - name: Save ccache
