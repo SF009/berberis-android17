@@ -22,7 +22,7 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v36
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v37
       REPO_JOBS: 2
 
     steps:
@@ -38,9 +38,9 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v36
             berberis-ccache-Linux-arm64-v35
             berberis-ccache-Linux-arm64-v34
-            berberis-ccache-Linux-arm64-v33
 
       - name: Prepare repo
         shell: bash
@@ -72,13 +72,38 @@ jobs:
           set -Eeuo pipefail
           cd "$AOSP_TOP"
 
-          echo '=== PDK MANIFEST ==='
-          repo manifest -g pdk -r -o "$RUNNER_TEMP/pdk-manifest.xml"
+          echo '=== FULL MANIFEST ==='
+          repo manifest -r -o "$RUNNER_TEMP/full-manifest.xml"
+
+          echo '=== FILTER PDK PROJECTS ==='
+          python3 - "$RUNNER_TEMP/full-manifest.xml" "$RUNNER_TEMP/pdk-manifest.xml" <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          src, dst = sys.argv[1], sys.argv[2]
+          root = ET.parse(src).getroot()
+
+          def has_pdk_group(project):
+              groups = set()
+              raw = project.get("groups", "")
+              groups.update(x.strip() for x in raw.split(",") if x.strip())
+              return "pdk" in groups
+
+          out = ET.Element("manifest")
+          for key, value in root.attrib.items():
+              out.set(key, value)
+
+          for child in root:
+              if child.tag == "project" and has_pdk_group(child):
+                  out.append(child)
+
+          ET.ElementTree(out).write(dst, encoding="utf-8", xml_declaration=True)
+          PY
 
           PROJECT_COUNT="$(grep -c '<project ' "$RUNNER_TEMP/pdk-manifest.xml" || true)"
           echo "PDK project count: $PROJECT_COUNT"
 
-          echo '=== MANIFEST SIZE ==='
+          echo '=== PDK MANIFEST SIZE ==='
           wc -c "$RUNNER_TEMP/pdk-manifest.xml"
 
           echo '=== PDK PROJECT PATHS ==='
@@ -87,7 +112,6 @@ jobs:
             | sort
 
           echo '=== METADATA-ONLY FETCH ==='
-          echo 'This fetches Git metadata for PDK projects without checking out source files.'
           repo sync \
             -g pdk \
             -n \
@@ -99,10 +123,6 @@ jobs:
 
           echo '=== METADATA DISK USAGE ==='
           du -sh .repo
-
-          echo '=== PER-PROJECT GIT DIRECTORY USAGE ==='
-          repo forall -g pdk -c 'printf "%10s  %s\\n" "$(du -sh .git 2>/dev/null | cut -f1)" "$REPO_PATH"' \
-            | sort -h
 
           echo '=== DISK AFTER METADATA FETCH ==='
           df -h /
