@@ -22,7 +22,7 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v34
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v35
       REPO_JOBS: 4
 
     steps:
@@ -38,9 +38,9 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v34
             berberis-ccache-Linux-arm64-v33
             berberis-ccache-Linux-arm64-v32
-            berberis-ccache-Linux-arm64-v31
 
       - name: Build ARM64 native translation
         id: build
@@ -84,10 +84,9 @@ jobs:
             --no-use-superproject
 
           echo '=== MANIFEST-VALID SOONG_UI + ARM64 HOST DEPENDENCIES ==='
-          # One fixed sync using only project paths that exist in the
-          # Digitalis manifest. In particular, external/pogreb is part of the
-          # Soong/build-tools bootstrap. We do not request projects that are
-          # absent from this manifest and therefore cannot be synced.
+          # Only paths present in the Digitalis manifest are requested.
+          # prebuilts/siso is intentionally omitted because this manifest
+          # does not define that project and repo sync aborts on unknown paths.
           repo sync \
             -c -j"$REPO_JOBS" \
             --force-sync \
@@ -114,7 +113,6 @@ jobs:
             prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8 \
             prebuilts/go/linux-x86 \
             prebuilts/remoteexecution-client \
-            prebuilts/siso \
             prebuilts/clang/host/linux-x86 \
             system/libbase \
             system/logging \
@@ -135,7 +133,6 @@ jobs:
           test -d packages/modules/common
           test -d prebuilts/build-tools
           test -d prebuilts/remoteexecution-client
-          test -d prebuilts/siso
           test -d prebuilts/clang/host/linux-x86
           test -d prebuilts/go/linux-x86
           test -f system/libbase/Android.bp
