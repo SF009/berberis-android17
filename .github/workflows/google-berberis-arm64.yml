@@ -1,0 +1,122 @@
+name: Google-style ARM64 Berberis build
+
+on:
+  push:
+    branches: [arm64-native-translation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    env:
+      AOSP_TOP: ${{ github.workspace }}/aosp
+      DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
+      DIGITALIS_REF: android-latest-release
+      REPO_JOBS: 4
+
+    steps:
+      - name: Checkout ARM64 port sources
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq git-lfs rsync python3 curl unzip xz-utils bc bison flex build-essential ccache
+          git lfs install --skip-repo
+
+      - name: Initialize Android checkout
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          rm -rf "$AOSP_TOP"
+          mkdir -p "$AOSP_TOP" "$RUNNER_TEMP/bin"
+          cd "$AOSP_TOP"
+          curl -fsSL https://storage.googleapis.com/git-repo-downloads/repo -o "$RUNNER_TEMP/bin/repo"
+          chmod +x "$RUNNER_TEMP/bin/repo"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          export PATH="$RUNNER_TEMP/bin:$PATH"
+          repo init \
+            -u "$DIGITALIS_MANIFEST" \
+            -b "$DIGITALIS_REF" \
+            --partial-clone \
+            --clone-filter=blob:limit=5M \
+            --no-use-superproject
+
+      - name: Sync full Android checkout
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cd "$AOSP_TOP"
+          repo sync \
+            -c -j"$REPO_JOBS" \
+            --force-sync \
+            --fail-fast \
+            --no-tags \
+            --no-clone-bundle \
+            --optimized-fetch \
+            --prune
+
+      - name: Apply ARM64 port
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cd "$AOSP_TOP"
+
+          # Install the ARM64 heavy optimizer into the real Berberis source tree.
+          rm -rf frameworks/libs/binary_translation/heavy_optimizer/arm64
+          mkdir -p frameworks/libs/binary_translation/heavy_optimizer
+          cp -a "$GITHUB_WORKSPACE/heavy_optimizer/arm64" \
+                frameworks/libs/binary_translation/heavy_optimizer/arm64
+
+          # The fork's root Android.bp carries the ARM64 Berberis target graph.
+          # Keep Google's build/soong/root.bp intact and add the fork graph as a
+          # normal Android.bp under the Berberis source tree.
+          cp "$GITHUB_WORKSPACE/Android.bp" \
+             frameworks/libs/binary_translation/Android.bp.arm64-port
+
+          # Merge the ARM64 module definitions into Berberis' existing bp file.
+          cat frameworks/libs/binary_translation/Android.bp.arm64-port \
+              >> frameworks/libs/binary_translation/Android.bp
+          rm frameworks/libs/binary_translation/Android.bp.arm64-port
+
+      - name: Build with Google AOSP flow
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cd "$AOSP_TOP"
+
+          source build/envsetup.sh
+          lunch sdk_phone64_x86_64_riscv64-trunk_staging-eng
+
+          # Build the official Berberis aggregate first, as documented by Google,
+          # then explicitly build the ARM64 port target.
+          m berberis_all
+          m libberberis_heavy_optimizer_arm64 libberberis_arm64
+          mmm frameworks/libs/binary_translation
+
+      - name: Host unit tests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cd "$AOSP_TOP"
+          test_bin="$(find out/host/linux-x86/nativetest64 -type f -name 'berberis_arm64_host_tests' -print -quit || true)"
+          if [ -n "$test_bin" ]; then
+            "$test_bin" --gtest_filter='Arm64*'
+          fi
+
+      - name: Verify ARM64 output
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cd "$AOSP_TOP"
+          so="$(find out -type f -name 'libberberis_arm64.so' -print -quit)"
+          test -n "$so"
+          file "$so"
+          readelf -h "$so" | grep -q 'Machine:.*X86-64'
+          echo "Built: $so"
