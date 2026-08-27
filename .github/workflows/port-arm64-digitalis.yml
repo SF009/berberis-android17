@@ -19,10 +19,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     env:
-      AOSP_TOP: ${{ github.workspace }}/.build/aosp
+      AOSP_TOP: ${{ github.workspace }}/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v40
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v41
       REPO_JOBS: 2
 
     steps:
@@ -31,40 +31,33 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Restore ccache
-        id: ccache
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/.cache/ccache
-          key: ${{ env.CCACHE_KEY }}
-          restore-keys: |
-            berberis-ccache-Linux-arm64-v39
-            berberis-ccache-Linux-arm64-v38
-            berberis-ccache-Linux-arm64-v37
-
       - name: Install build dependencies
-        shell: bash
         run: |
           set -Eeuo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq git-lfs rsync python3 curl unzip xz-utils bc bison flex gperf build-essential
+          sudo apt-get install -y -qq \
+            git-lfs rsync python3 curl unzip xz-utils \
+            bc bison flex gperf build-essential ccache
           git lfs install --skip-repo
 
       - name: Prepare repo
         shell: bash
         run: |
           set -Eeuo pipefail
-          mkdir -p "$AOSP_TOP" "$RUNNER_TEMP/bin"
+          rm -rf "$AOSP_TOP"
+          mkdir -p "$AOSP_TOP" "$RUNNER_TEMP/bin" "$HOME/.cache/ccache"
           cd "$AOSP_TOP"
 
           curl -fsSL \
             https://storage.googleapis.com/git-repo-downloads/repo \
             -o "$RUNNER_TEMP/bin/repo"
           chmod +x "$RUNNER_TEMP/bin/repo"
-          export PATH="$RUNNER_TEMP/bin:$PATH"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          export PATH="$RUNNER_TEMP/bin:$PATH"
 
-          # Configure GitHub access to prefer HTTPS.
+          # Convert GitHub SSH URLs to HTTPS before repo creates project
+          # remotes. This is required because the Digitalis manifest defines
+          # GitHub projects through an SSH remote named "github".
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
           git config --global url."https://github.com/".insteadOf "git://github.com/"
@@ -76,50 +69,24 @@ jobs:
             --clone-filter=blob:limit=5M \
             --no-use-superproject
 
-          # repo may create a dedicated remote from the manifest. Rewrite
-          # GitHub SSH URLs in all manifest XML files so that the generated
-          # project remotes are HTTPS before the first sync.
+          # Rewrite the manifest itself. Git URL rewriting alone is not
+          # sufficient because repo materializes its own "github" remote.
           find .repo/manifests -type f \( -name '*.xml' -o -name '*.manifest' \) -print0 \
             | xargs -0r sed -i \
                 -e 's#git@github.com:#https://github.com/#g' \
                 -e 's#ssh://git@github.com/#https://github.com/#g'
 
-          echo '=== CHECK MANIFEST GITHUB URLS ==='
-          if grep -R -nE 'git@github.com:|ssh://git@github.com/' .repo/manifests; then
-            echo 'ERROR: SSH GitHub URL remains in manifest'
+          # Also rewrite any inherited/local manifest fragments.
+          find .repo/local_manifests -type f \( -name '*.xml' -o -name '*.manifest' \) -print0 2>/dev/null \
+            | xargs -0r sed -i \
+                -e 's#git@github.com:#https://github.com/#g' \
+                -e 's#ssh://git@github.com/#https://github.com/#g'
+
+          echo '=== VERIFY NO GITHUB SSH URLS ==='
+          if grep -R -nE 'git@github.com:|ssh://git@github.com/' .repo/manifests .repo/local_manifests 2>/dev/null; then
+            echo 'ERROR: GitHub SSH URL remains in manifest'
             exit 1
           fi
-
-          echo '=== REPO REMOTE CONFIG ==='
-          git config --global --get-regexp '^url\.' || true
-
-      - name: Inspect manifest
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          cd "$AOSP_TOP"
-
-          MANIFEST_FILE="$(find .repo/manifests -type f -name '*.xml' -print -quit)"
-          test -n "$MANIFEST_FILE"
-
-          echo "Manifest: $MANIFEST_FILE"
-          echo '=== PDK PROJECT COUNT ==='
-          python3 - "$MANIFEST_FILE" <<'PY'
-          import sys
-          import xml.etree.ElementTree as ET
-          root = ET.parse(sys.argv[1]).getroot()
-          paths = []
-          for p in root.findall('.//project'):
-              groups = {x.strip() for x in p.get('groups', '').split(',') if x.strip()}
-              if 'pdk' in groups and p.get('path'):
-                  paths.append(p.get('path'))
-          print(f"PDK projects: {len(set(paths))}")
-          PY
-
-          echo '=== MANIFEST SIZE ==='
-          wc -c "$MANIFEST_FILE"
-          echo '=== DISK BEFORE SYNC ==='
-          df -h /
 
       - name: Sync PDK source
         shell: bash
@@ -137,23 +104,23 @@ jobs:
             --optimized-fetch \
             --prune
 
-      - name: Report synced size
+      - name: Report source size
         shell: bash
         run: |
           set -Eeuo pipefail
           cd "$AOSP_TOP"
-
-          echo '=== DISK AFTER PDK SYNC ==='
+          echo '=== DISK AFTER SYNC ==='
           df -h /
           echo '=== AOSP SOURCE SIZE ==='
-          du -sh .
+          du -sh . 2>/dev/null || true
+          echo '=== PDK PROJECT COUNT ==='
+          repo forall -g pdk -c 'echo "$REPO_PATH"' | wc -l
 
       - name: Verify build environment
         shell: bash
         run: |
           set -Eeuo pipefail
           cd "$AOSP_TOP"
-
           test -f build/envsetup.sh
           test -f build/make/core/envsetup.mk
           test -f build/soong/soong_ui.bash
@@ -166,24 +133,34 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+          cd "$AOSP_TOP"
 
           rm -rf "$AOSP_TOP/heavy_optimizer/arm64"
           mkdir -p "$AOSP_TOP/heavy_optimizer"
           cp -a "$GITHUB_WORKSPACE/heavy_optimizer/arm64" \
                 "$AOSP_TOP/heavy_optimizer/arm64"
 
-          if grep -q 'libberberis_heavy_optimizer_arm64' "$GITHUB_WORKSPACE/Android.bp"; then
+          # Add ARM64 module declarations only when they are not already
+          # present. This avoids duplicate module definitions in Android.bp.
+          if grep -q 'libberberis_heavy_optimizer_arm64' "$AOSP_TOP/Android.bp"; then
+            echo 'ARM64 modules already present in AOSP Android.bp'
+          elif grep -q 'libberberis_heavy_optimizer_arm64' "$GITHUB_WORKSPACE/Android.bp"; then
             cat "$GITHUB_WORKSPACE/Android.bp" >> "$AOSP_TOP/Android.bp"
           fi
 
+      - name: Configure ccache
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$HOME/.cache/ccache"
+          ccache -M 4G
+          ccache -s
+
       - name: Build ARM64 native translation
-        id: build
         shell: bash
         run: |
           set -Eeuo pipefail
           exec > >(tee -a "$RUNNER_TEMP/arm64-build.log") 2>&1
-          trap 'rc=$?; if [ "$rc" -ne 0 ]; then echo "BUILD_FAILED rc=$rc cmd=$BASH_COMMAND"; fi; exit "$rc"' EXIT
-
           cd "$AOSP_TOP"
 
           export SOONG_CONFIG_berberis_translation_arch=arm64_to_x86_64
@@ -192,9 +169,6 @@ jobs:
           export OUT_DIR="$AOSP_TOP/out"
           export USE_CCACHE=1
           export CCACHE_DIR="$HOME/.cache/ccache"
-
-          ccache -M 4G
-          ccache -z
 
           build/soong/soong_ui.bash --make-mode -j2 \
             libberberis_arm64 \
@@ -208,12 +182,10 @@ jobs:
           readelf -h "$so" | grep -q 'Machine:.*X86-64'
           echo 'ARM64 native translation build: PASS'
           echo "Output: $so"
-
-          echo '=== CCACHE ==='
           ccache -s
 
       - name: Save ccache
-        if: always() && steps.ccache.outputs.cache-hit != 'true'
+        if: always()
         uses: actions/cache/save@v4
         with:
           path: ~/.cache/ccache
