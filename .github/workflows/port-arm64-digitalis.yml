@@ -22,7 +22,7 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v39
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v40
       REPO_JOBS: 2
 
     steps:
@@ -38,9 +38,17 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v39
             berberis-ccache-Linux-arm64-v38
             berberis-ccache-Linux-arm64-v37
-            berberis-ccache-Linux-arm64-v36
+
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq git-lfs rsync python3 curl unzip xz-utils bc bison flex gperf build-essential
+          git lfs install --skip-repo
 
       - name: Prepare repo
         shell: bash
@@ -56,16 +64,10 @@ jobs:
           export PATH="$RUNNER_TEMP/bin:$PATH"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
-          # Force GitHub-hosted repositories to use HTTPS rather than SSH.
+          # Configure GitHub access to prefer HTTPS.
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
           git config --global url."https://github.com/".insteadOf "git://github.com/"
-          sudo git config --system url."https://github.com/".insteadOf "git@github.com:"
-          sudo git config --system url."https://github.com/".insteadOf "ssh://git@github.com/"
-          sudo git config --system url."https://github.com/".insteadOf "git://github.com/"
-
-          git config --global --get-all url."https://github.com/".insteadOf
-          git config --system --get-all url."https://github.com/".insteadOf
 
           repo init \
             -u "$DIGITALIS_MANIFEST" \
@@ -74,7 +76,24 @@ jobs:
             --clone-filter=blob:limit=5M \
             --no-use-superproject
 
-      - name: Inspect PDK manifest before sync
+          # repo may create a dedicated remote from the manifest. Rewrite
+          # GitHub SSH URLs in all manifest XML files so that the generated
+          # project remotes are HTTPS before the first sync.
+          find .repo/manifests -type f \( -name '*.xml' -o -name '*.manifest' \) -print0 \
+            | xargs -0r sed -i \
+                -e 's#git@github.com:#https://github.com/#g' \
+                -e 's#ssh://git@github.com/#https://github.com/#g'
+
+          echo '=== CHECK MANIFEST GITHUB URLS ==='
+          if grep -R -nE 'git@github.com:|ssh://git@github.com/' .repo/manifests; then
+            echo 'ERROR: SSH GitHub URL remains in manifest'
+            exit 1
+          fi
+
+          echo '=== REPO REMOTE CONFIG ==='
+          git config --global --get-regexp '^url\.' || true
+
+      - name: Inspect manifest
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -83,9 +102,7 @@ jobs:
           MANIFEST_FILE="$(find .repo/manifests -type f -name '*.xml' -print -quit)"
           test -n "$MANIFEST_FILE"
 
-          echo '=== MANIFEST ==='
           echo "Manifest: $MANIFEST_FILE"
-
           echo '=== PDK PROJECT COUNT ==='
           python3 - "$MANIFEST_FILE" <<'PY'
           import sys
@@ -97,14 +114,11 @@ jobs:
               if 'pdk' in groups and p.get('path'):
                   paths.append(p.get('path'))
           print(f"PDK projects: {len(set(paths))}")
-          for path in sorted(set(paths)):
-              print(path)
           PY
 
-          echo '=== REPO METADATA SIZE ==='
-          du -sh .repo
-
-          echo '=== DISK BEFORE SOURCE SYNC ==='
+          echo '=== MANIFEST SIZE ==='
+          wc -c "$MANIFEST_FILE"
+          echo '=== DISK BEFORE SYNC ==='
           df -h /
 
       - name: Sync PDK source
@@ -131,13 +145,8 @@ jobs:
 
           echo '=== DISK AFTER PDK SYNC ==='
           df -h /
-
           echo '=== AOSP SOURCE SIZE ==='
-          du -sh . 2>/dev/null || true
-
-          echo '=== PDK PROJECT SIZES ==='
-          repo forall -g pdk -c 'printf "%10s  %s\\n" "$(du -sh . 2>/dev/null | cut -f1)" "$REPO_PATH"' \
-            | sort -h || true
+          du -sh .
 
       - name: Verify build environment
         shell: bash
