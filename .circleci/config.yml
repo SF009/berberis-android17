@@ -46,13 +46,10 @@ jobs:
             echo 'export PATH="$HOME/bin:$PATH"' >> "$BASH_ENV"
             source "$BASH_ENV"
 
-            # repo init requires a Git committer identity even though this
-            # build never creates a user-facing commit.
             git config --global user.name "CircleCI Builder"
             git config --global user.email "circleci-builder@localhost"
             git config --global color.ui false
 
-            # Prefer HTTPS for GitHub repositories.
             git config --global url."https://github.com/".insteadOf "git@github.com:"
             git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
             git config --global url."https://github.com/".insteadOf "git://github.com/"
@@ -68,22 +65,25 @@ jobs:
               --clone-filter=blob:limit=5M \
               --no-use-superproject
 
-            # Rewrite URLs in manifests and local repo configuration.
-            find .repo -type f \( -name '*.xml' -o -name '*.manifest' -o -name 'config' \) -print0 \
+            find .repo/manifests .repo/local_manifests -type f \
+              \( -name '*.xml' -o -name '*.manifest' \) -print0 2>/dev/null \
               | xargs -0r sed -i \
                   -e 's#git@github.com:#https://github.com/#g' \
                   -e 's#ssh://git@github.com/#https://github.com/#g' \
                   -e 's#git://github.com/#https://github.com/#g'
 
+            # Validate only real manifest files. Do not scan the bundled repo
+            # source/tests because those legitimately contain SSH URL examples.
+            echo '=== VERIFY MANIFEST GITHUB URLS ==='
+            if grep -R -nE 'git@github.com:|ssh://git@github.com/' \
+                .repo/manifests .repo/local_manifests 2>/dev/null; then
+              echo 'ERROR: SSH GitHub URL remains in manifest files'
+              exit 1
+            fi
+
             echo '=== VERIFY GIT IDENTITY ==='
             git config --global user.name
             git config --global user.email
-
-            echo '=== VERIFY GITHUB URLS ==='
-            if grep -R -nE 'git@github.com:|ssh://git@github.com/' .repo 2>/dev/null; then
-              echo 'ERROR: SSH GitHub URL remains in .repo'
-              exit 1
-            fi
 
       - run:
           name: Sync PDK source
@@ -142,7 +142,6 @@ jobs:
             ccache -M 4G
             ccache -z
 
-            # 8GB RAM is the observed CircleCI limit, so keep parallelism low.
             build/soong/soong_ui.bash --make-mode -j1 \
               libberberis_arm64 \
               libberberis_heavy_optimizer_arm64 \
