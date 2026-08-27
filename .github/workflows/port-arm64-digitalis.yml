@@ -42,39 +42,22 @@ jobs:
             berberis-ccache-Linux-arm64-v34
             berberis-ccache-Linux-arm64-v33
 
-      - name: Build ARM64 native translation
-        id: build
+      - name: Prepare repo
         shell: bash
         run: |
           set -Eeuo pipefail
-          exec > >(tee -a "$RUNNER_TEMP/arm64-build.log") 2>&1
-          trap 'rc=$?; if [ "$rc" -ne 0 ]; then echo "BUILD_FAILED rc=$rc cmd=$BASH_COMMAND"; fi; exit "$rc"' EXIT
-          set -x
-
-          echo '=== HOST ==='
-          date -u
-          uname -a
-          echo "CPU=$(nproc)"
-          free -h
-          df -h /
-
-          echo '=== TOOLS ==='
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq git-lfs rsync python3 ccache curl unzip xz-utils bc bison flex gperf build-essential
-          git lfs install --skip-repo
-          ccache --version
-
-          echo '=== GIT HTTPS ==='
-          git config --global url."https://github.com/".insteadOf "git@github.com:"
-          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
-
-          echo '=== AOSP MANIFEST BOOTSTRAP ==='
-          rm -rf "$AOSP_TOP"
-          mkdir -p "$AOSP_TOP" "$RUNNER_TEMP/bin" "$HOME/.cache/ccache"
+          mkdir -p "$AOSP_TOP" "$RUNNER_TEMP/bin"
           cd "$AOSP_TOP"
-          curl -fsSL https://storage.googleapis.com/git-repo-downloads/repo -o "$RUNNER_TEMP/bin/repo"
+
+          curl -fsSL \
+            https://storage.googleapis.com/git-repo-downloads/repo \
+            -o "$RUNNER_TEMP/bin/repo"
           chmod +x "$RUNNER_TEMP/bin/repo"
           export PATH="$RUNNER_TEMP/bin:$PATH"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
 
           repo init \
             -u "$DIGITALIS_MANIFEST" \
@@ -83,9 +66,53 @@ jobs:
             --clone-filter=blob:limit=5M \
             --no-use-superproject
 
-          echo '=== SYNC ALL PDK DEPENDENCIES FROM MANIFEST ==='
-          # Do not manually guess individual repositories. The Digitalis
-          # manifest defines the complete PDK dependency set.
+      - name: Measure PDK manifest and Git metadata
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cd "$AOSP_TOP"
+
+          echo '=== PDK MANIFEST ==='
+          repo manifest -g pdk -r -o "$RUNNER_TEMP/pdk-manifest.xml"
+
+          PROJECT_COUNT="$(grep -c '<project ' "$RUNNER_TEMP/pdk-manifest.xml" || true)"
+          echo "PDK project count: $PROJECT_COUNT"
+
+          echo '=== MANIFEST SIZE ==='
+          wc -c "$RUNNER_TEMP/pdk-manifest.xml"
+
+          echo '=== PDK PROJECT PATHS ==='
+          grep '<project ' "$RUNNER_TEMP/pdk-manifest.xml" \
+            | sed -E 's/.*path="([^"]+)".*/\1/' \
+            | sort
+
+          echo '=== METADATA-ONLY FETCH ==='
+          echo 'This fetches Git metadata for PDK projects without checking out source files.'
+          repo sync \
+            -g pdk \
+            -n \
+            -c -j"${REPO_JOBS}" \
+            --no-tags \
+            --no-clone-bundle \
+            --optimized-fetch \
+            --prune
+
+          echo '=== METADATA DISK USAGE ==='
+          du -sh .repo
+
+          echo '=== PER-PROJECT GIT DIRECTORY USAGE ==='
+          repo forall -g pdk -c 'printf "%10s  %s\\n" "$(du -sh .git 2>/dev/null | cut -f1)" "$REPO_PATH"' \
+            | sort -h
+
+          echo '=== DISK AFTER METADATA FETCH ==='
+          df -h /
+
+      - name: Sync PDK source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cd "$AOSP_TOP"
+
           repo sync \
             -g pdk \
             -c -j"$REPO_JOBS" \
@@ -96,7 +123,12 @@ jobs:
             --optimized-fetch \
             --prune
 
-          echo '=== SOURCE CHECK ==='
+      - name: Verify build environment
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cd "$AOSP_TOP"
+
           test -f build/envsetup.sh
           test -f build/make/core/envsetup.mk
           test -f build/soong/soong_ui.bash
@@ -106,22 +138,30 @@ jobs:
           test -f frameworks/libs/binary_translation/Android.bp
           test -f heavy_optimizer/arm64/Android.bp
 
-          echo '=== INJECT ARM64 PORT ==='
-          # The repository contains the ARM64 port at the root. Copy the
-          # changed files into the AOSP tree after the manifest sync.
+      - name: Inject ARM64 port
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
           rm -rf "$AOSP_TOP/heavy_optimizer/arm64"
           mkdir -p "$AOSP_TOP/heavy_optimizer"
           cp -a "$GITHUB_WORKSPACE/heavy_optimizer/arm64" \
                 "$AOSP_TOP/heavy_optimizer/arm64"
 
-          # Use the repository's top-level Android.bp as an overlay only when
-          # it contains the ARM64-specific module declarations needed by the
-          # port. Keep the AOSP Android.bp intact otherwise.
           if grep -q 'libberberis_heavy_optimizer_arm64' "$GITHUB_WORKSPACE/Android.bp"; then
             cat "$GITHUB_WORKSPACE/Android.bp" >> "$AOSP_TOP/Android.bp"
           fi
 
-          echo '=== HOST TRANSLATION CONFIG ==='
+      - name: Build ARM64 native translation
+        id: build
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          exec > >(tee -a "$RUNNER_TEMP/arm64-build.log") 2>&1
+          trap 'rc=$?; if [ "$rc" -ne 0 ]; then echo "BUILD_FAILED rc=$rc cmd=$BASH_COMMAND"; fi; exit "$rc"' EXIT
+
+          cd "$AOSP_TOP"
+
           export SOONG_CONFIG_berberis_translation_arch=arm64_to_x86_64
           export TARGET_ARCH=x86_64
           export TARGET_2ND_ARCH=
@@ -131,9 +171,7 @@ jobs:
 
           ccache -M 4G
           ccache -z
-          ccache -s
 
-          echo '=== BUILD ARM64 TRANSLATION ==='
           build/soong/soong_ui.bash --make-mode -j2 \
             libberberis_arm64 \
             libberberis_heavy_optimizer_arm64 \
@@ -172,5 +210,5 @@ jobs:
           name: berberis-arm64-x86_64
           path: |
             .build/aosp/out/**/libberberis_arm64.so
-            .build/aosp/out/**/libberberis_heavy_optimizer_arm64* 
+            .build/aosp/out/**/libberberis_heavy_optimizer_arm64*
           if-no-files-found: error
