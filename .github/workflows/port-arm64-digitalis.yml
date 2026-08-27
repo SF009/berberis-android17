@@ -56,15 +56,16 @@ jobs:
           export PATH="$RUNNER_TEMP/bin:$PATH"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
+          # Force GitHub-hosted repositories to use HTTPS rather than SSH.
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
-          git config --system url."https://github.com/".insteadOf "git@github.com:"
-          git config --system url."https://github.com/".insteadOf "ssh://git@github.com/"
-          git config --system url."https://github.com/".insteadOf "git://github.com/"
+          git config --global url."https://github.com/".insteadOf "git://github.com/"
+          sudo git config --system url."https://github.com/".insteadOf "git@github.com:"
+          sudo git config --system url."https://github.com/".insteadOf "ssh://git@github.com/"
+          sudo git config --system url."https://github.com/".insteadOf "git://github.com/"
 
-          echo '=== GITHUB URL REWRITE ==='
-          git config --global --get-all url."https://github.com/".insteadOf || true
-          git config --system --get-all url."https://github.com/".insteadOf || true
+          git config --global --get-all url."https://github.com/".insteadOf
+          git config --system --get-all url."https://github.com/".insteadOf
 
           repo init \
             -u "$DIGITALIS_MANIFEST" \
@@ -79,31 +80,26 @@ jobs:
           set -Eeuo pipefail
           cd "$AOSP_TOP"
 
-          echo '=== MANIFEST SOURCE ==='
           MANIFEST_FILE="$(find .repo/manifests -type f -name '*.xml' -print -quit)"
-          if [ -z "$MANIFEST_FILE" ]; then
-            echo 'ERROR: manifest XML not found'
-            exit 1
-          fi
+          test -n "$MANIFEST_FILE"
+
+          echo '=== MANIFEST ==='
           echo "Manifest: $MANIFEST_FILE"
 
           echo '=== PDK PROJECT COUNT ==='
-          PROJECT_COUNT="$(python3 - "$MANIFEST_FILE" <<'PY'
-import sys
-import xml.etree.ElementTree as ET
-root = ET.parse(sys.argv[1]).getroot()
-count = 0
-for p in root.findall('.//project'):
-    groups = {x.strip() for x in p.get('groups', '').split(',') if x.strip()}
-    if 'pdk' in groups:
-        count += 1
-print(count)
-PY
-)"
-          echo "PDK projects: $PROJECT_COUNT"
-
-          echo '=== PDK MANIFEST SIZE ==='
-          wc -c "$MANIFEST_FILE"
+          python3 - "$MANIFEST_FILE" <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+          root = ET.parse(sys.argv[1]).getroot()
+          paths = []
+          for p in root.findall('.//project'):
+              groups = {x.strip() for x in p.get('groups', '').split(',') if x.strip()}
+              if 'pdk' in groups and p.get('path'):
+                  paths.append(p.get('path'))
+          print(f"PDK projects: {len(set(paths))}")
+          for path in sorted(set(paths)):
+              print(path)
+          PY
 
           echo '=== REPO METADATA SIZE ==='
           du -sh .repo
