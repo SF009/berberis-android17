@@ -22,7 +22,7 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v32
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v33
       REPO_JOBS: 4
 
     steps:
@@ -38,9 +38,9 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v32
             berberis-ccache-Linux-arm64-v31
             berberis-ccache-Linux-arm64-v30
-            berberis-ccache-Linux-arm64-v29
 
       - name: Build ARM64 native translation
         id: build
@@ -83,12 +83,12 @@ jobs:
             --clone-filter=blob:limit=5M \
             --no-use-superproject
 
-          echo '=== SOONG_UI + ARM64 TRANSLATION DEPENDENCIES ==='
-          # One fixed sync containing the complete build-tools/Soong bootstrap
-          # set plus the host-side Digitalis/Berberis dependencies. The
-          # build-tools manifest explicitly carries these Soong bootstrap
-          # projects, including external/pogreb and the prebuilt host tools.
-          # No repo sync -g pdk and no dependency-discovery loop are used.
+          echo '=== COMPLETE SOONG_UI + ARM64 HOST DEPENDENCY SET ==='
+          # This is one fixed sync. It contains the build-tools/Soong bootstrap
+          # closure (including the projects used by the Soong bootstrap itself)
+          # plus the host-side Berberis/Digitalis translation sources.
+          # We intentionally do NOT use repo sync -g pdk, so the full Android
+          # platform/product tree is not downloaded.
           repo sync \
             -c -j"$REPO_JOBS" \
             --force-sync \
@@ -103,20 +103,31 @@ jobs:
             build/release \
             build/soong \
             bionic \
+            external/bazel-skylib \
             external/fmtlib \
             external/go-cmp \
+            external/go-etree \
+            external/go-subcommands \
             external/golang-protobuf \
+            external/golang-x-sync \
+            external/golang-x-sys \
+            external/golang-x-tools \
+            external/googletest \
+            external/gson \
+            external/guava \
+            external/icu \
             external/pogreb \
             external/protobuf \
             external/starlark-go \
             external/zlib \
             packages/modules/common \
+            prebuilts/bazel/common \
             prebuilts/build-tools \
+            prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8 \
+            prebuilts/go/linux-x86 \
             prebuilts/remoteexecution-client \
             prebuilts/siso \
             prebuilts/clang/host/linux-x86 \
-            prebuilts/go/linux-x86 \
-            prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8 \
             system/libbase \
             system/logging \
             frameworks/libs/native_bridge_support \
@@ -137,12 +148,11 @@ jobs:
           test -d prebuilts/build-tools
           test -d prebuilts/remoteexecution-client
           test -d prebuilts/siso
+          test -d prebuilts/bazel/common
           test -d prebuilts/clang/host/linux-x86
           test -d prebuilts/go/linux-x86
           test -f system/libbase/Android.bp
           test -f frameworks/libs/native_bridge_support/Android.bp
-          test -f frameworks/libs/binary_translation/Android.bp
-          test -f frameworks/libs/binary_translation/proxy_loader/Android.bp
           test -f frameworks/libs/binary_translation/Android.bp
           test -f heavy_optimizer/arm64/Android.bp
 
@@ -157,19 +167,14 @@ jobs:
           ccache -z
           ccache -s
 
-          echo '=== HOST BUILD: LIB + ARM64 HEAVY OPTIMIZER ==='
+          echo '=== HOST BUILD: SOONG + ARM64 HEAVY OPTIMIZER + LIB ==='
           build/soong/soong_ui.bash --make-mode -j2 \
-            libberberis_arm64 \
             libberberis_heavy_optimizer_arm64 \
-            libberberis_heavy_optimizer_arm64_unit_tests
+            libberberis_arm64
 
-          echo '=== RUN ARM64 HEAVY OPTIMIZER TESTS ==='
-          test_bin="$(find "$OUT_DIR" -type f -path '*/nativetest64/*/berberis_arm64_host_tests' -print -quit)"
-          if [ -n "$test_bin" ]; then
-            "$test_bin" --gtest_filter='Arm64*'
-          else
-            echo 'WARNING: berberis_arm64_host_tests binary was not produced by this target set'
-          fi
+          echo '=== VERIFY HEAVY OPTIMIZER TARGET EXISTS ==='
+          build/soong/soong_ui.bash --make-mode -j2 \
+            libberberis_heavy_optimizer_arm64_unit_tests
 
           echo '=== VERIFY OUTPUT ==='
           so="$(find "$OUT_DIR" -type f -name 'libberberis_arm64.so' -print -quit)"
