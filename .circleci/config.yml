@@ -20,12 +20,10 @@ jobs:
           name: Prepare host
           command: |
             set -Eeuo pipefail
-
             sudo apt-get update -qq
             sudo apt-get install -y -qq \
               git-lfs rsync python3 curl unzip xz-utils \
-              bc bison flex gperf build-essential ninja-build \
-              ccache
+              bc bison flex gperf build-essential ninja-build ccache
             git lfs install --skip-repo
 
             echo '=== RESOURCES ==='
@@ -34,10 +32,9 @@ jobs:
             df -h /
 
       - run:
-          name: Prepare repo and HTTPS
+          name: Prepare repo
           command: |
             set -Eeuo pipefail
-
             mkdir -p "$HOME/bin" "$AOSP_TOP"
             curl -fsSL \
               https://storage.googleapis.com/git-repo-downloads/repo \
@@ -50,6 +47,7 @@ jobs:
             git config --global user.email "circleci-builder@localhost"
             git config --global color.ui false
 
+            # Git URL rewrite applies to project repositories fetched by git.
             git config --global url."https://github.com/".insteadOf "git@github.com:"
             git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
             git config --global url."https://github.com/".insteadOf "git://github.com/"
@@ -65,28 +63,16 @@ jobs:
               --clone-filter=blob:limit=5M \
               --no-use-superproject
 
-            find .repo/manifests .repo/local_manifests -type f \
-              \( -name '*.xml' -o -name '*.manifest' \) -print0 2>/dev/null \
-              | xargs -0r sed -i \
-                  -e 's#git@github.com:#https://github.com/#g' \
-                  -e 's#ssh://git@github.com/#https://github.com/#g' \
-                  -e 's#git://github.com/#https://github.com/#g'
+            echo '=== REPO REMOTES ==='
+            git -C .repo/manifests.git remote -v || true
+            git -C .repo/manifests.git remote set-url origin https://github.com/DigitalisX64/manifest.git || true
 
-            # Validate only real manifest files. Do not scan the bundled repo
-            # source/tests because those legitimately contain SSH URL examples.
-            echo '=== VERIFY MANIFEST GITHUB URLS ==='
-            if grep -R -nE 'git@github.com:|ssh://git@github.com/' \
-                .repo/manifests .repo/local_manifests 2>/dev/null; then
-              echo 'ERROR: SSH GitHub URL remains in manifest files'
-              exit 1
-            fi
-
-            echo '=== VERIFY GIT IDENTITY ==='
-            git config --global user.name
-            git config --global user.email
+            echo '=== REPO CONFIG REMOTE URL ==='
+            git -C .repo/manifests.git config --get remote.origin.url || true
+            git -C .repo/manifests.git config --get remote.origin.fetch || true
 
       - run:
-          name: Sync PDK source
+          name: Sync Android source
           command: |
             set -Eeuo pipefail
             source "$BASH_ENV"
@@ -112,7 +98,6 @@ jobs:
           command: |
             set -Eeuo pipefail
             cd "$AOSP_TOP"
-
             test -d "$CIRCLE_WORKING_DIRECTORY/heavy_optimizer/arm64"
             rm -rf "$AOSP_TOP/heavy_optimizer/arm64"
             mkdir -p "$AOSP_TOP/heavy_optimizer"
@@ -142,6 +127,7 @@ jobs:
             ccache -M 4G
             ccache -z
 
+            # CircleCI reports 8 GiB RAM, so keep Soong parallelism at one.
             build/soong/soong_ui.bash --make-mode -j1 \
               libberberis_arm64 \
               libberberis_heavy_optimizer_arm64 \
