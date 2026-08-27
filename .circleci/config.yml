@@ -46,6 +46,13 @@ jobs:
             echo 'export PATH="$HOME/bin:$PATH"' >> "$BASH_ENV"
             source "$BASH_ENV"
 
+            # repo init requires a Git committer identity even though this
+            # build never creates a user-facing commit.
+            git config --global user.name "CircleCI Builder"
+            git config --global user.email "circleci-builder@localhost"
+            git config --global color.ui false
+
+            # Prefer HTTPS for GitHub repositories.
             git config --global url."https://github.com/".insteadOf "git@github.com:"
             git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
             git config --global url."https://github.com/".insteadOf "git://github.com/"
@@ -61,12 +68,16 @@ jobs:
               --clone-filter=blob:limit=5M \
               --no-use-superproject
 
-            # Rewrite every GitHub URL used by the manifest itself.
+            # Rewrite URLs in manifests and local repo configuration.
             find .repo -type f \( -name '*.xml' -o -name '*.manifest' -o -name 'config' \) -print0 \
               | xargs -0r sed -i \
                   -e 's#git@github.com:#https://github.com/#g' \
                   -e 's#ssh://git@github.com/#https://github.com/#g' \
                   -e 's#git://github.com/#https://github.com/#g'
+
+            echo '=== VERIFY GIT IDENTITY ==='
+            git config --global user.name
+            git config --global user.email
 
             echo '=== VERIFY GITHUB URLS ==='
             if grep -R -nE 'git@github.com:|ssh://git@github.com/' .repo 2>/dev/null; then
@@ -81,8 +92,6 @@ jobs:
             source "$BASH_ENV"
             cd "$AOSP_TOP"
 
-            # PDK is the broad dependency set defined by the Digitalis
-            # manifest. Keep the clone filtered to reduce network/storage use.
             repo sync \
               -g pdk \
               -c \
@@ -110,8 +119,6 @@ jobs:
             cp -a "$CIRCLE_WORKING_DIRECTORY/heavy_optimizer/arm64" \
               "$AOSP_TOP/heavy_optimizer/arm64"
 
-            # Add ARM64-specific module declarations only when they are not
-            # already provided by the base Android.bp.
             if grep -q 'libberberis_heavy_optimizer_arm64' "$CIRCLE_WORKING_DIRECTORY/Android.bp"; then
               if ! grep -q 'libberberis_heavy_optimizer_arm64' "$AOSP_TOP/Android.bp"; then
                 printf '\n// ARM64 Berberis port\n' >> "$AOSP_TOP/Android.bp"
