@@ -22,7 +22,7 @@ jobs:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v38
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v39
       REPO_JOBS: 2
 
     steps:
@@ -38,9 +38,9 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v38
             berberis-ccache-Linux-arm64-v37
             berberis-ccache-Linux-arm64-v36
-            berberis-ccache-Linux-arm64-v35
 
       - name: Prepare repo
         shell: bash
@@ -58,6 +58,9 @@ jobs:
 
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+
+          echo '=== REPO VERSION ==='
+          repo version
 
           repo init \
             -u "$DIGITALIS_MANIFEST" \
