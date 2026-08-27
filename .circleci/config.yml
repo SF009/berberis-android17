@@ -46,8 +46,6 @@ jobs:
             git config --global user.name "CircleCI Builder"
             git config --global user.email "circleci-builder@localhost"
             git config --global color.ui false
-
-            # Git URL rewrite applies to project repositories fetched by git.
             git config --global url."https://github.com/".insteadOf "git@github.com:"
             git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
             git config --global url."https://github.com/".insteadOf "git://github.com/"
@@ -67,12 +65,45 @@ jobs:
             git -C .repo/manifests.git remote -v || true
             git -C .repo/manifests.git remote set-url origin https://github.com/DigitalisX64/manifest.git || true
 
-            echo '=== REPO CONFIG REMOTE URL ==='
-            git -C .repo/manifests.git config --get remote.origin.url || true
-            git -C .repo/manifests.git config --get remote.origin.fetch || true
+            echo '=== VERIFY GIT IDENTITY ==='
+            git config --global user.name
+            git config --global user.email
 
       - run:
-          name: Sync Android source
+          name: Create lean PDK manifest
+          command: |
+            set -Eeuo pipefail
+            source "$BASH_ENV"
+            cd "$AOSP_TOP"
+
+            # Keep the PDK dependency group, but remove host/platform content
+            # that cannot be used by this Linux x86_64 build. This keeps the
+            # build dependency graph broad enough for Soong/Berberis without
+            # pulling obvious non-Linux or unrelated tooling.
+            mkdir -p .repo/local_manifests
+
+            cat > .repo/local_manifests/berberis-lean.xml <<'XML'
+            <?xml version="1.0" encoding="UTF-8"?>
+            <manifest>
+              <!-- Non-Linux prebuilts are not needed by this Linux builder. -->
+              <remove-project name="platform/prebuilts/clang/host/darwin-x86" optional="true"/>
+              <remove-project name="platform/prebuilts/go/darwin-x86" optional="true"/>
+              <remove-project name="platform/prebuilts/gradle-plugin" optional="true"/>
+              <remove-project name="platform/prebuilts/ktlint" optional="true"/>
+              <remove-project name="platform/external/chromium-webview" optional="true"/>
+              <remove-project name="platform/external/chromium-crossbench" optional="true"/>
+              <remove-project name="platform/external/chromium-trace" optional="true"/>
+              <remove-project name="platform/external/chromium-web-tests" optional="true"/>
+              <remove-project name="platform/prebuilts/jdk/jdk8" optional="true"/>
+              <remove-project name="platform/prebuilts/jdk/jdk25" optional="true"/>
+            </manifest>
+            XML
+
+            echo '=== LEAN MANIFEST ==='
+            cat .repo/local_manifests/berberis-lean.xml
+
+      - run:
+          name: Sync lean PDK source
           command: |
             set -Eeuo pipefail
             source "$BASH_ENV"
@@ -82,6 +113,7 @@ jobs:
               -g pdk \
               -c \
               -j"$REPO_JOBS" \
+              --current-branch \
               --force-sync \
               --fail-fast \
               --no-tags \
