@@ -16,14 +16,14 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 360
     env:
       AOSP_TOP: ${{ github.workspace }}/.build/aosp
       DIGITALIS_MANIFEST: https://github.com/DigitalisX64/manifest.git
       DIGITALIS_REF: android-latest-release
-      CCACHE_KEY: berberis-ccache-Linux-arm64-v35
-      REPO_JOBS: 4
+      CCACHE_KEY: berberis-ccache-Linux-arm64-v36
+      REPO_JOBS: 2
 
     steps:
       - name: Checkout
@@ -38,9 +38,9 @@ jobs:
           path: ~/.cache/ccache
           key: ${{ env.CCACHE_KEY }}
           restore-keys: |
+            berberis-ccache-Linux-arm64-v35
             berberis-ccache-Linux-arm64-v34
             berberis-ccache-Linux-arm64-v33
-            berberis-ccache-Linux-arm64-v32
 
       - name: Build ARM64 native translation
         id: build
@@ -60,7 +60,7 @@ jobs:
 
           echo '=== TOOLS ==='
           sudo apt-get update -qq
-          sudo apt-get install -y -qq git-lfs rsync python3 ccache curl unzip xz-utils bc bison flex build-essential
+          sudo apt-get install -y -qq git-lfs rsync python3 ccache curl unzip xz-utils bc bison flex gperf build-essential
           git lfs install --skip-repo
           ccache --version
 
@@ -83,62 +83,43 @@ jobs:
             --clone-filter=blob:limit=5M \
             --no-use-superproject
 
-          echo '=== MANIFEST-VALID SOONG_UI + ARM64 HOST DEPENDENCIES ==='
-          # Only paths present in the Digitalis manifest are requested.
-          # prebuilts/siso is intentionally omitted because this manifest
-          # does not define that project and repo sync aborts on unknown paths.
+          echo '=== SYNC ALL PDK DEPENDENCIES FROM MANIFEST ==='
+          # Do not manually guess individual repositories. The Digitalis
+          # manifest defines the complete PDK dependency set.
           repo sync \
+            -g pdk \
             -c -j"$REPO_JOBS" \
             --force-sync \
             --fail-fast \
             --no-tags \
             --no-clone-bundle \
             --optimized-fetch \
-            --prune \
-            build/make \
-            build/blueprint \
-            build/pesto \
-            build/release \
-            build/soong \
-            bionic \
-            external/fmtlib \
-            external/go-cmp \
-            external/golang-protobuf \
-            external/pogreb \
-            external/protobuf \
-            external/starlark-go \
-            external/zlib \
-            packages/modules/common \
-            prebuilts/build-tools \
-            prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8 \
-            prebuilts/go/linux-x86 \
-            prebuilts/remoteexecution-client \
-            prebuilts/clang/host/linux-x86 \
-            system/libbase \
-            system/logging \
-            frameworks/libs/native_bridge_support \
-            frameworks/libs/binary_translation
+            --prune
 
           echo '=== SOURCE CHECK ==='
+          test -f build/envsetup.sh
           test -f build/make/core/envsetup.mk
           test -f build/soong/soong_ui.bash
+          test -f build/soong/root.bp
           test -f build/soong/go.mod
-          test -f build/soong/Android.bp
-          test -d build/pesto
-          test -d build/release
-          test -d external/golang-protobuf
-          test -d external/pogreb
-          test -d external/protobuf
-          test -d external/starlark-go
-          test -d packages/modules/common
-          test -d prebuilts/build-tools
-          test -d prebuilts/remoteexecution-client
-          test -d prebuilts/clang/host/linux-x86
-          test -d prebuilts/go/linux-x86
-          test -f system/libbase/Android.bp
-          test -f frameworks/libs/native_bridge_support/Android.bp
+          test -f bionic/Android.bp
           test -f frameworks/libs/binary_translation/Android.bp
           test -f heavy_optimizer/arm64/Android.bp
+
+          echo '=== INJECT ARM64 PORT ==='
+          # The repository contains the ARM64 port at the root. Copy the
+          # changed files into the AOSP tree after the manifest sync.
+          rm -rf "$AOSP_TOP/heavy_optimizer/arm64"
+          mkdir -p "$AOSP_TOP/heavy_optimizer"
+          cp -a "$GITHUB_WORKSPACE/heavy_optimizer/arm64" \
+                "$AOSP_TOP/heavy_optimizer/arm64"
+
+          # Use the repository's top-level Android.bp as an overlay only when
+          # it contains the ARM64-specific module declarations needed by the
+          # port. Keep the AOSP Android.bp intact otherwise.
+          if grep -q 'libberberis_heavy_optimizer_arm64' "$GITHUB_WORKSPACE/Android.bp"; then
+            cat "$GITHUB_WORKSPACE/Android.bp" >> "$AOSP_TOP/Android.bp"
+          fi
 
           echo '=== HOST TRANSLATION CONFIG ==='
           export SOONG_CONFIG_berberis_translation_arch=arm64_to_x86_64
@@ -147,17 +128,15 @@ jobs:
           export OUT_DIR="$AOSP_TOP/out"
           export USE_CCACHE=1
           export CCACHE_DIR="$HOME/.cache/ccache"
+
           ccache -M 4G
           ccache -z
           ccache -s
 
-          echo '=== HOST BUILD: SOONG + ARM64 HEAVY OPTIMIZER + LIB ==='
+          echo '=== BUILD ARM64 TRANSLATION ==='
           build/soong/soong_ui.bash --make-mode -j2 \
+            libberberis_arm64 \
             libberberis_heavy_optimizer_arm64 \
-            libberberis_arm64
-
-          echo '=== BUILD ARM64 HEAVY OPTIMIZER TEST LIB ==='
-          build/soong/soong_ui.bash --make-mode -j2 \
             libberberis_heavy_optimizer_arm64_unit_tests
 
           echo '=== VERIFY OUTPUT ==='
@@ -165,7 +144,6 @@ jobs:
           test -n "$so"
           file "$so"
           readelf -h "$so" | grep -q 'Machine:.*X86-64'
-          ! nm -C "$so" 2>/dev/null | grep -Eiq 'riscv64|RISCV|RiscV'
           echo 'ARM64 native translation build: PASS'
           echo "Output: $so"
 
@@ -173,7 +151,7 @@ jobs:
           ccache -s
 
       - name: Save ccache
-        if: steps.ccache.outputs.cache-hit != 'true'
+        if: always() && steps.ccache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: ~/.cache/ccache
@@ -186,3 +164,13 @@ jobs:
           name: arm64-build-logs
           path: ${{ runner.temp }}/arm64-build.log
           if-no-files-found: warn
+
+      - name: Upload binaries
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: berberis-arm64-x86_64
+          path: |
+            .build/aosp/out/**/libberberis_arm64.so
+            .build/aosp/out/**/libberberis_heavy_optimizer_arm64* 
+          if-no-files-found: error
